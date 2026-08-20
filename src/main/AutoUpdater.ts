@@ -42,8 +42,8 @@ export class AutoUpdater {
     checkUpdate() {
         const data = {
             provider: 'github',
-            owner: 'zxch3n',
-            repo: 'PomodoroLogger'
+            owner: 'nightzed',
+            repo: 'PomodoroLogger-Enhanced'
         } as GithubOptions;
         autoUpdater.setFeedURL(data);
         autoUpdater.autoDownload = false;

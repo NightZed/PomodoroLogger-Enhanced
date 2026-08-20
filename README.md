@@ -36,6 +36,10 @@
 - Use integrated Kanban Board to make your schedule control easier
 - Analyse your efficiency
 
+## Enhanced Features
+
+* Add year selector to history view
+
 ## Pomodoro Technique :tomato:
 
 The working loop in the Pomodoro Technique is split into a 25-minute focus session and a 5-minute rest session. During a work session, the user focuses on one todo item and should not do anything irrelevant. The Pomodoro Technique can greatly improve the efficiency of work and study and alleviate work fatigue.
@@ -90,7 +94,7 @@ To make the statistics more accurate, you can keep the cards of the `In Progress
 
 Win10 / macOS / Linux
 
-To download, go to [release page](https://github.com/rem2016/PomodoroLogger/releases).
+To download, go to [release page](https://github.com/NightZed/PomodoroLogger-Enhanced/releases).
 
 
 # Contribution

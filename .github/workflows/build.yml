@@ -22,7 +22,9 @@ jobs:
           
       - name: Ensure distutils is available for node-gyp  
         if: startsWith(matrix.os, 'macos')  
-        run: pip3 install setuptools
+        uses: actions/setup-python@v4  
+        with:  
+          python-version: '3.11'
           
       - name: Prepare for app notarization
         if: startsWith(matrix.os, 'macos')

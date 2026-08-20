@@ -207,8 +207,10 @@
     "dependencies": {
         "@electron/remote": "^2.0.8",
         "active-win": "^7.7.2",
-        "node-mac-permissions": "^2.2.0"
     },
+    "optionalDependencies": {
+        "node-mac-permissions": "^2.2.0"
+    }
     "resolutions": {
         "node-ipc": "9.1.1"
     },

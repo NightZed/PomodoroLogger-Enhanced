@@ -144,6 +144,21 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
     const clickDate = React.useCallback((year: number, month: number, day: number) => {
         setTargetDate([year, month, day]);
     }, []);
+
+    const filteredCalendarCount = React.useMemo(() => {  
+        if (!aggInfo.calendarCount) return aggInfo.calendarCount;  
+        const yearStart = new Date(chosenYear, 0, 1).getTime();  
+        const yearEnd = new Date(chosenYear + 1, 0, 1).getTime();  
+        const ans: typeof aggInfo.calendarCount = {};  
+        for (const key in aggInfo.calendarCount) {  
+            const t = parseInt(key, 10);  
+            if (t >= yearStart && t < yearEnd) {  
+                ans[key] = aggInfo.calendarCount[key];  
+            }  
+        }  
+        return ans;  
+    }, [aggInfo.calendarCount, chosenYear]);
+
     return (
         <Container>
             <SubContainer ref={container as any}>
@@ -247,7 +262,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                     calendarWidth > 670 ? (
                         <ChartContainer>
                             <GridCalendar  
-                                data={aggInfo.calendarCount}  
+                                data={filteredCalendarCount}  
                                 width={calendarWidth}  
                                 clickDate={clickDate}  
                                 till={new Date(chosenYear, 11, 31).getTime()}  

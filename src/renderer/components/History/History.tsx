@@ -250,7 +250,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                                 data={aggInfo.calendarCount}  
                                 width={calendarWidth}  
                                 clickDate={clickDate}  
-                                till={new Date(chosenYear, 11, 31)}  
+                                till={new Date(chosenYear, 11, 31).getTime()}  
                             />
                             <div
                                 className={

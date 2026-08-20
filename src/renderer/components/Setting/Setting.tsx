@@ -289,9 +289,9 @@ async function onImportData() {
 }
 
 function openIssuePage() {
-    shell.openExternal('https://github.com/zxch3n/PomodoroLogger/issues/new');
+    shell.openExternal('https://github.com/NightZed/PomodoroLogger-Enhanced/issues/new');
 }
 
 function openGithubPage() {
-    shell.openExternal('https://github.com/zxch3n/PomodoroLogger');
+    shell.openExternal('https://github.com/NightZed/PomodoroLogger-Enhanced');
 }

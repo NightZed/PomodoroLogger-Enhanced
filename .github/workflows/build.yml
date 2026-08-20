@@ -19,6 +19,11 @@ jobs:
         uses: actions/setup-node@v1
         with:
           node-version: 18.x
+          
+      - name: Ensure distutils is available for node-gyp  
+        if: startsWith(matrix.os, 'macos')  
+        run: pip3 install setuptools
+          
       - name: Prepare for app notarization
         if: startsWith(matrix.os, 'macos')
         # Import Apple API key for app notarization on macOS

@@ -65,6 +65,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
     const { expiringKey } = props;
     const [targetDate, setTargetDate] = useState<undefined | [number, number, number]>(undefined);
     const [shownPomodoros, setPomodoros] = useState<undefined | PomodoroRecord[]>(undefined);
+    const [chosenYear, setChosenYear] = useState<number>(new Date().getFullYear());
     const [aggInfo, setAggInfo] = useState<AggPomodoroInfo>({
         agg: {
             day: undefined,
@@ -164,6 +165,19 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                             );
                         })}
                     </Select>
+                    <Select  
+                        onChange={(v: number) => setChosenYear(v)}  
+                        value={chosenYear}  
+                        style={{ width: 120, marginLeft: 10 }}  
+                    >  
+                        {Array.from({ length: new Date().getFullYear() - 2018 + 1 }, (_, i) => 2018 + i)  
+                            .reverse()  
+                            .map((y) => (  
+                                <Option value={y} key={y}>  
+                                    {y}  
+                                </Option>  
+                            ))}  
+                    </Select>
                     <BadgeHolder style={{ marginLeft: 10 }}>
                         {aggInfo.total.count != null ? (
                             <PomodoroDot num={aggInfo.total.count} />
@@ -232,10 +246,11 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                 {aggInfo.pieChart != null && aggInfo.wordWeights != null ? (
                     calendarWidth > 670 ? (
                         <ChartContainer>
-                            <GridCalendar
-                                data={aggInfo.calendarCount}
-                                width={calendarWidth}
-                                clickDate={clickDate}
+                            <GridCalendar  
+                                data={aggInfo.calendarCount}  
+                                width={calendarWidth}  
+                                clickDate={clickDate}  
+                                till={new Date(chosenYear, 11, 31)}  
                             />
                             <div
                                 className={

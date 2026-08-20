@@ -32,6 +32,11 @@ jobs:
         run: |
           mkdir -p ~/private_keys/
           echo '${{ secrets.api_key }}' > ~/private_keys/AuthKey_${{ secrets.api_key_id }}.p8
+          
+      - name: Set npm config for node-gyp on Windows  
+        if: startsWith(matrix.os, 'windows')  
+        run: npm config set msvs_version 2022
+        
       - name: Build/release Electron app
         uses: samuelmeuli/action-electron-builder@v1
         with:

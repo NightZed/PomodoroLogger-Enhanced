@@ -2,8 +2,8 @@
 
 I'm really happy you're reading this.😄 Thanks for taking the time to contribute!👍
 
-- Pomodoro Logger's roadmap is shown on the [issue page](https://github.com/zxch3n/PomodoroLogger/issues)
-- If you find a bug or want a new feature, [create an issue](https://github.com/zxch3n/PomodoroLogger/issues)
+- Pomodoro Logger's roadmap is shown on the [issue page](https://github.com/NightZed/PomodoroLogger-Enhanced/issues)
+- If you find a bug or want a new feature, [create an issue](https://github.com/NightZed/PomodoroLogger-Enhanced/issues)
 - If you want to work on an issue, comment on it to let me know
 
 # Development
@@ -39,23 +39,23 @@ If you are in China, there may be a connection problem when setting things up.
 Before running `yarn`, issue 
 
 ```
-ELECTRON_MIRROR="https://npm.taobao.org/mirrors/electron/"
+ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"
 ```
 
 Alternatively, you can add the following lines to `.npmrc` and `.yarnrc` files.
 
 ```bash
 # ~/.npmrc
-registry=https://registry.npm.taobao.org
-electron_mirror=https://npm.taobao.org/mirrors/electron/
+registry=https://registry.npmmirror.com
+electron_mirror=https://npmmirror.com/mirrors/electron/
 ```
 
 and
 
 ```bash
 # ~/.yarnrc
-registry "https://registry.npm.taobao.org"
-electron_mirror "https://npm.taobao.org/mirrors/electron/"
+registry "https://registry.npmmirror.com"
+electron_mirror "https://npmmirror.com/mirrors/electron/"
 ```
 
 

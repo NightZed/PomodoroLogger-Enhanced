@@ -192,11 +192,13 @@ export const GridCalendar = React.memo((props: Props) => {
         );
     };
 
-    let rects = React.useMemo(() => grids.map((v, index) => createRect(v, index, false)), [
+    const targetYear = new Date(till).getFullYear();  
+    let rects = React.useMemo(() => grids.map((v, index) => (v.year === targetYear ? createRect(v, index, false) : null)), [
         grids,
         gridWidth,
         gridMargin,
         gridHeight,
+        targetYear,
     ]);
     if (chosenIndex != null) {
         rects = rects.concat();

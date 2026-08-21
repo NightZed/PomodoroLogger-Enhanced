@@ -101,8 +101,8 @@ To download, go to [release page](https://github.com/NightZed/PomodoroLogger-Enh
 
 I'd love to see you're involved! Read [the Contribution Guide](./.github/CONTRIBUTION.md) for detail.
 
-- The roadmap is shown on the [issue page](https://github.com/zxch3n/PomodoroLogger/issues)
-- If you find a bug or want a new feature, [create a issue](https://github.com/zxch3n/PomodoroLogger/issues)
+- The roadmap is shown on the [issue page](https://github.com/NightZed/PomodoroLogger-Enhanced/issues)
+- If you find a bug or want a new feature, [create a issue](https://github.com/NightZed/PomodoroLogger-Enhanced/issues)
 - If you want to start working on an issue, read [the Contribution Guide](./.github/CONTRIBUTION.md) and comment on the issue to let me know
 
 # Screenshot

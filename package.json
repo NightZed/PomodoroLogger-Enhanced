@@ -1,7 +1,7 @@
 {
     "name": "pomodoro-logger-enhanced",
     "version": "0.7.4",
-    "description": "Pomodoro Logger -- When a time logger meets Pomodoro and Kanban board. An enhanced edition while original version archived.",
+    "description": "Pomodoro Logger -- When a time logger meets Pomodoro and Kanban board. This is an enhanced edition, as the original version has been archived.",
     "main": "./dist/main.js",
     "scripts": {
         "build-main": "cross-env NODE_ENV=production webpack --config webpack.main.prod.config.js",

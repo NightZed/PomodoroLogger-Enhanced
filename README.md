@@ -27,6 +27,7 @@
 > **Invest your time easily**
 
 [中文README](https://github.com/zxch3n/PomodoroLogger/wiki/中文README)
+
 Original Repo: [Pomodoro Logger](https://github.com/zxch3n/PomodoroLogger)
 
 <img align="right" src="https://i.postimg.cc/0j8FJ70x/image.png" height="280"/>

@@ -9,7 +9,7 @@
         "prebuild": "rm -rf ./dist",
         "build": "concurrently \"npm:build-main\" \"npm:build-renderer\"",
         "start-renderer-dev": "cross-env NODE_ENV=development  NODE_OPTIONS=--openssl-legacy-provider webpack-dev-server --config webpack.renderer.dev.config.js",
-        "start-main-dev": " NODE_OPTIONS=--openssl-legacy-provider webpack --config webpack.main.config.js",
+        "start-main-dev": "cross-env NODE_OPTIONS=--openssl-legacy-provider webpack --config webpack.main.config.js",
         "start-electron": "electron .",
         "start": "concurrently \"npm:start-main-dev\" \"npm:start-renderer-dev\"",
         "prestart:prod": "npm run build",
@@ -26,7 +26,7 @@
         "dist-all": "npm run build && electron-builder -mwl",
         "postinstall": "electron-builder install-app-deps",
         "style": "styleguidist server",
-        "style-pack": " NODE_OPTIONS=--openssl-legacy-provider webpack --config webpack.style.js "
+        "style-pack": "cross-env NODE_OPTIONS=--openssl-legacy-provider webpack --config webpack.style.js"
     },
     "husky": {
         "hooks": {

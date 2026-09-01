@@ -52,11 +52,11 @@ if (process.platform === 'win32') {
 const createWindow = async () => {
     win = new BrowserWindow({
         width: 1440,
-        height: 810,
+        height: 960,
         minWidth: 380,
         minHeight: 63,
         frame: true,
-        useContentSize: true,
+        useContentSize: false,
         icon: nativeImage.createFromPath(path.join(__dirname, logo)),
         title: 'Pomodoro Logger',
         webPreferences: {

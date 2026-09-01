@@ -51,7 +51,7 @@ export function initialize() {
         if (on) {
             win.setBounds({ height: height - contentHeight + 43, width: 366 });
         } else {
-            win.setBounds({ height: 800, width: 1080 });
+            win.setBounds({ height: 960, width: 1440 });
         }
     });
     handle(IpcEventName.OpenAtLogin, (on) => {

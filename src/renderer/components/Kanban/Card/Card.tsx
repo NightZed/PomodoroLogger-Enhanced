@@ -14,6 +14,7 @@ import { matchParent } from '../../../utils';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../reducers';
 import { check } from 'prettier';
+import { formatTimeYmdHms } from '../../Visualization/Timeline';
 
 /**
  * If you're using z-index, make sure the element has a defined position attribute or it won't work.
@@ -49,6 +50,12 @@ const CardContent = styled.div`
         float: right;
         cursor: pointer;
     }
+`;
+
+const CardCreatedTime = styled.div`
+    color: #999;
+    font-size: 11px;
+    line-height: 1.2;
 `;
 
 export interface InputProps {
@@ -175,6 +182,11 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                                         >
                                             {props.title}
                                         </h3>
+                                        {props.createdTime !== undefined ? (
+                                            <CardCreatedTime>
+                                                Created: {formatTimeYmdHms(props.createdTime)}
+                                            </CardCreatedTime>
+                                        ) : undefined}
                                         <BadgeHolder className="collapsed">
                                             {props.sessionIds.length > 0 ? (
                                                 <PomodoroDot num={props.sessionIds.length} />
@@ -203,6 +215,11 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                                         >
                                             {props.title}
                                         </h1>
+                                        {props.createdTime !== undefined ? (
+                                            <CardCreatedTime>
+                                                Created: {formatTimeYmdHms(props.createdTime)}
+                                            </CardCreatedTime>
+                                        ) : undefined}
                                         <Markdown
                                             dangerouslySetInnerHTML={{
                                                 __html: formatMarkdown(content, {

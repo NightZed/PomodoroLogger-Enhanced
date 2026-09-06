@@ -3,7 +3,12 @@ import { Card, Col, Row, Select, Statistic } from 'antd';
 import { HistoryActionCreatorTypes, HistoryState } from './action';
 import { GridCalendar } from '../../../components/Visualization/GridCalendar/GridCalendar';
 import styled from 'styled-components';
-import { AggPomodoroInfo, getAggPomodoroInfo } from './op';
+import {
+    AggPomodoroInfo,
+    getAggPomodoroInfo,
+    getTimeSpentDataFromRecords,
+    TimeSpentData,
+} from './op';
 import { WordCloud } from '../Visualization/WordCloud';
 import { KanbanBoardState } from '../Kanban/Board/action';
 import { Loading } from '../utils/Loading';
@@ -65,6 +70,12 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
     const { expiringKey } = props;
     const [targetDate, setTargetDate] = useState<undefined | [number, number, number]>(undefined);
     const [shownPomodoros, setPomodoros] = useState<undefined | PomodoroRecord[]>(undefined);
+    const [selectedDatePieChart, setSelectedDatePieChart] = useState<undefined | TimeSpentData>(
+        undefined
+    );
+    const [selectedDateWordWeights, setSelectedDateWordWeights] = useState<
+        undefined | [string, number][]
+    >(undefined);
     const [chosenYear, setChosenYear] = useState<number>(new Date().getFullYear());
     const [aggInfo, setAggInfo] = useState<AggPomodoroInfo>({
         agg: {
@@ -95,12 +106,14 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         setWidth();
         window.addEventListener('resize', setWidth);
         return () => {
+            setWidth.cancel();
             window.removeEventListener('resize', setWidth);
         };
     };
 
     useEffect(resizeEffect, []);
     useEffect(() => {
+        let cancelled = false;
         const boardId = props.chosenId;
         const searchArg = props.chosenId === undefined ? {} : { boardId };
         // Avoid using outdated cache; And use worker to avoid db blocking the process
@@ -110,28 +123,60 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                 return getAggPomodoroInfo(docs, props.getCardsByBoardId(boardId));
             })
             .then((ans: AggPomodoroInfo) => {
+                if (cancelled) {
+                    return;
+                }
                 setAggInfo(ans);
+                setTargetDate(undefined);
+                setSelectedDatePieChart(undefined);
+                setSelectedDateWordWeights(undefined);
                 setPomodoros(undefined);
             });
+        return () => {
+            cancelled = true;
+        };
     }, [props.chosenId, expiringKey]);
     useEffect(() => {
         if (targetDate == null) {
             return;
         }
 
+        let cancelled = false;
         const db = workers.dbWorkers.sessionDB;
-        const dateStart = new Date(`${targetDate[0]}-${targetDate[1]}-${targetDate[2]}`).getTime();
-        const nextDay = dateStart + 24 * 3600 * 1000;
+        const dateStart = new Date(targetDate[0], targetDate[1] - 1, targetDate[2]);
+        const nextDay = new Date(targetDate[0], targetDate[1] - 1, targetDate[2] + 1);
+        const boardId = props.chosenId;
+        const searchArg =
+            boardId === undefined
+                ? { startTime: { $lt: nextDay.getTime(), $gte: dateStart.getTime() } }
+                : {
+                    boardId,
+                    startTime: { $lt: nextDay.getTime(), $gte: dateStart.getTime() },
+                };
         setPomodoros(undefined);
-        db.find({ startTime: { $lt: nextDay, $gte: dateStart } }, {}).then((docs) => {
-            if (docs && docs.length) {
-                setPomodoros(docs);
+        setSelectedDatePieChart(undefined);
+        setSelectedDateWordWeights(undefined);
+        db.find(searchArg, {}).then(async (docs) => {
+            if (cancelled) {
+                return;
+            }
+            setPomodoros(docs.length ? docs : undefined);
+            const [pieChart, wordWeights] = await Promise.all([
+                getTimeSpentDataFromRecords(docs),
+                workers.tokenizer.tokenize(docs, []),
+            ]);
+            if (!cancelled) {
+                setSelectedDatePieChart(pieChart);
+                setSelectedDateWordWeights(wordWeights);
             }
         });
-    }, [targetDate]);
+        return () => {
+            cancelled = true;
+        };
+    }, [targetDate, props.chosenId]);
 
     const onChange = (v: string) => {
-        props.setChosenProjectId(v);
+        props.setChosenProjectId(v || undefined);
     };
 
     const onProjectClick = (name: string) => {
@@ -145,18 +190,18 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         setTargetDate([year, month, day]);
     }, []);
 
-    const filteredCalendarCount = React.useMemo(() => {  
-        if (!aggInfo.calendarCount) return aggInfo.calendarCount;  
-        const yearStart = new Date(chosenYear, 0, 1).getTime();  
-        const yearEnd = new Date(chosenYear + 1, 0, 1).getTime();  
-        const ans: typeof aggInfo.calendarCount = {};  
-        for (const key in aggInfo.calendarCount) {  
-            const t = parseInt(key, 10);  
-            if (t >= yearStart && t < yearEnd) {  
-                ans[key] = aggInfo.calendarCount[key];  
-            }  
-        }  
-        return ans;  
+    const filteredCalendarCount = React.useMemo(() => {
+        if (!aggInfo.calendarCount) return aggInfo.calendarCount;
+        const yearStart = new Date(chosenYear, 0, 1).getTime();
+        const yearEnd = new Date(chosenYear + 1, 0, 1).getTime();
+        const ans: typeof aggInfo.calendarCount = {};
+        for (const key in aggInfo.calendarCount) {
+            const t = parseInt(key, 10);
+            if (t >= yearStart && t < yearEnd) {
+                ans[key] = aggInfo.calendarCount[key];
+            }
+        }
+        return ans;
     }, [aggInfo.calendarCount, chosenYear]);
 
     return (
@@ -169,7 +214,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                         style={{ width: 200 }}
                         placeholder={'Set Project Filter'}
                     >
-                        <Option value={undefined} key="All Projects">
+                        <Option value="" key="all-projects">
                             All Projects
                         </Option>
                         {Object.values(props.boards).map((v) => {
@@ -180,18 +225,21 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                             );
                         })}
                     </Select>
-                    <Select  
-                        onChange={(v: number) => setChosenYear(v)}  
-                        value={chosenYear}  
-                        style={{ width: 120, marginLeft: 10 }}  
-                    >  
-                        {Array.from({ length: new Date().getFullYear() - 2018 + 1 }, (_, i) => 2018 + i)  
-                            .reverse()  
-                            .map((y) => (  
-                                <Option value={y} key={y}>  
-                                    {y}  
-                                </Option>  
-                            ))}  
+                    <Select
+                        onChange={(v: number) => setChosenYear(v)}
+                        value={chosenYear}
+                        style={{ width: 120, marginLeft: 10 }}
+                    >
+                        {Array.from(
+                            { length: new Date().getFullYear() - 2018 + 1 },
+                            (_, i) => 2018 + i
+                        )
+                            .reverse()
+                            .map((y) => (
+                                <Option value={y} key={y}>
+                                    {y}
+                                </Option>
+                            ))}
                     </Select>
                     <BadgeHolder style={{ marginLeft: 10 }}>
                         {aggInfo.total.count != null ? (
@@ -261,11 +309,11 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                 {aggInfo.pieChart != null && aggInfo.wordWeights != null ? (
                     calendarWidth > 670 ? (
                         <ChartContainer>
-                            <GridCalendar  
-                                data={filteredCalendarCount}  
-                                width={calendarWidth}  
-                                clickDate={clickDate}  
-                                till={new Date(chosenYear, 11, 31).getTime()}  
+                            <GridCalendar
+                                data={filteredCalendarCount}
+                                width={calendarWidth}
+                                clickDate={clickDate}
+                                till={new Date(chosenYear, 11, 31).getTime()}
                             />
                             <div
                                 className={
@@ -294,12 +342,18 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                                 />
                             </div>
                             <DualPieChart
-                                {...aggInfo.pieChart}
+                                {...(targetDate == null
+                                    ? aggInfo.pieChart
+                                    : selectedDatePieChart || { projectData: [], appData: [] })}
                                 width={calendarWidth}
                                 onProjectClick={onProjectClick}
                             />
                             <WordCloud
-                                weights={aggInfo.wordWeights}
+                                weights={
+                                    targetDate == null
+                                        ? aggInfo.wordWeights
+                                        : selectedDateWordWeights || []
+                                }
                                 width={calendarWidth}
                                 height={calendarWidth * 0.6}
                             />

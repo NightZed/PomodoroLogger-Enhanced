@@ -192,7 +192,6 @@ export const List: FC<Props> = React.memo((props: Props) => {
         } catch (e) {}
 
         if (reg == null) {
-            props.setVisibleCards(props._id, undefined);
             return undefined;
         }
 
@@ -201,9 +200,12 @@ export const List: FC<Props> = React.memo((props: Props) => {
             const card = cardsState[id];
             return card.title.match(reg) || card.content.match(reg);
         });
-        props.setVisibleCards(props._id, visibleCards_);
         return visibleCards_;
     }, [props._id, searchReg, props.cardsState, cards]);
+
+    React.useEffect(() => {
+        props.setVisibleCards(props._id, visibleCards);
+    }, [props._id, visibleCards]);
 
     const filteredCards = visibleCards || props.cards || [];
     const [estimatedTimeSum, actualTimeSum] = React.useMemo(

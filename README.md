@@ -39,7 +39,11 @@ Original Repo: [Pomodoro Logger](https://github.com/zxch3n/PomodoroLogger)
 
 ## Enhanced Features
 
-* Add year selector to history view
+- History View
+  * Add year selector .
+  * When clicking on the grid, switch to display the pie chart status and word cloud for that day.
+- Kanban 
+  * Display the task creation time.
 
 ## Pomodoro Technique :tomato:
 

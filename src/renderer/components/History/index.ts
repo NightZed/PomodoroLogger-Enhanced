@@ -27,7 +27,7 @@ const getCardsGetter = (state: RootState): CardGetter => {
 
         const cardIds: string[] = [];
         for (const listId of state.kanban.boards[boardId].lists) {
-            cardIds.concat(state.kanban.lists[listId].cards);
+            cardIds.push(...state.kanban.lists[listId].cards);
         }
 
         return cardIds.map((id) => state.kanban.cards[id]);

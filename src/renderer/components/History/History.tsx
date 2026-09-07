@@ -161,7 +161,9 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
             if (cancelled) {
                 return;
             }
-            setPomodoros(docs.length ? docs : undefined);
+            setPomodoros(
+                docs.length ? [...docs].sort((a, b) => a.startTime - b.startTime) : undefined
+            );
             const [pieChart, wordWeights] = await Promise.all([
                 getTimeSpentDataFromRecords(docs),
                 workers.tokenizer.tokenize(docs, []),

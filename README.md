@@ -3,6 +3,12 @@
   <img src="https://i.postimg.cc/hvjXfB94/icon.png" width="360"/>
 </p>
 
+<p align="center">
+    <a href="README_ZH.md">
+      <img src="https://flagcdn.com/w40/cn.png" width="22" alt="China flag">
+      中文
+    </a>
+</p>
 
 <p align="center">
   <a href="https://circleci.com/gh/zxch3n/PomodoroLogger">
@@ -26,8 +32,6 @@
 
 > **Invest your time easily**
 
-[中文README](https://github.com/zxch3n/PomodoroLogger/wiki/中文README)
-
 Original Repo: [Pomodoro Logger](https://github.com/zxch3n/PomodoroLogger)
 
 <img align="right" src="https://i.postimg.cc/0j8FJ70x/image.png" height="280"/>
@@ -42,6 +46,7 @@ Original Repo: [Pomodoro Logger](https://github.com/zxch3n/PomodoroLogger)
 - History View
   * Add year selector .
   * When clicking on the grid, switch to display the pie chart status and word cloud for that day.
+  * Support customizing the base color of calendar heat map.
 - Kanban 
   * Display the task creation time.
 
@@ -113,22 +118,22 @@ I'd love to see you're involved! Read [the Contribution Guide](./.github/CONTRIB
 # Screenshot
 
 
-| **Pomodoro** |**Show Countdown in Tray**|
-|:-|:-|
-| <img src="https://i.postimg.cc/Fs87Gx0w/choose-Focuse.gif" width="256"/>|<img src="https://i.postimg.cc/LsMhF6CT/tray.png" width="256"/>|
-|**Session Finished**|**Switch Mode**|
-|<img src="https://i.postimg.cc/fT9wWQ0g/session-Finished.gif" height="256"/>|<img src="https://i.postimg.cc/DZp202gR/switch-Mode.gif" height="256"/>|
+| **Pomodoro**                                                                 | **Show Countdown in Tray**                                              |
+| :--------------------------------------------------------------------------- | :---------------------------------------------------------------------- |
+| <img src="https://i.postimg.cc/Fs87Gx0w/choose-Focuse.gif" width="256"/>     | <img src="https://i.postimg.cc/LsMhF6CT/tray.png" width="256"/>         |
+| **Session Finished**                                                         | **Switch Mode**                                                         |
+| <img src="https://i.postimg.cc/fT9wWQ0g/session-Finished.gif" height="256"/> | <img src="https://i.postimg.cc/DZp202gR/switch-Mode.gif" height="256"/> |
 
-| **Kanban Board**| **Draggable Card** |
-|:-| :- |
-| <img src="https://i.postimg.cc/rs136CfV/Kanban-Board.png" height="256"/>|  <img src="https://i.postimg.cc/7Zrqft3P/moving-Around.gif" height="256"/>|
-| **Estimate Your Time Spent**| **Search Your Cards**|
-| <img src="https://i.postimg.cc/HxRzScHp/todo.png" height="256"/>|  <img src="https://i.postimg.cc/CLBKZf97/search-Card.gif" height="256"/>|
+| **Kanban Board**                                                         | **Draggable Card**                                                        |
+| :----------------------------------------------------------------------- | :------------------------------------------------------------------------ |
+| <img src="https://i.postimg.cc/rs136CfV/Kanban-Board.png" height="256"/> | <img src="https://i.postimg.cc/7Zrqft3P/moving-Around.gif" height="256"/> |
+| **Estimate Your Time Spent**                                             | **Search Your Cards**                                                     |
+| <img src="https://i.postimg.cc/HxRzScHp/todo.png" height="256"/>         | <img src="https://i.postimg.cc/CLBKZf97/search-Card.gif" height="256"/>   |
 
-| **Visulization**|
-|:-|
-| <img src="https://i.postimg.cc/CKH5hT9V/vis.png" width="512"/>|
-| <img src="https://i.postimg.cc/d150CRqH/vis1.png" width="512"/>|
+| **Visulization**                                                |
+| :-------------------------------------------------------------- |
+| <img src="https://i.postimg.cc/CKH5hT9V/vis.png" width="512"/>  |
+| <img src="https://i.postimg.cc/d150CRqH/vis1.png" width="512"/> |
   
 
 

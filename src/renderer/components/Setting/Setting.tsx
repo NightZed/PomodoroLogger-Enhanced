@@ -67,6 +67,8 @@ const marks = {
     45: '45min',
 };
 
+const DEFAULT_CALENDAR_BASE_COLOR = '#aceebb';
+
 const restMarks = {
     5: '5min',
     10: '10min',
@@ -182,6 +184,10 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             props.setCalendarBaseColor(v);
         }, []);
 
+        const resetCalendarColor = useCallback(() => {
+            props.setCalendarBaseColor(DEFAULT_CALENDAR_BASE_COLOR);
+        }, []);
+
         const onDeleteData = useCallback(() => {
             deleteAllUserData().then(() => {
                 message.info('All user data is removed. Pomodoro needs to restart.');
@@ -295,6 +301,9 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                     value={props.calendarBaseColor}
                     onChange={(e) => setCalendarColor(e.target.value)}
                 />
+                <Button size="small" onClick={resetCalendarColor}>
+                    Reset
+                </Button>
                 <br />
 
                 <h4>Data Management</h4>

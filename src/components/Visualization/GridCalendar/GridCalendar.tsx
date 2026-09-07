@@ -141,7 +141,7 @@ function getHoverInfo(data: GridData) {
 
 export const GridCalendar = React.memo((props: Props) => {
     const [chosenIndex, setChosenIndex] = React.useState<undefined | number>(undefined);
-    const { till = new Date(), width = 800, data, shownWeeks = 53, baseColor = '#f1c232' } = props;
+    const { till = new Date(), width = 800, data, shownWeeks = 53, baseColor = '#aceebb' } = props;
     const maxIntensity = hexToHsl(baseColor);
     const tillTimestamp = getLastDayTimestamp(till);
     const day = (new Date(till).getDay() + 1) % 7;

@@ -81,7 +81,7 @@ export const defaultState: TimerState = {
 
     monitorInterval: 1000,
     screenShotInterval: undefined,
-    calendarBaseColor: '#f1c232',
+    calendarBaseColor: '#aceebb',
     currentTab: 'timer',
 };
 

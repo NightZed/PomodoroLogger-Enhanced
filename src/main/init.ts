@@ -194,7 +194,7 @@ app.on('ready', async () => {
             return;
         }
 
-        update();
+        autoUpdaterCheck.checkUpdate();
     });
 });
 
@@ -233,8 +233,15 @@ function update() {
         autoUpdater.download();
     });
 
-    autoUpdater.checkUpdate();
+    ipcMain.on(IpcEventName.CheckUpdate, () => {
+        autoUpdater.checkUpdate();
+    });
+
+    return autoUpdater;
 }
+
+// updater instance is created once so manual check works even when auto update is off
+const autoUpdaterCheck = update();
 function setMenuItems(items: { label: string; type: string; click: any }[]) {
     if (!mGlobal.tray) {
         return;

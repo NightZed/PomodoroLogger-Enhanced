@@ -10,19 +10,23 @@ export class AutoUpdater {
         autoUpdater.on('checking-for-update', () => {
             console.log('Checking for update...');
         });
-        autoUpdater.on('update-available', info => {
+        autoUpdater.on('update-available', (info) => {
             console.log('update available');
             sendStatusToWindow('update-available', `Version: ${info.version}; ${info.releaseName}`);
         });
-        autoUpdater.on('update-not-available', info => {
+        autoUpdater.on('update-not-available', (info) => {
             console.log('update not available');
+            sendStatusToWindow(
+                'update-not-available',
+                `You are using the latest version (v${info.version})`
+            );
         });
 
-        autoUpdater.on('error', err => {
+        autoUpdater.on('error', (err) => {
             sendStatusToWindow('error', 'Error in auto-updater. ' + err);
             sendStatusToWindow('error', err);
         });
-        autoUpdater.on('download-progress', progressObj => {
+        autoUpdater.on('download-progress', (progressObj) => {
             let log_message = 'Download speed: ' + progressObj.bytesPerSecond;
             log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
             log_message =
@@ -30,10 +34,10 @@ export class AutoUpdater {
             console.log(log_message);
             sendStatusToWindow('download-progress', {
                 percent: progressObj.percent,
-                bytesPerSecond: progressObj.bytesPerSecond
+                bytesPerSecond: progressObj.bytesPerSecond,
             });
         });
-        autoUpdater.on('update-downloaded', info => {
+        autoUpdater.on('update-downloaded', (info) => {
             console.log(info);
             sendStatusToWindow('update-downloaded', 'Update downloaded');
         });
@@ -43,7 +47,7 @@ export class AutoUpdater {
         const data = {
             provider: 'github',
             owner: 'nightzed',
-            repo: 'PomodoroLogger-Enhanced'
+            repo: 'PomodoroLogger-Enhanced',
         } as GithubOptions;
         autoUpdater.setFeedURL(data);
         autoUpdater.autoDownload = false;

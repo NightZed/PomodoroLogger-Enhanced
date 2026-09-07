@@ -6,6 +6,7 @@ export enum IpcEventName {
     Restart = 'restart-app',
     SetTray = 'set-tray',
     DownloadUpdate = 'download-update',
+    CheckUpdate = 'check-update',
     ExportData = 'exportData',
     ImportData = 'importData',
     ActiveWin = 'activeWin',

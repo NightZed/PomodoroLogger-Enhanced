@@ -41,6 +41,7 @@ const mapStateToProps = (state: RootState) => ({
     expiringKey: state.history.expiringKey,
     boards: state.kanban.boards,
     getCardsByBoardId: getCardsGetter(state),
+    calendarBaseColor: state.timer.calendarBaseColor,
 });
 const mapDispatchToProps = genMapDispatchToProp<
     HistoryActionCreatorTypes & { chooseRecord: (r: PomodoroRecord) => void }

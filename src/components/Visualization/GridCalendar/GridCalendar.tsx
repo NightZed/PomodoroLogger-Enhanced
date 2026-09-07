@@ -60,6 +60,44 @@ interface Props {
     till?: string | number;
     shownWeeks?: number;
     clickDate?: (year: number, month: number, day: number) => void;
+    baseColor?: string;
+}
+
+function hexToHsl(hex: string): [number, number, number] {
+    const match = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+    if (!match) {
+        return [50, 60, 92]; // fallback: original calendar color
+    }
+    const value = parseInt(match[1], 16);
+    const r = ((value >> 16) & 0xff) / 255;
+    const g = ((value >> 8) & 0xff) / 255;
+    const b = (value & 0xff) / 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const l = (max + min) / 2;
+    let h = 0;
+    let s = 0;
+    if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+            case r:
+                h = (g - b) / d + (g < b ? 6 : 0);
+                break;
+            case g:
+                h = (b - r) / d + 2;
+                break;
+            default:
+                h = (r - g) / d + 4;
+        }
+        h *= 60;
+    }
+    return [h, s * 100, l * 100];
+}
+
+function getBaseGridFill(h: number, s: number, intensity: number) {
+    const lightness = Math.max(0, Math.min(92, 92 - intensity * 70));
+    return `hsl(${h.toFixed(1)}, ${s.toFixed(1)}%, ${lightness.toFixed(1)}%)`;
 }
 
 function getLastDayTimestamp(date: Date | string | number) {
@@ -103,15 +141,15 @@ function getHoverInfo(data: GridData) {
 
 export const GridCalendar = React.memo((props: Props) => {
     const [chosenIndex, setChosenIndex] = React.useState<undefined | number>(undefined);
-    const { till = new Date(), width = 800, data, shownWeeks = 53 } = props;
+    const { till = new Date(), width = 800, data, shownWeeks = 53, baseColor = '#f1c232' } = props;
+    const maxIntensity = hexToHsl(baseColor);
     const tillTimestamp = getLastDayTimestamp(till);
     const day = (new Date(till).getDay() + 1) % 7;
     const shownGrids = (day === 0 ? 7 : day) + (shownWeeks - 1) * 7;
-    const grids = React.useMemo(() => getGridData(data, tillTimestamp, shownGrids), [
-        tillTimestamp,
-        data,
-        shownGrids,
-    ]);
+    const grids = React.useMemo(
+        () => getGridData(data, tillTimestamp, shownGrids),
+        [tillTimestamp, data, shownGrids]
+    );
     const maxCountInADay = Math.max(5, Math.max(...grids.map((v) => v.count)));
     const axisMargin = 32;
     const innerWidth = width - axisMargin;
@@ -177,9 +215,15 @@ export const GridCalendar = React.memo((props: Props) => {
                 height={gridHeight}
                 x={v.week * (gridWidth + gridMargin)}
                 y={v.day * (gridWidth + gridMargin)}
-                fill={`hsl(50, ${v.count === 0 ? '0%' : '60%'}, ${
-                    92 - (v.count / maxCountInADay) * 70
-                }%`}
+                fill={
+                    v.count === 0
+                        ? '#ebebeb'
+                        : getBaseGridFill(
+                              maxIntensity[0],
+                              maxIntensity[1],
+                              v.count / maxCountInADay
+                          )
+                }
                 key={index}
                 stroke={chosen ? 'rgb(200, 180, 240)' : ''}
                 onMouseEnter={onEnter}
@@ -192,14 +236,11 @@ export const GridCalendar = React.memo((props: Props) => {
         );
     };
 
-    const targetYear = new Date(till).getFullYear();  
-    let rects = React.useMemo(() => grids.map((v, index) => (v.year === targetYear ? createRect(v, index, false) : null)), [
-        grids,
-        gridWidth,
-        gridMargin,
-        gridHeight,
-        targetYear,
-    ]);
+    const targetYear = new Date(till).getFullYear();
+    let rects = React.useMemo(
+        () => grids.map((v, index) => (v.year === targetYear ? createRect(v, index, false) : null)),
+        [grids, gridWidth, gridMargin, gridHeight, targetYear]
+    );
     if (chosenIndex != null) {
         rects = rects.concat();
         rects[chosenIndex] = createRect(grids[chosenIndex], chosenIndex, true);

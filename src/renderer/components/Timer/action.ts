@@ -31,6 +31,7 @@ export interface Setting {
     startOnBoot: boolean;
     useHardwareAcceleration: boolean;
     distractingList: DistractingRow[];
+    calendarBaseColor: string;
 }
 
 export interface TimerManager {
@@ -80,6 +81,7 @@ export const defaultState: TimerState = {
 
     monitorInterval: 1000,
     screenShotInterval: undefined,
+    calendarBaseColor: '#f1c232',
     currentTab: 'timer',
 };
 
@@ -160,13 +162,18 @@ export const setScreenShotInterval = createActionCreator(
     '[Timer]SET_SCREEN_SHOT_INTERVAL',
     (resolve) => (interval?: number) => resolve(interval)
 );
+export const setCalendarBaseColor = createActionCreator(
+    '[Timer]SET_CALENDAR_BASE_COLOR',
+    (resolve) => (color: string) => resolve(color)
+);
 export const switchFocusRestMode = createActionCreator('[Timer]SWITCH_FOCUS_MODE');
 export const changeAppTab = createActionCreator(
     '[App]CHANGE_APP_TAB',
     (resolve) => (tab: tabType) => resolve(tab)
 );
-export const switchTab = createActionCreator('[App]SWITCH_TAB', (resolve) => (direction: 1 | -1) =>
-    resolve(direction)
+export const switchTab = createActionCreator(
+    '[App]SWITCH_TAB',
+    (resolve) => (direction: 1 | -1) => resolve(direction)
 );
 
 const throwError = (err: Error | null) => {
@@ -204,6 +211,7 @@ export const actions = {
             ['longBreakDuration', setLongBreakDuration],
             ['distractingList', setDistractingList],
             ['autoUpdate', setAutoUpdate],
+            ['calendarBaseColor', setCalendarBaseColor],
         ];
         for (const key of settingKeywords) {
             if (key[0] in settings) {
@@ -298,25 +306,32 @@ export const actions = {
             throwError
         );
     },
-    timerFinished: (
-        sessionData?: PomodoroRecord,
-        cardIds: string[] = [],
-        boardId?: string | undefined
-    ) => async (dispatch: Dispatch) => {
-        dispatch(timerFinished());
-        dispatch(historyActions.setExpiringKey(new Date().toString()));
-        if (sessionData) {
-            await addSession(sessionData).catch((err) => console.error(err));
-            if (boardId !== undefined) {
-                await boardActions.onTimerFinished(
-                    boardId,
-                    sessionData._id,
-                    sessionData.spentTimeInHour,
-                    cardIds
-                )(dispatch);
-            }
-        }
+    setCalendarBaseColor: (calendarBaseColor: string) => async (dispatch: Dispatch) => {
+        dispatch(setCalendarBaseColor(calendarBaseColor));
+        dbs.settingDB.update(
+            { name: 'setting' },
+            { $set: { calendarBaseColor } },
+            { upsert: true },
+            throwError
+        );
     },
+    timerFinished:
+        (sessionData?: PomodoroRecord, cardIds: string[] = [], boardId?: string | undefined) =>
+        async (dispatch: Dispatch) => {
+            dispatch(timerFinished());
+            dispatch(historyActions.setExpiringKey(new Date().toString()));
+            if (sessionData) {
+                await addSession(sessionData).catch((err) => console.error(err));
+                if (boardId !== undefined) {
+                    await boardActions.onTimerFinished(
+                        boardId,
+                        sessionData._id,
+                        sessionData.spentTimeInHour,
+                        cardIds
+                    )(dispatch);
+                }
+            }
+        },
     /* istanbul ignore next */
     inferProject: (sessionData: PomodoroRecord) => async (dispatch: Dispatch) => {
         // Predict session's project
@@ -407,6 +422,11 @@ export const reducer = createReducer<TimerState, any>(defaultState, (handle) => 
                 : process.env.NODE_ENV !== 'development'
                 ? payload
                 : payload / DEBUG_TIME_SCALE,
+    })),
+
+    handle(setCalendarBaseColor, (state, { payload }) => ({
+        ...state,
+        calendarBaseColor: payload,
     })),
 
     handle(switchFocusRestMode, (state) => ({

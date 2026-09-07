@@ -22,6 +22,26 @@ const ButtonWrapper = styled.div`
     margin: 0.6em;
 `;
 
+const ColorInput = styled.input`
+    width: 32px;
+    height: 32px;
+    margin: 8px;
+    padding: 0;
+    border: none;
+    border-radius: 2px;
+    background: none;
+    cursor: pointer;
+    vertical-align: middle;
+
+    ::-webkit-color-swatch-wrapper {
+        padding: 0;
+    }
+    ::-webkit-color-swatch {
+        border: 1px solid rgba(0, 0, 0, 0.15);
+        border-radius: 2px;
+    }
+`;
+
 const Footer = styled.footer`
     border-top: 1px solid rgb(240, 240, 240);
     padding: 0.6rem 0;
@@ -68,6 +88,7 @@ const settingUiStates = [
     'useHardwareAcceleration',
     'startOnBoot',
     'distractingList',
+    'calendarBaseColor',
 ];
 
 interface Props extends TimerState, TimerActionTypes {}
@@ -118,6 +139,30 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             props.setAutoUpdate(v);
         }, []);
 
+        const [checkingUpdate, setCheckingUpdate] = useState(false);
+        const onCheckUpdate = useCallback(() => {
+            setCheckingUpdate(true);
+            const onResult = (hasUpdate: boolean) => {
+                ipcRenderer.removeListener('update-available', onAvailable);
+                ipcRenderer.removeListener('update-not-available', onNotAvailable);
+                ipcRenderer.removeListener('error', onError);
+                setCheckingUpdate(false);
+            };
+            const onAvailable = () => onResult(true);
+            const onNotAvailable = (event: any, info: string) => {
+                message.info(info);
+                onResult(false);
+            };
+            const onError = (event: any, err: any) => {
+                message.error('Failed to check for update: ' + err);
+                onResult(false);
+            };
+            ipcRenderer.on('update-available', onAvailable);
+            ipcRenderer.on('update-not-available', onNotAvailable);
+            ipcRenderer.on('error', onError);
+            ipcRenderer.send(IpcEventName.CheckUpdate);
+        }, []);
+
         const setStartOnBoot = React.useCallback((v: boolean) => {
             props.setStartOnBoot(v);
             window.api.openAtLogin(v);
@@ -131,6 +176,10 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 duration: 0,
                 icon: <Icon type="warning" />,
             });
+        }, []);
+
+        const setCalendarColor = useCallback((v: string) => {
+            props.setCalendarBaseColor(v);
         }, []);
 
         const onDeleteData = useCallback(() => {
@@ -223,6 +272,9 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                     checked={props.autoUpdate}
                     style={{ margin: 8 }}
                 />
+                <Button size="small" loading={checkingUpdate} onClick={onCheckUpdate}>
+                    Check Update
+                </Button>
                 <br />
 
                 <span style={{ fontWeight: 500, fontSize: 14, color: 'rgba(0, 0, 0, 0.85' }}>
@@ -233,6 +285,17 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                     checked={!!props.screenShotInterval}
                     style={{ margin: 8 }}
                 />
+                <br />
+
+                <span style={{ fontWeight: 500, fontSize: 14, color: 'rgba(0, 0, 0, 0.85)' }}>
+                    Calendar Base Color
+                </span>
+                <ColorInput
+                    type="color"
+                    value={props.calendarBaseColor}
+                    onChange={(e) => setCalendarColor(e.target.value)}
+                />
+                <br />
 
                 <h4>Data Management</h4>
                 <ButtonWrapper>

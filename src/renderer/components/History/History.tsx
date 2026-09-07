@@ -64,6 +64,7 @@ interface Props extends HistoryActionCreatorTypes, HistoryState {
     boards: KanbanBoardState;
     chooseRecord: (r: PomodoroRecord) => void;
     getCardsByBoardId: (boardId: string | undefined) => CardState[];
+    calendarBaseColor: string;
 }
 
 export const History: React.FunctionComponent<Props> = React.memo((props: Props) => {
@@ -314,6 +315,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                                 width={calendarWidth}
                                 clickDate={clickDate}
                                 till={new Date(chosenYear, 11, 31).getTime()}
+                                baseColor={props.calendarBaseColor}
                             />
                             <div
                                 className={

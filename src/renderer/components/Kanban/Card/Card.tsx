@@ -58,6 +58,46 @@ const CardCreatedTime = styled.div`
     line-height: 1.2;
 `;
 
+const CardLabels = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    margin: 4px 0 2px 0;
+
+    .card-label {
+        font-size: 0.85em;
+        border-radius: 1em;
+        padding: 1px 0.6em;
+        color: #fff;
+        margin: 1px 4px 1px 0;
+        line-height: 1.5;
+        white-space: nowrap;
+        max-width: 110px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+    }
+`;
+
+const renderLabels = (labels?: CardType['labels']) => {
+    if (!labels || labels.length === 0) {
+        return undefined;
+    }
+
+    return (
+        <CardLabels>
+            {labels.map((label) => (
+                <span
+                    key={label.name}
+                    className="card-label"
+                    style={{ backgroundColor: label.color }}
+                >
+                    {label.name}
+                </span>
+            ))}
+        </CardLabels>
+    );
+};
+
 export interface InputProps {
     cardId: string;
     index: number;
@@ -81,8 +121,12 @@ export const Card: FC<Props> = React.memo((props: Props) => {
         (e: React.MouseEvent<HTMLDivElement>) => {
             const target = e.nativeEvent.target as HTMLElement;
             const tag = matchParent(target, '.pl-tag');
+            const cardLabel = matchParent(target, '.card-label');
             const checkbox = matchParent(target, '[type="checkbox"]');
-            if (tag && tag.textContent) {
+            if (cardLabel && cardLabel.textContent) {
+                props.setSearchReg('#' + cardLabel.textContent);
+                e.stopPropagation();
+            } else if (tag && tag.textContent) {
                 props.setSearchReg(tag.textContent);
                 e.stopPropagation();
             } else if (checkbox) {
@@ -121,7 +165,7 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                 props.setEditCard(true, props.listId, props._id);
             }
         },
-        [listId, _id, props.content]
+        [listId, _id, props.content, props.setSearchReg]
     );
     const content = React.useMemo(() => {
         if (!props.searchReg) {
@@ -187,6 +231,7 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                                                 Created: {formatTimeYmdHms(props.createdTime)}
                                             </CardCreatedTime>
                                         ) : undefined}
+                                        {renderLabels(props.labels)}
                                         <BadgeHolder className="collapsed">
                                             {props.sessionIds.length > 0 ? (
                                                 <PomodoroDot num={props.sessionIds.length} />
@@ -220,6 +265,7 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                                                 Created: {formatTimeYmdHms(props.createdTime)}
                                             </CardCreatedTime>
                                         ) : undefined}
+                                        {renderLabels(props.labels)}
                                         <Markdown
                                             dangerouslySetInnerHTML={{
                                                 __html: formatMarkdown(content, {

@@ -84,6 +84,18 @@ export const Kanban: FunctionComponent<Props> = React.memo(
         const [visible, setVisible] = useState(false);
         const [showTable, setShowTable] = useState(false);
         const [editingBoardId, setEditingBoardId] = useState<string | undefined>('');
+        const getSuggestions = React.useCallback(() => {
+            const labelSet = new Set<string>();
+            for (const card of Object.values(props.cards)) {
+                for (const label of card.labels ?? []) {
+                    labelSet.add('#' + label.name);
+                }
+            }
+
+            const labels = Array.from(labelSet);
+            const contentTags = props.kanban.tagManager.getSortedTag();
+            return contentTags.concat(labels).filter((x, index, arr) => arr.indexOf(x) === index);
+        }, [props.cards, props.kanban.tagManager]);
         const onShowTableChange = (value: boolean) => {
             setShowTable(value);
         };
@@ -278,7 +290,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                     <Search
                                         setSearchStr={search}
                                         searchStr={props.kanban.searchReg}
-                                        tags={props.kanban.tagManager.getSortedTag}
+                                        tags={getSuggestions}
                                     />
                                     <div
                                         style={{

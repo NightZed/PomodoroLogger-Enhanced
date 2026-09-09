@@ -1,10 +1,16 @@
 import type { DistractingRow } from '../Timer/action';
 
+export interface CardLabel {
+    name: string;
+    color: string;
+}
+
 export interface Card {
     _id: string;
     content: string;
     title: string;
     sessionIds: string[];
+    labels?: CardLabel[];
     spentTimeInHour: {
         estimated: number;
         actual: number;

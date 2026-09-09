@@ -2,7 +2,7 @@ import { createActionCreator, createReducer } from 'deox';
 import { Dispatch } from 'redux';
 import { actions as listActions } from '../List/action';
 import { workers } from '../../../workers';
-import { Card } from '../type';
+import { Card, CardLabel } from '../type';
 
 const db = workers.dbWorkers.cardsDB;
 
@@ -20,8 +20,9 @@ const addCard = createActionCreator(
         resolve({ _id, title, content, createdTime })
 );
 
-const renameCard = createActionCreator('[Card]RENAME', (resolve) => (_id: string, title: string) =>
-    resolve({ _id, title })
+const renameCard = createActionCreator(
+    '[Card]RENAME',
+    (resolve) => (_id: string, title: string) => resolve({ _id, title })
 );
 
 const setContent = createActionCreator(
@@ -39,17 +40,24 @@ const setActualTime = createActionCreator(
     (resolve) => (_id: string, actualTime: number) => resolve({ _id, actualTime })
 );
 
+const setLabels = createActionCreator(
+    '[Card]SET_LABELS',
+    (resolve) => (_id: string, labels: CardLabel[]) => resolve({ _id, labels })
+);
+
 const addActualTime = createActionCreator(
     '[Card]ADD_ACTUAL_TIME',
     (resolve) => (_id: string, plus: number) => resolve({ _id, plus })
 );
 
-const deleteCard = createActionCreator('[Card]DELETE_CARD', (resolve) => (_id: string) =>
-    resolve({ _id })
+const deleteCard = createActionCreator(
+    '[Card]DELETE_CARD',
+    (resolve) => (_id: string) => resolve({ _id })
 );
 
-const setCards = createActionCreator('[Card]SET_CARDS', (resolve) => (cards: CardsState) =>
-    resolve(cards)
+const setCards = createActionCreator(
+    '[Card]SET_CARDS',
+    (resolve) => (cards: CardsState) => resolve(cards)
 );
 
 export const actions = {
@@ -78,6 +86,10 @@ export const actions = {
         dispatch(setActualTime(_id, actualTime));
         await db.update({ _id }, { $set: { 'spentTimeInHour.actual': actualTime } });
     },
+    setLabels: (_id: string, labels: CardLabel[]) => async (dispatch: Dispatch) => {
+        dispatch(setLabels(_id, labels));
+        await db.update({ _id }, { $set: { labels } });
+    },
     addActualTime: (_id: string, plus: number) => async (dispatch: Dispatch) => {
         dispatch(addActualTime(_id, plus));
         await db.update({ _id }, { $inc: { 'spentTimeInHour.actual': plus } });
@@ -87,36 +99,35 @@ export const actions = {
         dispatch(deleteCard(_id));
         await db.remove({ _id });
     },
-    onTimerFinished: (_id: string, sessionId: string, spentTimeInHour: number) => async (
-        dispatch: Dispatch
-    ) => {
-        dispatch(addSession(_id, sessionId, spentTimeInHour));
-        await db.update(
-            { _id },
-            {
-                $push: { sessionIds: sessionId },
-                $inc: { 'spentTimeInHour.actual': spentTimeInHour },
-            }
-        );
-    },
-    addCard: (_id: string, listId: string, title: string, content: string = '') => async (
-        dispatch: Dispatch
-    ) => {
-        const now = +new Date();
-        dispatch(addCard(_id, title, content, now));
-        await listActions.addCardById(listId, _id)(dispatch);
-        await db.insert({
-            _id,
-            title,
-            content,
-            sessionIds: [],
-            spentTimeInHour: {
-                estimated: 0,
-                actual: 0,
-            },
-            createdTime: now,
-        } as Card);
-    },
+    onTimerFinished:
+        (_id: string, sessionId: string, spentTimeInHour: number) => async (dispatch: Dispatch) => {
+            dispatch(addSession(_id, sessionId, spentTimeInHour));
+            await db.update(
+                { _id },
+                {
+                    $push: { sessionIds: sessionId },
+                    $inc: { 'spentTimeInHour.actual': spentTimeInHour },
+                }
+            );
+        },
+    addCard:
+        (_id: string, listId: string, title: string, content: string = '') =>
+        async (dispatch: Dispatch) => {
+            const now = +new Date();
+            dispatch(addCard(_id, title, content, now));
+            await listActions.addCardById(listId, _id)(dispatch);
+            await db.insert({
+                _id,
+                title,
+                content,
+                sessionIds: [],
+                spentTimeInHour: {
+                    estimated: 0,
+                    actual: 0,
+                },
+                createdTime: now,
+            } as Card);
+        },
 };
 
 export const cardReducer = createReducer<CardsState, any>({}, (handle) => [
@@ -182,6 +193,16 @@ export const cardReducer = createReducer<CardsState, any>({}, (handle) => [
                     actual: actualTime,
                     estimated: state[_id].spentTimeInHour.estimated,
                 },
+            },
+        };
+    }),
+
+    handle(setLabels, (state, { payload: { _id, labels } }) => {
+        return {
+            ...state,
+            [_id]: {
+                ...state[_id],
+                labels,
             },
         };
     }),

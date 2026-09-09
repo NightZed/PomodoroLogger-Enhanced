@@ -8,10 +8,11 @@ import { genMapDispatchToProp } from '../../../utils';
 import { Button, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Tabs } from 'antd';
 import TextArea from 'antd/es/input/TextArea';
 import shortid from 'shortid';
-import { Card } from '../type';
+import { Card, CardLabel } from '../type';
 import { Markdown } from '../style/Markdown';
 import formatMarkdown from './formatMarkdown';
 import { EditorContainer } from '../style/editorStyle';
+import { LabelEditor } from './LabelEditor';
 const { TabPane } = Tabs;
 
 interface Props extends CardActionTypes {
@@ -32,6 +33,7 @@ interface FormData {
 const _CardInDetail: FC<Props> = React.memo((props: Props) => {
     const [showMarkdownPreview, setShowMarkdownPreview] = useState(true);
     const [cardContent, setCardContent] = useState('');
+    const [cardLabels, setCardLabels] = useState<CardLabel[]>([]);
     const { card, visible, form, onCancel, listId } = props;
     const isCreating = !card;
     const lastIsCreating = React.useRef<boolean | null>(null);
@@ -51,6 +53,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             const time = card.spentTimeInHour.estimated;
             const actual = card.spentTimeInHour.actual;
             setCardContent(card.content);
+            setCardLabels(card.labels ? card.labels : []);
             setFieldsValue({
                 title: card.title,
                 content: card.content,
@@ -59,6 +62,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             } as FormData);
         } else {
             setCardContent('');
+            setCardLabels([]);
             setShowMarkdownPreview(false);
             setFieldsValue({
                 title: '',
@@ -91,11 +95,15 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             const _id = shortid.generate();
             props.addCard(_id, listId, title, content);
             props.setEstimatedTime(_id, time);
+            if (cardLabels.length > 0) {
+                props.setLabels(_id, cardLabels);
+            }
         } else {
             // Edit
             props.renameCard(card._id, title);
             props.setContent(card._id, content);
             props.setEstimatedTime(card._id, time);
+            props.setLabels(card._id, cardLabels);
             if (actualTime !== undefined) {
                 props.setActualTime(card._id, actualTime);
             }
@@ -224,6 +232,9 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                             )}
                         </Col>
                     </Row>
+                    <Form.Item label="Labels">
+                        <LabelEditor labels={cardLabels} onChange={setCardLabels} />
+                    </Form.Item>
                     {thisIsCreating ? undefined : (
                         <Row>
                             <Popconfirm title={'Are you sure?'} onConfirm={onDelete}>

@@ -198,7 +198,11 @@ export const List: FC<Props> = React.memo((props: Props) => {
         const visibleCards_ = cards.filter((id) => {
             if (!reg) return true;
             const card = cardsState[id];
-            return card.title.match(reg) || card.content.match(reg);
+            return (
+                card.title.match(reg) ||
+                card.content.match(reg) ||
+                (card.labels ?? []).some((label) => ('#' + label.name).match(reg!))
+            );
         });
         return visibleCards_;
     }, [props._id, searchReg, props.cardsState, cards]);

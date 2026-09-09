@@ -201,6 +201,10 @@ export class DataMerger {
             ans.title = b.title;
         }
 
+        if (b.labels !== undefined) {
+            ans.labels = b.labels;
+        }
+
         const sessions = new Set(ans.sessionIds);
         for (const sess of b.sessionIds) {
             if (!sessions.has(sess)) {

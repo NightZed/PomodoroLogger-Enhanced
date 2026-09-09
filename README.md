@@ -49,8 +49,8 @@ Original Repo: [Pomodoro Logger](https://github.com/zxch3n/PomodoroLogger)
   * Support customizing the base color of calendar heat map.
 - Kanban 
   * Display the task creation time.
-  * Add labels to cards with customizable colors. Labels can be added, renamed, recolored and removed in the card editor, and are shown as colored chips on the cards.
-  * Labels are searchable: searching matches card labels, clicking a label chip on a card filters the board by that label, and label suggestions appear in the search panel.
+  * Add labels to cards with customizable colors. Labels can be added, renamed, recolored and removed in the card editor, and are shown as colored chips on the cards. Same-named labels across the board are kept in one color automatically.
+  * Labels are searchable: searching matches card labels, clicking a label chip on a card filters the board by that label, and label suggestions from the current board appear in the search panel and the label editor.
 
 ## Pomodoro Technique :tomato:
 

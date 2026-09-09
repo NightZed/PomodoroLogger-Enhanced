@@ -86,16 +86,25 @@ export const Kanban: FunctionComponent<Props> = React.memo(
         const [editingBoardId, setEditingBoardId] = useState<string | undefined>('');
         const getSuggestions = React.useCallback(() => {
             const labelSet = new Set<string>();
-            for (const card of Object.values(props.cards)) {
-                for (const label of card.labels ?? []) {
-                    labelSet.add('#' + label.name);
+            const board = props.kanban.chosenBoardId
+                ? props.boards[props.kanban.chosenBoardId]
+                : undefined;
+            if (board) {
+                for (const listId of board.lists) {
+                    for (const cardId of props.lists[listId]?.cards ?? []) {
+                        for (const label of props.cards[cardId]?.labels ?? []) {
+                            labelSet.add('#' + label.name);
+                        }
+                    }
                 }
             }
 
             const labels = Array.from(labelSet);
-            const contentTags = props.kanban.tagManager.getSortedTag();
+            const contentTags = props.kanban.chosenBoardId
+                ? props.kanban.tagManager.getSortedTagByBoard(props.kanban.chosenBoardId)
+                : [];
             return contentTags.concat(labels).filter((x, index, arr) => arr.indexOf(x) === index);
-        }, [props.cards, props.kanban.tagManager]);
+        }, [props.cards, props.lists, props.boards, props.kanban]);
         const onShowTableChange = (value: boolean) => {
             setShowTable(value);
         };

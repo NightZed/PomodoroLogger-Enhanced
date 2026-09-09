@@ -2,6 +2,7 @@ import { DataMerger, SourceData } from '../dataMerger';
 import { case0 } from './case0';
 import { case1 } from './case1';
 import { case2 } from './case2';
+import { case3 } from './case3';
 
 describe('Data Merger', () => {
     it('merges case 0', () => {
@@ -19,5 +20,11 @@ describe('Data Merger', () => {
         const merger = new DataMerger();
         const output = merger.merge(case2.a, case2.b);
         expect(output).toStrictEqual(case2.expected);
+    });
+
+    it('merges case 3 (labels)', () => {
+        const merger = new DataMerger();
+        const output = merger.merge(case3.a, case3.b);
+        expect(output).toStrictEqual(case3.expected);
     });
 });

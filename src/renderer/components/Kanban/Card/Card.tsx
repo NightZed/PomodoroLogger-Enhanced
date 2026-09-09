@@ -85,9 +85,9 @@ const renderLabels = (labels?: CardType['labels']) => {
 
     return (
         <CardLabels>
-            {labels.map((label) => (
+            {labels.map((label, index) => (
                 <span
-                    key={label.name}
+                    key={`${label.name}-${index}`}
                     className="card-label"
                     style={{ backgroundColor: label.color }}
                 >

@@ -21,6 +21,8 @@ interface Props extends CardActionTypes {
     card?: Card;
     form: any;
     listId: string;
+    labelSuggestions?: { name: string; color: string }[];
+    boardCards?: { _id: string; labels?: CardLabel[] }[];
 }
 
 interface FormData {
@@ -34,7 +36,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
     const [showMarkdownPreview, setShowMarkdownPreview] = useState(true);
     const [cardContent, setCardContent] = useState('');
     const [cardLabels, setCardLabels] = useState<CardLabel[]>([]);
-    const { card, visible, form, onCancel, listId } = props;
+    const { card, visible, form, onCancel, listId, labelSuggestions, boardCards } = props;
     const isCreating = !card;
     const lastIsCreating = React.useRef<boolean | null>(null);
     const thisIsCreating = visible ? isCreating : lastIsCreating.current ?? isCreating;
@@ -87,13 +89,17 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
         setIsEditingActualTime(!isEditingActualTime);
     };
 
-    const saveValues = ({ title, content, estimatedTime, actualTime }: FormData) => {
+    const saveValues = async ({ title, content, estimatedTime, actualTime }: FormData) => {
         const time = estimatedTime || 0;
         setCardContent(content || '');
         if (!card) {
             // Creating
             const _id = shortid.generate();
-            props.addCard(_id, listId, title, content);
+            // Await the insert before the follow-up updates: nedb `update`
+            // without upsert is a no-op for a not-yet-inserted doc, so firing
+            // setEstimatedTime/setLabels concurrently with addCard could lose
+            // them after a restart.
+            await props.addCard(_id, listId, title, content);
             props.setEstimatedTime(_id, time);
             if (cardLabels.length > 0) {
                 props.setLabels(_id, cardLabels);
@@ -104,8 +110,31 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             props.setContent(card._id, content);
             props.setEstimatedTime(card._id, time);
             props.setLabels(card._id, cardLabels);
+
             if (actualTime !== undefined) {
                 props.setActualTime(card._id, actualTime);
+            }
+        }
+        // Label colors are board-wide by name: sync same-named labels on the
+        // other cards of this board to the colors being saved (covers labels
+        // both edited here and newly added to this card).
+        const newColorByName = new Map(cardLabels.map((label) => [label.name, label.color]));
+        for (const boardCard of boardCards ?? []) {
+            if (card && boardCard._id === card._id) {
+                continue;
+            }
+
+            let changed = false;
+            const nextLabels = (boardCard.labels ?? []).map((label) => {
+                const nextColor = newColorByName.get(label.name);
+                if (nextColor !== undefined && nextColor !== label.color) {
+                    changed = true;
+                    return { ...label, color: nextColor };
+                }
+                return label;
+            });
+            if (changed) {
+                props.setLabels(boardCard._id, nextLabels);
             }
         }
     };
@@ -233,7 +262,11 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                         </Col>
                     </Row>
                     <Form.Item label="Labels">
-                        <LabelEditor labels={cardLabels} onChange={setCardLabels} />
+                        <LabelEditor
+                            labels={cardLabels}
+                            onChange={setCardLabels}
+                            suggestions={labelSuggestions}
+                        />
                     </Form.Item>
                     {thisIsCreating ? undefined : (
                         <Row>
@@ -253,10 +286,37 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
 export const CardInDetail = connect(
     (state: RootState) => {
         const { isEditing, _id, listId } = state.kanban.kanban.editCard;
+        const labelMap = new Map<string, string>();
+        const boardCards: { _id: string; labels?: CardLabel[] }[] = [];
+        let boardId: string | undefined = undefined;
+        for (const id of Object.keys(state.kanban.boards)) {
+            if (state.kanban.boards[id].lists.includes(listId)) {
+                boardId = id;
+                break;
+            }
+        }
+
+        if (boardId !== undefined) {
+            for (const lId of state.kanban.boards[boardId].lists) {
+                for (const cardId of state.kanban.lists[lId]?.cards ?? []) {
+                    const labels = state.kanban.cards[cardId]?.labels;
+                    boardCards.push({ labels, _id: cardId });
+                    for (const label of labels ?? []) {
+                        if (!labelMap.has(label.name)) {
+                            labelMap.set(label.name, label.color);
+                        }
+                    }
+                }
+            }
+        }
+
+        const suggestions = Array.from(labelMap).map(([name, color]) => ({ name, color }));
         return {
             listId,
+            boardCards,
             card: _id === undefined ? undefined : state.kanban.cards[_id],
             visible: isEditing,
+            labelSuggestions: suggestions,
         };
     },
     genMapDispatchToProp<CardActionTypes>({

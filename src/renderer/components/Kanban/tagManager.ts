@@ -22,6 +22,25 @@ export class TagManager {
         return this.sortedTags;
     };
 
+    getSortedTagByBoard = (boardId: string) => {
+        const tags: [string, number][] = [];
+        this.tags.forEach((value, key) => {
+            let count = 0;
+            value.forEach((hashedPath) => {
+                if (hashedPath.startsWith(`${boardId}/`)) {
+                    count += 1;
+                }
+            });
+
+            if (count > 0) {
+                tags.push([key, count]);
+            }
+        });
+
+        tags.sort((a, b) => -a[1] + b[1]);
+        return tags.map((x) => x[0]);
+    };
+
     getTagCount(tag: string) {
         return this.tags.get(tag)?.size ?? 0;
     }

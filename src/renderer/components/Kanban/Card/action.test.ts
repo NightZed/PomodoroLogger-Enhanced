@@ -6,7 +6,7 @@ import shortid from 'shortid';
 import { AsyncDB } from '../../../../utils/dbHelper';
 import dbs, { refreshDbs } from '../../../dbs';
 import { Dispatch } from 'redux';
-import { Card } from '../type';
+import { Card, CardLabel } from '../type';
 
 const db = new AsyncDB(dbs.cardsDB);
 
@@ -162,6 +162,41 @@ describe("Cards' actions", () => {
         );
     });
 
+    it('set labels', async () => {
+        const _id = shortid.generate();
+        const _d = jest.fn();
+        const dispatch = jest.fn();
+        await actions.addCard(_id, '', 'abc', '')(_d);
+        const labels: CardLabel[] = [
+            { name: 'bug', color: '#eb5a46' },
+            { name: 'feature', color: '#61bd4f' },
+        ];
+        await actions.setLabels(_id, labels)(dispatch);
+        expect(dispatch.mock.calls[0][0]).toStrictEqual({
+            type: '[Card]SET_LABELS',
+            payload: {
+                _id,
+                labels,
+            },
+        });
+
+        const card = await db.findOne({ _id });
+        expect(card).not.toBeFalsy();
+        expect(card.labels).toStrictEqual(labels);
+    });
+
+    it('set labels to empty removes labels', async () => {
+        const _id = shortid.generate();
+        const _d = jest.fn();
+        const dispatch = jest.fn();
+        await actions.addCard(_id, '', 'abc', '')(_d);
+        await actions.setLabels(_id, [{ name: 'a', color: '#61bd4f' }])(dispatch);
+        await actions.setLabels(_id, [])(dispatch);
+
+        const card = await db.findOne({ _id });
+        expect(card.labels).toStrictEqual([]);
+    });
+
     it('should update', async () => {
         const _id = shortid.generate();
         let state: CardsState = {};
@@ -178,8 +213,10 @@ describe("Cards' actions", () => {
         await actions.setEstimatedTime(_id, 110)(dispatch);
         await actions.setContent(_id, '8888')(dispatch);
         await actions.renameCard(_id, 'title')(dispatch);
+        await actions.setLabels(_id, [{ name: 'l', color: '#61bd4f' }])(dispatch);
         expect(state[_id].title).toBe('title');
         expect(state[_id].content).toBe('8888');
+        expect(state[_id].labels).toStrictEqual([{ name: 'l', color: '#61bd4f' }]);
         expect(state[_id].spentTimeInHour.actual).toBe(101);
         expect(state[_id].spentTimeInHour.estimated).toBe(110);
         await actions.addActualTime(_id, 90)(dispatch);

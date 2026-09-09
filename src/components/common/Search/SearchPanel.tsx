@@ -38,12 +38,12 @@ export const SearchPanel = ({
             <Title>#TAGS</Title>
             <Group>
                 {tags.map((x) => (
-                    <>
-                        <span className="pl-tag" key={x} onClick={setSearch(x)}>
+                    <React.Fragment key={x}>
+                        <span className="pl-tag" onClick={setSearch(x)}>
                             {x}
                         </span>
                         <span />
-                    </>
+                    </React.Fragment>
                 ))}
             </Group>
             {/* <Title>HISTORY</Title>

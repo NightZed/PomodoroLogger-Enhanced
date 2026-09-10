@@ -127,7 +127,7 @@ export const EditKanbanForm = Form.create<
                                 <TabPane tab="Edit" key="edit">
                                     {getFieldDecorator('description')(
                                         <TextArea
-                                            autosize={{ minRows: 3, maxRows: 5 }}
+                                            autoSize={{ minRows: 3, maxRows: 5 }}
                                             onKeyDown={this.onKeydown}
                                         />
                                     )}

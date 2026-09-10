@@ -66,7 +66,7 @@ export const EditKanbanForm = Form.create<
             if (nextProps.isCreating !== prevState.isCreating) {
                 Object.assign(nextState, {
                     isCreating: nextProps.isCreating,
-                    showMarkdownPreview: !nextProps.isCreating,
+                    showMarkdownPreview: false,
                 });
             }
 

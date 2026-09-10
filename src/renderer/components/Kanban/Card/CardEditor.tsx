@@ -33,7 +33,7 @@ interface FormData {
 }
 
 const _CardInDetail: FC<Props> = React.memo((props: Props) => {
-    const [showMarkdownPreview, setShowMarkdownPreview] = useState(true);
+    const [showMarkdownPreview, setShowMarkdownPreview] = useState(false);
     const [cardContent, setCardContent] = useState('');
     const [cardLabels, setCardLabels] = useState<CardLabel[]>([]);
     const { card, visible, form, onCancel, listId, labelSuggestions, boardCards } = props;
@@ -51,7 +51,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
 
         setIsEditingActualTime(false);
         if (card) {
-            setShowMarkdownPreview(true);
+            setShowMarkdownPreview(false);
             const time = card.spentTimeInHour.estimated;
             const actual = card.spentTimeInHour.actual;
             setCardContent(card.content);

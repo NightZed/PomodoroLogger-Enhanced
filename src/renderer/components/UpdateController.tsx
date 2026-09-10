@@ -1,11 +1,18 @@
 import { ipcRenderer } from 'electron';
 import * as React from 'react';
 import { Modal, notification } from 'antd';
+import formatMarkdown from './Kanban/Card/formatMarkdown';
+
+interface UpdateInfo {
+    version: string;
+    releaseName?: string;
+    releaseNotes?: string;
+}
 
 interface State {
     type: 'hidden' | 'update-available' | 'progress' | 'downloaded';
     progress: number;
-    versionInfo: string;
+    updateInfo: UpdateInfo | null;
 }
 
 export class UpdateController extends React.Component<any, State> {
@@ -14,15 +21,15 @@ export class UpdateController extends React.Component<any, State> {
         this.state = {
             type: 'hidden',
             progress: 0,
-            versionInfo: ''
+            updateInfo: null,
         };
     }
 
     componentDidMount() {
-        ipcRenderer.addListener('update-available', (event: any, message: string) => {
+        ipcRenderer.addListener('update-available', (event: any, info: UpdateInfo) => {
             this.setState({
-                versionInfo: message,
-                type: 'update-available'
+                updateInfo: info,
+                type: 'update-available',
             });
         });
 
@@ -35,7 +42,7 @@ export class UpdateController extends React.Component<any, State> {
                 message: 'Update Download Failed',
                 description:
                     'You can download manually from https://github.com/NightZed/PomodoroLogger-Enhanced/releases',
-                duration: 0
+                duration: 0,
             };
             notification.open(args);
         });
@@ -54,7 +61,7 @@ export class UpdateController extends React.Component<any, State> {
         const args = {
             message: 'Update Downloaded',
             description: 'When you are ready, quit the app to start installation',
-            duration: 0
+            duration: 0,
         };
         notification.open(args);
     };
@@ -68,7 +75,27 @@ export class UpdateController extends React.Component<any, State> {
                 onCancel={this.onCancel}
             >
                 <p>A new version is available: </p>
-                <p>{this.state.versionInfo}</p>
+                <p>
+                    Version: {this.state.updateInfo?.version}
+                    {this.state.updateInfo?.releaseName
+                        ? `; ${this.state.updateInfo.releaseName}`
+                        : ''}
+                </p>
+                {this.state.updateInfo?.releaseNotes ? (
+                    <div
+                        style={{
+                            maxHeight: 300,
+                            overflowY: 'auto',
+                            border: '1px solid #e8e8e8',
+                            borderRadius: 4,
+                            padding: 12,
+                            marginBottom: 12,
+                        }}
+                        dangerouslySetInnerHTML={{
+                            __html: formatMarkdown(this.state.updateInfo.releaseNotes),
+                        }}
+                    />
+                ) : null}
                 <p>Start downloading now?</p>
             </Modal>
         );

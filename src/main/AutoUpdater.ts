@@ -12,7 +12,13 @@ export class AutoUpdater {
         });
         autoUpdater.on('update-available', (info) => {
             console.log('update available');
-            sendStatusToWindow('update-available', `Version: ${info.version}; ${info.releaseName}`);
+            const releaseNotes =
+                typeof info.releaseNotes === 'string' ? info.releaseNotes : info.releaseNotes?.note;
+            sendStatusToWindow('update-available', {
+                releaseNotes,
+                version: info.version,
+                releaseName: info.releaseName,
+            });
         });
         autoUpdater.on('update-not-available', (info) => {
             console.log('update not available');

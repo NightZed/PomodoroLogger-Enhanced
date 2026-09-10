@@ -1,11 +1,11 @@
-import React, { FC, useEffect, useState, KeyboardEvent } from 'react';
+import React, { FC, useEffect, useState, KeyboardEvent, useRef } from 'react';
 import { connect } from 'react-redux';
 import { actions, CardActionTypes } from './action';
 import { actions as kanbanActions } from '../action';
 import { RootState } from '../../../reducers';
 import ReactHotkeys from 'react-hot-keys';
 import { genMapDispatchToProp } from '../../../utils';
-import { Button, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Tabs } from 'antd';
+import { Button, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Tabs, Tooltip } from 'antd';
 import TextArea from 'antd/es/input/TextArea';
 import shortid from 'shortid';
 import { Card, CardLabel } from '../type';
@@ -85,6 +85,32 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
     }, [card?._id, listId, onCancel]);
 
     const [isEditingActualTime, setIsEditingActualTime] = useState(false);
+    const contentRef = useRef<any>(null);
+
+    const insertCheckbox = React.useCallback(() => {
+        validateFields((err: Error, values: FormData) => {
+            if (err) {
+                return;
+            }
+
+            const current = values.content || '';
+            const textarea = contentRef.current?.resizableTextArea?.textArea ?? contentRef.current;
+            const pos = textarea?.selectionStart ?? current.length;
+            const atLineStart = pos === 0 || current[pos - 1] === '\n';
+            const insert = (atLineStart ? '' : '\n') + '[ ] ';
+            const next = current.slice(0, pos) + insert + current.slice(pos);
+            setFieldsValue({ content: next });
+            setCardContent(next);
+            if (textarea) {
+                const caret = pos + insert.length;
+                setTimeout(() => {
+                    textarea.focus();
+                    textarea.setSelectionRange(caret, caret);
+                }, 0);
+            }
+        });
+    }, [validateFields, setFieldsValue]);
+
     const onSwitchIsEditing = () => {
         setIsEditingActualTime(!isEditingActualTime);
     };
@@ -166,6 +192,18 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
         [onSave, onCancel]
     );
 
+    const onContentKeyDown = React.useCallback(
+        (event: KeyboardEvent<any>) => {
+            if ((event.ctrlKey || event.metaKey) && (event.which === 76 || event.keyCode === 76)) {
+                event.preventDefault();
+                insertCheckbox();
+                return;
+            }
+            keydownEventHandler(event);
+        },
+        [insertCheckbox, keydownEventHandler]
+    );
+
     const onTabChange = React.useCallback((name: string) => {
         if (name === 'edit') {
             setShowMarkdownPreview(false);
@@ -202,11 +240,21 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                         style={{ marginBottom: 10, minHeight: 120 }}
                     >
                         <TabPane tab="Edit" key="edit">
+                            <Tooltip title={'插入任务复选框 [ ]（快捷键 Ctrl+L）'}>
+                                <Button
+                                    size={'small'}
+                                    style={{ marginBottom: 4 }}
+                                    onClick={insertCheckbox}
+                                >
+                                    ☐
+                                </Button>
+                            </Tooltip>
                             {getFieldDecorator('content')(
                                 <TextArea
+                                    ref={contentRef}
                                     autoSize={{ minRows: 6 }}
                                     placeholder={'Description'}
-                                    onKeyDown={keydownEventHandler}
+                                    onKeyDown={onContentKeyDown}
                                 />
                             )}
                         </TabPane>

@@ -87,29 +87,126 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
     const [isEditingActualTime, setIsEditingActualTime] = useState(false);
     const contentRef = useRef<any>(null);
 
+    const [linkModalVisible, setLinkModalVisible] = useState(false);
+    const [linkUrl, setLinkUrl] = useState('');
+    const pendingLinkRef = useRef<{ start: number; end: number; text: string } | null>(null);
+
+    const getTextarea = () => contentRef.current?.resizableTextArea?.textArea ?? contentRef.current;
+
+    const applyMarkdown = React.useCallback(
+        (
+            wrap: (
+                selected: string,
+                context: { current: string; start: number; end: number }
+            ) => { text: string; caretOffset?: number }
+        ) => {
+            validateFields((err: Error, values: FormData) => {
+                if (err) {
+                    return;
+                }
+
+                const current = values.content || '';
+                const textarea = getTextarea();
+                const start = textarea?.selectionStart ?? current.length;
+                const end = textarea?.selectionEnd ?? start;
+                const selected = current.slice(start, end);
+                const { text, caretOffset } = wrap(selected, { current, start, end });
+                const next = current.slice(0, start) + text + current.slice(end);
+                setFieldsValue({ content: next });
+                setCardContent(next);
+                if (textarea) {
+                    const caret = start + (caretOffset ?? text.length);
+                    setTimeout(() => {
+                        textarea.focus();
+                        textarea.setSelectionRange(caret, caret);
+                    }, 0);
+                }
+            });
+        },
+        [validateFields, setFieldsValue]
+    );
+
+    const wrapSelection = React.useCallback(
+        (prefix: string, suffix: string, placeholder: string) => {
+            applyMarkdown((selected) => {
+                const inner = selected || placeholder;
+                return {
+                    text: prefix + inner + suffix,
+                    caretOffset: selected ? undefined : prefix.length + inner.length,
+                };
+            });
+        },
+        [applyMarkdown]
+    );
+
     const insertCheckbox = React.useCallback(() => {
+        applyMarkdown((_selected, { current, start }) => {
+            const atLineStart = start === 0 || current[start - 1] === '\n';
+            return { text: (atLineStart ? '' : '\n') + '[ ] ' };
+        });
+    }, [applyMarkdown]);
+
+    const insertBold = React.useCallback(() => {
+        wrapSelection('**', '**', '粗体文本');
+    }, [wrapSelection]);
+
+    const insertStrikethrough = React.useCallback(() => {
+        wrapSelection('~~', '~~', '删除线文本');
+    }, [wrapSelection]);
+
+    const openLinkModal = React.useCallback(() => {
         validateFields((err: Error, values: FormData) => {
             if (err) {
                 return;
             }
 
             const current = values.content || '';
-            const textarea = contentRef.current?.resizableTextArea?.textArea ?? contentRef.current;
-            const pos = textarea?.selectionStart ?? current.length;
-            const atLineStart = pos === 0 || current[pos - 1] === '\n';
-            const insert = (atLineStart ? '' : '\n') + '[ ] ';
-            const next = current.slice(0, pos) + insert + current.slice(pos);
+            const textarea = getTextarea();
+            const start = textarea?.selectionStart ?? current.length;
+            const end = textarea?.selectionEnd ?? start;
+            pendingLinkRef.current = {
+                start,
+                end,
+                text: current.slice(start, end) || '链接文本',
+            };
+            setLinkUrl('');
+            setLinkModalVisible(true);
+        });
+    }, [validateFields]);
+
+    const closeLinkModal = React.useCallback(() => {
+        setLinkModalVisible(false);
+        pendingLinkRef.current = null;
+    }, []);
+
+    const confirmLink = React.useCallback(() => {
+        const url = linkUrl.trim();
+        const pending = pendingLinkRef.current;
+        if (!url || !pending) {
+            return;
+        }
+
+        const text = `[${pending.text}](${url})`;
+        validateFields((err: Error, values: FormData) => {
+            if (err) {
+                return;
+            }
+
+            const current = values.content || '';
+            const next = current.slice(0, pending.start) + text + current.slice(pending.end);
             setFieldsValue({ content: next });
             setCardContent(next);
+            const textarea = getTextarea();
             if (textarea) {
-                const caret = pos + insert.length;
+                const caret = pending.start + text.length;
                 setTimeout(() => {
                     textarea.focus();
                     textarea.setSelectionRange(caret, caret);
                 }, 0);
             }
         });
-    }, [validateFields, setFieldsValue]);
+        closeLinkModal();
+    }, [linkUrl, validateFields, setFieldsValue, closeLinkModal]);
 
     const onSwitchIsEditing = () => {
         setIsEditingActualTime(!isEditingActualTime);
@@ -194,14 +291,30 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
 
     const onContentKeyDown = React.useCallback(
         (event: KeyboardEvent<any>) => {
-            if ((event.ctrlKey || event.metaKey) && (event.which === 76 || event.keyCode === 76)) {
+            const mod = event.ctrlKey || event.metaKey;
+            if (mod && (event.which === 76 || event.keyCode === 76)) {
                 event.preventDefault();
                 insertCheckbox();
                 return;
             }
+            if (mod && (event.which === 66 || event.keyCode === 66)) {
+                event.preventDefault();
+                insertBold();
+                return;
+            }
+            if (mod && event.shiftKey && (event.which === 88 || event.keyCode === 88)) {
+                event.preventDefault();
+                insertStrikethrough();
+                return;
+            }
+            if (mod && (event.which === 75 || event.keyCode === 75)) {
+                event.preventDefault();
+                openLinkModal();
+                return;
+            }
             keydownEventHandler(event);
         },
-        [insertCheckbox, keydownEventHandler]
+        [insertCheckbox, insertBold, insertStrikethrough, openLinkModal, keydownEventHandler]
     );
 
     const onTabChange = React.useCallback((name: string) => {
@@ -240,15 +353,39 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                         style={{ marginBottom: 10, minHeight: 120 }}
                     >
                         <TabPane tab="Edit" key="edit">
-                            <Tooltip title={'插入任务复选框 [ ]（快捷键 Ctrl+L）'}>
-                                <Button
-                                    size={'small'}
-                                    style={{ marginBottom: 4 }}
-                                    onClick={insertCheckbox}
-                                >
-                                    ☐
-                                </Button>
-                            </Tooltip>
+                            <div style={{ marginBottom: 4 }}>
+                                <Tooltip title={'插入任务复选框 [ ]（快捷键 Ctrl+L）'}>
+                                    <Button size={'small'} onClick={insertCheckbox}>
+                                        ☐
+                                    </Button>
+                                </Tooltip>
+                                <Tooltip title={'加粗 **文本**（快捷键 Ctrl+B）'}>
+                                    <Button
+                                        size={'small'}
+                                        style={{ marginLeft: 4 }}
+                                        onClick={insertBold}
+                                    >
+                                        <b>B</b>
+                                    </Button>
+                                </Tooltip>
+                                <Tooltip title={'删除线 ~~文本~~（快捷键 Ctrl+Shift+X）'}>
+                                    <Button
+                                        size={'small'}
+                                        style={{ marginLeft: 4, textDecoration: 'line-through' }}
+                                        onClick={insertStrikethrough}
+                                    >
+                                        S
+                                    </Button>
+                                </Tooltip>
+                                <Tooltip title={'插入链接 [文本](URL)（快捷键 Ctrl+K）'}>
+                                    <Button
+                                        size={'small'}
+                                        style={{ marginLeft: 4 }}
+                                        icon={'link'}
+                                        onClick={openLinkModal}
+                                    />
+                                </Tooltip>
+                            </div>
                             {getFieldDecorator('content')(
                                 <TextArea
                                     ref={contentRef}
@@ -327,6 +464,24 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                     )}
                 </Form>
             </EditorContainer>
+            <Modal
+                title={'插入链接'}
+                visible={linkModalVisible}
+                okText={'插入'}
+                cancelText={'取消'}
+                width={360}
+                onOk={confirmLink}
+                onCancel={closeLinkModal}
+                destroyOnClose={true}
+            >
+                <Input
+                    autoFocus={true}
+                    placeholder={'https://example.com'}
+                    value={linkUrl}
+                    onChange={(e) => setLinkUrl(e.target.value)}
+                    onPressEnter={confirmLink}
+                />
+            </Modal>
         </Modal>
     );
 });

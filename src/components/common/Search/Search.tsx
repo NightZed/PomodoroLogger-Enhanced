@@ -192,7 +192,7 @@ export const Search = ({ setSearchStr, searchHistory, searchStr, tags }: SearchP
         window.addEventListener('keydown', onKeydown);
         return () => {
             window.removeEventListener('mousedown', handler);
-            window.removeEventListener('keyboard', onKeydown as any);
+            window.removeEventListener('keydown', onKeydown);
         };
     }, []);
 

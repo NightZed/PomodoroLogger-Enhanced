@@ -1,4 +1,11 @@
-import React, { FC, useState, useRef, useEffect, ChangeEvent, KeyboardEvent } from 'react';
+import React, {
+    FC,
+    useState,
+    useRef,
+    useEffect,
+    ChangeEvent,
+    KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import { debounce } from 'lodash';
 import { actions } from './action';
 import { connect } from 'react-redux';
@@ -53,7 +60,7 @@ const _SearchBar: FC<Props> = (props: Props) => {
     const ref = useRef<HTMLInputElement>();
     const [searchingText, setSearchingText] = useState('');
     useEffect(() => {
-        window.addEventListener('keydown', (event) => {
+        const onKeydown = (event: KeyboardEvent) => {
             if (
                 event.ctrlKey &&
                 (event.key === 'f' || event.which === 70 || event.code === 'KeyF')
@@ -66,7 +73,11 @@ const _SearchBar: FC<Props> = (props: Props) => {
             } else if (event.key === 'Escape' || event.which === 27 || event.code === 'Escape') {
                 props.setIsSearching(false);
             }
-        });
+        };
+        window.addEventListener('keydown', onKeydown);
+        return () => {
+            window.removeEventListener('keydown', onKeydown);
+        };
     }, []);
 
     const hide = () => {
@@ -79,7 +90,7 @@ const _SearchBar: FC<Props> = (props: Props) => {
     }, [props.setIsSearching, props.setReg]);
 
     const onKeyDown = React.useCallback(
-        (event: KeyboardEvent<any>) => {
+        (event: ReactKeyboardEvent<any>) => {
             if (event.keyCode === 27) {
                 quit();
             } else if (event.keyCode === 13) {

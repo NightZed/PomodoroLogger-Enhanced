@@ -93,6 +93,21 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
 
     const getTextarea = () => contentRef.current?.resizableTextArea?.textArea ?? contentRef.current;
 
+    // Insert text via execCommand so the edit lands in the browser's native
+    // undo stack: programmatic value replacement (setFieldsValue) is invisible
+    // to Ctrl+Z and resets the undo history.
+    const insertViaExecCommand = React.useCallback(
+        (textarea: any, start: number, end: number, text: string, caret?: number) => {
+            textarea.focus();
+            textarea.setSelectionRange(start, end);
+            document.execCommand('insertText', false, text);
+            if (caret !== undefined) {
+                textarea.setSelectionRange(caret, caret);
+            }
+        },
+        []
+    );
+
     const applyMarkdown = React.useCallback(
         (
             wrap: (
@@ -111,19 +126,17 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                 const end = textarea?.selectionEnd ?? start;
                 const selected = current.slice(start, end);
                 const { text, caretOffset } = wrap(selected, { current, start, end });
-                const next = current.slice(0, start) + text + current.slice(end);
-                setFieldsValue({ content: next });
-                setCardContent(next);
                 if (textarea) {
-                    const caret = start + (caretOffset ?? text.length);
-                    setTimeout(() => {
-                        textarea.focus();
-                        textarea.setSelectionRange(caret, caret);
-                    }, 0);
+                    const caret = caretOffset === undefined ? undefined : start + caretOffset;
+                    insertViaExecCommand(textarea, start, end, text, caret);
+                } else {
+                    const next = current.slice(0, start) + text + current.slice(end);
+                    setFieldsValue({ content: next });
+                    setCardContent(next);
                 }
             });
         },
-        [validateFields, setFieldsValue]
+        [validateFields, setFieldsValue, insertViaExecCommand]
     );
 
     const wrapSelection = React.useCallback(
@@ -192,21 +205,18 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                 return;
             }
 
-            const current = values.content || '';
-            const next = current.slice(0, pending.start) + text + current.slice(pending.end);
-            setFieldsValue({ content: next });
-            setCardContent(next);
             const textarea = getTextarea();
             if (textarea) {
-                const caret = pending.start + text.length;
-                setTimeout(() => {
-                    textarea.focus();
-                    textarea.setSelectionRange(caret, caret);
-                }, 0);
+                insertViaExecCommand(textarea, pending.start, pending.end, text);
+            } else {
+                const current = values.content || '';
+                const next = current.slice(0, pending.start) + text + current.slice(pending.end);
+                setFieldsValue({ content: next });
+                setCardContent(next);
             }
         });
         closeLinkModal();
-    }, [linkUrl, validateFields, setFieldsValue, closeLinkModal]);
+    }, [linkUrl, validateFields, setFieldsValue, closeLinkModal, insertViaExecCommand]);
 
     const onSwitchIsEditing = () => {
         setIsEditingActualTime(!isEditingActualTime);
@@ -392,6 +402,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                     autoSize={{ minRows: 6 }}
                                     placeholder={'Description'}
                                     onKeyDown={onContentKeyDown}
+                                    onChange={(e: any) => setCardContent(e.target.value)}
                                 />
                             )}
                         </TabPane>

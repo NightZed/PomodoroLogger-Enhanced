@@ -118,10 +118,29 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         const boardId = props.chosenId;
         const searchArg = props.chosenId === undefined ? {} : { boardId };
         // Avoid using outdated cache; And use worker to avoid db blocking the process
+        // 按需加载，避免将整个 session 数据库全量拉入渲染进程：
+        //  - 近一周/一月内的记录用于“今日/本周/本月”聚合；
+        //  - 选定年份的记录用于日历/饼图/词云；
+        //  - 全量计数使用轻量的 count 查询。
         const db = workers.dbWorkers.sessionDB;
-        db.find(searchArg, {})
-            .then((docs) => {
-                return getAggPomodoroInfo(docs, props.getCardsByBoardId(boardId));
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+        const weekStart = todayStart - new Date().getDay() * 86400 * 1000;
+        const recentStart = Math.min(monthStart, weekStart);
+        const yearStart = new Date(chosenYear, 0, 1).getTime();
+        const nextYearStart = new Date(chosenYear + 1, 0, 1).getTime();
+        const recentArg = { ...searchArg, startTime: { $gte: recentStart } };
+        const yearArg = { ...searchArg, startTime: { $gte: yearStart, $lt: nextYearStart } };
+
+        Promise.all([db.find(recentArg, {}), db.find(yearArg, {}), db.count(searchArg)])
+            .then(([recentDocs, yearDocs, totalCount]) => {
+                return getAggPomodoroInfo(
+                    recentDocs,
+                    props.getCardsByBoardId(boardId),
+                    yearDocs,
+                    totalCount
+                );
             })
             .then((ans: AggPomodoroInfo) => {
                 if (cancelled) {
@@ -136,7 +155,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         return () => {
             cancelled = true;
         };
-    }, [props.chosenId, expiringKey]);
+    }, [props.chosenId, expiringKey, chosenYear]);
     useEffect(() => {
         if (targetDate == null) {
             return;

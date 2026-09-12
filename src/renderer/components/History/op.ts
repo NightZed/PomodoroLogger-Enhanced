@@ -107,9 +107,18 @@ export interface AggPomodoroInfo {
     pieChart?: TimeSpentData;
 }
 
+/**
+ * 聚合番茄钟数据。
+ * `pomodoros` 用于“今日/本周/本月”统计（只需近期记录，避免全量加载）；
+ * `yearRecords` 用于日历/饼图/词云（按选定年份查询，默认与 pomodoros 相同，
+ * 保持向后兼容，例如测试场景）；
+ * `totalCount` 为全量记录数（由轻量的 count 查询得到，默认取 pomodoros 长度）。
+ */
 export async function getAggPomodoroInfo(
     pomodoros: PomodoroRecord[],
-    cards: Card[]
+    cards: Card[],
+    yearRecords: PomodoroRecord[] = pomodoros,
+    totalCount?: number
 ): Promise<AggPomodoroInfo> {
     return {
         agg: {
@@ -118,11 +127,11 @@ export async function getAggPomodoroInfo(
             month: getPomodoroAgg(new Date().getDate() - 1, pomodoros),
         },
         total: {
-            count: pomodoros.length,
+            count: totalCount ?? pomodoros.length,
             usedTime: cards.reduce((a, b) => a + b.spentTimeInHour.actual, 0),
         },
-        wordWeights: await workers.tokenizer.tokenize(pomodoros, cards),
-        pieChart: await getTimeSpentDataFromRecords(pomodoros),
-        calendarCount: getPomodoroCalendarData(pomodoros),
+        wordWeights: await workers.tokenizer.tokenize(yearRecords, cards),
+        pieChart: await getTimeSpentDataFromRecords(yearRecords),
+        calendarCount: getPomodoroCalendarData(yearRecords),
     };
 }

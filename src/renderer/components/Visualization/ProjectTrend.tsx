@@ -89,13 +89,22 @@ export const IdTrend: React.FC<InputProps> = (props: InputProps) => {
     const [data, setData] = useState([0, 0, 0, 0, 0]);
     const { boardId, ...restProps } = props;
     useEffect(() => {
+        let cancelled = false;
         const worker = workers.dbWorkers.sessionDB;
-        worker.find({ boardId: props.boardId }, {}).then((values: PomodoroRecord[]) => {
+        worker.find({ boardId }, {}).then((values: PomodoroRecord[]) => {
+            // 组件可能已在查询完成前卸载（如切换视图），此时不再做状态更新
+            if (cancelled) {
+                return;
+            }
+
             const counter = countRecordNum(values);
             counter[counter.length - 1] += 0.001;
             setData(counter);
         });
-    }, [props.boardId]);
+        return () => {
+            cancelled = true;
+        };
+    }, [boardId]);
 
     return <ProjectTrend data={data} {...restProps} />;
 };

@@ -162,6 +162,7 @@ class Timer extends Component<Props, State> {
     efficiencyAnalyser: EfficiencyAnalyser;
     private stagedSession?: PomodoroRecord;
     selfRef: React.RefObject<HTMLDivElement> = React.createRef();
+    private componentGone = false;
 
     constructor(props: Props) {
         super(props);
@@ -204,6 +205,11 @@ class Timer extends Component<Props, State> {
             start: this.startFocusing,
         });
         getTodaySessions().then((finishedSessions) => {
+            // 组件可能已在查询完成前卸载，此时不再更新状态
+            if (this.componentGone) {
+                return;
+            }
+
             finishedSessions.sort((a, b) => a.startTime - b.startTime);
             this.setState({
                 pomodorosToday: finishedSessions,
@@ -283,6 +289,7 @@ class Timer extends Component<Props, State> {
     }
 
     componentWillUnmount(): void {
+        this.componentGone = true;
         if (this.monitor) {
             this.monitor.stop();
             this.monitor.clear();

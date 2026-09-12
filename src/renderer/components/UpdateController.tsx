@@ -16,6 +16,10 @@ interface State {
 }
 
 export class UpdateController extends React.Component<any, State> {
+    private updateAvailableHandler?: (event: any, info: UpdateInfo) => void;
+    private updateDownloadedHandler?: () => void;
+    private updateErrorHandler?: (event: any, message: string) => void;
+
     constructor(props: any) {
         super(props);
         this.state = {
@@ -26,18 +30,20 @@ export class UpdateController extends React.Component<any, State> {
     }
 
     componentDidMount() {
-        ipcRenderer.addListener('update-available', (event: any, info: UpdateInfo) => {
+        this.updateAvailableHandler = (event: any, info: UpdateInfo) => {
             this.setState({
                 updateInfo: info,
                 type: 'update-available',
             });
-        });
+        };
+        ipcRenderer.addListener('update-available', this.updateAvailableHandler);
 
-        ipcRenderer.addListener('update-downloaded', () => {
+        this.updateDownloadedHandler = () => {
             this.notifyDownloaded();
-        });
+        };
+        ipcRenderer.addListener('update-downloaded', this.updateDownloadedHandler);
 
-        ipcRenderer.addListener('error', (event: any, message: string) => {
+        this.updateErrorHandler = (event: any, message: string) => {
             const args = {
                 message: 'Update Download Failed',
                 description:
@@ -45,7 +51,20 @@ export class UpdateController extends React.Component<any, State> {
                 duration: 0,
             };
             notification.open(args);
-        });
+        };
+        ipcRenderer.addListener('error', this.updateErrorHandler);
+    }
+
+    componentWillUnmount() {
+        if (this.updateAvailableHandler) {
+            ipcRenderer.removeListener('update-available', this.updateAvailableHandler);
+        }
+        if (this.updateDownloadedHandler) {
+            ipcRenderer.removeListener('update-downloaded', this.updateDownloadedHandler);
+        }
+        if (this.updateErrorHandler) {
+            ipcRenderer.removeListener('error', this.updateErrorHandler);
+        }
     }
 
     onOk = () => {

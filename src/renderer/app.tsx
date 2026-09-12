@@ -9,6 +9,8 @@ import store from './store';
 import { ipcRenderer } from 'electron';
 import { IpcEventName } from '../main/ipc/type';
 
+import './echartsSetup';
+
 const dict: { [event: string]: Function } = {};
 const msgMap: Map<string, { resolve: Function; reject: Function }> = new Map();
 ipcRenderer.on('reply', (e, token, arg, err) => {

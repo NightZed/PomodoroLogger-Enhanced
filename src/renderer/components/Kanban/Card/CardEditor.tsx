@@ -11,6 +11,7 @@ import shortid from 'shortid';
 import { Card, CardLabel } from '../type';
 import { Markdown } from '../style/Markdown';
 import formatMarkdown from './formatMarkdown';
+import { findFormatBlock } from './selectionFormat';
 import { EditorContainer } from '../style/editorStyle';
 import { LabelEditor } from './LabelEditor';
 const { TabPane } = Tabs;
@@ -113,7 +114,11 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             wrap: (
                 selected: string,
                 context: { current: string; start: number; end: number }
-            ) => { text: string; caretOffset?: number }
+            ) => {
+                text: string;
+                caretOffset?: number;
+                replaceRange?: [number, number];
+            }
         ) => {
             validateFields((err: Error, values: FormData) => {
                 if (err) {
@@ -125,12 +130,15 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                 const start = textarea?.selectionStart ?? current.length;
                 const end = textarea?.selectionEnd ?? start;
                 const selected = current.slice(start, end);
-                const { text, caretOffset } = wrap(selected, { current, start, end });
+                const { text, caretOffset, replaceRange } = wrap(selected, { current, start, end });
+                const replaceStart = replaceRange ? replaceRange[0] : start;
+                const replaceEnd = replaceRange ? replaceRange[1] : end;
                 if (textarea) {
-                    const caret = caretOffset === undefined ? undefined : start + caretOffset;
-                    insertViaExecCommand(textarea, start, end, text, caret);
+                    const caret =
+                        caretOffset === undefined ? undefined : replaceStart + caretOffset;
+                    insertViaExecCommand(textarea, replaceStart, replaceEnd, text, caret);
                 } else {
-                    const next = current.slice(0, start) + text + current.slice(end);
+                    const next = current.slice(0, replaceStart) + text + current.slice(replaceEnd);
                     setFieldsValue({ content: next });
                     setCardContent(next);
                 }
@@ -141,7 +149,16 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
 
     const wrapSelection = React.useCallback(
         (prefix: string, suffix: string, placeholder: string) => {
-            applyMarkdown((selected) => {
+            applyMarkdown((selected, { current, start, end }) => {
+                const block = findFormatBlock(current, start, end, prefix, suffix);
+                if (block) {
+                    // 已包裹（场景A/B）→ 解包为普通文本，光标落在解包文本末尾
+                    return {
+                        text: block.content,
+                        caretOffset: block.content.length,
+                        replaceRange: [block.blockStart, block.blockEnd],
+                    };
+                }
                 const inner = selected || placeholder;
                 return {
                     text: prefix + inner + suffix,
@@ -385,7 +402,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                         ☐
                                     </Button>
                                 </Tooltip>
-                                <Tooltip title={'加粗 **文本**（快捷键 Ctrl+B）'}>
+                                <Tooltip title={'切换加粗 **文本**（快捷键 Ctrl+B）'}>
                                     <Button
                                         size={'small'}
                                         style={{ marginLeft: 4 }}
@@ -394,7 +411,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                         <b>B</b>
                                     </Button>
                                 </Tooltip>
-                                <Tooltip title={'斜体 *文本*（快捷键 Ctrl+I）'}>
+                                <Tooltip title={'切换斜体 *文本*（快捷键 Ctrl+I）'}>
                                     <Button
                                         size={'small'}
                                         style={{ marginLeft: 4 }}
@@ -403,7 +420,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                         <i>I</i>
                                     </Button>
                                 </Tooltip>
-                                <Tooltip title={'删除线 ~~文本~~（快捷键 Ctrl+Shift+X）'}>
+                                <Tooltip title={'切换删除线 ~~文本~~（快捷键 Ctrl+Shift+X）'}>
                                     <Button
                                         size={'small'}
                                         style={{ marginLeft: 4, textDecoration: 'line-through' }}

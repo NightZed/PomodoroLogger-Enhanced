@@ -18,4 +18,8 @@ describe('Markdown tag', () => {
     it("'hello'", () => {
         expect(formatMarkdown("'hello'").trim()).toEqual('<p>&#39;hello&#39;</p>');
     });
+
+    it('italic', () => {
+        expect(formatMarkdown('*hello*').trim()).toEqual('<p><em>hello</em></p>');
+    });
 });

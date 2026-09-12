@@ -163,6 +163,10 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
         wrapSelection('**', '**', '粗体文本');
     }, [wrapSelection]);
 
+    const insertItalic = React.useCallback(() => {
+        wrapSelection('*', '*', '斜体文本');
+    }, [wrapSelection]);
+
     const insertStrikethrough = React.useCallback(() => {
         wrapSelection('~~', '~~', '删除线文本');
     }, [wrapSelection]);
@@ -312,6 +316,11 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                 insertBold();
                 return;
             }
+            if (mod && (event.which === 73 || event.keyCode === 73)) {
+                event.preventDefault();
+                insertItalic();
+                return;
+            }
             if (mod && event.shiftKey && (event.which === 88 || event.keyCode === 88)) {
                 event.preventDefault();
                 insertStrikethrough();
@@ -324,7 +333,14 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             }
             keydownEventHandler(event);
         },
-        [insertCheckbox, insertBold, insertStrikethrough, openLinkModal, keydownEventHandler]
+        [
+            insertCheckbox,
+            insertBold,
+            insertItalic,
+            insertStrikethrough,
+            openLinkModal,
+            keydownEventHandler,
+        ]
     );
 
     const onTabChange = React.useCallback((name: string) => {
@@ -376,6 +392,15 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                         onClick={insertBold}
                                     >
                                         <b>B</b>
+                                    </Button>
+                                </Tooltip>
+                                <Tooltip title={'斜体 *文本*（快捷键 Ctrl+I）'}>
+                                    <Button
+                                        size={'small'}
+                                        style={{ marginLeft: 4 }}
+                                        onClick={insertItalic}
+                                    >
+                                        <i>I</i>
                                     </Button>
                                 </Tooltip>
                                 <Tooltip title={'删除线 ~~文本~~（快捷键 Ctrl+Shift+X）'}>

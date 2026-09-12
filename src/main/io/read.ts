@@ -8,7 +8,7 @@ import type { KanbanBoardState } from '../../renderer/components/Kanban/Board/ac
 import type { PomodoroRecord } from '../../renderer/monitor/type';
 
 export async function readAllData(): Promise<SourceData> {
-    await loadDBs();
+    await loadDBs(['cardsDB', 'listsDB', 'kanbanDB', 'moveDB', 'sessionDB']);
     const cards: CardsState = await readKanban(DBs.cardsDB);
     const lists: ListsState = await readKanban(DBs.listsDB);
     const boards: KanbanBoardState = await readKanban(DBs.kanbanDB);

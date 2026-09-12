@@ -182,6 +182,8 @@ app.on('ready', async () => {
         });
     }
 
+    await db.loadDBs(['settingDB']);
+
     await createWindow();
 
     db.DBs.settingDB.findOne({ name: 'setting' }, (err, settings) => {

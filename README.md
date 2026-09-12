@@ -49,6 +49,7 @@ Original Repo: [Pomodoro Logger](https://github.com/zxch3n/PomodoroLogger)
   * Support customizing the base color of calendar heat map.
 - Kanban 
   * Display the task creation time.
+  * New boards come with a `Backlog` list on the left by default.
   * The card editor supports quick operations such as task boxes, bolding, italic, strikethrough, and links.
   * Add labels to cards with customizable colors.
   * Support improved label search, label suggestions, and filtering by clicking on labels.
@@ -98,7 +99,7 @@ All the data is saved and processed **locally**.
 
 Pomodoro Logger has integrated [Kanban Board](https://en.wikipedia.org/wiki/Kanban_board) to help you organize and estimate the time spent of your todos easily with confidence.
 
-The lists in Kanban are divided into `Todo`, `In Progress`, and `Done`. Though lists customization is possible, you are required to preserve `In Progress` list and `Done` list in order to track, estimate and analyze your project time spent. You can set the estimated time cost on each todo card. Pomodoro Logger will assist you with the corresponding actual time spent record. i.e., When you are focusing on a Kanban board, it will automatically associate your Pomodoro session with the todo cards of `In Progress` list in the Kanban, which makes further analysis possible.
+The lists in Kanban are divided into `Backlog`, `Todo`, `In Progress`, and `Done`. Though lists customization is possible, you are required to preserve `In Progress` list and `Done` list in order to track, estimate and analyze your project time spent. You can set the estimated time cost on each todo card. Pomodoro Logger will assist you with the corresponding actual time spent record. i.e., When you are focusing on a Kanban board, it will automatically associate your Pomodoro session with the todo cards of `In Progress` list in the Kanban, which makes further analysis possible.
 
 To make the statistics more accurate, you can keep the cards of the `In Progress` list as few as possible to precisely reflect the tasks you are focusing on.
 

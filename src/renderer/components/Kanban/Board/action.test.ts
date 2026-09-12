@@ -9,6 +9,7 @@ import { AsyncDB } from '../../../../utils/dbHelper';
 import { KanbanBoard } from '../type';
 
 const db = new AsyncDB(dbs.kanbanDB);
+const listsDB = new AsyncDB(dbs.listsDB);
 beforeEach(async () => {
     if (existsSync(dbPaths.kanbanDB)) {
         await promisify(unlink)(dbPaths.kanbanDB).catch(() => {});
@@ -32,10 +33,10 @@ describe('boardReducer', () => {
         };
 
         await actions.addBoard('B0', 'B0')(dispatch);
-        expect(state['B0'].lists.length).toBe(3);
+        expect(state['B0'].lists.length).toBe(4);
         const lists = state['B0'].lists.concat();
         await actions.moveList('B0', 0, 2)(dispatch);
-        expect(state['B0'].lists).toStrictEqual([lists[1], lists[2], lists[0]]);
+        expect(state['B0'].lists).toStrictEqual([lists[1], lists[2], lists[0], lists[3]]);
     });
 });
 
@@ -53,7 +54,7 @@ describe('board actions', () => {
         };
         await actions.addBoard(_id, 'B0')(dispatch);
         const doc: KanbanBoard = await db.findOne({ _id });
-        expect(doc.lists.length).toBe(3);
+        expect(doc.lists.length).toBe(4);
         delete doc.lastVisitTime;
         expect(doc).toStrictEqual(state[_id]);
         await actions.moveList(_id, 0, 2)(dispatch);
@@ -61,6 +62,7 @@ describe('board actions', () => {
         expect(newDoc.lists[0]).toBe(doc.lists[1]);
         expect(newDoc.lists[1]).toBe(doc.lists[2]);
         expect(newDoc.lists[2]).toBe(doc.lists[0]);
+        expect(newDoc.lists[3]).toBe(doc.lists[3]);
         delete newDoc.lastVisitTime;
         expect(newDoc).toStrictEqual(state[_id]);
 
@@ -94,6 +96,32 @@ describe('board actions', () => {
         expect(board).toStrictEqual(state[_id]);
         actions.deleteBoard(_id)(dispatch);
         expect(state[_id]).toBeUndefined();
+    });
+
+    it('creates a board with 4 default lists (Backlog on the left) and keeps the welcome card in TODO', async () => {
+        const _id = shortid.generate();
+        // @ts-ignore
+        const dispatch: Dispatch = jest.fn();
+        await actions.addBoard(_id, 'B0')(dispatch);
+        const board: KanbanBoard = await db.findOne({ _id });
+        expect(board.lists.length).toBe(4);
+        expect(board.focusedList).toBe(board.lists[2]);
+        expect(board.doneList).toBe(board.lists[3]);
+
+        const titles: string[] = [];
+        for (const listId of board.lists) {
+            const list = await listsDB.findOne({ _id: listId });
+            titles.push(list.title);
+        }
+        expect(titles).toStrictEqual(['Backlog', 'TODO', 'In Progress', 'Done']);
+
+        // Backlog 列不自动放置卡片
+        const backlogList = await listsDB.findOne({ _id: board.lists[0] });
+        expect(backlogList.cards).toStrictEqual([]);
+
+        // Welcome 演示卡片保留在 TODO 列
+        const todoList = await listsDB.findOne({ _id: board.lists[1] });
+        expect(todoList.cards).toHaveLength(1);
     });
 
     it('should add list directly', async () => {

@@ -1,6 +1,6 @@
 {
     "name": "pomodoro-logger-enhanced",
-    "version": "0.10.0",
+    "version": "0.11.0",
     "description": "Pomodoro Logger -- When a time logger meets Pomodoro and Kanban board. This is an enhanced edition, as the original version has been archived.",
     "main": "./dist/main.js",
     "scripts": {

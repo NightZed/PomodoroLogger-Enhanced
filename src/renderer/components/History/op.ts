@@ -108,17 +108,18 @@ export interface AggPomodoroInfo {
 }
 
 /**
- * 聚合番茄钟数据。
- * `pomodoros` 用于“今日/本周/本月”统计（只需近期记录，避免全量加载）；
- * `yearRecords` 用于日历/饼图/词云（按选定年份查询，默认与 pomodoros 相同，
- * 保持向后兼容，例如测试场景）；
- * `totalCount` 为全量记录数（由轻量的 count 查询得到，默认取 pomodoros 长度）。
+ * Aggregate pomodoro records.
+ * `pomodoros` feeds the Today/Week/Month stats (recent records only, avoid full load);
+ * `yearRecords` feeds the calendar/pie/word cloud and the total count/time badge
+ * (queried for the chosen year or All time; defaults to `pomodoros` for backward
+ * compatibility, e.g. tests). The badge shares the same source as the charts,
+ * so it follows the project/year filter; the card-level `spentTimeInHour.actual`
+ * cannot be split by year and is no longer used for the badge.
  */
 export async function getAggPomodoroInfo(
     pomodoros: PomodoroRecord[],
     cards: Card[],
-    yearRecords: PomodoroRecord[] = pomodoros,
-    totalCount?: number
+    yearRecords: PomodoroRecord[] = pomodoros
 ): Promise<AggPomodoroInfo> {
     return {
         agg: {
@@ -127,8 +128,8 @@ export async function getAggPomodoroInfo(
             month: getPomodoroAgg(new Date().getDate() - 1, pomodoros),
         },
         total: {
-            count: totalCount ?? pomodoros.length,
-            usedTime: cards.reduce((a, b) => a + b.spentTimeInHour.actual, 0),
+            count: yearRecords.length,
+            usedTime: yearRecords.reduce((a, b) => a + b.spentTimeInHour, 0),
         },
         wordWeights: await workers.tokenizer.tokenize(yearRecords, cards),
         pieChart: await getTimeSpentDataFromRecords(yearRecords),

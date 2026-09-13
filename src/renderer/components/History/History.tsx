@@ -26,6 +26,9 @@ import { DualPieChart } from '../../../components/Visualization/DualPieChart';
 
 const { Option } = Select;
 
+type YearChoice = number | 'all';
+const ALL_TIME: 'all' = 'all';
+
 const Container = styled.div`
     overflow-y: auto;
     margin: 0;
@@ -77,7 +80,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
     const [selectedDateWordWeights, setSelectedDateWordWeights] = useState<
         undefined | [string, number][]
     >(undefined);
-    const [chosenYear, setChosenYear] = useState<number>(new Date().getFullYear());
+    const [chosenYear, setChosenYear] = useState<YearChoice>(new Date().getFullYear());
     const [aggInfo, setAggInfo] = useState<AggPomodoroInfo>({
         agg: {
             day: undefined,
@@ -118,28 +121,40 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         const boardId = props.chosenId;
         const searchArg = props.chosenId === undefined ? {} : { boardId };
         // Avoid using outdated cache; And use worker to avoid db blocking the process
-        // 按需加载，避免将整个 session 数据库全量拉入渲染进程：
-        //  - 近一周/一月内的记录用于“今日/本周/本月”聚合；
-        //  - 选定年份的记录用于日历/饼图/词云；
-        //  - 全量计数使用轻量的 count 查询。
+        // Load on demand to avoid pulling the whole session DB into the renderer:
+        //  - records since the week/month boundary feed the Today/Week/Month stats;
+        //  - records of the chosen year (or All time) feed the calendar/pie/word cloud
+        //    and the total count/time badge, so the badge follows project + year;
+        //  - with All time a single query covers both the recent stats and the full view.
         const db = workers.dbWorkers.sessionDB;
         const now = new Date();
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
         const weekStart = todayStart - new Date().getDay() * 86400 * 1000;
         const recentStart = Math.min(monthStart, weekStart);
-        const yearStart = new Date(chosenYear, 0, 1).getTime();
-        const nextYearStart = new Date(chosenYear + 1, 0, 1).getTime();
         const recentArg = { ...searchArg, startTime: { $gte: recentStart } };
-        const yearArg = { ...searchArg, startTime: { $gte: yearStart, $lt: nextYearStart } };
+        let yearArg: any = searchArg;
+        if (chosenYear !== ALL_TIME) {
+            const yearStart = new Date(chosenYear, 0, 1).getTime();
+            const nextYearStart = new Date(chosenYear + 1, 0, 1).getTime();
+            yearArg = {
+                ...searchArg,
+                startTime: {
+                    $gte: new Date(chosenYear, 0, 1).getTime(),
+                    $lt: new Date(chosenYear + 1, 0, 1).getTime(),
+                },
+            };
+        }
 
-        Promise.all([db.find(recentArg, {}), db.find(yearArg, {}), db.count(searchArg)])
-            .then(([recentDocs, yearDocs, totalCount]) => {
+        Promise.all([
+            chosenYear === ALL_TIME ? undefined : db.find(recentArg, {}),
+            db.find(yearArg, {}),
+        ])
+            .then(([recentResult, yearDocs]) => {
                 return getAggPomodoroInfo(
-                    recentDocs,
+                    recentResult ?? yearDocs,
                     props.getCardsByBoardId(boardId),
-                    yearDocs,
-                    totalCount
+                    yearDocs
                 );
             })
             .then((ans: AggPomodoroInfo) => {
@@ -212,19 +227,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         setTargetDate([year, month, day]);
     }, []);
 
-    const filteredCalendarCount = React.useMemo(() => {
-        if (!aggInfo.calendarCount) return aggInfo.calendarCount;
-        const yearStart = new Date(chosenYear, 0, 1).getTime();
-        const yearEnd = new Date(chosenYear + 1, 0, 1).getTime();
-        const ans: typeof aggInfo.calendarCount = {};
-        for (const key in aggInfo.calendarCount) {
-            const t = parseInt(key, 10);
-            if (t >= yearStart && t < yearEnd) {
-                ans[key] = aggInfo.calendarCount[key];
-            }
-        }
-        return ans;
-    }, [aggInfo.calendarCount, chosenYear]);
+    // calendarCount is already scoped to the chosen year / All time by the query above
 
     return (
         <Container>
@@ -248,10 +251,13 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                         })}
                     </Select>
                     <Select
-                        onChange={(v: number) => setChosenYear(v)}
+                        onChange={(v: any) => setChosenYear(v as YearChoice)}
                         value={chosenYear}
                         style={{ width: 120, marginLeft: 10 }}
                     >
+                        <Option value={ALL_TIME} key="all-time">
+                            All time
+                        </Option>
                         {Array.from(
                             { length: new Date().getFullYear() - 2018 + 1 },
                             (_, i) => 2018 + i
@@ -332,10 +338,14 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                     calendarWidth > 670 ? (
                         <ChartContainer>
                             <GridCalendar
-                                data={filteredCalendarCount}
+                                data={aggInfo.calendarCount}
                                 width={calendarWidth}
                                 clickDate={clickDate}
-                                till={new Date(chosenYear, 11, 31).getTime()}
+                                till={
+                                    chosenYear === ALL_TIME
+                                        ? new Date().getTime()
+                                        : new Date(chosenYear, 11, 31).getTime()
+                                }
                                 baseColor={props.calendarBaseColor}
                             />
                             <div

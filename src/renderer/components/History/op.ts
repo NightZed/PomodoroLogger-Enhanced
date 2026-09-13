@@ -3,7 +3,6 @@ import { PomodoroRecord } from '../../monitor/type';
 import { getBetterAppName } from '../../utils';
 import { getNameFromBoardId } from '../../getNameFromBoardId';
 import { workers } from '../../workers';
-import { Card } from '../Kanban/type';
 
 export const getPomodoroCalendarData = (pomodoros: PomodoroRecord[]) => {
     const counter = new Counter();
@@ -112,13 +111,12 @@ export interface AggPomodoroInfo {
  * `pomodoros` feeds the Today/Week/Month stats (recent records only, avoid full load);
  * `yearRecords` feeds the calendar/pie/word cloud and the total count/time badge
  * (queried for the chosen year or All time; defaults to `pomodoros` for backward
- * compatibility, e.g. tests). The badge shares the same source as the charts,
- * so it follows the project/year filter; the card-level `spentTimeInHour.actual`
- * cannot be split by year and is no longer used for the badge.
+ * compatibility, e.g. tests). The badge and the word cloud share the same source as
+ * the charts, so they follow the project/year filter; card titles are not mixed in
+ * because cards have no year dimension, so the word cloud follows the period.
  */
 export async function getAggPomodoroInfo(
     pomodoros: PomodoroRecord[],
-    cards: Card[],
     yearRecords: PomodoroRecord[] = pomodoros
 ): Promise<AggPomodoroInfo> {
     return {
@@ -131,7 +129,7 @@ export async function getAggPomodoroInfo(
             count: yearRecords.length,
             usedTime: yearRecords.reduce((a, b) => a + b.spentTimeInHour, 0),
         },
-        wordWeights: await workers.tokenizer.tokenize(yearRecords, cards),
+        wordWeights: await workers.tokenizer.tokenize(yearRecords, []),
         pieChart: await getTimeSpentDataFromRecords(yearRecords),
         calendarCount: getPomodoroCalendarData(yearRecords),
     };

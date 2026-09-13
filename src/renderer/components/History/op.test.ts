@@ -76,7 +76,6 @@ describe('History aggregating operations', () => {
     it('badge count/time follow yearRecords', async () => {
         const agg = await op.getAggPomodoroInfo(
             [],
-            [],
             [createRecord('pa', 11, [['a', 6]]), createRecord('pb', 10, [['b', 5]])]
         );
         expect(agg.total.count).toBe(2);

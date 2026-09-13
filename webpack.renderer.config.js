@@ -166,6 +166,9 @@ module.exports = merge.smart(baseConfig, {
         })
     ],
     resolve: {
+        alias: {
+            echarts$: 'echarts/lib/echarts.js',
+        },
         plugins: [
             // This plugin allow us to use nedb of node.js version directly
             // in renderer process (and the web index)

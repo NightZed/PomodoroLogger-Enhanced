@@ -3,7 +3,6 @@ import { PomodoroRecord } from '../../monitor/type';
 import { getBetterAppName } from '../../utils';
 import { getNameFromBoardId } from '../../getNameFromBoardId';
 import { workers } from '../../workers';
-import { Card } from '../Kanban/type';
 
 export const getPomodoroCalendarData = (pomodoros: PomodoroRecord[]) => {
     const counter = new Counter();
@@ -107,9 +106,18 @@ export interface AggPomodoroInfo {
     pieChart?: TimeSpentData;
 }
 
+/**
+ * Aggregate pomodoro records.
+ * `pomodoros` feeds the Today/Week/Month stats (recent records only, avoid full load);
+ * `yearRecords` feeds the calendar/pie/word cloud and the total count/time badge
+ * (queried for the chosen year or All time; defaults to `pomodoros` for backward
+ * compatibility, e.g. tests). The badge and the word cloud share the same source as
+ * the charts, so they follow the project/year filter; card titles are not mixed in
+ * because cards have no year dimension, so the word cloud follows the period.
+ */
 export async function getAggPomodoroInfo(
     pomodoros: PomodoroRecord[],
-    cards: Card[]
+    yearRecords: PomodoroRecord[] = pomodoros
 ): Promise<AggPomodoroInfo> {
     return {
         agg: {
@@ -118,11 +126,11 @@ export async function getAggPomodoroInfo(
             month: getPomodoroAgg(new Date().getDate() - 1, pomodoros),
         },
         total: {
-            count: pomodoros.length,
-            usedTime: cards.reduce((a, b) => a + b.spentTimeInHour.actual, 0),
+            count: yearRecords.length,
+            usedTime: yearRecords.reduce((a, b) => a + b.spentTimeInHour, 0),
         },
-        wordWeights: await workers.tokenizer.tokenize(pomodoros, cards),
-        pieChart: await getTimeSpentDataFromRecords(pomodoros),
-        calendarCount: getPomodoroCalendarData(pomodoros),
+        wordWeights: await workers.tokenizer.tokenize(yearRecords, []),
+        pieChart: await getTimeSpentDataFromRecords(yearRecords),
+        calendarCount: getPomodoroCalendarData(yearRecords),
     };
 }

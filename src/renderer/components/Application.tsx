@@ -59,7 +59,7 @@ interface Props extends TimerActionTypes, HistoryActionCreatorTypes {
 class Application extends React.Component<Props> {
     private timer = (<Timer />);
     componentDidMount(): void {
-        loadDBs().then(() => {
+        loadDBs(['settingDB']).then(() => {
             this.props.fetchSettings();
             this.props.fetchKanban();
         });

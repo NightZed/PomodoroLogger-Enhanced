@@ -3,11 +3,12 @@ import path from 'path';
 import { dbBkBaseDir } from '../../config';
 import type { SourceData } from '../../shared/dataMerger/dataMerger';
 import { AsyncDB } from '../../utils/dbHelper';
-import { DBs } from '../db';
+import { DBs, loadDBs } from '../db';
 import { readAllData } from './read';
 import { promisify } from 'util';
 
 export async function writeAllFile(data: SourceData) {
+    await loadDBs(['cardsDB', 'listsDB', 'kanbanDB', 'moveDB', 'sessionDB']);
     // should use latest data
     await generateBackup();
     const DB = {

@@ -112,6 +112,13 @@ function getGridData(data: Data, till: number, shownGrids: number): GridData[] {
     const timeSpent = Array(shownGrids).fill(0);
     for (const key in data) {
         const index = Math.floor((parseInt(key, 10) - firstDayTimestamp) / 3600 / 24 / 1000);
+        // Ignore out-of-window data: records from another year would otherwise write to
+        // out-of-bounds indexes (NaN values / growing array with holes) and break the
+        // cell colors until fresh data arrives.
+        if (index < 0 || index >= shownGrids) {
+            continue;
+        }
+
         grids[index] += data[key].count;
         timeSpent[index] += data[key].hours;
     }

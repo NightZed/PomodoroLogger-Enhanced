@@ -26,6 +26,9 @@ import { DualPieChart } from '../../../components/Visualization/DualPieChart';
 
 const { Option } = Select;
 
+type YearChoice = number | 'all';
+const ALL_TIME: 'all' = 'all';
+
 const Container = styled.div`
     overflow-y: auto;
     margin: 0;
@@ -77,7 +80,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
     const [selectedDateWordWeights, setSelectedDateWordWeights] = useState<
         undefined | [string, number][]
     >(undefined);
-    const [chosenYear, setChosenYear] = useState<number>(new Date().getFullYear());
+    const [chosenYear, setChosenYear] = useState<YearChoice>(new Date().getFullYear());
     const [aggInfo, setAggInfo] = useState<AggPomodoroInfo>({
         agg: {
             day: undefined,
@@ -118,10 +121,37 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         const boardId = props.chosenId;
         const searchArg = props.chosenId === undefined ? {} : { boardId };
         // Avoid using outdated cache; And use worker to avoid db blocking the process
+        // Load on demand to avoid pulling the whole session DB into the renderer:
+        //  - records since the week/month boundary feed the Today/Week/Month stats;
+        //  - records of the chosen year (or All time) feed the calendar/pie/word cloud
+        //    and the total count/time badge, so the badge follows project + year;
+        //  - with All time a single query covers both the recent stats and the full view.
         const db = workers.dbWorkers.sessionDB;
-        db.find(searchArg, {})
-            .then((docs) => {
-                return getAggPomodoroInfo(docs, props.getCardsByBoardId(boardId));
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+        const weekStart = todayStart - new Date().getDay() * 86400 * 1000;
+        const recentStart = Math.min(monthStart, weekStart);
+        const recentArg = { ...searchArg, startTime: { $gte: recentStart } };
+        let yearArg: any = searchArg;
+        if (chosenYear !== ALL_TIME) {
+            const yearStart = new Date(chosenYear, 0, 1).getTime();
+            const nextYearStart = new Date(chosenYear + 1, 0, 1).getTime();
+            yearArg = {
+                ...searchArg,
+                startTime: {
+                    $gte: new Date(chosenYear, 0, 1).getTime(),
+                    $lt: new Date(chosenYear + 1, 0, 1).getTime(),
+                },
+            };
+        }
+
+        Promise.all([
+            chosenYear === ALL_TIME ? undefined : db.find(recentArg, {}),
+            db.find(yearArg, {}),
+        ])
+            .then(([recentResult, yearDocs]) => {
+                return getAggPomodoroInfo(recentResult ?? yearDocs, yearDocs);
             })
             .then((ans: AggPomodoroInfo) => {
                 if (cancelled) {
@@ -136,7 +166,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         return () => {
             cancelled = true;
         };
-    }, [props.chosenId, expiringKey]);
+    }, [props.chosenId, expiringKey, chosenYear]);
     useEffect(() => {
         if (targetDate == null) {
             return;
@@ -193,19 +223,35 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         setTargetDate([year, month, day]);
     }, []);
 
-    const filteredCalendarCount = React.useMemo(() => {
-        if (!aggInfo.calendarCount) return aggInfo.calendarCount;
+    // Feed the calendar only with data of the currently selected year, so a stale
+    // aggregation from the previous selection never meets the new calendar window
+    // while the new query is still in flight.
+    const calendarData = React.useMemo(() => {
+        if (chosenYear === ALL_TIME || !aggInfo.calendarCount) {
+            return aggInfo.calendarCount;
+        }
+
         const yearStart = new Date(chosenYear, 0, 1).getTime();
-        const yearEnd = new Date(chosenYear + 1, 0, 1).getTime();
+        const nextYearStart = new Date(chosenYear + 1, 0, 1).getTime();
         const ans: typeof aggInfo.calendarCount = {};
         for (const key in aggInfo.calendarCount) {
             const t = parseInt(key, 10);
-            if (t >= yearStart && t < yearEnd) {
+            if (t >= yearStart && t < nextYearStart) {
                 ans[key] = aggInfo.calendarCount[key];
             }
         }
         return ans;
     }, [aggInfo.calendarCount, chosenYear]);
+
+    // All time shows the full current-year calendar, so anchor the window to the year end.
+    const calendarTill = new Date(
+        chosenYear === ALL_TIME ? new Date().getFullYear() : chosenYear,
+        11,
+        31
+    ).getTime();
+
+    const shownPieChart = targetDate == null ? aggInfo.pieChart : selectedDatePieChart;
+    const shownWordWeights = targetDate == null ? aggInfo.wordWeights : selectedDateWordWeights;
 
     return (
         <Container>
@@ -229,10 +275,13 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                         })}
                     </Select>
                     <Select
-                        onChange={(v: number) => setChosenYear(v)}
+                        onChange={(v: any) => setChosenYear(v as YearChoice)}
                         value={chosenYear}
                         style={{ width: 120, marginLeft: 10 }}
                     >
+                        <Option value={ALL_TIME} key="all-time">
+                            All time
+                        </Option>
                         {Array.from(
                             { length: new Date().getFullYear() - 2018 + 1 },
                             (_, i) => 2018 + i
@@ -313,10 +362,10 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                     calendarWidth > 670 ? (
                         <ChartContainer>
                             <GridCalendar
-                                data={filteredCalendarCount}
+                                data={calendarData}
                                 width={calendarWidth}
                                 clickDate={clickDate}
-                                till={new Date(chosenYear, 11, 31).getTime()}
+                                till={calendarTill}
                                 baseColor={props.calendarBaseColor}
                             />
                             <div
@@ -345,22 +394,31 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                                     chooseRecord={props.chooseRecord}
                                 />
                             </div>
-                            <DualPieChart
-                                {...(targetDate == null
-                                    ? aggInfo.pieChart
-                                    : selectedDatePieChart || { projectData: [], appData: [] })}
-                                width={calendarWidth}
-                                onProjectClick={onProjectClick}
-                            />
-                            <WordCloud
-                                weights={
-                                    targetDate == null
-                                        ? aggInfo.wordWeights
-                                        : selectedDateWordWeights || []
-                                }
-                                width={calendarWidth}
-                                height={calendarWidth * 0.6}
-                            />
+                            {aggInfo.total.count === 0 ? (
+                                <div
+                                    style={{
+                                        fontSize: 14,
+                                        color: '#7f7f7f',
+                                        margin: '20px 0',
+                                        textAlign: 'center',
+                                    }}
+                                >
+                                    No pomodoro records in this period
+                                </div>
+                            ) : (
+                                <>
+                                    <DualPieChart
+                                        {...(shownPieChart || { projectData: [], appData: [] })}
+                                        width={calendarWidth}
+                                        onProjectClick={onProjectClick}
+                                    />
+                                    <WordCloud
+                                        weights={shownWordWeights || []}
+                                        width={calendarWidth}
+                                        height={calendarWidth * 0.6}
+                                    />
+                                </>
+                            )}
                         </ChartContainer>
                     ) : undefined
                 ) : (

@@ -8,6 +8,7 @@ if (!fs.existsSync('./webpack-visualization')) {
 }
 
 module.exports = merge.smart(baseConfig, {
+
     mode: 'production',
     plugins: [
         new Visualizer({

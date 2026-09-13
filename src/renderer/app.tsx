@@ -11,6 +11,13 @@ import { IpcEventName } from '../main/ipc/type';
 
 import './echartsSetup';
 
+window.addEventListener('error', (e) => {
+    console.error('[Renderer] uncaught error:', e.error || e.message);
+});
+window.addEventListener('unhandledrejection', (e) => {
+    console.error('[Renderer] unhandled rejection:', e.reason);
+});
+
 const dict: { [event: string]: Function } = {};
 const msgMap: Map<string, { resolve: Function; reject: Function }> = new Map();
 ipcRenderer.on('reply', (e, token, arg, err) => {

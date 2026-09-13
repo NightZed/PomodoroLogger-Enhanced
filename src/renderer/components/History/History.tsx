@@ -162,6 +162,9 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                 setSelectedDatePieChart(undefined);
                 setSelectedDateWordWeights(undefined);
                 setPomodoros(undefined);
+            })
+            .catch((err) => {
+                console.error('[History] failed to load aggregation', err);
             });
         return () => {
             cancelled = true;

@@ -160,11 +160,14 @@ const getPinScore = ({ pin: aPin }: KanbanBoard, { pin: bPin }: KanbanBoard) => 
 
 const applyDirection = (value: number, desc?: boolean) => (desc ? -value : value);
 
+// Sort board names with ICU zh (pinyin) collation so Chinese names are ordered by pinyin
+const nameCollator = new Intl.Collator('zh-Hans-CN');
+
 const sortFunc: Map<SortType, (a: KanbanBoard, b: KanbanBoard, desc?: boolean) => number> =
     new Map();
 sortFunc.set('alpha', (a, b, desc) => {
     if (getPinScore(a, b)) return getPinScore(a, b);
-    return applyDirection(a.name < b.name ? -1 : 1, desc);
+    return applyDirection(nameCollator.compare(a.name, b.name), desc);
 });
 sortFunc.set('due', (a, b, desc) => {
     if (getPinScore(a, b)) return getPinScore(a, b);

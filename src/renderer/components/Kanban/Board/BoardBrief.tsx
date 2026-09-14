@@ -11,6 +11,8 @@ import { Button, Divider, message } from 'antd';
 import { Badge, TimeBadge } from '../../../../components/Visualization/Badge/Badge';
 import formatMarkdown from '../Card/formatMarkdown';
 import { IdTrend } from '../../Visualization/ProjectTrend';
+import { formatTimeYmdHm } from '../../Visualization/Timeline';
+import { CreatedTime } from '../style/CreatedTime';
 import { BadgeHolder } from '../style/Badge';
 import { Markdown } from '../style/Markdown';
 import { ListsCountBar } from '../../Visualization/Bar';
@@ -82,9 +84,26 @@ const Header = styled.div`
     display: flex;
     justify-content: space-between;
 
+    .header-left {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
     h1 {
         max-width: 180px;
-        word-break: break-all;
+        min-width: 0;
+        margin: 0;
+        display: flex;
+        align-items: baseline;
+        font-size: 16px;
+
+        .brief-title {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
     }
 `;
 
@@ -208,18 +227,25 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
             className={'kanban-brief-card'}
         >
             <Header>
-                <h1>
-                    {name}
-                    <Pin
-                        isPin={!!props.pin}
-                        onClick={useCallback(() => props.setPin(!props.pin), [
-                            props._id,
-                            props.pin,
-                        ])}
-                        isHover={hover}
-                        style={{ marginLeft: 4 }}
-                    />
-                </h1>
+                <div className="header-left">
+                    <h1>
+                        <span className="brief-title" title={name}>
+                            {name}
+                        </span>
+                        <Pin
+                            isPin={!!props.pin}
+                            onClick={useCallback(
+                                () => props.setPin(!props.pin),
+                                [props._id, props.pin]
+                            )}
+                            isHover={hover}
+                            style={{ marginLeft: 4 }}
+                        />
+                    </h1>
+                    {props.createdTime !== undefined ? (
+                        <CreatedTime>Created: {formatTimeYmdHm(props.createdTime)}</CreatedTime>
+                    ) : undefined}
+                </div>
                 <span>
                     <PlayPauseButton
                         onClick={onStartFocusingClick}
@@ -243,7 +269,10 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
                         dangerouslySetInnerHTML={{ __html: formatMarkdown(props.description) }}
                     />
                 ) : undefined}
-                <ListsCountBar boardId={props._id} height={40} />
+                <ListsCountBar
+                    boardId={props._id}
+                    height={props.createdTime !== undefined ? 26 : 40}
+                />
                 {props.relatedSessions.length ? (
                     <AnimTrend style={{ display: hover ? undefined : 'none' }}>
                         <IdTrend boardId={props._id} />

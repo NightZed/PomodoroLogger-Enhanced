@@ -4,6 +4,8 @@ import TextArea from 'antd/es/input/TextArea';
 import Hotkeys from 'react-hot-keys';
 import { DistractingListModalButton } from '../Setting/DistractingList';
 import { EditorContainer } from './style/editorStyle';
+import { CreatedTime } from './style/CreatedTime';
+import { formatTimeYmdHm } from '../Visualization/Timeline';
 import formatMarkdown from './Card/formatMarkdown';
 import { Markdown } from './style/Markdown';
 
@@ -18,6 +20,7 @@ interface FormProps {
     isCreating: boolean;
     onDelete: () => void;
     nameValidator: (name: string) => boolean;
+    createdTime?: number;
 }
 
 interface State {
@@ -91,7 +94,8 @@ export const EditKanbanForm = Form.create<
         };
 
         render() {
-            const { visible, onSave, form, isCreating, onDelete, boardId, onCancel } = this.props;
+            const { visible, onSave, form, isCreating, onDelete, boardId, onCancel, createdTime } =
+                this.props;
             const { getFieldDecorator } = form;
             return (
                 <Modal
@@ -117,6 +121,11 @@ export const EditKanbanForm = Form.create<
                                         { validator: this.validator },
                                     ],
                                 })(<Input onKeyDown={this.onKeydown} />)}
+                                {!isCreating && createdTime !== undefined ? (
+                                    <CreatedTime style={{ marginTop: 4 }}>
+                                        Created: {formatTimeYmdHm(createdTime)}
+                                    </CreatedTime>
+                                ) : undefined}
                             </Form.Item>
                             <Tabs
                                 onChange={this.onTabChange}

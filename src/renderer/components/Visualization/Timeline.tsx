@@ -28,6 +28,17 @@ export function formatTimeYmdHms(time: number) {
     return `${formatTimeYMD(time)} ${formatTimeHMS(time)}`;
 }
 
+export function formatTimeHm(time: number) {
+    const date = new Date(time);
+    const hour = to2digits(date.getHours());
+    const m = to2digits(date.getMinutes());
+    return `${hour}:${m}`;
+}
+
+export function formatTimeYmdHm(time: number) {
+    return `${formatTimeYMD(time)} ${formatTimeHm(time)}`;
+}
+
 export const PomodoroTimeline = (props: Props) => {
     const data: any[] = [];
     let time = props.record.startTime;

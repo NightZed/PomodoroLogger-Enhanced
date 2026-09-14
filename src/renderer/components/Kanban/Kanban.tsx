@@ -6,6 +6,8 @@ import { message, Button, Form, Icon, Layout, Select, Switch, Tooltip } from 'an
 import Board from './Board';
 import styled from 'styled-components';
 import { Overview } from './Board/Overview';
+import { formatTimeYmdHm } from '../Visualization/Timeline';
+import { CreatedTime } from './style/CreatedTime';
 import { LabelButton } from '../../style/form';
 import backIcon from '../../../res/back.svg';
 import SortDownIcon from '../../../res/sort-down.svg';
@@ -264,6 +266,14 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                             >
                                 <Icon component={backIcon} />
                             </Button>
+                            {props.boards[props.kanban.chosenBoardId].createdTime !== undefined ? (
+                                <CreatedTime>
+                                    Created:{' '}
+                                    {formatTimeYmdHm(
+                                        props.boards[props.kanban.chosenBoardId].createdTime!
+                                    )}
+                                </CreatedTime>
+                            ) : undefined}
                         </>
                     ) : (
                         <>
@@ -390,6 +400,9 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                     isCreating={!editingBoardId}
                     onDelete={onDelete}
                     nameValidator={boardNameValidator}
+                    createdTime={
+                        editingBoardId ? props.boards[editingBoardId]?.createdTime : undefined
+                    }
                 />
             </Layout>
         );

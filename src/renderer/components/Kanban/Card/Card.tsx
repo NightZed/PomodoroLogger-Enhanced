@@ -14,7 +14,8 @@ import { matchParent } from '../../../utils';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../reducers';
 import { check } from 'prettier';
-import { formatTimeYmdHms } from '../../Visualization/Timeline';
+import { formatTimeYmdHm } from '../../Visualization/Timeline';
+import { CreatedTime } from '../style/CreatedTime';
 
 /**
  * If you're using z-index, make sure the element has a defined position attribute or it won't work.
@@ -50,12 +51,6 @@ const CardContent = styled.div`
         float: right;
         cursor: pointer;
     }
-`;
-
-const CardCreatedTime = styled.div`
-    color: #999;
-    font-size: 11px;
-    line-height: 1.2;
 `;
 
 const CardLabels = styled.div`
@@ -227,9 +222,9 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                                             {props.title}
                                         </h3>
                                         {props.createdTime !== undefined ? (
-                                            <CardCreatedTime>
-                                                Created: {formatTimeYmdHms(props.createdTime)}
-                                            </CardCreatedTime>
+                                            <CreatedTime>
+                                                Created: {formatTimeYmdHm(props.createdTime)}
+                                            </CreatedTime>
                                         ) : undefined}
                                         {renderLabels(props.labels)}
                                         <BadgeHolder className="collapsed">
@@ -261,9 +256,9 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                                             {props.title}
                                         </h1>
                                         {props.createdTime !== undefined ? (
-                                            <CardCreatedTime>
-                                                Created: {formatTimeYmdHms(props.createdTime)}
-                                            </CardCreatedTime>
+                                            <CreatedTime>
+                                                Created: {formatTimeYmdHm(props.createdTime)}
+                                            </CreatedTime>
                                         ) : undefined}
                                         {renderLabels(props.labels)}
                                         <Markdown

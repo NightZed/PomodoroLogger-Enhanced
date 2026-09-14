@@ -13,6 +13,8 @@ import { Markdown } from '../style/Markdown';
 import formatMarkdown from './formatMarkdown';
 import { findFormatBlock } from './selectionFormat';
 import { EditorContainer } from '../style/editorStyle';
+import { CreatedTime } from '../style/CreatedTime';
+import { formatTimeYmdHm } from '../../Visualization/Timeline';
 import { LabelEditor } from './LabelEditor';
 const { TabPane } = Tabs;
 
@@ -388,6 +390,11 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                         {getFieldDecorator('title', {
                             rules: [{ required: true, message: 'Please input the name of board!' }],
                         })(<Input placeholder={'Title'} onKeyDown={keydownEventHandler} />)}
+                        {!thisIsCreating && card && card.createdTime !== undefined ? (
+                            <CreatedTime style={{ marginTop: 4 }}>
+                                Created: {formatTimeYmdHm(card.createdTime)}
+                            </CreatedTime>
+                        ) : undefined}
                     </Form.Item>
                     <Tabs
                         onChange={onTabChange}

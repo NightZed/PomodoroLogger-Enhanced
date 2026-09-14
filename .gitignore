@@ -2,7 +2,12 @@ node_modules/
 dist/
 release/
 *db/
-screenshots/
+screenshots/*
+!screenshots/.gitkeep
+!screenshots/*.png
+!screenshots/*.jpg
+!screenshots/*.jpeg
+!screenshots/*.gif
 .idea/
 coverage/
 yarn.error

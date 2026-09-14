@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://i.postimg.cc/hvjXfB94/icon.png" width="360"/>
+  <img src="./screenshots/icon.png" width="180"/>
 </p>
 
 <p align="center">
@@ -9,117 +9,148 @@
     </a>
 </p>
 
+<p align="center">
+  <a href="https://github.com/NightZed/PomodoroLogger-Enhanced/actions/workflows/build.yml">
+    <img src="https://github.com/NightZed/PomodoroLogger-Enhanced/actions/workflows/build.yml/badge.svg"/>
+  </a>
+  <a href="https://github.com/NightZed/PomodoroLogger-Enhanced/releases/latest">
+    <img src="https://img.shields.io/github/downloads/NightZed/PomodoroLogger-Enhanced/total"/>
+  </a>
+  <a href="https://github.com/NightZed/PomodoroLogger-Enhanced/releases">
+    <img src="https://img.shields.io/github/v/release/NightZed/PomodoroLogger-Enhanced"/>
+  </a>
+  <a href="https://deepwiki.com/NightZed/PomodoroLogger-Enhanced">
+    <img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki">
+  </a>
+</p>
+
 # 番茄日志 Pomodoro Logger Enhanced :clock930:
 
 > **轻松投资你的时间**
 
-原版仓库：[Pomodoro Logger](https://github.com/zxch3n/PomodoroLogger)
+一个基于[番茄工作法](https://zh.wikipedia.org/wiki/番茄工作法)的桌面时间追踪器，用五步工作流轻松掌握工作学习时间：
+**规划**任务 → **跟踪**专注 → **记录**桌面活动 → 本地**处理** → **可视化**回看。
+本仓库是[原版 Pomodoro Logger](https://github.com/zxch3n/PomodoroLogger) 的增强版，在其基础上对卡片编辑、历史视图回顾、内存使用、CPU占用等进行了优化。
 
-<img align="right" src="https://i.postimg.cc/0j8FJ70x/image.png" height="280"/>
+## ✨ 五步工作流
 
-- 使用[番茄工作法](https://zh.wikipedia.org/wiki/番茄工作法)管理你的时间
-- 在**本地**收集并可视化你的桌面工作活动，例如正在使用的应用名称和标题
-- 使用内置的看板（Kanban Board），更精准控制项目进度
-- 分析你的工作效率
+<img align="right" src="./screenshots/history-main-view.png" height="300"/>
 
-## 增强功能
+1. 🗺️ **规划 Plan** —— 用看板组织和预估任务
+   - 看板列表（`Backlog` / `Todo` / `In Progress` / `Done`）
+   - 卡片拖拽、预估耗时 vs 实际耗时
+2. ⏱️ **跟踪 Track** —— 番茄工作法专注计时
+   - 跟踪任务耗时、番茄钟数
+   - 专注 / 休息提醒
+3. 📝 **记录 Record** —— 自动记录桌面活动
+   - 自动记录正在使用的应用名称与标题
+4. 🔧 **处理 Process** —— 本地处理与效率计算
+   - 关联任务与专注时段
+   - 分心应用检测、效率启发式算法
+   - 数据导入 / 导出 / 删除，全程**本地**
+5. 📊 **可视化 Visualize** —— 回看每一天的时间去向
+   - 效率圆点
+   - 日历热力图、饼图、词云
 
-- 历史视图（History View）
-  * 新增年份选择器。
-  * 点击热力图格子时，可切换显示当天的饼图状态和词云。
-  * 支持自定义日历热力图基色。
-- 看板（Kanban）
-  * 显示任务创建时间。
-  * 新看板默认在最左侧新增一个 `Backlog` 列表。
-  * 卡片编辑器支持任务框、加粗、斜体、删除线、链接等快捷操作。
-  * 支持为卡片添加标签并自定义标签颜色。
-  * 支持更好的标签搜索、标签建议、点击标签进行过滤。
+## ① 🗺️ 规划：看板管理任务
 
-## 番茄工作法 :tomato:
+内置[看板](https://en.wikipedia.org/wiki/Kanban_board)并与番茄钟联动：在某个看板专注时，番茄时段会自动关联到该看板 `In Progress` 列表中的卡片，并记录每张卡片的**预估耗时 vs 实际耗时**。
 
-番茄工作法将工作循环拆分为 25 分钟的专注时段和 5 分钟的休息时段。在工作时段内，用户应专注于一个待办事项，不做任何无关的事情。番茄工作法可以极大提高工作与学习效率，并缓解工作疲劳。
+列表分为 `Backlog`（待办）、`Todo`（今日待办）、`In Progress`（进行中）、`Done`（已完成）。你可以自定义列表，但请保留 `In Progress` 与 `Done` 两个列表，以便跟踪、估算和分析时间花费。
 
-在 Pomodoro Logger 中，应用会在工作时段内记录你在电脑上使用的应用名称和标题。应用标题包含丰富的语义信息。例如，浏览器标题包含你正在浏览的网页标题，IDE 通常会提供项目路径或项目名称。
+> 💡 提示：`In Progress` 中的卡片越少，统计越准确。
+
+| **看板**                                                 | **拖拽卡片**                                              |
+| :------------------------------------------------------- | :-------------------------------------------------------- |
+| <img src="./screenshots/Kanban-Board.png" height="256"/> | <img src="./screenshots/moving-Around.gif" height="256"/> |
+| **估算时间花费**                                         | **搜索卡片**                                              |
+| <img src="./screenshots/todo.png" height="256"/>         | <img src="./screenshots/search-Card.gif" height="256"/>   |
+
+<details>
+<summary><b>🗂️ 看板增强</b> —— 富文本卡片 · 彩色标签 · 显示创建时间</summary>
+
+<br>
+
+- **卡片编辑器**：支持任务框（`[ ]`）、**加粗**、*斜体*、~~删除线~~、链接等快捷操作。
+- **彩色标签**：支持颜色标签，支持标签建议与搜索，支持**点击标签过滤**。
+- **任务创建时间**：每张卡片显示创建时间。
+
+![看板 - 卡片编辑与标签](./screenshots/kanban-card-editor.png)
+</details>
+
+## ② ⏱️ 跟踪：番茄工作法
+
+一个工作循环 = **25 分钟专注 + 5 分钟休息**。应用会跟踪任务耗时，自动累计的番茄钟数。在每个阶段结束时自动提醒。
+
+| **选择专注对象**                                             | **托盘显示倒计时**                                      |
+| :----------------------------------------------------------- | :------------------------------------------------------ |
+| <img src="./screenshots/choose-Focus.gif" width="256"/>      | <img src="./screenshots/tray.png" width="256"/>         |
+| **时段结束**                                                 | **切换模式**                                            |
+| <img src="./screenshots/session-Finished.gif" height="256"/> | <img src="./screenshots/switch-Mode.gif" height="256"/> |
+
+## ③ 📝 记录：桌面活动追踪
+
+在专注时段内，应用会自动记录你正在使用的应用**名称**与**标题**。标题富含语义信息：浏览器标题对应当前网页，IDE 标题则包含项目名。
 
 - `Pomodoro Technique - Wikipedia - Google Chrome`
 - `DeepMind (@DeepMindAI) | Twitter - Google Chrome`
 - `pomodoro-logger [C:\code\pomodoro-logger] .\src\renderer\components\src\Application.tsx - WebStorm`
 
-通过将你的待办事项与相应的番茄时段记录关联起来，你可以分析自己被邮件和社交软件打断的频率，以及完成任务时所用应用和应用标题的时间分布。这将帮助你更全面地了解自己在电脑上的工作时间。
-
-## 效率分析
-
-Pomodoro Logger 维护一个"分心应用"列表（你可以在设置中配置）。当检测到你正在使用分心应用时，你的效率就会降低。
-
-它通过[一种启发式方法](./src/shared/efficiency/efficiency.png)计算用户效率。
-
-效率以圆点的方式展示：圆点中的空洞越大，说明效率越低。
-
-<img width="150px" src="https://i.postimg.cc/Kzth8088/da.gif"/>
-
-点击圆圈可以查看详细记录。
+通过这些记录来回顾时间去向——在"可视化"阶段，你可以看到**饼图**（各项目/应用时间占比）与**词云**（主题关键词）。
 
 <p align="center">
-    <img width="600px" src="https://i.postimg.cc/SKWhN9Vb/image.png"/>
+  <img width="512" src="./screenshots/time-proportion-pie-chart.png" alt="时间占比饼图"/>
+  <img width="512" src="./screenshots/word-cloud.png" alt="词云"/>
 </p>
 
-# 数据 :chart_with_upwards_trend:
+## ④ 🔧 处理：本地数据与效率
 
-Pomodoro Logger 只在你处于番茄工作时段时记录你的桌面活动。
+- 所有记录**仅保存在本地**，绝不上传；可在设置中一键**导入 / 导出 / 删除**。
+- 在设置中维护一份"分心应用"列表，一旦检测到正在使用其中的应用，该时段的效率即通过[一种启发式方法](./src/shared/efficiency/efficiency.png)计算而降低。
+- 将任务与专注时段关联后，你可以分析"被邮件 / 社交软件打断的频率"，以及"完成某个任务用到了哪些应用"，更全面地了解自己的时间流向。
 
-它只记录你的应用活动，包括当前聚焦应用的名称和标题。
+<p align="center">
+  <img width="600" src="./screenshots/sankey-diagram.png" alt="分心桑基图"/>
+</p>
 
-你可以在设置中导入 / 导出 / 删除所有数据。
+## ⑤ 📊 可视化：历史视图与效率回看
 
-所有数据都在**本地**保存和处理。
+**历史视图**把所有记录汇总到一张日历热力图上，并对每一天做深度剖析；**效率**则以圆点呈现：**圆点中的空洞越大，效率越低**，点击圆点即可查看该时段的详细记录。
 
-# 看板
+<p align="center">
+  <img width="150" src="./screenshots/da.gif" alt="效率圆点演示"/>
+</p>
 
-Pomodoro Logger 内置了[看板](https://en.wikipedia.org/wiki/Kanban_board)，帮助你轻松组织和估算待办事项所花费的时间。
+<p align="center">
+  <img width="640" src="./screenshots/heatmap.png" alt="日历热力图"/>
+</p>
 
-看板中的列表分为 `Backlog`、`Todo`（待办）、`In Progress`（进行中）和 `Done`（已完成）。虽然列表可以自定义，但你需要保留 `In Progress` 和 `Done` 列表，以便跟踪、估算和分析项目的时间花费。你可以为每张待办卡片设置预估时间，Pomodoro Logger 会为你记录相应的实际耗时。例如，当你专注于某个看板时，它会自动将你的番茄时段与该看板 `In Progress` 列表中的待办卡片关联起来，从而使进一步的分析成为可能。
+<details>
+<summary><b>📌 历史视图增强</b> —— 年份切换 · 项目消耗时间 · 自定义基色</summary>
 
-为了让统计更加准确，建议尽量保持 `In Progress` 列表中的卡片数量最少，以精确反映你正在专注的任务。
+<br>
 
-# 下载
+- **年份选择器**：支持切换年份（也可查看全部时间）。
+- **项目消耗时间**：支持按项目 + 年份统计总耗时与番茄钟数量。
+- **历史记录回顾**：点击热力图中任意一天，即可查看当天的**饼图**与**词云**；切换项目和年份也会显示对应的**饼图**与**词云**。
+- **自定义基色**：可在设置中自定义热力图基色。
 
-支持 Windows 10 / macOS / Linux。
+</details>
 
-请前往[发布页面](https://github.com/NightZed/PomodoroLogger-Enhanced/releases)下载。
+## 🚀 快速开始
 
-# 参与贡献
+支持 **Windows 10 / macOS / Linux**，可从[发布页面](https://github.com/NightZed/PomodoroLogger-Enhanced/releases)下载对应平台的安装包。
+
+## 🤝 参与贡献
 
 欢迎你的参与！详情请阅读[贡献指南](./.github/CONTRIBUTION.md)。
 
 - 路线图见 [issue 页面](https://github.com/NightZed/PomodoroLogger-Enhanced/issues)
-- 如果发现 bug 或想要新功能，请[创建 issue](https://github.com/NightZed/PomodoroLogger-Enhanced/issues)
-- 如果你想着手处理某个 issue，请阅读[贡献指南](./.github/CONTRIBUTION.md)并在该 issue 下留言告知
+- 发现 bug 或想提新功能，请[创建 issue](https://github.com/NightZed/PomodoroLogger-Enhanced/issues)
+- 想动手处理某个 issue，阅读[贡献指南](./.github/CONTRIBUTION.md)并在 issue 下留言即可
 
-# 截图
-
-
-| **番茄钟**                                                                   | **在托盘显示倒计时**                                                    |
-| :--------------------------------------------------------------------------- | :---------------------------------------------------------------------- |
-| <img src="https://i.postimg.cc/Fs87Gx0w/choose-Focuse.gif" width="256"/>     | <img src="https://i.postimg.cc/LsMhF6CT/tray.png" width="256"/>         |
-| **时段结束**                                                                 | **切换模式**                                                            |
-| <img src="https://i.postimg.cc/fT9wWQ0g/session-Finished.gif" height="256"/> | <img src="https://i.postimg.cc/DZp202gR/switch-Mode.gif" height="256"/> |
-
-| **看板**                                                                 | **可拖拽卡片**                                                            |
-| :----------------------------------------------------------------------- | :------------------------------------------------------------------------ |
-| <img src="https://i.postimg.cc/rs136CfV/Kanban-Board.png" height="256"/> | <img src="https://i.postimg.cc/7Zrqft3P/moving-Around.gif" height="256"/> |
-| **估算你的时间花费**                                                     | **搜索你的卡片**                                                          |
-| <img src="https://i.postimg.cc/HxRzScHp/todo.png" height="256"/>         | <img src="https://i.postimg.cc/CLBKZf97/search-Card.gif" height="256"/>   |
-
-| **可视化**                                                      |
-| :-------------------------------------------------------------- |
-| <img src="https://i.postimg.cc/CKH5hT9V/vis.png" width="512"/>  |
-| <img src="https://i.postimg.cc/d150CRqH/vis1.png" width="512"/> |
-
-
-
-# 许可证
-
+## 📄 许可证
 
 [GPL-3.0 License](./LICENSE)
 
-Copyright © 2019 Zixuan Chen.
+Copyright © 2019 Zixuan Chen —— 原版作者。

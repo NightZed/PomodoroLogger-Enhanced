@@ -1,6 +1,5 @@
-
 <p align="center">
-  <img src="https://i.postimg.cc/hvjXfB94/icon.png" width="360"/>
+  <img src="./screenshots/icon.png" width="180"/>
 </p>
 
 <p align="center">
@@ -11,139 +10,147 @@
 </p>
 
 <p align="center">
-  <a href="https://circleci.com/gh/zxch3n/PomodoroLogger">
-    <img src="https://circleci.com/gh/zxch3n/PomodoroLogger.svg?style=svg"/>
+  <a href="https://github.com/NightZed/PomodoroLogger-Enhanced/actions/workflows/build.yml">
+    <img src="https://github.com/NightZed/PomodoroLogger-Enhanced/actions/workflows/build.yml/badge.svg"/>
   </a>
-  <a href="https://deepscan.io/dashboard#view=project&tid=5098&pid=6887&bid=60495">
-    <img src="https://deepscan.io/api/teams/5098/projects/6887/branches/60495/badge/grade.svg"/>
+  <a href="https://github.com/NightZed/PomodoroLogger-Enhanced/releases/latest">
+    <img src="https://img.shields.io/github/downloads/NightZed/PomodoroLogger-Enhanced/total"/>
   </a>
-  <a href="https://codecov.io/gh/zxch3n/PomodoroLogger">
-    <img src="https://codecov.io/gh/zxch3n/PomodoroLogger/branch/master/graph/badge.svg" />
+  <a href="https://github.com/NightZed/PomodoroLogger-Enhanced/releases">
+    <img src="https://img.shields.io/github/v/release/NightZed/PomodoroLogger-Enhanced"/>
   </a>
-  <a href="https://github.com/zxch3n/PomodoroLogger/releases/latest">
-    <img src="https://img.shields.io/github/downloads/zxch3n/PomodoroLogger/total" />
+  <a href="https://deepwiki.com/NightZed/PomodoroLogger-Enhanced">
+    <img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki">
   </a>
 </p>
 
-
-
 # Pomodoro Logger Enhanced :clock930:
-
 
 > **Invest your time easily**
 
-Original Repo: [Pomodoro Logger](https://github.com/zxch3n/PomodoroLogger)
+A **desktop time tracker** based on the [Pomodoro Technique](https://en.wikipedia.org/wiki/Pomodoro_Technique) that helps you master your work and study time through a five-step workflow:
+**Plan** tasks → **Track** focus → **Record** desktop activity → **Process** locally → **Visualize** and review.
+This repository is an enhanced edition of the [original Pomodoro Logger](https://github.com/zxch3n/PomodoroLogger), with optimizations in card editing, history view review, memory usage, and CPU usage.
 
-<img align="right" src="https://i.postimg.cc/0j8FJ70x/image.png" height="280"/>
+## ✨ The Five-Step Workflow
 
-- Use [Pomodoro Technique](https://en.wikipedia.org/wiki/Pomodoro_Technique) to manage your time
-- Collect and visualize your desktop working activities, i.e., the names and titles of the using apps, **locally**
-- Use integrated Kanban Board to make your schedule control easier
-- Analyse your efficiency
+<img align="right" src="./screenshots/history-main-view.png" height="300"/>
 
-## Enhanced Features
+1. 🗺️ **Plan** —— organize and estimate tasks with Kanban
+   - Board lists (`Backlog` / `Todo` / `In Progress` / `Done`)
+   - Card dragging, estimated vs actual time spent
+2. ⏱️ **Track** —— focus with the Pomodoro technique
+   - Task time tracking, pomodoro counts
+   - Focus / rest reminders
+3. 📝 **Record** —— automatic desktop activity tracking
+   - Automatically records the names and titles of the apps you use
+4. 🔧 **Process** —— local processing & efficiency
+   - Link tasks to focus sessions
+   - Distracting-app detection and a heuristic efficiency score
+   - Import / export / delete; everything stays **local**
+5. 📊 **Visualize** —— review where your time goes
+   - Efficiency dots
+   - Calendar heat maps, pie charts, word clouds
 
-- History View
-  * Add year selector .
-  * When clicking on the grid, switch to display the pie chart status and word cloud for that day.
-  * Support customizing the base color of calendar heat map.
-- Kanban 
-  * Display the task creation time.
-  * New boards come with a `Backlog` list on the left by default.
-  * The card editor supports quick operations such as task boxes, bolding, italic, strikethrough, and links.
-  * Add labels to cards with customizable colors.
-  * Support improved label search, label suggestions, and filtering by clicking on labels.
+## ① 🗺️ Plan: Kanban Task Management
 
-## Pomodoro Technique :tomato:
+The built-in [Kanban Board](https://en.wikipedia.org/wiki/Kanban_board) works together with the Pomodoro timer: while you focus on a board, your sessions are automatically linked to the cards in the `In Progress` list, and the app records the **estimated time vs actual time** of every card.
 
-The working loop in the Pomodoro Technique is split into a 25-minute focus session and a 5-minute rest session. During a work session, the user focuses on one todo item and should not do anything irrelevant. The Pomodoro Technique can greatly improve the efficiency of work and study and alleviate work fatigue.
+Lists are divided into `Backlog` (backlog), `Todo` (today's to-dos), `In Progress`, and `Done`. You can customize the lists, but please keep the `In Progress` and `Done` lists so that time can be tracked, estimated, and analyzed.
 
-In the Pomodoro Logger, the app will record the names and titles of the apps you use on your PC during the working sessions. The titles of apps contain rich semantic information. For example, the browser title includes the title of the website being viewed, and the IDE often provides the project path or project name.
+> 💡 Tip: leave as few cards in `In Progress` as possible for more accurate statistics.
+
+| **Kanban Board**                                           | **Dragging Cards**                                         |
+| :--------------------------------------------------------- | :--------------------------------------------------------- |
+| <img src="./screenshots/Kanban-Board.png" height="256"/> | <img src="./screenshots/moving-Around.gif" height="256"/> |
+| **Estimating Time Spent**                                  | **Searching Cards**                                        |
+| <img src="./screenshots/todo.png" height="256"/>        | <img src="./screenshots/search-Card.gif" height="256"/>   |
+
+<details>
+<summary><b>🗂️ Kanban Enhancements</b> —— rich-text cards · colored labels · created time</summary>
+
+<br>
+
+- **Card editor**: quick actions for task boxes (`[ ]`), **bold**, *italic*, ~~strikethrough~~, and links.
+- **Colored labels**: supports colored labels with label suggestions and search, plus **click-to-filter**.
+- **Card created time**: every card shows when it was created.
+
+![Kanban - card editor & labels](./screenshots/kanban-card-editor.png)
+</details>
+
+## ② ⏱️ Track: Pomodoro Technique
+
+A work cycle = **25 minutes of focus + 5 minutes of rest**. The app tracks task time and automatically keeps a running count of your pomodoros, with automatic reminders at the end of every stage.
+
+| **Choosing a Focus Task**                         | **Countdown in System Tray**                        |
+| :------------------------------------------------ | :-------------------------------------------------- |
+| <img src="./screenshots/choose-Focus.gif" width="256"/> | <img src="./screenshots/tray.png" width="256"/>  |
+| **Session Finished**                              | **Switching Mode**                                  |
+| <img src="./screenshots/session-Finished.gif" height="256"/> | <img src="./screenshots/switch-Mode.gif" height="256"/> |
+
+## ③ 📝 Record: Desktop Activity Tracking
+
+During focus sessions, the app automatically records the **names and titles** of the apps you are using. Titles carry rich semantics: a browser title reveals the page you are reading, while an IDE title often contains the project name or path.
 
 - `Pomodoro Technique - Wikipedia - Google Chrome`
 - `DeepMind (@DeepMindAI) | Twitter - Google Chrome`
 - `pomodoro-logger [C:\code\pomodoro-logger] .\src\renderer\components\src\Application.tsx - WebStorm`
 
-
-By connecting your todo items with the corresponding recorded Pomodoro sessions, you can analyze how often you are interrupted by email and social software, the time distribution of the application and application title used to complete the task. It will help you have a more comprehensive understanding of your working hours on PC.
-
-
-## Efficiency Analysis
-
-Pomodoro Logger keeps a list of distracting app (you can config it in the setting). When it detect your using distracting apps, you lose your efficiency.
-
-It calculates user efficiency by [a heuristic method](./src/shared/efficiency/efficiency.png).
-
-Demonstrating your efficiency by the dots. The larger the hole, the less efficient you are.
-
-<img width="150px" src="https://i.postimg.cc/Kzth8088/da.gif"/>
-
-You can view the record in detail by clicking the circle
+Review these records to see where your time went — in the "Visualize" stage, you can see the **pie chart** (time split by project / app) and the **word cloud** (top keywords).
 
 <p align="center">
-    <img width="600px" src="https://i.postimg.cc/SKWhN9Vb/image.png"/>
-</pa>
+  <img width="512" src="./screenshots/time-proportion-pie-chart.png" alt="Time proportion pie chart"/>
+  <img width="512" src="./screenshots/word-cloud.png" alt="Word cloud"/>
+</p>
 
+## ④ 🔧 Process: Local Data & Efficiency
 
-# Data :chart_with_upwards_trend:
+- All records are **saved and processed locally** and never uploaded; you can **import / export / delete** everything with one click from the settings.
+- Keep a list of "distracting apps" in the settings. Once the app detects that you are using one of them, your efficiency for that session drops, computed by [a heuristic method](./src/shared/efficiency/efficiency.png).
+- Once tasks are linked to their focus sessions, you can analyze how often you are interrupted by email / social apps and which apps you actually used to get things done, giving you a more complete picture of your time.
 
-Pomodoro Logger records your desktop activities when you are in a working session of Pomodoro. 
+<p align="center">
+  <img width="600" src="./screenshots/sankey-diagram.png" alt="Distraction Sankey diagram"/>
+</p>
 
-It only records your application activities, including the name and title of the focused application.
+## ⑤ 📊 Visualize: History & Efficiency
 
-You can import / export / delete all your data in the settings. 
+The **History view** aggregates all records into a calendar heat map and dives into every single day. Your **efficiency** is shown as dots: **the larger the hole, the less efficient you are**. Click a dot to inspect the detailed records of that period.
 
-All the data is saved and processed **locally**.
+<p align="center">
+  <img width="150" src="./screenshots/da.gif" alt="Efficiency dots demo"/>
+</p>
 
-# Kanban Board
+<p align="center">
+  <img width="640" src="./screenshots/heatmap.png" alt="Calendar heat map"/>
+</p>
 
-Pomodoro Logger has integrated [Kanban Board](https://en.wikipedia.org/wiki/Kanban_board) to help you organize and estimate the time spent of your todos easily with confidence.
+<details>
+<summary><b>📌 History View Enhancements</b> —— year selector · time spent per project · custom base color</summary>
 
-The lists in Kanban are divided into `Backlog`, `Todo`, `In Progress`, and `Done`. Though lists customization is possible, you are required to preserve `In Progress` list and `Done` list in order to track, estimate and analyze your project time spent. You can set the estimated time cost on each todo card. Pomodoro Logger will assist you with the corresponding actual time spent record. i.e., When you are focusing on a Kanban board, it will automatically associate your Pomodoro session with the todo cards of `In Progress` list in the Kanban, which makes further analysis possible.
+<br>
 
-To make the statistics more accurate, you can keep the cards of the `In Progress` list as few as possible to precisely reflect the tasks you are focusing on.
+- **Year selector**: switch between years (or view all time).
+- **Time spent per project**: view the total time and pomodoro count spent on a selected project in a selected year.
+- **History review**: click any day on the heat map to see that day's **pie chart** and **word cloud**; switching projects or years also shows the corresponding **pie chart** and **word cloud**.
+- **Custom base color**: customize the heat map base color in the settings.
 
+</details>
 
-# Download
+## 🚀 Quick Start
 
-Win10 / macOS / Linux
+Supports **Windows 10 / macOS / Linux**. Download the installer for your platform from the [release page](https://github.com/NightZed/PomodoroLogger-Enhanced/releases).
 
-To download, go to [release page](https://github.com/NightZed/PomodoroLogger-Enhanced/releases).
+## 🤝 Contribution
 
-
-# Contribution
-
-I'd love to see you're involved! Read [the Contribution Guide](./.github/CONTRIBUTION.md) for detail.
+Welcome! Read [the Contribution Guide](./.github/CONTRIBUTION.md) for details.
 
 - The roadmap is shown on the [issue page](https://github.com/NightZed/PomodoroLogger-Enhanced/issues)
-- If you find a bug or want a new feature, [create a issue](https://github.com/NightZed/PomodoroLogger-Enhanced/issues)
+- If you find a bug or want a new feature, [create an issue](https://github.com/NightZed/PomodoroLogger-Enhanced/issues)
 - If you want to start working on an issue, read [the Contribution Guide](./.github/CONTRIBUTION.md) and comment on the issue to let me know
 
-# Screenshot
-
-
-| **Pomodoro**                                                                 | **Show Countdown in Tray**                                              |
-| :--------------------------------------------------------------------------- | :---------------------------------------------------------------------- |
-| <img src="https://i.postimg.cc/Fs87Gx0w/choose-Focuse.gif" width="256"/>     | <img src="https://i.postimg.cc/LsMhF6CT/tray.png" width="256"/>         |
-| **Session Finished**                                                         | **Switch Mode**                                                         |
-| <img src="https://i.postimg.cc/fT9wWQ0g/session-Finished.gif" height="256"/> | <img src="https://i.postimg.cc/DZp202gR/switch-Mode.gif" height="256"/> |
-
-| **Kanban Board**                                                         | **Draggable Card**                                                        |
-| :----------------------------------------------------------------------- | :------------------------------------------------------------------------ |
-| <img src="https://i.postimg.cc/rs136CfV/Kanban-Board.png" height="256"/> | <img src="https://i.postimg.cc/7Zrqft3P/moving-Around.gif" height="256"/> |
-| **Estimate Your Time Spent**                                             | **Search Your Cards**                                                     |
-| <img src="https://i.postimg.cc/HxRzScHp/todo.png" height="256"/>         | <img src="https://i.postimg.cc/CLBKZf97/search-Card.gif" height="256"/>   |
-
-| **Visulization**                                                |
-| :-------------------------------------------------------------- |
-| <img src="https://i.postimg.cc/CKH5hT9V/vis.png" width="512"/>  |
-| <img src="https://i.postimg.cc/d150CRqH/vis1.png" width="512"/> |
-  
-
-
-# License
-
+## 📄 License
 
 [GPL-3.0 License](./LICENSE)
 
-Copyright © 2019 Zixuan Chen.
+Copyright © 2019 Zixuan Chen —— the original author.

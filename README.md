@@ -30,6 +30,7 @@
 
 A **desktop time tracker** based on the [Pomodoro Technique](https://en.wikipedia.org/wiki/Pomodoro_Technique) that helps you master your work and study time through a five-step workflow:
 **Plan** tasks → **Track** focus → **Record** desktop activity → **Process** locally → **Visualize** and review.
+
 This repository is an enhanced edition of the [original Pomodoro Logger](https://github.com/zxch3n/PomodoroLogger), with optimizations in card editing, history view review, memory usage, and CPU usage.
 
 ## ✨ The Five-Step Workflow
@@ -60,11 +61,11 @@ Lists are divided into `Backlog` (backlog), `Todo` (today's to-dos), `In Progres
 
 > 💡 Tip: leave as few cards in `In Progress` as possible for more accurate statistics.
 
-| **Kanban Board**                                           | **Dragging Cards**                                         |
-| :--------------------------------------------------------- | :--------------------------------------------------------- |
+| **Kanban Board**                                         | **Dragging Cards**                                        |
+| :------------------------------------------------------- | :-------------------------------------------------------- |
 | <img src="./screenshots/Kanban-Board.png" height="256"/> | <img src="./screenshots/moving-Around.gif" height="256"/> |
-| **Estimating Time Spent**                                  | **Searching Cards**                                        |
-| <img src="./screenshots/todo.png" height="256"/>        | <img src="./screenshots/search-Card.gif" height="256"/>   |
+| **Estimating Time Spent**                                | **Searching Cards**                                       |
+| <img src="./screenshots/todo.png" height="256"/>         | <img src="./screenshots/search-Card.gif" height="256"/>   |
 
 <details>
 <summary><b>🗂️ Kanban Enhancements</b> —— rich-text cards · colored labels · created time</summary>
@@ -82,10 +83,10 @@ Lists are divided into `Backlog` (backlog), `Todo` (today's to-dos), `In Progres
 
 A work cycle = **25 minutes of focus + 5 minutes of rest**. The app tracks task time and automatically keeps a running count of your pomodoros, with automatic reminders at the end of every stage.
 
-| **Choosing a Focus Task**                         | **Countdown in System Tray**                        |
-| :------------------------------------------------ | :-------------------------------------------------- |
-| <img src="./screenshots/choose-Focus.gif" width="256"/> | <img src="./screenshots/tray.png" width="256"/>  |
-| **Session Finished**                              | **Switching Mode**                                  |
+| **Choosing a Focus Task**                                    | **Countdown in System Tray**                            |
+| :----------------------------------------------------------- | :------------------------------------------------------ |
+| <img src="./screenshots/choose-Focus.gif" width="256"/>      | <img src="./screenshots/tray.png" width="256"/>         |
+| **Session Finished**                                         | **Switching Mode**                                      |
 | <img src="./screenshots/session-Finished.gif" height="256"/> | <img src="./screenshots/switch-Mode.gif" height="256"/> |
 
 ## ③ 📝 Record: Desktop Activity Tracking

@@ -9,7 +9,7 @@ import { IdTrend } from '../../Visualization/ProjectTrend';
 import styled from 'styled-components';
 import { formatTimeWithoutZero } from '../../../utils';
 import { BoardBrief } from './BoardBrief';
-import { actions, SortType } from '../action';
+import { actions, SortDirection, SortType } from '../action';
 // @ts-ignore
 import StackGrid from 'react-stack-grid';
 import { Card, KanbanBoard, ListsState } from '../type';
@@ -158,12 +158,15 @@ const getPinScore = ({ pin: aPin }: KanbanBoard, { pin: bPin }: KanbanBoard) => 
     return -a + b;
 };
 
-const sortFunc: Map<SortType, (a: KanbanBoard, b: KanbanBoard) => number> = new Map();
-sortFunc.set('alpha', (a, b) => {
+const applyDirection = (value: number, desc?: boolean) => (desc ? -value : value);
+
+const sortFunc: Map<SortType, (a: KanbanBoard, b: KanbanBoard, desc?: boolean) => number> =
+    new Map();
+sortFunc.set('alpha', (a, b, desc) => {
     if (getPinScore(a, b)) return getPinScore(a, b);
-    return a.name < b.name ? -1 : 1;
+    return applyDirection(a.name < b.name ? -1 : 1, desc);
 });
-sortFunc.set('due', (a, b) => {
+sortFunc.set('due', (a, b, desc) => {
     if (getPinScore(a, b)) return getPinScore(a, b);
     if (!a.dueTime) {
         return 1;
@@ -173,13 +176,13 @@ sortFunc.set('due', (a, b) => {
         return -1;
     }
 
-    return a.dueTime - b.dueTime;
+    return applyDirection(a.dueTime - b.dueTime, desc);
 });
-sortFunc.set('spent', (a, b) => {
+sortFunc.set('spent', (a, b, desc) => {
     if (getPinScore(a, b)) return getPinScore(a, b);
-    return -a.spentHours + b.spentHours;
+    return applyDirection(-a.spentHours + b.spentHours, desc);
 });
-sortFunc.set('recent', (a, b) => {
+sortFunc.set('recent', (a, b, desc) => {
     if (getPinScore(a, b)) return getPinScore(a, b);
     if (!a.lastVisitTime) {
         return 1;
@@ -189,9 +192,9 @@ sortFunc.set('recent', (a, b) => {
         return -1;
     }
 
-    return -a.lastVisitTime + b.lastVisitTime;
+    return applyDirection(-a.lastVisitTime + b.lastVisitTime, desc);
 });
-sortFunc.set('created', (a, b) => {
+sortFunc.set('created', (a, b, desc) => {
     if (getPinScore(a, b)) return getPinScore(a, b);
     if (!a.createdTime) {
         return 1;
@@ -201,12 +204,13 @@ sortFunc.set('created', (a, b) => {
         return -1;
     }
 
-    return a.createdTime - b.createdTime;
+    return applyDirection(a.createdTime - b.createdTime, desc);
 });
 
 interface OverviewCardsProps {
     boards: KanbanBoard[];
     sortedBy: SortType;
+    sortDirection: SortDirection;
     setId: (_id: string) => void;
     lists: ListsState;
     cards: CardsState;
@@ -217,6 +221,7 @@ const OverviewCards = connect(
     (state: RootState) => ({
         boards: Object.values(state.kanban.boards),
         sortedBy: state.kanban.kanban.sortedBy,
+        sortDirection: state.kanban.kanban.sortDirection,
         lists: state.kanban.lists,
         cards: state.kanban.cards,
     }),
@@ -228,6 +233,7 @@ const OverviewCards = connect(
     const [ids, setIds] = useState<string[]>([]);
     useEffect(() => {
         let alive = true;
+        const desc = props.sortDirection === 'desc';
         if (
             props.sortedBy === 'due' ||
             props.sortedBy === 'alpha' ||
@@ -235,7 +241,8 @@ const OverviewCards = connect(
             props.sortedBy === 'recent' ||
             props.sortedBy === 'created'
         ) {
-            boards.sort(sortFunc.get(props.sortedBy));
+            const sortFn = sortFunc.get(props.sortedBy);
+            boards.sort((a, b) => (sortFn ? sortFn(a, b, desc) : 0));
         } else if (props.sortedBy === 'remaining') {
             const boardsMap: { [_id: string]: number } = {};
             for (let i = 0; i < boards.length; i += 1) {
@@ -262,7 +269,7 @@ const OverviewCards = connect(
 
             boards.sort((a, b) => {
                 if (getPinScore(a, b)) return getPinScore(a, b);
-                return -boardsMap[a._id] + boardsMap[b._id];
+                return applyDirection(-boardsMap[a._id] + boardsMap[b._id], desc);
             });
         }
         setIds(boards.map((b) => b._id));
@@ -271,6 +278,7 @@ const OverviewCards = connect(
         };
     }, [
         props.sortedBy,
+        props.sortDirection,
         props.boards,
         props.sortedBy === 'remaining' && props.cards,
         boards.reduce((v, b) => (b.lastVisitTime ? b.lastVisitTime : 0) + v, 0),

@@ -8,10 +8,13 @@ import dbs from '../../dbs';
 import { AsyncDB } from '../../../utils/dbHelper';
 
 export type SortType = 'recent' | 'alpha' | 'due' | 'spent' | 'remaining' | 'created';
+export type SortDirection = 'asc' | 'desc';
 const settingDB = new AsyncDB(dbs.settingDB);
 const validSortTypes: SortType[] = ['recent', 'alpha', 'due', 'spent', 'remaining', 'created'];
+const validSortDirections: SortDirection[] = ['asc', 'desc'];
 export interface KanbanState {
     sortedBy: SortType;
+    sortDirection: SortDirection;
     chosenBoardId?: string;
     editCard: {
         isEditing: boolean;
@@ -28,6 +31,7 @@ const defaultState: KanbanState = {
     tagManager: new TagManager(),
     isSearching: false,
     sortedBy: 'recent',
+    sortDirection: 'asc',
     editCard: {
         isEditing: false,
         listId: '',
@@ -54,6 +58,11 @@ const setSortedBy = createActionCreator(
     (resolve) => (sortedBy: SortType) => resolve({ sortedBy })
 );
 
+const setSortDirection = createActionCreator(
+    '[KANBAN]SET_SORT_DIRECTION',
+    (resolve) => (sortDirection: SortDirection) => resolve({ sortDirection })
+);
+
 const setEditCard = createActionCreator(
     '[KANBAN]EDIT_CARD',
     (resolve) => (isEditing: boolean, listId: string, _id?: string) =>
@@ -74,10 +83,19 @@ export const actions = {
         dispatch(setSortedBy(sortedBy));
         await settingDB.update({ name: 'setting' }, { $set: { sortedBy } }, { upsert: true });
     },
-    fetchSortedBy: () => async (dispatch: Dispatch) => {
+    setSortDirection: (sortDirection: SortDirection) => async (dispatch: Dispatch) => {
+        dispatch(setSortDirection(sortDirection));
+        await settingDB.update({ name: 'setting' }, { $set: { sortDirection } }, { upsert: true });
+    },
+    fetchSortState: () => async (dispatch: Dispatch) => {
         const settings = await settingDB.findOne({ name: 'setting' });
-        if (settings != null && validSortTypes.includes(settings.sortedBy)) {
-            dispatch(setSortedBy(settings.sortedBy));
+        if (settings != null) {
+            if (validSortTypes.includes(settings.sortedBy)) {
+                dispatch(setSortedBy(settings.sortedBy));
+            }
+            if (validSortDirections.includes(settings.sortDirection)) {
+                dispatch(setSortDirection(settings.sortDirection));
+            }
         }
     },
     setChosenBoardId: (_id: string | undefined) => async (dispatch: Dispatch) => {
@@ -113,6 +131,10 @@ export const reducer = createReducer<KanbanState, any>(defaultState, (handle) =>
     handle(setSortedBy, (state, { payload: { sortedBy } }) => ({
         ...state,
         sortedBy,
+    })),
+    handle(setSortDirection, (state, { payload: { sortDirection } }) => ({
+        ...state,
+        sortDirection,
     })),
     handle(setSearchReg, (state, { payload: { reg } }) => ({
         ...state,

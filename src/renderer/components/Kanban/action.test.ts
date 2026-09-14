@@ -34,13 +34,42 @@ describe('kanban sort preference', () => {
 
         // simulate app restart: the reducer starts from a fresh default state
         state = undefined as any;
-        await actions.fetchSortedBy()(dispatch);
+        await actions.fetchSortState()(dispatch);
         expect(state.sortedBy).toBe('alpha');
+    });
+
+    it('persists sortDirection to settingDB and restores it after restart', async () => {
+        await actions.setSortDirection('desc')(dispatch);
+        expect(state.sortDirection).toBe('desc');
+        const setting = await settingDB.findOne({ name: 'setting' });
+        expect(setting.sortDirection).toBe('desc');
+
+        // simulate app restart: the reducer starts from a fresh default state
+        state = undefined as any;
+        await actions.fetchSortState()(dispatch);
+        expect(state.sortDirection).toBe('desc');
+        expect(state.sortedBy).toBe('recent');
+    });
+
+    it('persists sortedBy and sortDirection together and restores both', async () => {
+        await actions.setSortedBy('created')(dispatch);
+        await actions.setSortDirection('desc')(dispatch);
+
+        state = undefined as any;
+        await actions.fetchSortState()(dispatch);
+        expect(state.sortedBy).toBe('created');
+        expect(state.sortDirection).toBe('desc');
     });
 
     it('ignores invalid persisted sortedBy', async () => {
         await settingDB.insert({ name: 'setting', sortedBy: 'illegal-sort' });
-        await actions.fetchSortedBy()(dispatch);
+        await actions.fetchSortState()(dispatch);
         expect(state.sortedBy).toBe('recent');
+    });
+
+    it('ignores invalid persisted sortDirection', async () => {
+        await settingDB.insert({ name: 'setting', sortDirection: 'illegal-direction' });
+        await actions.fetchSortState()(dispatch);
+        expect(state.sortDirection).toBe('asc');
     });
 });

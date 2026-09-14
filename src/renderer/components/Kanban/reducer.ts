@@ -29,7 +29,14 @@ export const uiStateNames: EqualKey[] = [
     'lists',
     'cards',
     {
-        kanban: ['sortedBy', 'chosenBoardId', 'isSearching', 'searchReg', 'configuringBoardId'],
+        kanban: [
+            'sortedBy',
+            'sortDirection',
+            'chosenBoardId',
+            'isSearching',
+            'searchReg',
+            'configuringBoardId',
+        ],
     },
 ];
 

@@ -2,12 +2,14 @@ import React, { FunctionComponent, useCallback, useEffect, useRef, useState } fr
 import { KanbanActionTypes } from './action';
 import { KanbanState, uiStateNames } from './reducer';
 import { BoardActionTypes } from './Board/action';
-import { message, Button, Form, Icon, Layout, Select, Switch } from 'antd';
+import { message, Button, Form, Icon, Layout, Select, Switch, Tooltip } from 'antd';
 import Board from './Board';
 import styled from 'styled-components';
 import { Overview } from './Board/Overview';
 import { LabelButton } from '../../style/form';
 import backIcon from '../../../res/back.svg';
+import SortDownIcon from '../../../res/sort-down.svg';
+import SortUpIcon from '../../../res/sort-up.svg';
 import { Label } from './style/Form';
 import Hotkeys from 'react-hot-keys';
 import shortid from 'shortid';
@@ -245,6 +247,9 @@ export const Kanban: FunctionComponent<Props> = React.memo(
             },
             [props.kanban.chosenBoardId]
         );
+        const toggleSortDirection = React.useCallback(() => {
+            props.setSortDirection(props.kanban.sortDirection === 'asc' ? 'desc' : 'asc');
+        }, [props.kanban.sortDirection]);
 
         return (
             <Layout style={{ padding: 4, height: 'calc(100vh - 45px)' }}>
@@ -291,6 +296,27 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                 <Option value="spent">Spent Time</Option>
                                 <Option value="remaining">Remaining Time</Option>
                             </Select>
+                            <Tooltip
+                                title={
+                                    props.kanban.sortDirection === 'asc'
+                                        ? 'Ascending'
+                                        : 'Descending'
+                                }
+                            >
+                                <Button
+                                    style={{ margin: '0 4px' }}
+                                    onClick={toggleSortDirection}
+                                    id={'sort-direction-button'}
+                                >
+                                    <Icon
+                                        component={
+                                            props.kanban.sortDirection === 'asc'
+                                                ? SortUpIcon
+                                                : SortDownIcon
+                                        }
+                                    />
+                                </Button>
+                            </Tooltip>
                         </>
                     )}
                     <div className="header-right">

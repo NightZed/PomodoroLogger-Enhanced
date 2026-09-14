@@ -233,7 +233,7 @@ export const actions = {
         await listActions.fetchLists()(dispatch);
         await cardActions.fetchCards()(dispatch);
         dispatch(setBoardMap(boardMap));
-        await kanbanActions.fetchSortedBy()(dispatch);
+        await kanbanActions.fetchSortState()(dispatch);
     },
     moveList: (_id: string, fromIndex: number, toIndex: number) => async (dispatch: Dispatch) => {
         dispatch(moveList(_id, fromIndex, toIndex));

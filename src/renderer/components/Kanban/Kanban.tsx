@@ -284,6 +284,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                 }}
                             >
                                 <Option value="recent">Last Visit</Option>
+                                <Option value="created">Created Time</Option>
                                 <Option value="alpha">Alphabet</Option>
                                 {/* TODO: Due time */}
                                 {/*<Option value="due">Due Time</Option>*/}

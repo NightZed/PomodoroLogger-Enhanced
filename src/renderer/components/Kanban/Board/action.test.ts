@@ -124,6 +124,23 @@ describe('board actions', () => {
         expect(todoList.cards).toHaveLength(1);
     });
 
+    it('stores createdTime on the board so it can be sorted by creation time', async () => {
+        const _id = shortid.generate();
+        let state: KanbanBoardState = {};
+        // @ts-ignore
+        const dispatch: Dispatch = (action: any) => {
+            try {
+                state = boardReducer(state, action);
+            } catch (e) {
+                console.warn(e);
+            }
+        };
+        await actions.addBoard(_id, 'B0')(dispatch);
+        const board: KanbanBoard = await db.findOne({ _id });
+        expect(board.createdTime).toBeDefined();
+        expect(state[_id].createdTime).toBe(board.createdTime);
+    });
+
     it('should add list directly', async () => {
         const _id = shortid.generate();
         let state: KanbanBoardState = {};

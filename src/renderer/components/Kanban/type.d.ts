@@ -41,6 +41,7 @@ export interface KanbanBoard {
     relatedSessions: string[];
     dueTime?: number; // TODO: Add due time setting
     lastVisitTime?: number;
+    createdTime?: number;
     aggInfo?: AggInfo;
     pin?: boolean;
     collapsed?: boolean;

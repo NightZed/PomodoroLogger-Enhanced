@@ -36,7 +36,7 @@ const columns = [
         title: 'Board Name',
         dataIndex: 'name',
         editable: true,
-        key: 'name'
+        key: 'name',
     },
     {
         title: 'Estimated Left Time',
@@ -44,20 +44,20 @@ const columns = [
         key: 'estimatedLeftTimeSum',
         render: formatTimeWithoutZero,
         sorter: (a: AggBoardInfo, b: AggBoardInfo) =>
-            a.estimatedLeftTimeSum - b.estimatedLeftTimeSum
+            a.estimatedLeftTimeSum - b.estimatedLeftTimeSum,
     },
     {
         title: 'Spent Time',
         dataIndex: 'actualTimeSum',
         key: 'actualTimeSum',
         render: formatTimeWithoutZero,
-        sorter: (a: AggBoardInfo, b: AggBoardInfo) => a.actualTimeSum - b.actualTimeSum
+        sorter: (a: AggBoardInfo, b: AggBoardInfo) => a.actualTimeSum - b.actualTimeSum,
     },
     {
         title: 'Pomodoros',
         dataIndex: 'pomodoroCount',
         key: 'pomodoroCount',
-        sorter: (a: AggBoardInfo, b: AggBoardInfo) => a.pomodoroCount - b.pomodoroCount
+        sorter: (a: AggBoardInfo, b: AggBoardInfo) => a.pomodoroCount - b.pomodoroCount,
     },
     {
         title: 'Mean Estimate Error',
@@ -74,7 +74,7 @@ const columns = [
             const va = a.meanPercentageError === undefined ? 1e8 : a.meanPercentageError;
             const vb = b.meanPercentageError === undefined ? 1e8 : b.meanPercentageError;
             return va - vb;
-        }
+        },
     },
     {
         title: 'Trend',
@@ -82,8 +82,8 @@ const columns = [
         key: 'trend',
         render: (text: any, record: AggBoardInfo) => {
             return <IdTrend boardId={record._id} />;
-        }
-    }
+        },
+    },
 ];
 
 type NewCard = Card & { isDone?: boolean };
@@ -91,7 +91,7 @@ const _OverviewTable: FC<Props> = (props: Props) => {
     const { boards, lists: listsById, cards: cardsById } = props;
     const boardRows = Object.values(boards);
 
-    const aggInfo: AggBoardInfo[] = boardRows.map(board => {
+    const aggInfo: AggBoardInfo[] = boardRows.map((board) => {
         const { name, lists, relatedSessions, _id } = board;
         const cards: NewCard[] = lists.reduce((l: NewCard[], listId) => {
             for (const cardId of listsById[listId].cards) {
@@ -113,7 +113,7 @@ const _OverviewTable: FC<Props> = (props: Props) => {
                     l[0] + (r.isDone ? 0 : Math.max(0, estimated - actual)),
                     l[1] + actual,
                     l[2] + err,
-                    l[3] + (r.isDone ? 1 : 0)
+                    l[3] + (r.isDone ? 1 : 0),
                 ];
             },
             [0, 0, 0, 0]
@@ -124,7 +124,7 @@ const _OverviewTable: FC<Props> = (props: Props) => {
             estimatedLeftTimeSum,
             actualTimeSum,
             meanPercentageError: n ? errorSum / n : undefined,
-            pomodoroCount: relatedSessions.length
+            pomodoroCount: relatedSessions.length,
         };
     });
 
@@ -143,7 +143,7 @@ interface InputProps {
 const OverviewTable = connect((state: RootState) => ({
     boards: state.kanban.boards,
     lists: state.kanban.lists,
-    cards: state.kanban.cards
+    cards: state.kanban.cards,
 }))(_OverviewTable);
 
 const BriefContainer = styled.div`
@@ -191,6 +191,18 @@ sortFunc.set('recent', (a, b) => {
 
     return -a.lastVisitTime + b.lastVisitTime;
 });
+sortFunc.set('created', (a, b) => {
+    if (getPinScore(a, b)) return getPinScore(a, b);
+    if (!a.createdTime) {
+        return 1;
+    }
+
+    if (!b.createdTime) {
+        return -1;
+    }
+
+    return a.createdTime - b.createdTime;
+});
 
 interface OverviewCardsProps {
     boards: KanbanBoard[];
@@ -206,10 +218,10 @@ const OverviewCards = connect(
         boards: Object.values(state.kanban.boards),
         sortedBy: state.kanban.kanban.sortedBy,
         lists: state.kanban.lists,
-        cards: state.kanban.cards
+        cards: state.kanban.cards,
     }),
     (dispatch: Dispatch) => ({
-        setId: (_id: string) => actions.setChosenBoardId(_id)(dispatch)
+        setId: (_id: string) => actions.setChosenBoardId(_id)(dispatch),
     })
 )(((props: OverviewCardsProps) => {
     const { boards, setId } = props;
@@ -220,7 +232,8 @@ const OverviewCards = connect(
             props.sortedBy === 'due' ||
             props.sortedBy === 'alpha' ||
             props.sortedBy === 'spent' ||
-            props.sortedBy === 'recent'
+            props.sortedBy === 'recent' ||
+            props.sortedBy === 'created'
         ) {
             boards.sort(sortFunc.get(props.sortedBy));
         } else if (props.sortedBy === 'remaining') {
@@ -252,7 +265,7 @@ const OverviewCards = connect(
                 return -boardsMap[a._id] + boardsMap[b._id];
             });
         }
-        setIds(boards.map(b => b._id));
+        setIds(boards.map((b) => b._id));
         return () => {
             alive = false;
         };
@@ -260,12 +273,12 @@ const OverviewCards = connect(
         props.sortedBy,
         props.boards,
         props.sortedBy === 'remaining' && props.cards,
-        boards.reduce((v, b) => (b.lastVisitTime ? b.lastVisitTime : 0) + v, 0)
+        boards.reduce((v, b) => (b.lastVisitTime ? b.lastVisitTime : 0) + v, 0),
     ]);
 
     return (
         <StackGrid columnWidth={265} gutterHeight={0}>
-            {ids.map(_id => {
+            {ids.map((_id) => {
                 const onClick = () => setId(_id);
                 const onSettingClick = props.showConfigById
                     ? () => {

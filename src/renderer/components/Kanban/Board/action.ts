@@ -22,6 +22,7 @@ export const defaultBoard: KanbanBoard = {
     collapsed: false,
     relatedSessions: [],
     spentHours: 0,
+    createdTime: 0,
 };
 
 export type KanbanBoardState = { [_id: string]: KanbanBoard };
@@ -35,9 +36,10 @@ const addBoard = createActionCreator(
             description: string,
             lists: string[],
             focusedList: string,
-            doneList: string
+            doneList: string,
+            createdTime: number
         ) =>
-            resolve({ _id, name, description, lists, focusedList, doneList })
+            resolve({ _id, name, description, lists, focusedList, doneList, createdTime })
 );
 
 const setBoardMap = createActionCreator(
@@ -109,7 +111,10 @@ const setCollapsed = createActionCreator(
 export const boardReducer = createReducer<KanbanBoardState, any>({}, (handle) => [
     handle(
         addBoard,
-        (state, { payload: { _id, name, description, lists, focusedList, doneList } }) => ({
+        (
+            state,
+            { payload: { _id, name, description, lists, focusedList, doneList, createdTime } }
+        ) => ({
             ...state,
             [_id]: {
                 ...defaultBoard,
@@ -119,6 +124,7 @@ export const boardReducer = createReducer<KanbanBoardState, any>({}, (handle) =>
                 lists,
                 focusedList,
                 doneList,
+                createdTime,
             },
         })
     ),
@@ -227,6 +233,7 @@ export const actions = {
         await listActions.fetchLists()(dispatch);
         await cardActions.fetchCards()(dispatch);
         dispatch(setBoardMap(boardMap));
+        await kanbanActions.fetchSortedBy()(dispatch);
     },
     moveList: (_id: string, fromIndex: number, toIndex: number) => async (dispatch: Dispatch) => {
         dispatch(moveList(_id, fromIndex, toIndex));
@@ -264,13 +271,14 @@ export const actions = {
     addBoard:
         (_id: string, name: string, description: string = '') =>
         async (dispatch: Dispatch) => {
+            const createdTime = new Date().getTime();
             const lists = [];
             for (const name of ['Backlog', 'TODO', 'In Progress', 'Done']) {
                 const listId = shortid.generate();
                 await listActions.addList(listId, name)(dispatch);
                 lists.push(listId);
             }
-            dispatch(addBoard(_id, name, description, lists, lists[2], lists[3]));
+            dispatch(addBoard(_id, name, description, lists, lists[2], lists[3], createdTime));
 
             const cardId = shortid.generate();
             await cardActions.addCard(
@@ -285,6 +293,7 @@ export const actions = {
                 description,
                 name,
                 lists,
+                createdTime,
                 lastVisitTime: new Date().getTime(),
                 focusedList: lists[2],
                 doneList: lists[3],

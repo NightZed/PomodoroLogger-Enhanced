@@ -4,8 +4,12 @@ import { actions as boardActions } from './Board/action';
 import { actions as timerActions } from '../Timer/action';
 import { Dispatch } from 'redux';
 import { TagManager } from './tagManager';
+import dbs from '../../dbs';
+import { AsyncDB } from '../../../utils/dbHelper';
 
-export type SortType = 'recent' | 'alpha' | 'due' | 'spent' | 'remaining';
+export type SortType = 'recent' | 'alpha' | 'due' | 'spent' | 'remaining' | 'created';
+const settingDB = new AsyncDB(dbs.settingDB);
+const validSortTypes: SortType[] = ['recent', 'alpha', 'due', 'spent', 'remaining', 'created'];
 export interface KanbanState {
     sortedBy: SortType;
     chosenBoardId?: string;
@@ -56,16 +60,26 @@ const setEditCard = createActionCreator(
         resolve({ isEditing, _id, listId })
 );
 
-const setSearchReg = createActionCreator('[KANBAN]SET_SEARCH_REG', (resolve) => (reg?: string) =>
-    resolve({ reg })
+const setSearchReg = createActionCreator(
+    '[KANBAN]SET_SEARCH_REG',
+    (resolve) => (reg?: string) => resolve({ reg })
 );
 
 export const actions = {
     setEditCard,
-    setSortedBy,
     setSearchReg,
     setIsSearching,
     setConfiguringBoardId,
+    setSortedBy: (sortedBy: SortType) => async (dispatch: Dispatch) => {
+        dispatch(setSortedBy(sortedBy));
+        await settingDB.update({ name: 'setting' }, { $set: { sortedBy } }, { upsert: true });
+    },
+    fetchSortedBy: () => async (dispatch: Dispatch) => {
+        const settings = await settingDB.findOne({ name: 'setting' });
+        if (settings != null && validSortTypes.includes(settings.sortedBy)) {
+            dispatch(setSortedBy(settings.sortedBy));
+        }
+    },
     setChosenBoardId: (_id: string | undefined) => async (dispatch: Dispatch) => {
         dispatch(setChosenBoardId(_id));
         if (_id) {

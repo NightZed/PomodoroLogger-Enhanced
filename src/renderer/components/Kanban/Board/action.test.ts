@@ -1,4 +1,4 @@
-import { actions, boardReducer, KanbanBoardState } from './action';
+import { actions, boardReducer, KanbanBoardState, defaultBoard } from './action';
 import { Dispatch } from 'redux';
 import { dbBaseDir, dbPaths } from '../../../../config';
 import { existsSync, unlink, mkdir } from 'fs';
@@ -10,6 +10,8 @@ import { KanbanBoard } from '../type';
 
 const db = new AsyncDB(dbs.kanbanDB);
 const listsDB = new AsyncDB(dbs.listsDB);
+const cardsDB = new AsyncDB(dbs.cardsDB);
+const sessionDB = new AsyncDB(dbs.sessionDB);
 beforeEach(async () => {
     if (existsSync(dbPaths.kanbanDB)) {
         await promisify(unlink)(dbPaths.kanbanDB).catch(() => {});
@@ -139,6 +141,130 @@ describe('board actions', () => {
         const board: KanbanBoard = await db.findOne({ _id });
         expect(board.createdTime).toBeDefined();
         expect(state[_id].createdTime).toBe(board.createdTime);
+    });
+
+    it('backfills createdTime for legacy boards from the earliest card createdTime', async () => {
+        const boardId = shortid.generate();
+        const listId = shortid.generate();
+        const cardId0 = shortid.generate();
+        const cardId1 = shortid.generate();
+        await listsDB.insert({ _id: listId, title: 'list', cards: [cardId0, cardId1] });
+        const cards: [string, number][] = [
+            [cardId0, 6000],
+            [cardId1, 5000],
+        ];
+        for (const [cardId, createdTime] of cards) {
+            await cardsDB.insert({
+                createdTime,
+                _id: cardId,
+                title: 'card',
+                content: '',
+                sessionIds: [],
+                spentTimeInHour: { estimated: 0, actual: 0 },
+            });
+        }
+
+        const legacyBoard: KanbanBoard = {
+            ...defaultBoard,
+            _id: boardId,
+            name: 'legacy',
+            description: '',
+            lists: [listId],
+            focusedList: '',
+            doneList: '',
+        };
+        delete legacyBoard.createdTime;
+        await db.insert(legacyBoard);
+
+        let state: KanbanBoardState = {};
+        // @ts-ignore
+        const dispatch: Dispatch = (action: any) => {
+            try {
+                state = boardReducer(state, action);
+            } catch (e) {
+                console.warn(e);
+            }
+        };
+        await actions.fetchBoards()(dispatch);
+
+        const board: KanbanBoard = await db.findOne({ _id: boardId });
+        expect(board.createdTime).toBe(5000);
+        expect(state[boardId].createdTime).toBe(5000);
+    });
+
+    it('backfills createdTime for legacy boards without card signals using the earliest session', async () => {
+        const boardId = shortid.generate();
+        const legacyBoard: KanbanBoard = {
+            ...defaultBoard,
+            _id: boardId,
+            name: 'legacy',
+            description: '',
+            lists: [],
+            focusedList: '',
+            doneList: '',
+        };
+        delete legacyBoard.createdTime;
+        await db.insert(legacyBoard);
+        await sessionDB.insert({
+            boardId,
+            _id: shortid.generate(),
+            apps: {},
+            spentTimeInHour: 1,
+            switchTimes: 0,
+            startTime: 9000,
+        });
+        await sessionDB.insert({
+            boardId,
+            _id: shortid.generate(),
+            apps: {},
+            spentTimeInHour: 1,
+            switchTimes: 0,
+            startTime: 7000,
+        });
+
+        let state: KanbanBoardState = {};
+        // @ts-ignore
+        const dispatch: Dispatch = (action: any) => {
+            try {
+                state = boardReducer(state, action);
+            } catch (e) {
+                console.warn(e);
+            }
+        };
+        await actions.fetchBoards()(dispatch);
+
+        const board: KanbanBoard = await db.findOne({ _id: boardId });
+        expect(board.createdTime).toBe(7000);
+    });
+
+    it('keeps createdTime missing when no signal is available', async () => {
+        const boardId = shortid.generate();
+        const legacyBoard: KanbanBoard = {
+            ...defaultBoard,
+            _id: boardId,
+            name: 'legacy',
+            description: '',
+            lists: [],
+            focusedList: '',
+            doneList: '',
+        };
+        delete legacyBoard.createdTime;
+        await db.insert(legacyBoard);
+
+        let state: KanbanBoardState = {};
+        // @ts-ignore
+        const dispatch: Dispatch = (action: any) => {
+            try {
+                state = boardReducer(state, action);
+            } catch (e) {
+                console.warn(e);
+            }
+        };
+        await actions.fetchBoards()(dispatch);
+
+        const board: KanbanBoard = await db.findOne({ _id: boardId });
+        expect(board.createdTime).toBeUndefined();
+        expect(state[boardId].createdTime).toBeUndefined();
     });
 
     it('should add list directly', async () => {

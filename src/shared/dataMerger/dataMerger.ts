@@ -134,6 +134,14 @@ export class DataMerger {
 
         const mergedLists = bBoard.lists.reduce((set, cur) => set.add(cur), new Set(aBoard.lists));
         aBoard.lists = Array.from(mergedLists);
+
+        // keep the earliest known creation time so backfilled estimates survive imports
+        if (bBoard.createdTime !== undefined) {
+            if (aBoard.createdTime === undefined || bBoard.createdTime < aBoard.createdTime) {
+                aBoard.createdTime = bBoard.createdTime;
+            }
+        }
+
         return aBoard;
     }
 

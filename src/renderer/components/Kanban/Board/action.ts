@@ -8,9 +8,13 @@ import shortid from 'shortid';
 import { lang } from '../../../../lang/en';
 import { DistractingRow } from '../../Timer/action';
 import { workers } from '../../../workers';
-import { AggInfo, KanbanBoard } from '../type';
+import { PomodoroRecord } from '../../../monitor/type';
+import { AggInfo, Card, KanbanBoard, List } from '../type';
 
 const db = workers.dbWorkers.kanbanDB;
+const listsDB = workers.dbWorkers.listsDB;
+const cardsDB = workers.dbWorkers.cardsDB;
+const sessionDB = workers.dbWorkers.sessionDB;
 
 export const defaultBoard: KanbanBoard = {
     _id: '',
@@ -222,6 +226,89 @@ export const boardReducer = createReducer<KanbanBoardState, any>({}, (handle) =>
     })),
 ]);
 
+/**
+ * Backfill createdTime for legacy boards (created before the field existed):
+ * 1. use the earliest createdTime among the board's cards (a card must be created
+ *    after its board, so this is a lower bound of the board's creation time);
+ * 2. fall back to the earliest startTime of the board's related sessions;
+ * 3. keep the field missing when no signal is available.
+ * The estimation is persisted once, so following runs skip the backfill.
+ */
+async function backfillCreatedTimes(boardMap: KanbanBoardState) {
+    const legacyBoardIds = Object.keys(boardMap).filter(
+        (boardId) => !boardMap[boardId].createdTime
+    );
+    // nothing to migrate, skip querying the other collections
+    if (legacyBoardIds.length === 0) {
+        return;
+    }
+
+    const lists: List[] = await listsDB.find({}, {});
+    const listMap: { [_id: string]: List } = {};
+    for (const list of lists) {
+        listMap[list._id] = list;
+    }
+
+    const cards: Card[] = await cardsDB.find({}, {});
+    const cardCreatedTime: { [_id: string]: number } = {};
+    for (const card of cards) {
+        if (typeof card.createdTime === 'number') {
+            cardCreatedTime[card._id] = card.createdTime;
+        }
+    }
+
+    const noCardSignal: string[] = [];
+    for (const boardId of legacyBoardIds) {
+        const board = boardMap[boardId];
+        let createdTime: number | undefined;
+        for (const listId of board.lists) {
+            const list = listMap[listId];
+            if (list == null) {
+                continue;
+            }
+
+            for (const cardId of list.cards) {
+                const time = cardCreatedTime[cardId];
+                if (time != null && (createdTime === undefined || time < createdTime)) {
+                    createdTime = time;
+                }
+            }
+        }
+
+        if (createdTime === undefined) {
+            noCardSignal.push(boardId);
+        } else {
+            boardMap[boardId].createdTime = createdTime;
+            await db.update({ _id: boardId }, { $set: { createdTime } });
+        }
+    }
+
+    if (noCardSignal.length === 0) {
+        return;
+    }
+
+    const records: PomodoroRecord[] = await sessionDB.find({ boardId: { $in: noCardSignal } }, {});
+    const earliestStartTime: { [boardId: string]: number } = {};
+    for (const record of records) {
+        if (record.boardId == null) {
+            continue;
+        }
+
+        const known = earliestStartTime[record.boardId];
+        if (known === undefined || record.startTime < known) {
+            earliestStartTime[record.boardId] = record.startTime;
+        }
+    }
+
+    for (const boardId of noCardSignal) {
+        const createdTime = earliestStartTime[boardId];
+        if (createdTime != null) {
+            boardMap[boardId].createdTime = createdTime;
+            await db.update({ _id: boardId }, { $set: { createdTime } });
+        }
+    }
+}
+
 export const actions = {
     fetchBoards: () => async (dispatch: Dispatch) => {
         const boards: KanbanBoard[] = await db.find({}, {});
@@ -230,6 +317,7 @@ export const actions = {
             boardMap[board._id] = board;
         }
 
+        await backfillCreatedTimes(boardMap);
         await listActions.fetchLists()(dispatch);
         await cardActions.fetchCards()(dispatch);
         dispatch(setBoardMap(boardMap));

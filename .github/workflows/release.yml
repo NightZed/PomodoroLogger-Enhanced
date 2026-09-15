@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - master
+
+# Serialize releases: only one semantic-release run at a time,
+# never cancel one (a cancelled run could leave a half-pushed tag).
+concurrency:
+  group: release-master
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+        with:
+          # Full history + tags are required for version analysis
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Node.js and Yarn
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn --frozen-lockfile
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Test
+        run: yarn test -- --ci --runInBand
+
+      - name: Semantic Release
+        id: semantic
+        uses: cycjimmy/semantic-release-action@v6
+        with:
+          # NOTE: @semantic-release/npm is intentionally excluded:
+          # this is an Electron desktop app, nothing is published to npm.
+          extra_plugins: |
+            @semantic-release/changelog@7
+            @semantic-release/git@11
+            @semantic-release/github@12
+        env:
+          # Must be a PAT (with contents:write) so that the pushed tag
+          # triggers the Build/release workflow. The auto-provided
+          # GITHUB_TOKEN cannot trigger follow-up workflow runs.
+          GITHUB_TOKEN: ${{ secrets.GIT_TOKEN }}

@@ -63,3 +63,23 @@ electron_mirror "https://npmmirror.com/mirrors/electron/"
 
 - Don't use independent CSS file, use [styled-component](https://www.styled-components.com) instead
 - Follow the linter
+- Commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/)
+  (enforced by commitlint). This drives automatic versioning and releases:
+  `feat:` triggers a minor release, `fix:`/`perf:` a patch release,
+  `BREAKING CHANGE:` in the body a major release; `docs:`/`chore:`/`test:`
+  etc. trigger no release.
+
+## Release
+
+Releases are fully automatic via [semantic-release](https://semantic-release.gitbook.io/):
+
+1. Just merge/push [Conventional Commits](https://www.conventionalcommits.org/)-style
+   commits to `master` — never bump `package.json` version or create tags by hand.
+2. The `Release` workflow runs lint + tests, then semantic-release analyzes commits
+   since the last release, bumps the version, updates `CHANGELOG.md` + `package.json`,
+   creates the `vX.Y.Z` tag and a GitHub Release.
+3. The tag push triggers the `Build/release` workflow, which builds the
+   Windows/macOS/Linux installers and uploads them to that Release.
+
+Preview the next version locally with `yarn release --dry-run` (no GitHub token
+needed for version analysis).

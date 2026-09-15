@@ -10,8 +10,6 @@ import { formatTimeYmdHm } from '../Visualization/Timeline';
 import { CreatedTime } from './style/CreatedTime';
 import { LabelButton } from '../../style/form';
 import backIcon from '../../../res/back.svg';
-import SortDownIcon from '../../../res/sort-down.svg';
-import SortUpIcon from '../../../res/sort-up.svg';
 import { Label } from './style/Form';
 import Hotkeys from 'react-hot-keys';
 import shortid from 'shortid';
@@ -314,15 +312,15 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                 }
                             >
                                 <Button
-                                    style={{ margin: '0 4px' }}
+                                    style={{ width: 32, padding: 0, margin: '0 4px' }}
                                     onClick={toggleSortDirection}
                                     id={'sort-direction-button'}
                                 >
                                     <Icon
-                                        component={
+                                        type={
                                             props.kanban.sortDirection === 'asc'
-                                                ? SortUpIcon
-                                                : SortDownIcon
+                                                ? 'caret-up'
+                                                : 'caret-down'
                                         }
                                     />
                                 </Button>

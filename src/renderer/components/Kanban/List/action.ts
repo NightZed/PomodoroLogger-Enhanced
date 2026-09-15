@@ -27,7 +27,7 @@ const moveCard = createActionCreator(
             toListId: string,
             fromIndex: number,
             toIndex: number,
-            done: () => void
+            done: (movedCardId: string) => void
         ) =>
             resolve({ fromListId, toListId, fromIndex, toIndex, done })
 );
@@ -91,7 +91,7 @@ export const listReducer = createReducer<ListsState, any>({}, (handle) => [
             if (fromListId === toListId) {
                 fromCards.splice(toIndex, 0, rm);
                 await db.update({ _id: fromListId }, { $set: { cards: fromCards } }, {});
-                return;
+                return rm;
             }
 
             const dest: List = await db.findOne({ _id: toListId });
@@ -100,6 +100,7 @@ export const listReducer = createReducer<ListsState, any>({}, (handle) => [
             await db.update({ _id: fromListId }, { $set: { cards: fromCards } }, {});
             await db.update({ _id: toListId }, { $set: { cards: destCards } }, {});
             await moveDB.insert({ fromListId, toListId, cardId: rm, time: new Date().getTime() });
+            return rm;
         })().then(done);
 
         if (fromListId === toListId) {
@@ -172,9 +173,16 @@ export const actions = {
     moveCard:
         (fromListId: string, toListId: string, fromIndex: number, toIndex: number) =>
         async (dispatch: Dispatch) => {
-            await new Promise<void>((r) => {
-                dispatch(moveCard(fromListId, toListId, fromIndex, toIndex, r));
+            const movedCardId = await new Promise<string>((resolve) => {
+                dispatch(moveCard(fromListId, toListId, fromIndex, toIndex, resolve));
             });
+            if (movedCardId == null || fromListId === toListId) {
+                return;
+            }
+
+            // The board that owns the destination list decides whether the move
+            // completes the card (moving inside one list never recompletes it)
+            await boardActions.onCardMovedInto(toListId, movedCardId)(dispatch);
         },
     renameList: (_id: string, title: string) => async (dispatch: Dispatch) => {
         dispatch(renameList(_id, title));

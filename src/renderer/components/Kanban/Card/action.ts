@@ -50,6 +50,11 @@ const addActualTime = createActionCreator(
     (resolve) => (_id: string, plus: number) => resolve({ _id, plus })
 );
 
+const setCompletedTime = createActionCreator(
+    '[Card]SET_COMPLETED_TIME',
+    (resolve) => (_id: string, completedTime?: number) => resolve({ _id, completedTime })
+);
+
 const deleteCard = createActionCreator(
     '[Card]DELETE_CARD',
     (resolve) => (_id: string) => resolve({ _id })
@@ -89,6 +94,19 @@ export const actions = {
     setLabels: (_id: string, labels: CardLabel[]) => async (dispatch: Dispatch) => {
         dispatch(setLabels(_id, labels));
         await db.update({ _id }, { $set: { labels } });
+    },
+    // Called when a card is moved into the done list of its board, or when the
+    // completion time is edited in the card editor. The value is kept when the
+    // card leaves the done list again, so it can be shown as the last
+    // completion time instead; passing `undefined` clears the stamp.
+    setCompletedTime: (_id: string, completedTime?: number) => async (dispatch: Dispatch) => {
+        dispatch(setCompletedTime(_id, completedTime));
+        if (completedTime === undefined) {
+            await db.update({ _id }, { $unset: { completedTime: true } });
+            return;
+        }
+
+        await db.update({ _id }, { $set: { completedTime } });
     },
     addActualTime: (_id: string, plus: number) => async (dispatch: Dispatch) => {
         dispatch(addActualTime(_id, plus));
@@ -204,6 +222,21 @@ export const cardReducer = createReducer<CardsState, any>({}, (handle) => [
                 ...state[_id],
                 labels,
             },
+        };
+    }),
+
+    handle(setCompletedTime, (state, { payload: { _id, completedTime } }) => {
+        const card = { ...state[_id] };
+        if (completedTime === undefined) {
+            // drop the key entirely so `completedTime` stays absent, not undefined
+            delete card.completedTime;
+        } else {
+            card.completedTime = completedTime;
+        }
+
+        return {
+            ...state,
+            [_id]: card,
         };
     }),
 

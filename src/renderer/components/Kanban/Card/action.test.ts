@@ -224,4 +224,52 @@ describe("Cards' actions", () => {
         await actions.deleteCard(_id, 'list')(dispatch);
         expect(state[_id]).toBeUndefined();
     });
+
+    it('sets completed time', async () => {
+        const _id = shortid.generate();
+        const _d = jest.fn();
+        const dispatch = jest.fn();
+        await actions.addCard(_id, '', 'abc', '')(_d);
+        await actions.setCompletedTime(_id, 1234)(dispatch);
+        expect(dispatch.mock.calls[0][0]).toStrictEqual({
+            type: '[Card]SET_COMPLETED_TIME',
+            payload: {
+                _id,
+                completedTime: 1234,
+            },
+        });
+
+        const card = await db.findOne({ _id });
+        expect(card.completedTime).toBe(1234);
+    });
+
+    it('clears completed time', async () => {
+        const _id = shortid.generate();
+        const _d = jest.fn();
+        const dispatch = jest.fn();
+        await actions.addCard(_id, '', 'abc', '')(_d);
+        await actions.setCompletedTime(_id, 1234)(dispatch);
+        await actions.setCompletedTime(_id, undefined)(dispatch);
+
+        const card = await db.findOne({ _id });
+        expect(card.completedTime).toBeUndefined();
+    });
+
+    it('drops completedTime from the state when cleared', async () => {
+        const _id = shortid.generate();
+        let state: CardsState = {};
+        // @ts-ignore
+        const dispatch: Dispatch = (action: any) => {
+            try {
+                state = cardReducer(state, action);
+            } catch (e) {}
+        };
+
+        await actions.addCard(_id, 'list', '0')(dispatch);
+        await actions.setCompletedTime(_id, 1000)(dispatch);
+        expect(state[_id].completedTime).toBe(1000);
+        await actions.setCompletedTime(_id, undefined)(dispatch);
+        // the key must be dropped, not left behind as an undefined value
+        expect('completedTime' in state[_id]).toBe(false);
+    });
 });

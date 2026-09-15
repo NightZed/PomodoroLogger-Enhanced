@@ -1,5 +1,7 @@
 import { actions, boardReducer, KanbanBoardState, defaultBoard } from './action';
-import { Dispatch } from 'redux';
+import { applyMiddleware, createStore, Dispatch } from 'redux';
+import reduxThunk from 'redux-thunk';
+import { reducer as kanbanReducer } from '../reducer';
 import { dbBaseDir, dbPaths } from '../../../../config';
 import { existsSync, unlink, mkdir } from 'fs';
 import { promisify } from 'util';
@@ -299,5 +301,199 @@ describe('board actions', () => {
         await actions.fetchBoards()(dispatch);
         // TODO
         // expect(state).toStrictEqual(oldState);
+    });
+
+    it('stamps completedTime when a card lands in the done list', async () => {
+        const boardId = shortid.generate();
+        const listId = shortid.generate();
+        const doneListId = shortid.generate();
+        const cardId = shortid.generate();
+        await listsDB.insert({ _id: listId, title: 'TODO', cards: [cardId] });
+        await listsDB.insert({ _id: doneListId, title: 'Done', cards: [] });
+        await cardsDB.insert({
+            _id: cardId,
+            title: 'card',
+            content: '',
+            sessionIds: [],
+            spentTimeInHour: { estimated: 0, actual: 0 },
+        });
+        await db.insert({
+            ...defaultBoard,
+            _id: boardId,
+            name: 'board',
+            description: '',
+            lists: [listId, doneListId],
+            focusedList: listId,
+            doneList: doneListId,
+        } as KanbanBoard);
+
+        const dispatch = jest.fn();
+        await actions.onCardMovedInto(doneListId, cardId)(dispatch);
+        expect(dispatch.mock.calls[0][0].type).toBe('[Card]SET_COMPLETED_TIME');
+        const stamped = await cardsDB.findOne({ _id: cardId });
+        expect(typeof stamped.completedTime).toBe('number');
+
+        // moving into a list that is not a done list never clears the stamp:
+        // it just becomes the last completion time
+        await actions.onCardMovedInto(listId, cardId)(dispatch);
+        const kept = await cardsDB.findOne({ _id: cardId });
+        expect(kept.completedTime).toBe(stamped.completedTime);
+    });
+
+    it('does not stamp completedTime for lists outside any done list', async () => {
+        const listId = shortid.generate();
+        const cardId = shortid.generate();
+        await listsDB.insert({ _id: listId, title: 'TODO', cards: [cardId] });
+        await cardsDB.insert({
+            _id: cardId,
+            title: 'card',
+            content: '',
+            sessionIds: [],
+            spentTimeInHour: { estimated: 0, actual: 0 },
+        });
+
+        const dispatch = jest.fn();
+        await actions.onCardMovedInto(listId, cardId)(dispatch);
+        expect(dispatch).not.toHaveBeenCalled();
+        const card = await cardsDB.findOne({ _id: cardId });
+        expect(card.completedTime).toBeUndefined();
+    });
+
+    it('stamps completedTime through the full board moveCard flow like the app does', async () => {
+        // simulate the app wiring: a real store (thunk middleware) with the
+        // combined kanban reducers, dispatching through Board.moveCard exactly
+        // like Board.tsx's onDragEnd does
+        const store = createStore(kanbanReducer, applyMiddleware(reduxThunk));
+        const dispatch = store.dispatch as any;
+
+        await actions.addBoard('b-full', 'board')(dispatch);
+        const state: any = store.getState();
+        const [, todoId, , doneListId] = state.boards['b-full'].lists;
+        const cardId = state.lists[todoId].cards[0];
+        expect(cardId).toBeDefined();
+
+        // drag the welcome card from TODO into the done list
+        await actions.moveCard(todoId, doneListId, 0, 0)(dispatch);
+        const stamped = await cardsDB.findOne({ _id: cardId });
+        expect(typeof stamped.completedTime).toBe('number');
+        // the redux state must be updated too, otherwise the card UI would not
+        // show the timestamp until a refetch
+        expect((store.getState() as any).cards[cardId].completedTime).toBe(stamped.completedTime);
+
+        // dragging it back out keeps the last completion time
+        await actions.moveCard(doneListId, todoId, 0, 0)(dispatch);
+        const kept = await cardsDB.findOne({ _id: cardId });
+        expect(kept.completedTime).toBe(stamped.completedTime);
+        expect((store.getState() as any).cards[cardId].completedTime).toBe(stamped.completedTime);
+    });
+
+    it('backfills completedTime from the latest move into the done list', async () => {
+        const moveDB = new AsyncDB(dbs.moveDB);
+        const boardId = shortid.generate();
+        const todoId = shortid.generate();
+        const doneListId = shortid.generate();
+        const cardId = shortid.generate();
+        await listsDB.insert({ _id: todoId, title: 'TODO', cards: [] });
+        await listsDB.insert({ _id: doneListId, title: 'Done', cards: [] });
+        await cardsDB.insert({
+            _id: cardId,
+            title: 'card',
+            content: '',
+            sessionIds: [],
+            spentTimeInHour: { estimated: 0, actual: 0 },
+            createdTime: 1000,
+        });
+        await db.insert({
+            ...defaultBoard,
+            _id: boardId,
+            name: 'board',
+            description: '',
+            lists: [todoId, doneListId],
+            focusedList: todoId,
+            doneList: doneListId,
+        } as KanbanBoard);
+        // the card visited the done list twice: the latest entry wins
+        await moveDB.insert({ cardId, fromListId: todoId, toListId: doneListId, time: 3000 });
+        await moveDB.insert({ cardId, fromListId: doneListId, toListId: todoId, time: 4000 });
+        await moveDB.insert({ cardId, fromListId: todoId, toListId: doneListId, time: 5000 });
+
+        const store = createStore(kanbanReducer, applyMiddleware(reduxThunk));
+        const dispatch = store.dispatch as any;
+        await actions.fetchBoards()(dispatch);
+
+        const card = await cardsDB.findOne({ _id: cardId });
+        expect(card.completedTime).toBe(5000);
+        // fetchCards runs after the backfill inside fetchBoards, so the redux
+        // state already carries the stamp without an extra refetch
+        expect((store.getState() as any).cards[cardId].completedTime).toBe(5000);
+    });
+
+    it('backfills completedTime with createdTime for cards born in the done list', async () => {
+        const boardId = shortid.generate();
+        const doneListId = shortid.generate();
+        const cardId = shortid.generate();
+        await listsDB.insert({ _id: doneListId, title: 'Done', cards: [cardId] });
+        await cardsDB.insert({
+            _id: cardId,
+            title: 'card',
+            content: '',
+            sessionIds: [],
+            spentTimeInHour: { estimated: 0, actual: 0 },
+            createdTime: 7000,
+        });
+        await db.insert({
+            ...defaultBoard,
+            _id: boardId,
+            name: 'board',
+            description: '',
+            lists: [doneListId],
+            focusedList: '',
+            doneList: doneListId,
+        } as KanbanBoard);
+
+        const dispatch = jest.fn();
+        await actions.fetchBoards()(dispatch);
+
+        // never moved into the done list, so creation time is the only signal
+        const card = await cardsDB.findOne({ _id: cardId });
+        expect(card.completedTime).toBe(7000);
+    });
+
+    it('keeps an existing completedTime when backfilling', async () => {
+        const moveDB = new AsyncDB(dbs.moveDB);
+        const boardId = shortid.generate();
+        const doneListId = shortid.generate();
+        const cardId = shortid.generate();
+        await listsDB.insert({ _id: doneListId, title: 'Done', cards: [] });
+        await cardsDB.insert({
+            _id: cardId,
+            title: 'card',
+            content: '',
+            sessionIds: [],
+            spentTimeInHour: { estimated: 0, actual: 0 },
+            completedTime: 1111,
+        });
+        await db.insert({
+            ...defaultBoard,
+            _id: boardId,
+            name: 'board',
+            description: '',
+            lists: [doneListId],
+            focusedList: '',
+            doneList: doneListId,
+        } as KanbanBoard);
+        // a later move into the done list must not overwrite an existing stamp
+        await moveDB.insert({
+            cardId,
+            fromListId: shortid.generate(),
+            toListId: doneListId,
+            time: 9999,
+        });
+
+        const dispatch = jest.fn();
+        await actions.fetchBoards()(dispatch);
+
+        const card = await cardsDB.findOne({ _id: cardId });
+        expect(card.completedTime).toBe(1111);
     });
 });

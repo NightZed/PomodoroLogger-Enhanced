@@ -16,6 +16,7 @@ import { RootState } from '../../../reducers';
 import { check } from 'prettier';
 import { formatTimeYmdHm } from '../../Visualization/Timeline';
 import { CreatedTime } from '../style/CreatedTime';
+import { CompletedTime } from './CompletedTime';
 
 /**
  * If you're using z-index, make sure the element has a defined position attribute or it won't work.
@@ -104,6 +105,8 @@ export interface InputProps {
 
 interface Props extends CardType, InputProps, CardActionTypes, KanbanActionTypes {
     collapsed?: boolean;
+    // whether this card currently lives in the done list of its board
+    isInDoneList?: boolean;
 }
 
 export const Card: FC<Props> = React.memo((props: Props) => {
@@ -226,6 +229,10 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                                                 Created: {formatTimeYmdHm(props.createdTime)}
                                             </CreatedTime>
                                         ) : undefined}
+                                        <CompletedTime
+                                            completedTime={props.completedTime}
+                                            isInDoneList={props.isInDoneList === true}
+                                        />
                                         {renderLabels(props.labels)}
                                         <BadgeHolder className="collapsed">
                                             {props.sessionIds.length > 0 ? (
@@ -260,6 +267,10 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                                                 Created: {formatTimeYmdHm(props.createdTime)}
                                             </CreatedTime>
                                         ) : undefined}
+                                        <CompletedTime
+                                            completedTime={props.completedTime}
+                                            isInDoneList={props.isInDoneList === true}
+                                        />
                                         {renderLabels(props.labels)}
                                         <Markdown
                                             dangerouslySetInnerHTML={{

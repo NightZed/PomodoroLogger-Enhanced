@@ -7,3 +7,7 @@ export const CreatedTime = styled.div`
     font-size: 11px;
     line-height: 1.2;
 `;
+
+// Same visual treatment as CreatedTime, reused for the completed timestamp of
+// cards that sit in (or have visited) the board's done list.
+export const CompletedTime = styled(CreatedTime)``;

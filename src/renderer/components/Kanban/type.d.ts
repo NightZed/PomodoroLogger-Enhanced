@@ -16,6 +16,9 @@ export interface Card {
         actual: number;
     };
     createdTime?: number;
+    // last time the card was moved into the board's done list; kept after the
+    // card is dragged out again so it can still show "Last completed"
+    completedTime?: number;
 }
 
 export interface AggInfo {

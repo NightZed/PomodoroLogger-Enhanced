@@ -380,6 +380,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
                                                 index={index}
                                                 key={cardId}
                                                 listId={props.listId}
+                                                isInDoneList={done}
                                                 isDraggingOver={isDraggingOver}
                                                 searchReg={searchReg}
                                             />

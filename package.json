@@ -207,6 +207,7 @@
     "dependencies": {
         "@electron/remote": "^2.0.8",
         "active-win": "8.2.1",
+        "moment": "^2.24.0",
         "node-mac-permissions": "^2.2.0"
     },
     "resolutions": {

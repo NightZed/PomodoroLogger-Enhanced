@@ -3,7 +3,7 @@ import { case0 } from './case0';
 import { case1 } from './case1';
 import { case2 } from './case2';
 import { case3 } from './case3';
-import { KanbanBoard } from '../../../renderer/components/Kanban/type';
+import { Card, KanbanBoard } from '../../../renderer/components/Kanban/type';
 
 const emptyData = (board?: KanbanBoard): SourceData => ({
     boards: board ? { [board._id]: board } : {},
@@ -29,6 +29,21 @@ const legacyBoard = (createdTime?: number): KanbanBoard => {
     }
 
     return board;
+};
+
+const cardWith = (completedTime?: number): Card => {
+    const card: Card = {
+        _id: 'c',
+        title: 't',
+        content: '',
+        sessionIds: [],
+        spentTimeInHour: { estimated: 0, actual: 0 },
+    };
+    if (completedTime !== undefined) {
+        card.completedTime = completedTime;
+    }
+
+    return card;
 };
 
 describe('Data Merger', () => {
@@ -71,5 +86,25 @@ describe('Data Merger', () => {
         const merger = new DataMerger();
         const output = merger.merge(emptyData(legacyBoard(4000)), emptyData(legacyBoard()));
         expect(output.boards.board.createdTime).toBe(4000);
+    });
+
+    it('keeps the latest completedTime when both sides have one', () => {
+        const merger = new DataMerger();
+        const a = emptyData();
+        a.cards.c = cardWith(1000);
+        const b = emptyData();
+        b.cards.c = cardWith(2000);
+        const output = merger.merge(a, b);
+        expect(output.cards.c.completedTime).toBe(2000);
+    });
+
+    it('takes completedTime from the other side when the base card has none', () => {
+        const merger = new DataMerger();
+        const a = emptyData();
+        a.cards.c = cardWith();
+        const b = emptyData();
+        b.cards.c = cardWith(3000);
+        const output = merger.merge(a, b);
+        expect(output.cards.c.completedTime).toBe(3000);
     });
 });

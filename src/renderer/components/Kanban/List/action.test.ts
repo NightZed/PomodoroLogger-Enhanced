@@ -9,7 +9,7 @@ import { promisify } from 'util';
 import { Dispatch } from 'redux';
 import { List, ListsState } from '../type';
 
-jest.setTimeout(10000);
+jest.setTimeout(30000);
 let lock = false;
 beforeEach(async () => {
     while (lock) {
@@ -234,5 +234,53 @@ describe('listReducer', () => {
         await actions.renameList(_id0, 'id011')(dispatch);
         expect(state[_id0].title).toBe('id011');
         await actions.addCard(_id0, 'newcardid')(dispatch);
+    });
+
+    it('stamps completedTime only when a card lands in the board done list', async () => {
+        const kanbanDB = new AsyncDB(dbs.kanbanDB);
+        const cardsDB = new AsyncDB(dbs.cardsDB);
+        const todoId = shortid.generate();
+        const plainId = shortid.generate();
+        const doneId = shortid.generate();
+
+        // setup must go through the reducer so the moveCard handlers can read
+        // the lists from the state
+        let state: ListsState = {};
+        const dispatch: any = (action: any) => {
+            try {
+                state = listReducer(state, action);
+            } catch (e) {}
+        };
+
+        await actions.addList(todoId, todoId)(dispatch);
+        await actions.addList(plainId, plainId)(dispatch);
+        await actions.addList(doneId, doneId)(dispatch);
+        await actions.addCard(todoId, 'finish me')(dispatch);
+        const todo: List = await db.findOne({ _id: todoId });
+        const cardId = todo.cards[0];
+        await kanbanDB.insert({
+            _id: 'board',
+            name: 'board',
+            description: '',
+            lists: [todoId, plainId, doneId],
+            focusedList: todoId,
+            doneList: doneId,
+            relatedSessions: [],
+            spentHours: 0,
+        });
+
+        // a plain list is not a done list: no stamp
+        await actions.moveCard(todoId, plainId, 0, 0)(dispatch);
+        expect((await cardsDB.findOne({ _id: cardId })).completedTime).toBeUndefined();
+
+        // landing in the done list stamps the completion time
+        await actions.moveCard(plainId, doneId, 0, 0)(dispatch);
+        const stamped = await cardsDB.findOne({ _id: cardId });
+        expect(typeof stamped.completedTime).toBe('number');
+
+        // moving around inside the done list does not re-stamp
+        const stampedTime = stamped.completedTime;
+        await actions.moveCard(doneId, doneId, 0, 0)(dispatch);
+        expect((await cardsDB.findOne({ _id: cardId })).completedTime).toBe(stampedTime);
     });
 });

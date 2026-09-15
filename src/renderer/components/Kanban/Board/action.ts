@@ -9,12 +9,13 @@ import { lang } from '../../../../lang/en';
 import { DistractingRow } from '../../Timer/action';
 import { workers } from '../../../workers';
 import { PomodoroRecord } from '../../../monitor/type';
-import { AggInfo, Card, KanbanBoard, List } from '../type';
+import { AggInfo, Card, KanbanBoard, List, MoveInfo } from '../type';
 
 const db = workers.dbWorkers.kanbanDB;
 const listsDB = workers.dbWorkers.listsDB;
 const cardsDB = workers.dbWorkers.cardsDB;
 const sessionDB = workers.dbWorkers.sessionDB;
+const moveDB = workers.dbWorkers.moveDB;
 
 export const defaultBoard: KanbanBoard = {
     _id: '',
@@ -309,6 +310,77 @@ async function backfillCreatedTimes(boardMap: KanbanBoardState) {
     }
 }
 
+/**
+ * Backfill completedTime for legacy cards (completed before the field
+ * existed):
+ * 1. for cards that were moved into a board's done list, use the latest such
+ *    move recorded in moveDB;
+ * 2. fall back to createdTime for cards that were created directly inside a
+ *    done list and never moved into it;
+ * 3. keep the field missing when no signal is available.
+ * Cards already carrying a completedTime (auto stamps and manual values) are
+ * left untouched, so every card is backfilled at most once.
+ */
+async function backfillCompletedTimes(boardMap: KanbanBoardState) {
+    const doneListIds = Object.values(boardMap)
+        .map((board) => board.doneList)
+        .filter((listId) => listId !== '');
+    if (doneListIds.length === 0) {
+        return;
+    }
+
+    const cards: Card[] = await cardsDB.find({}, {});
+    const cardById: { [_id: string]: Card } = {};
+    const unstampedCardIds: string[] = [];
+    for (const card of cards) {
+        cardById[card._id] = card;
+        if (card.completedTime === undefined) {
+            unstampedCardIds.push(card._id);
+        }
+    }
+
+    if (unstampedCardIds.length === 0) {
+        return;
+    }
+
+    const completedTimeByCard: { [cardId: string]: number } = {};
+    const moves: MoveInfo[] = await moveDB.find(
+        { toListId: { $in: doneListIds }, cardId: { $in: unstampedCardIds } },
+        {}
+    );
+    for (const move of moves) {
+        const known = completedTimeByCard[move.cardId];
+        if (known === undefined || move.time > known) {
+            completedTimeByCard[move.cardId] = move.time;
+        }
+    }
+
+    // Cards created directly inside a done list were never moved into it:
+    // fall back to their creation time.
+    const doneLists: List[] = await listsDB.find({ _id: { $in: doneListIds } }, {});
+    for (const list of doneLists) {
+        for (const cardId of list.cards) {
+            if (completedTimeByCard[cardId] !== undefined) {
+                continue;
+            }
+
+            const createdTime = cardById[cardId]?.createdTime;
+            if (typeof createdTime === 'number') {
+                completedTimeByCard[cardId] = createdTime;
+            }
+        }
+    }
+
+    for (const cardId of unstampedCardIds) {
+        const completedTime = completedTimeByCard[cardId];
+        if (completedTime === undefined) {
+            continue;
+        }
+
+        await cardsDB.update({ _id: cardId }, { $set: { completedTime } });
+    }
+}
+
 export const actions = {
     fetchBoards: () => async (dispatch: Dispatch) => {
         const boards: KanbanBoard[] = await db.find({}, {});
@@ -318,6 +390,7 @@ export const actions = {
         }
 
         await backfillCreatedTimes(boardMap);
+        await backfillCompletedTimes(boardMap);
         await listActions.fetchLists()(dispatch);
         await cardActions.fetchCards()(dispatch);
         dispatch(setBoardMap(boardMap));
@@ -398,6 +471,21 @@ export const actions = {
         async (dispatch: Dispatch) => {
             await listActions.moveCard(fromListId, toListId, fromIndex, toIndex)(dispatch);
         },
+
+    /**
+     * Called by the list actions after a card landed in `toListId`. When that
+     * list is the done list of a board, the card is stamped with the completion
+     * time. Cards moved out of the done list keep the stamp (it becomes the
+     * "last completed" time).
+     */
+    onCardMovedInto: (toListId: string, cardId: string) => async (dispatch: Dispatch) => {
+        const board: KanbanBoard = await db.findOne({ doneList: toListId });
+        if (!board) {
+            return;
+        }
+
+        await cardActions.setCompletedTime(cardId, new Date().getTime())(dispatch);
+    },
 
     onTimerFinished:
         (_id: string, sessionId: string, timeSpent: number, cardIds: string[]) =>

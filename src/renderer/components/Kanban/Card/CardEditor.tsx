@@ -5,9 +5,22 @@ import { actions as kanbanActions } from '../action';
 import { RootState } from '../../../reducers';
 import ReactHotkeys from 'react-hot-keys';
 import { genMapDispatchToProp } from '../../../utils';
-import { Button, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Tabs, Tooltip } from 'antd';
+import {
+    Button,
+    Col,
+    DatePicker,
+    Form,
+    Input,
+    InputNumber,
+    Modal,
+    Popconfirm,
+    Row,
+    Tabs,
+    Tooltip,
+} from 'antd';
 import TextArea from 'antd/es/input/TextArea';
 import shortid from 'shortid';
+import moment from 'moment';
 import { Card, CardLabel } from '../type';
 import { Markdown } from '../style/Markdown';
 import formatMarkdown from './formatMarkdown';
@@ -24,6 +37,8 @@ interface Props extends CardActionTypes {
     card?: Card;
     form: any;
     listId: string;
+    // whether the list being edited is the done list of its board
+    isInDoneList: boolean;
     labelSuggestions?: { name: string; color: string }[];
     boardCards?: { _id: string; labels?: CardLabel[] }[];
 }
@@ -33,13 +48,15 @@ interface FormData {
     content: string;
     estimatedTime?: number;
     actualTime?: number;
+    completedTime?: moment.Moment;
 }
 
 const _CardInDetail: FC<Props> = React.memo((props: Props) => {
     const [showMarkdownPreview, setShowMarkdownPreview] = useState(false);
     const [cardContent, setCardContent] = useState('');
     const [cardLabels, setCardLabels] = useState<CardLabel[]>([]);
-    const { card, visible, form, onCancel, listId, labelSuggestions, boardCards } = props;
+    const { card, visible, form, onCancel, listId, labelSuggestions, boardCards, isInDoneList } =
+        props;
     const isCreating = !card;
     const lastIsCreating = React.useRef<boolean | null>(null);
     const thisIsCreating = visible ? isCreating : lastIsCreating.current ?? isCreating;
@@ -64,6 +81,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                 content: card.content,
                 estimatedTime: time ? time : undefined,
                 actualTime: actual ? actual : undefined,
+                completedTime: card.completedTime ? moment(card.completedTime) : undefined,
             } as FormData);
         } else {
             setCardContent('');
@@ -74,6 +92,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                 content: '',
                 estimatedTime: undefined,
                 actualTime: undefined,
+                completedTime: undefined,
             } as FormData);
         }
     }, [card, visible]);
@@ -245,7 +264,13 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
         setIsEditingActualTime(!isEditingActualTime);
     };
 
-    const saveValues = async ({ title, content, estimatedTime, actualTime }: FormData) => {
+    const saveValues = async ({
+        title,
+        content,
+        estimatedTime,
+        actualTime,
+        completedTime,
+    }: FormData) => {
         const time = estimatedTime || 0;
         setCardContent(content || '');
         if (!card) {
@@ -260,6 +285,10 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             if (cardLabels.length > 0) {
                 props.setLabels(_id, cardLabels);
             }
+            if (isInDoneList) {
+                // born inside the done list: complete the moment it is created
+                props.setCompletedTime(_id, +new Date());
+            }
         } else {
             // Edit
             props.renameCard(card._id, title);
@@ -269,6 +298,13 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
 
             if (actualTime !== undefined) {
                 props.setActualTime(card._id, actualTime);
+            }
+
+            // only touch the DB when the stamp actually changed; an empty
+            // picker clears it (undefined removes the field)
+            const nextCompletedTime = completedTime ? completedTime.valueOf() : undefined;
+            if (nextCompletedTime !== card.completedTime) {
+                props.setCompletedTime(card._id, nextCompletedTime);
             }
         }
         // Label colors are board-wide by name: sync same-named labels on the
@@ -506,6 +542,24 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                             )}
                         </Col>
                     </Row>
+                    {thisIsCreating ? undefined : (
+                        <Row>
+                            <Col span={12}>
+                                <Form.Item
+                                    label={isInDoneList ? 'Completed Time' : 'Last Completed Time'}
+                                >
+                                    {getFieldDecorator('completedTime')(
+                                        <DatePicker
+                                            showTime={true}
+                                            format={'YYYY-MM-DD HH:mm'}
+                                            placeholder={'Completion time'}
+                                            style={{ width: 200 }}
+                                        />
+                                    )}
+                                </Form.Item>
+                            </Col>
+                        </Row>
+                    )}
                     <Form.Item label="Labels">
                         <LabelEditor
                             labels={cardLabels}
@@ -577,6 +631,7 @@ export const CardInDetail = connect(
         return {
             listId,
             boardCards,
+            isInDoneList: boardId !== undefined && state.kanban.boards[boardId].doneList === listId,
             card: _id === undefined ? undefined : state.kanban.cards[_id],
             visible: isEditing,
             labelSuggestions: suggestions,

@@ -213,6 +213,14 @@ export class DataMerger {
             ans.labels = b.labels;
         }
 
+        // keep the latest completion so the "Last completed" stamp survives
+        // imports from machines where the card was finished more recently
+        if (b.completedTime !== undefined) {
+            if (ans.completedTime === undefined || b.completedTime > ans.completedTime) {
+                ans.completedTime = b.completedTime;
+            }
+        }
+
         const sessions = new Set(ans.sessionIds);
         for (const sess of b.sessionIds) {
             if (!sessions.has(sess)) {

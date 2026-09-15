@@ -13,6 +13,9 @@
   <a href="https://github.com/NightZed/PomodoroLogger-Enhanced/actions/workflows/build.yml">
     <img src="https://github.com/NightZed/PomodoroLogger-Enhanced/actions/workflows/build.yml/badge.svg"/>
   </a>
+  <a href="https://github.com/semantic-release/semantic-release">
+    <img src="https://img.shields.io/badge/semantic--release-angular-e10079?logo=semantic-release"/>
+  </a>
   <a href="https://github.com/NightZed/PomodoroLogger-Enhanced/releases/latest">
     <img src="https://img.shields.io/github/downloads/NightZed/PomodoroLogger-Enhanced/total"/>
   </a>
@@ -68,13 +71,13 @@
 | <img src="./screenshots/todo.png" height="256"/>         | <img src="./screenshots/search-Card.gif" height="256"/>   |
 
 <details>
-<summary><b>🗂️ 看板增强</b> —— 富文本卡片 · 彩色标签 · 显示创建时间</summary>
+<summary><b>🗂️ 看板增强</b> —— 富文本卡片 · 彩色标签 · 显示创建/完成时间</summary>
 
 <br>
 
 - **卡片编辑器**：支持任务框（`[ ]`）、**加粗**、*斜体*、~~删除线~~、链接等快捷操作。
 - **彩色标签**：支持颜色标签，支持标签建议与搜索，支持**点击标签过滤**。
-- **任务创建时间**：每张卡片显示创建时间。
+- **任务创建/完成时间**：支持显示kanban和卡片的创建/完成时间。
 
 ![看板 - 卡片编辑与标签](./screenshots/kanban-card-editor.png)
 </details>

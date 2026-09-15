@@ -13,6 +13,9 @@
   <a href="https://github.com/NightZed/PomodoroLogger-Enhanced/actions/workflows/build.yml">
     <img src="https://github.com/NightZed/PomodoroLogger-Enhanced/actions/workflows/build.yml/badge.svg"/>
   </a>
+  <a href="https://github.com/semantic-release/semantic-release">
+    <img src="https://img.shields.io/badge/semantic--release-angular-e10079?logo=semantic-release"/>
+  </a>
   <a href="https://github.com/NightZed/PomodoroLogger-Enhanced/releases/latest">
     <img src="https://img.shields.io/github/downloads/NightZed/PomodoroLogger-Enhanced/total"/>
   </a>
@@ -68,13 +71,13 @@ Lists are divided into `Backlog` (backlog), `Todo` (today's to-dos), `In Progres
 | <img src="./screenshots/todo.png" height="256"/>         | <img src="./screenshots/search-Card.gif" height="256"/>   |
 
 <details>
-<summary><b>🗂️ Kanban Enhancements</b> —— rich-text cards · colored labels · created time</summary>
+<summary><b>🗂️ Kanban Enhancements</b> —— rich-text cards · colored labels · creation/completion time</summary>
 
 <br>
 
 - **Card editor**: quick actions for task boxes (`[ ]`), **bold**, *italic*, ~~strikethrough~~, and links.
 - **Colored labels**: supports colored labels with label suggestions and search, plus **click-to-filter**.
-- **Card created time**: every card shows when it was created.
+- **Task creation/completion time**: display creation/completion time for kanban and card.
 
 ![Kanban - card editor & labels](./screenshots/kanban-card-editor.png)
 </details>

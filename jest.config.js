@@ -21,6 +21,9 @@ module.exports = {
     collectCoverage: true,
     testMatch: ['**/*.(spec|test).[jt]s?(x)'],
     transformIgnorePatterns: [ ],
+    // nedb-based action tests are I/O heavy; give them room so a loaded machine
+    // does not trip the default 5s per-test timeout
+    testTimeout: 30000,
     globals: {
         'ts-jest': {
             diagnostics: false

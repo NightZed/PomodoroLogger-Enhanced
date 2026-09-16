@@ -20,6 +20,13 @@ jobs:
   release:
     runs-on: ubuntu-latest
 
+    # semantic-release pushes its own `chore(release): <version>` commit back to
+    # master with the PAT, which re-triggers this workflow (on: push: master).
+    # That second run just reinstalls, retests and finds nothing to release.
+    # Skip it; the tag it pushed still triggers Build/release separately.
+    if: >-
+      !startsWith(github.event.head_commit.message, 'chore(release):')
+
     steps:
       - name: Check out Git repository
         uses: actions/checkout@v4

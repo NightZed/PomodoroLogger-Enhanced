@@ -19,6 +19,8 @@ const common = {
 module.exports = {
     ...common,
     collectCoverage: true,
+    // nedb@1.8.0 relies on util.isDate/util.isRegExp, which Node 22 removed.
+    setupFiles: ['<rootDir>/test/util-legacy-shim.js'],
     testMatch: ['**/*.(spec|test).[jt]s?(x)'],
     transformIgnorePatterns: [ ],
     // nedb-based action tests are I/O heavy; give them room so a loaded machine

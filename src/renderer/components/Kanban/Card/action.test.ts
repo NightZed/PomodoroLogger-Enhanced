@@ -1,26 +1,24 @@
 import { actions, cardReducer, CardsState } from './action';
-import { existsSync, mkdir, unlink } from 'fs';
-import { promisify } from 'util';
-import { dbBaseDir, dbPaths } from '../../../../config';
 import shortid from 'shortid';
 import { AsyncDB } from '../../../../utils/dbHelper';
-import dbs, { refreshDbs } from '../../../dbs';
+import dbs from '../../../dbs';
 import { Dispatch } from 'redux';
 import { Card, CardLabel } from '../type';
 
 const db = new AsyncDB(dbs.cardsDB);
 
 describe("Cards' actions", () => {
+    // Clear the table the actions touch by removing documents from the in-memory
+    // nedb instance directly. The old reset (unlink the db file + `refreshDbs()`)
+    // never actually worked: `refreshDbs()` swaps in brand-new instances, while
+    // this file's AsyncDB and the FakeDBWorker behind `workers.dbWorkers.cardsDB`
+    // captured the ORIGINAL instances at import. Worse, deleting the file out
+    // from under the open instance's persistence handle intermittently wedged
+    // nedb's async write queue under parallel workers, and every later op on the
+    // stuck db burned the full 30s timeout (whole-suite hangs). In-place clearing
+    // gives the same per-test isolation with no file churn.
     beforeEach(async () => {
-        if (existsSync(dbPaths.cardsDB)) {
-            await promisify(unlink)(dbPaths.cardsDB).catch(() => {});
-        }
-
-        if (!existsSync(dbBaseDir)) {
-            await promisify(mkdir)(dbBaseDir).catch(() => {});
-        }
-
-        await refreshDbs();
+        await db.remove({}, { multi: true });
     });
 
     it('add card', async () => {

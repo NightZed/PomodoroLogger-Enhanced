@@ -1,38 +1,35 @@
 import { actions, listReducer } from './action';
 import shortid from 'shortid';
 import { AsyncDB } from '../../../../utils/dbHelper';
-import dbs, { refreshDbs } from '../../../dbs';
+import dbs from '../../../dbs';
 import { generateRandomName } from '../../../utils';
-import { existsSync, mkdir, unlink, stat } from 'fs';
-import { dbBaseDir, dbPaths } from '../../../../config';
-import { promisify } from 'util';
 import { Dispatch } from 'redux';
 import { List, ListsState } from '../type';
 
 jest.setTimeout(30000);
-let lock = false;
-beforeEach(async () => {
-    while (lock) {
-        await new Promise((r) => setTimeout(r, Math.random() * 1000));
-    }
-
-    lock = true;
-    if (existsSync(dbPaths.listsDB)) {
-        await promisify(unlink)(dbPaths.listsDB).catch(() => {});
-    }
-
-    if (!existsSync(dbBaseDir)) {
-        await promisify(mkdir)(dbBaseDir).catch(() => {});
-    }
-
-    await refreshDbs();
-});
-
-afterEach(() => {
-    lock = false;
-});
-
+// The old `beforeEach` unlinked the db file and called `refreshDbs()`. That was
+// both pointless and the source of the parallel-run flake: `refreshDbs()` swaps
+// in brand-new nedb instances, but this file's `AsyncDB` handles and the
+// `FakeDBWorker` instances behind `workers.dbWorkers` captured the *original*
+// instances at import time, so they never saw the replacement. All it did was
+// delete the file out from under the still-open original instance's persistence
+// handle — under 19 concurrent Jest workers that wedged nedb's async write
+// queue and every later op on the stuck db hung until the 30s test timeout.
+// Clearing the tables in place gives the same fresh-database semantics with no
+// file churn.
 const db = new AsyncDB(dbs.listsDB);
+const moveDB = new AsyncDB(dbs.moveDB);
+const kanbanDB = new AsyncDB(dbs.kanbanDB);
+const cardsDB = new AsyncDB(dbs.cardsDB);
+beforeEach(async () => {
+    await Promise.all([
+        db.remove({}, { multi: true }),
+        cardsDB.remove({}, { multi: true }),
+        kanbanDB.remove({}, { multi: true }),
+        moveDB.remove({}, { multi: true }),
+    ]);
+});
+
 async function addList(_id: string, dispatch = jest.fn()) {
     await actions.addList(_id, _id)(dispatch);
     return dispatch;
@@ -237,8 +234,6 @@ describe('listReducer', () => {
     });
 
     it('stamps completedTime only when a card lands in the board done list', async () => {
-        const kanbanDB = new AsyncDB(dbs.kanbanDB);
-        const cardsDB = new AsyncDB(dbs.cardsDB);
         const todoId = shortid.generate();
         const plainId = shortid.generate();
         const doneId = shortid.generate();

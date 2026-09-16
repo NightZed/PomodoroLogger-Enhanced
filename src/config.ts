@@ -10,7 +10,9 @@ const appdataDir =
         : process.env.HOME + '/.local/share');
 export const baseDir = join(appdataDir, 'PomodoroLogger');
 if (!existsSync(baseDir)) {
-    mkdirSync(baseDir);
+    // recursive: the platform appdata parent (e.g. ~/.local/share on a fresh CI
+    // container) is not guaranteed to exist yet.
+    mkdirSync(baseDir, { recursive: true });
 }
 
 const dbDir = process.env.NODE_ENV !== 'test' ? 'db' : '__test__db';

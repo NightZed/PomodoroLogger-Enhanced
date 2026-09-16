@@ -47,10 +47,14 @@ jobs:
         id: semantic
         uses: cycjimmy/semantic-release-action@v6
         with:
-          # NOTE: @semantic-release/npm is intentionally excluded:
-          # this is an Electron desktop app, nothing is published to npm.
+          # NOTE: @semantic-release/npm is included with npmPublish:false
+          # (.releaserc.json) -- nothing is published to npm, but the plugin is
+          # what writes the new version back into package.json/yarn.lock, so the
+          # release tag's package.json matches the tag. Without it, the
+          # Build/release workflow builds with a stale version number.
           extra_plugins: |
             @semantic-release/changelog@7
+            @semantic-release/npm@13
             @semantic-release/git@11
             @semantic-release/github@12
         env:

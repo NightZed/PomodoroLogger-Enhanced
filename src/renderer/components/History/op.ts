@@ -1,101 +1,42 @@
-import { Counter } from '../../../utils/Counter';
-import { PomodoroRecord } from '../../monitor/type';
-import { getBetterAppName } from '../../utils';
 import { getNameFromBoardId } from '../../getNameFromBoardId';
-import { workers } from '../../workers';
+import { PomodoroRecord } from '../../monitor/type';
+import {
+    getTokenWeights,
+    getPomodoroAgg,
+    getPomodoroCalendarData,
+    getTimeSpentDataFromRecordsSync,
+    TimeSpentData,
+} from '../../../utils/aggPomodoro';
 
-export const getPomodoroCalendarData = (pomodoros: PomodoroRecord[]) => {
-    const counter = new Counter();
-    const timeSum = new Counter();
-    pomodoros.forEach((v) => {
-        const date = _getDateFromTimestamp(v.startTime).getTime();
-        counter.add(date);
-        timeSum.add(date, v.spentTimeInHour);
-    });
+export { getPomodoroAgg, getPomodoroCalendarData };
+export type { TimeSpentData };
 
-    const ans: Record<string, { count: number; hours: number }> = {};
-    for (const key in counter.dict) {
-        ans[key] = { count: counter.dict[key], hours: timeSum.dict[key] };
+const boardNameCache = new Map<string, string>();
+async function resolveBoardName(boardId: string) {
+    if (boardNameCache.has(boardId)) {
+        return boardNameCache.get(boardId) as string;
     }
 
-    return ans;
-};
-
-const _getLocalTimezoneOffsetMs = () => new Date().getTimezoneOffset() * 60000;
-const DAY_MS = 24 * 3600 * 1000;
-
-// Local-midnight-aligned timestamp of the day `time` belongs to.
-// getTimezoneOffset() is UTC minus local time (e.g. -480 for UTC+8), so
-// bucketing on (time - offset) aligns to local days; add offset back to get
-// the local midnight timestamp. Pure arithmetic: no Date/string allocation
-// and no per-call parsing in the hot aggregation loop.
-const _getDateFromTimestamp = (time: number): Date => {
-    const offsetMs = _getLocalTimezoneOffsetMs();
-    return new Date(Math.floor((time - offsetMs) / DAY_MS) * DAY_MS + offsetMs);
-};
-
-export const getPomodoroAgg = (
-    days: number,
-    pomodoros: PomodoroRecord[]
-): { count: number; hours: number } => {
-    const time = _getDateFromTimestamp(new Date().getTime()).getTime() - days * 24 * 3600 * 1000;
-    let count = 0;
-    let hours = 0;
-    for (const p of pomodoros) {
-        if (p.startTime >= time) {
-            count += 1;
-            hours += p.spentTimeInHour;
-        }
-    }
-
-    return { count, hours };
-};
-
-export interface TimeSpentData {
-    projectData: { name: string; value: number }[];
-    appData: { name: string; value: number }[];
+    const name = await getNameFromBoardId(boardId).catch(() => 'Unknown');
+    boardNameCache.set(boardId, name);
+    return name;
 }
 
+/**
+ * Async variant used outside the worker (e.g. DualPieChart): delegates the
+ * counting to the shared sync core and resolves project names via the kanban DB.
+ */
 export const getTimeSpentDataFromRecords = async (
     pomodoros: PomodoroRecord[]
 ): Promise<TimeSpentData> => {
-    const appTimeCounter = new Counter();
-    const projectTimeCounter = new Counter();
-    const UNK = 'UNK[qqwe]';
-    for (const pomodoro of pomodoros) {
-        if (pomodoro.boardId) {
-            projectTimeCounter.add(pomodoro.boardId, pomodoro.spentTimeInHour);
-        } else {
-            projectTimeCounter.add(UNK, pomodoro.spentTimeInHour);
-        }
-
-        const apps = pomodoro.apps;
-        for (const app in apps) {
-            appTimeCounter.add(apps[app].appName, apps[app].spentTimeInHour);
-        }
-    }
-
-    const projectData = projectTimeCounter.getNameValuePairs({
-        toFixed: 2,
-        topK: 10,
-    });
-    for (const v of projectData) {
-        if (v.name === UNK) {
-            v.name = 'Unknown';
-            continue;
-        }
-
-        v.name = await getNameFromBoardId(v.name).catch(() => 'Unknown');
-    }
-
-    const appData = appTimeCounter
-        .getNameValuePairs({ toFixed: 2, topK: 10, minRatio: 0.01 })
-        .map((v) => ({ ...v, name: getBetterAppName(v.name) }));
-
-    return {
-        projectData,
-        appData,
-    };
+    const boardIds = new Set(pomodoros.filter((p) => p.boardId).map((p) => p.boardId as string));
+    const boardNames: { [boardId: string]: string } = {};
+    await Promise.all(
+        Array.from(boardIds).map(async (boardId) => {
+            boardNames[boardId] = await resolveBoardName(boardId);
+        })
+    );
+    return getTimeSpentDataFromRecordsSync(pomodoros, boardNames);
 };
 
 export interface AggPomodoroInfo {
@@ -121,6 +62,9 @@ export interface AggPomodoroInfo {
  * compatibility, e.g. tests). The badge and the word cloud share the same source as
  * the charts, so they follow the project/year filter; card titles are not mixed in
  * because cards have no year dimension, so the word cloud follows the period.
+ *
+ * Kept for in-process use (tests, DualPieChart). The History view uses the
+ * worker-side `aggHistory` op instead, so records stay inside the worker.
  */
 export async function getAggPomodoroInfo(
     pomodoros: PomodoroRecord[],
@@ -136,7 +80,7 @@ export async function getAggPomodoroInfo(
             count: yearRecords.length,
             usedTime: yearRecords.reduce((a, b) => a + b.spentTimeInHour, 0),
         },
-        wordWeights: await workers.tokenizer.tokenize(yearRecords, []),
+        wordWeights: getTokenWeights(yearRecords),
         pieChart: await getTimeSpentDataFromRecords(yearRecords),
         calendarCount: getPomodoroCalendarData(yearRecords),
     };

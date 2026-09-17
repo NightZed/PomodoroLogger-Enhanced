@@ -3,12 +3,7 @@ import { Card, Col, Row, Select, Statistic } from 'antd';
 import { HistoryActionCreatorTypes, HistoryState } from './action';
 import { GridCalendar } from '../../../components/Visualization/GridCalendar/GridCalendar';
 import styled from 'styled-components';
-import {
-    AggPomodoroInfo,
-    getAggPomodoroInfo,
-    getTimeSpentDataFromRecords,
-    TimeSpentData,
-} from './op';
+import { AggPomodoroInfo, getTimeSpentDataFromRecords, TimeSpentData } from './op';
 import { WordCloud } from '../Visualization/WordCloud';
 import { KanbanBoardState } from '../Kanban/Board/action';
 import { Loading } from '../utils/Loading';
@@ -71,7 +66,6 @@ interface Props extends HistoryActionCreatorTypes, HistoryState {
 }
 
 export const History: React.FunctionComponent<Props> = React.memo((props: Props) => {
-    const { expiringKey } = props;
     const [targetDate, setTargetDate] = useState<undefined | [number, number, number]>(undefined);
     const [shownPomodoros, setPomodoros] = useState<undefined | PomodoroRecord[]>(undefined);
     const [selectedDatePieChart, setSelectedDatePieChart] = useState<undefined | TimeSpentData>(
@@ -116,8 +110,31 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
     };
 
     useEffect(resizeEffect, []);
+    // Cache aggregated results per (project, year) so switching back and forth
+    // is instant. Cleared whenever expiringKey changes (a new pomodoro record
+    // landed, so cached aggregates may be stale).
+    const aggCache = useRef(new Map<string, AggPomodoroInfo>());
+    const lastExpiringKey = useRef(props.expiringKey);
     useEffect(() => {
         let cancelled = false;
+        if (lastExpiringKey.current !== props.expiringKey) {
+            lastExpiringKey.current = props.expiringKey;
+            aggCache.current.clear();
+        }
+
+        const cacheKey = `${props.chosenId ?? 'all'}|${chosenYear}`;
+        const cached = aggCache.current.get(cacheKey);
+        if (cached) {
+            setAggInfo(cached);
+            setTargetDate(undefined);
+            setSelectedDatePieChart(undefined);
+            setSelectedDateWordWeights(undefined);
+            setPomodoros(undefined);
+            return () => {
+                cancelled = true;
+            };
+        }
+
         // Reset the stale aggregation immediately so the UI shows the same
         // Loading state as on first open, and the previous year's/project's
         // charts (and their memory) are released right away.
@@ -135,25 +152,25 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
             pieChart: undefined,
             wordWeights: undefined,
         });
-        const boardId = props.chosenId;
-        const searchArg = props.chosenId === undefined ? {} : { boardId };
         // Avoid using outdated cache; And use worker to avoid db blocking the process
         // Load on demand to avoid pulling the whole session DB into the renderer:
         //  - records since the week/month boundary feed the Today/Week/Month stats;
         //  - records of the chosen year (or All time) feed the calendar/pie/word cloud
         //    and the total count/time badge, so the badge follows project + year;
         //  - with All time a single query covers both the recent stats and the full view.
+        // The whole aggregation runs inside the db worker (aggHistory op), so raw
+        // records never cross to the main thread and only the small aggregated
+        // result is transferred back.
         const db = workers.dbWorkers.sessionDB;
         const now = new Date();
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
         const weekStart = todayStart - new Date().getDay() * 86400 * 1000;
         const recentStart = Math.min(monthStart, weekStart);
+        const searchArg = props.chosenId === undefined ? {} : { boardId: props.chosenId };
         const recentArg = { ...searchArg, startTime: { $gte: recentStart } };
         let yearArg: any = searchArg;
         if (chosenYear !== ALL_TIME) {
-            const yearStart = new Date(chosenYear, 0, 1).getTime();
-            const nextYearStart = new Date(chosenYear + 1, 0, 1).getTime();
             yearArg = {
                 ...searchArg,
                 startTime: {
@@ -163,17 +180,17 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
             };
         }
 
-        Promise.all([
-            chosenYear === ALL_TIME ? undefined : db.find(recentArg, {}),
-            db.find(yearArg, {}),
-        ])
-            .then(([recentResult, yearDocs]) => {
-                return getAggPomodoroInfo(recentResult ?? yearDocs, yearDocs);
-            })
+        db.aggHistory({
+            boardIds: Object.keys(props.boards),
+            recentQuery: chosenYear === ALL_TIME ? undefined : recentArg,
+            yearQuery: yearArg,
+        })
             .then((ans: AggPomodoroInfo) => {
                 if (cancelled) {
                     return;
                 }
+
+                aggCache.current.set(cacheKey, ans);
                 setAggInfo(ans);
                 setTargetDate(undefined);
                 setSelectedDatePieChart(undefined);
@@ -186,7 +203,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         return () => {
             cancelled = true;
         };
-    }, [props.chosenId, expiringKey, chosenYear]);
+    }, [props.chosenId, props.expiringKey, props.boards, chosenYear]);
     useEffect(() => {
         if (targetDate == null) {
             return;

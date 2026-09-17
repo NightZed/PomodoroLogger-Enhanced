@@ -15,6 +15,17 @@ export function addWorkerListeners(
             ctx.postMessage(data);
         };
 
-        handleMap[type](payload, done);
+        try {
+            await handleMap[type](payload, done);
+        } catch (e) {
+            // Report back with the request code so the pending promise in
+            // BaseWorker rejects instead of waiting for its timeout.
+            console.error(`[worker] ${type} failed`, e);
+            ctx.postMessage({
+                code,
+                type: 'error',
+                payload: String(e),
+            });
+        }
     });
 }

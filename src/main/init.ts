@@ -8,13 +8,28 @@ import { dbBaseDir } from '../config';
 import { build } from '../../package.json';
 import { AutoUpdater } from './AutoUpdater';
 import { initialize } from './ipc/ipc';
-import { IpcEventName } from './ipc/type';
+import { IpcEventName, UpdateEventName } from './ipc/type';
 import * as remoteMain from '@electron/remote/main';
 import { initActiveWin } from './activeWin';
 remoteMain.initialize();
 
 const { refreshDbs, loadDBs } = db;
 export let win: BrowserWindow | undefined;
+
+/**
+ * Update events can be emitted before the renderer registered its listeners
+ * (`win.loadURL` is asynchronous), so they are queued until the page is loaded.
+ */
+let rendererReady = false;
+const pendingUpdateEvents: { type: string; info: any }[] = [];
+
+function flushUpdateEvents() {
+    rendererReady = true;
+    while (pendingUpdateEvents.length > 0 && win) {
+        const { type, info } = pendingUpdateEvents.shift()!;
+        win.webContents.send(type, info);
+    }
+}
 
 export const gotTheLock = process.env.NODE_ENV !== 'production' || app.requestSingleInstanceLock();
 
@@ -85,6 +100,9 @@ const createWindow = async () => {
             })
         );
     }
+
+    rendererReady = false;
+    win.webContents.once('did-finish-load', flushUpdateEvents);
 
     const handleRedirect = (e: any, url: string) => {
         if (url !== win?.webContents.getURL()) {
@@ -196,6 +214,13 @@ app.on('ready', async () => {
             return;
         }
 
+        // An unpackaged app cannot install an update and electron-updater would
+        // still hit the network, so only check when running a packaged build.
+        if (!app.isPackaged) {
+            console.log('[updater] skip update check: application is not packaged');
+            return;
+        }
+
         autoUpdaterCheck.checkUpdate();
     });
 });
@@ -212,31 +237,41 @@ export function restart(): void {
 }
 
 function update() {
-    const autoUpdater = new AutoUpdater((type: string, info: any) => {
-        if (win) {
-            win.webContents.send(type, info);
-        }
-
-        if (type === 'download-progress') {
+    const sendStatusToWindow = (type: string, info: any) => {
+        if (type === UpdateEventName.Progress) {
             const { percent } = info;
-            if (win) {
+            if (win && typeof percent === 'number') {
                 win.setProgressBar(percent / 100);
             }
         }
 
-        if (type === 'update-downloaded' || type === 'error') {
+        if (type === UpdateEventName.Downloaded || type === UpdateEventName.Error) {
             if (win) {
                 win.setProgressBar(-1);
             }
         }
-    });
+
+        if (!win) {
+            return;
+        }
+
+        // The renderer registers its listeners on mount, queue until it is ready.
+        if (!rendererReady) {
+            pendingUpdateEvents.push({ type, info });
+            return;
+        }
+
+        win.webContents.send(type, info);
+    };
+
+    const autoUpdater = new AutoUpdater(sendStatusToWindow);
 
     ipcMain.on(IpcEventName.DownloadUpdate, () => {
         autoUpdater.download();
     });
 
     ipcMain.on(IpcEventName.CheckUpdate, () => {
-        autoUpdater.checkUpdate();
+        autoUpdater.checkUpdate(true);
     });
 
     return autoUpdater;

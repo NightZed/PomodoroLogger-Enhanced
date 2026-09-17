@@ -17,6 +17,29 @@ export enum IpcEventName {
     FocusOnWindow = 'focusOnWindow',
 }
 
+/**
+ * Events pushed from the main process to the renderer.
+ *
+ * They are intentionally kept out of `IpcEventName`: `src/renderer/app.tsx`
+ * turns every `IpcEventName` into a request/response wrapper on `window.api`,
+ * while these are one-way notifications.
+ */
+export enum UpdateEventName {
+    Available = 'update-available',
+    NotAvailable = 'update-not-available',
+    Error = 'update-error',
+    Progress = 'download-progress',
+    Downloaded = 'update-downloaded',
+}
+
+/** Phase of the update flow the error occurred in. */
+export type UpdatePhase = 'check' | 'download';
+
+export type UpdateErrorPayload = {
+    phase: UpdatePhase;
+    message: string;
+};
+
 export type ExposedAPI = {
     [IpcEventName.ImportData](): Promise<void>;
     [IpcEventName.ExportData](): Promise<void>;

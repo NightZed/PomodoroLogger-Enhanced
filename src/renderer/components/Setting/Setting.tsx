@@ -7,7 +7,7 @@ import { shell, ipcRenderer } from 'electron';
 import { DistractingListModalButton } from './DistractingList';
 import { isShallowEqualByKeys } from '../../utils';
 import pkg from '../../../../package.json';
-import { IpcEventName } from '../../../main/ipc/type';
+import { IpcEventName, UpdateErrorPayload, UpdateEventName } from '../../../main/ipc/type';
 import { refreshDbs } from '../../../main/db';
 
 const Container = styled.div`
@@ -144,24 +144,29 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
         const [checkingUpdate, setCheckingUpdate] = useState(false);
         const onCheckUpdate = useCallback(() => {
             setCheckingUpdate(true);
-            const onResult = (hasUpdate: boolean) => {
-                ipcRenderer.removeListener('update-available', onAvailable);
-                ipcRenderer.removeListener('update-not-available', onNotAvailable);
-                ipcRenderer.removeListener('error', onError);
+            // The main process answers with one of the three events below; the timeout
+            // is only a safety net so the button never gets stuck in loading state.
+            let timeout: any;
+            const onResult = () => {
+                clearTimeout(timeout);
+                ipcRenderer.removeListener(UpdateEventName.Available, onAvailable);
+                ipcRenderer.removeListener(UpdateEventName.NotAvailable, onNotAvailable);
+                ipcRenderer.removeListener(UpdateEventName.Error, onError);
                 setCheckingUpdate(false);
             };
-            const onAvailable = () => onResult(true);
+            const onAvailable = () => onResult();
             const onNotAvailable = (event: any, info: string) => {
                 message.info(info);
-                onResult(false);
+                onResult();
             };
-            const onError = (event: any, err: any) => {
-                message.error('Failed to check for update: ' + err);
-                onResult(false);
+            const onError = (event: any, payload: UpdateErrorPayload) => {
+                message.error('Failed to check for update: ' + (payload?.message ?? payload));
+                onResult();
             };
-            ipcRenderer.on('update-available', onAvailable);
-            ipcRenderer.on('update-not-available', onNotAvailable);
-            ipcRenderer.on('error', onError);
+            ipcRenderer.on(UpdateEventName.Available, onAvailable);
+            ipcRenderer.on(UpdateEventName.NotAvailable, onNotAvailable);
+            ipcRenderer.on(UpdateEventName.Error, onError);
+            timeout = setTimeout(onResult, 30000);
             ipcRenderer.send(IpcEventName.CheckUpdate);
         }, []);
 

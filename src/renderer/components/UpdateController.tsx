@@ -1,6 +1,7 @@
 import { ipcRenderer } from 'electron';
 import * as React from 'react';
 import { Modal, notification } from 'antd';
+import { IpcEventName, UpdateErrorPayload, UpdateEventName } from '../../main/ipc/type';
 import formatMarkdown from './Kanban/Card/formatMarkdown';
 
 interface UpdateInfo {
@@ -10,21 +11,25 @@ interface UpdateInfo {
 }
 
 interface State {
-    type: 'hidden' | 'update-available' | 'progress' | 'downloaded';
-    progress: number;
+    type: 'hidden' | 'update-available';
     updateInfo: UpdateInfo | null;
 }
+
+const RELEASE_PAGE = 'https://github.com/NightZed/PomodoroLogger-Enhanced/releases';
+// Fixed keys keep repeated events from stacking up identical notifications.
+const ERROR_NOTIFICATION_KEY = 'update-error';
+const PROGRESS_NOTIFICATION_KEY = 'update-progress';
 
 export class UpdateController extends React.Component<any, State> {
     private updateAvailableHandler?: (event: any, info: UpdateInfo) => void;
     private updateDownloadedHandler?: () => void;
-    private updateErrorHandler?: (event: any, message: string) => void;
+    private updateErrorHandler?: (event: any, payload: UpdateErrorPayload) => void;
+    private updateProgressHandler?: (event: any, info: { percent: number }) => void;
 
     constructor(props: any) {
         super(props);
         this.state = {
             type: 'hidden',
-            progress: 0,
             updateInfo: null,
         };
     }
@@ -36,39 +41,64 @@ export class UpdateController extends React.Component<any, State> {
                 type: 'update-available',
             });
         };
-        ipcRenderer.addListener('update-available', this.updateAvailableHandler);
+        ipcRenderer.addListener(UpdateEventName.Available, this.updateAvailableHandler);
 
         this.updateDownloadedHandler = () => {
+            notification.close(PROGRESS_NOTIFICATION_KEY);
             this.notifyDownloaded();
         };
-        ipcRenderer.addListener('update-downloaded', this.updateDownloadedHandler);
+        ipcRenderer.addListener(UpdateEventName.Downloaded, this.updateDownloadedHandler);
 
-        this.updateErrorHandler = (event: any, message: string) => {
-            const args = {
-                message: 'Update Download Failed',
-                description:
-                    'You can download manually from https://github.com/NightZed/PomodoroLogger-Enhanced/releases',
+        this.updateProgressHandler = (event: any, info: { percent: number }) => {
+            notification.open({
+                key: PROGRESS_NOTIFICATION_KEY,
+                message: 'Downloading Update',
+                description: `${Math.round(info.percent)}%`,
                 duration: 0,
-            };
-            notification.open(args);
+            });
         };
-        ipcRenderer.addListener('error', this.updateErrorHandler);
+        ipcRenderer.addListener(UpdateEventName.Progress, this.updateProgressHandler);
+
+        this.updateErrorHandler = (event: any, payload: UpdateErrorPayload) => {
+            const phase = payload?.phase === 'download' ? 'Download' : 'Check';
+            notification.close(PROGRESS_NOTIFICATION_KEY);
+            notification.open({
+                key: ERROR_NOTIFICATION_KEY,
+                message: `Update ${phase} Failed`,
+                description: (
+                    <div>
+                        <div style={{ marginBottom: 4 }}>{payload?.message}</div>
+                        <div>
+                            You can download manually from{' '}
+                            <a href={RELEASE_PAGE} target="_blank" rel="noreferrer">
+                                {RELEASE_PAGE}
+                            </a>
+                        </div>
+                    </div>
+                ),
+                duration: 0,
+            });
+        };
+        ipcRenderer.addListener(UpdateEventName.Error, this.updateErrorHandler);
     }
 
     componentWillUnmount() {
         if (this.updateAvailableHandler) {
-            ipcRenderer.removeListener('update-available', this.updateAvailableHandler);
+            ipcRenderer.removeListener(UpdateEventName.Available, this.updateAvailableHandler);
         }
         if (this.updateDownloadedHandler) {
-            ipcRenderer.removeListener('update-downloaded', this.updateDownloadedHandler);
+            ipcRenderer.removeListener(UpdateEventName.Downloaded, this.updateDownloadedHandler);
         }
         if (this.updateErrorHandler) {
-            ipcRenderer.removeListener('error', this.updateErrorHandler);
+            ipcRenderer.removeListener(UpdateEventName.Error, this.updateErrorHandler);
+        }
+        if (this.updateProgressHandler) {
+            ipcRenderer.removeListener(UpdateEventName.Progress, this.updateProgressHandler);
         }
     }
 
     onOk = () => {
-        ipcRenderer.send('download-update', '111');
+        ipcRenderer.send(IpcEventName.DownloadUpdate, 'manual');
         this.setState({ type: 'hidden' });
     };
 
@@ -78,6 +108,7 @@ export class UpdateController extends React.Component<any, State> {
 
     notifyDownloaded = () => {
         const args = {
+            key: 'update-downloaded',
             message: 'Update Downloaded',
             description: 'When you are ready, quit the app to start installation',
             duration: 0,

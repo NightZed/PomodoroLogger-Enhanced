@@ -1,0 +1,147 @@
+name: Build/release
+
+# Single release pipeline:
+#   push master -> job 1 (semantic-release): lint + tests, then cut the
+#   vX.Y.Z tag + GitHub Release. Versions are tracked by git tags only --
+#   nothing is committed back to the repository (see the semantic-release
+#   FAQ: https://semantic-release.org/support/faq).
+#   job 2 (build, gated by `needs`): checks out the tag, stamps the version
+#   into package.json, builds the Windows/macOS/Linux installers and uploads
+#   them to that Release.
+# Because job 2 is scheduled via `needs` inside the same run -- not by a
+# tag-push *event* -- the auto-provided GITHUB_TOKEN is enough everywhere
+# and no PAT is required.
+
+on:
+  push:
+    branches:
+      - master
+
+# Serialize releases: only one run at a time, never cancel one (a cancelled
+# run could leave a half-pushed tag).
+concurrency:
+  group: build-release
+  cancel-in-progress: false
+
+permissions:
+  contents: write        # create the tag/release + upload build artifacts
+  issues: write          # comment on released issues
+  pull-requests: write   # comment on released pull requests
+
+jobs:
+  semantic-release:
+    runs-on: ubuntu-latest
+
+    outputs:
+      tag: ${{ steps.semantic.outputs.new_release_tag }}
+      version: ${{ steps.semantic.outputs.new_release_version }}
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+        with:
+          # Full history + tags are required for version analysis
+          fetch-depth: 0
+          # semantic-release authenticates through its own GITHUB_TOKEN env
+          # var; never persist the checkout token.
+          persist-credentials: false
+
+      - name: Install Node.js and Yarn
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn --frozen-lockfile
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Test
+        run: yarn test -- --ci --runInBand
+
+      - name: Semantic Release
+        id: semantic
+        uses: cycjimmy/semantic-release-action@v6
+        with:
+          # .releaserc.json only uses the default commit-analyzer +
+          # release-notes-generator + @semantic-release/github trio. The
+          # action pre-installs the bundled core plugins, so only github
+          # must be listed here.
+          extra_plugins: |
+            @semantic-release/github@12
+        env:
+          # The auto-provided GITHUB_TOKEN is enough: the tag/release it
+          # creates must not trigger any follow-up workflow anymore -- the
+          # build job below is started via `needs`, inside this same run.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    # Only build when a release was actually cut (docs/chore-only pushes
+    # produce empty outputs and skip the build).
+    if: needs.semantic-release.outputs.tag != ''
+    needs: semantic-release
+    runs-on: ${{ matrix.os }}
+
+    # Platforms to build on/for
+    strategy:
+      matrix:
+        os: [macos-15, windows-2022, ubuntu-22.04]
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+        with:
+          # Pin to the exact commit the release was cut from (the tag
+          # semantic-release just created).
+          ref: ${{ needs.semantic-release.outputs.tag }}
+          # Only used to fetch the ref; electron-builder does not need git
+          # credentials afterwards.
+          persist-credentials: false
+
+      - name: Install Node.js, NPM and Yarn
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - name: Ensure distutils is available for node-gyp
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Prepare for app notarization
+        if: startsWith(matrix.os, 'macos')
+        # Import Apple API key for app notarization on macOS
+        run: |
+          mkdir -p ~/private_keys/
+          echo '${{ secrets.api_key }}' > ~/private_keys/AuthKey_${{ secrets.api_key_id }}.p8
+
+      - name: Stamp package.json version from tag
+        shell: bash
+        # electron-builder reads the version from package.json (installer
+        # filenames, electron-updater, app.getVersion()), but the repository
+        # keeps a placeholder version and tracks releases via tags only.
+        # Write the released version (from the semantic-release output, no
+        # "v" prefix) into the CI working tree before building.
+        # --allow-same-version keeps job re-runs safe.
+        run: |
+          npm version "${{ needs.semantic-release.outputs.version }}" --no-git-tag-version --allow-same-version
+
+      - name: Build/release Electron app
+        uses: samuelmeuli/action-electron-builder@v1
+        with:
+          # GitHub token, automatically provided to the action
+          # (No need to define this secret in the repo settings)
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+          # semantic-release created the GitHub Release above; upload the
+          # built artifacts to it.
+          release: true
+          mac_certs: ${{ secrets.mac_cert }}
+          mac_certs_password: ${{ secrets.mac_certs_password }}
+        env:
+          NODE_OPTIONS: --openssl-legacy-provider
+          # macOS notarization API key
+          API_KEY_ID: ${{ secrets.api_key_id }}
+          API_KEY_ISSUER_ID: ${{ secrets.api_key_issuer_id }}

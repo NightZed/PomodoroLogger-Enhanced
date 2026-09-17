@@ -21,10 +21,17 @@ export const getPomodoroCalendarData = (pomodoros: PomodoroRecord[]) => {
     return ans;
 };
 
+const _getLocalTimezoneOffsetMs = () => new Date().getTimezoneOffset() * 60000;
+const DAY_MS = 24 * 3600 * 1000;
+
+// Local-midnight-aligned timestamp of the day `time` belongs to.
+// getTimezoneOffset() is UTC minus local time (e.g. -480 for UTC+8), so
+// bucketing on (time - offset) aligns to local days; add offset back to get
+// the local midnight timestamp. Pure arithmetic: no Date/string allocation
+// and no per-call parsing in the hot aggregation loop.
 const _getDateFromTimestamp = (time: number): Date => {
-    const datetime = new Date(time);
-    const dateStr = `${datetime.getFullYear()}-${datetime.getMonth() + 1}-${datetime.getDate()}`;
-    return new Date(dateStr);
+    const offsetMs = _getLocalTimezoneOffsetMs();
+    return new Date(Math.floor((time - offsetMs) / DAY_MS) * DAY_MS + offsetMs);
 };
 
 export const getPomodoroAgg = (

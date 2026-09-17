@@ -118,6 +118,23 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
     useEffect(resizeEffect, []);
     useEffect(() => {
         let cancelled = false;
+        // Reset the stale aggregation immediately so the UI shows the same
+        // Loading state as on first open, and the previous year's/project's
+        // charts (and their memory) are released right away.
+        setAggInfo({
+            agg: {
+                day: undefined,
+                month: undefined,
+                week: undefined,
+            },
+            total: {
+                count: undefined,
+                usedTime: undefined,
+            },
+            calendarCount: undefined,
+            pieChart: undefined,
+            wordWeights: undefined,
+        });
         const boardId = props.chosenId;
         const searchArg = props.chosenId === undefined ? {} : { boardId };
         // Avoid using outdated cache; And use worker to avoid db blocking the process
@@ -184,9 +201,9 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
             boardId === undefined
                 ? { startTime: { $lt: nextDay.getTime(), $gte: dateStart.getTime() } }
                 : {
-                    boardId,
-                    startTime: { $lt: nextDay.getTime(), $gte: dateStart.getTime() },
-                };
+                      boardId,
+                      startTime: { $lt: nextDay.getTime(), $gte: dateStart.getTime() },
+                  };
         setPomodoros(undefined);
         setSelectedDatePieChart(undefined);
         setSelectedDateWordWeights(undefined);

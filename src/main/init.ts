@@ -274,6 +274,19 @@ function update() {
         autoUpdater.checkUpdate(true);
     });
 
+    ipcMain.on(IpcEventName.InstallUpdate, () => {
+        if (process.env.NODE_ENV === 'development') {
+            console.log('receive install-update');
+            return;
+        }
+
+        // Drop the window reference first: the win32 `close` handler hides the
+        // window and cancels the close, which would abort the `app.quit()` that
+        // quitAndInstall() triggers right after spawning the installer.
+        win = undefined;
+        autoUpdater.quitAndInstall();
+    });
+
     return autoUpdater;
 }
 

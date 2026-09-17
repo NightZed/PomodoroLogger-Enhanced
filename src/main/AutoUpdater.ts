@@ -107,6 +107,22 @@ export class AutoUpdater {
         autoUpdater.downloadUpdate().catch(() => undefined);
     }
 
+    /**
+     * Quit the app and run the downloaded installer.
+     *
+     * The install is non-silent so the NSIS one-click installer shows its native
+     * progress banner during installation; electron-updater forces `isForceRunAfter`
+     * to true for non-silent installs (`BaseUpdater.quitAndInstall`:
+     * `isSilent ? isForceRunAfter : true`), so the updated app starts automatically
+     * once the installer finishes. There is no in-app progress for this phase: the
+     * app must quit before its files can be replaced, and a silent installer
+     * (`quitAndInstall(true, true)`) exposes no progress callback at all.
+     */
+    quitAndInstall() {
+        this.phase = 'install';
+        autoUpdater.quitAndInstall(false);
+    }
+
     private reportError(err: any) {
         console.error('[updater] error in', this.phase, 'phase:', err);
 

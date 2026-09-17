@@ -13,6 +13,7 @@ jest.mock('electron-updater', () => {
     updater.setFeedURL = jest.fn();
     updater.checkForUpdates = jest.fn(() => Promise.resolve(null));
     updater.downloadUpdate = jest.fn(() => Promise.resolve([]));
+    updater.quitAndInstall = jest.fn();
     return { autoUpdater: updater };
 });
 
@@ -157,5 +158,30 @@ describe('AutoUpdater', () => {
 
         // no unhandled rejection should be raised by the bare call above
         await Promise.resolve();
+    });
+
+    it('should install non-silently so the installer shows its progress banner', () => {
+        const { updater } = createUpdater();
+
+        updater.quitAndInstall();
+
+        // Non-silent installs show the native NSIS progress banner and always
+        // relaunch the app when the installation finishes (electron-updater forces
+        // isForceRunAfter for non-silent installs).
+        expect(mockUpdater.quitAndInstall).toHaveBeenCalledWith(false);
+    });
+
+    it('should mark install failures as install phase', () => {
+        const { updater, events } = createUpdater();
+
+        updater.quitAndInstall();
+        mockUpdater.emit('error', new Error('no valid update available'));
+
+        expect(events).toEqual([
+            {
+                type: UpdateEventName.Error,
+                info: { phase: 'install', message: 'no valid update available' },
+            },
+        ]);
     });
 });

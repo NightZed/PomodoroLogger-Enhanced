@@ -1,6 +1,6 @@
 import { ipcRenderer } from 'electron';
 import * as React from 'react';
-import { Modal, notification } from 'antd';
+import { Button, Modal, notification } from 'antd';
 import { IpcEventName, UpdateErrorPayload, UpdateEventName } from '../../main/ipc/type';
 import formatMarkdown from './Kanban/Card/formatMarkdown';
 
@@ -19,6 +19,7 @@ const RELEASE_PAGE = 'https://github.com/NightZed/PomodoroLogger-Enhanced/releas
 // Fixed keys keep repeated events from stacking up identical notifications.
 const ERROR_NOTIFICATION_KEY = 'update-error';
 const PROGRESS_NOTIFICATION_KEY = 'update-progress';
+const DOWNLOADED_NOTIFICATION_KEY = 'update-downloaded';
 
 export class UpdateController extends React.Component<any, State> {
     private updateAvailableHandler?: (event: any, info: UpdateInfo) => void;
@@ -60,7 +61,12 @@ export class UpdateController extends React.Component<any, State> {
         ipcRenderer.addListener(UpdateEventName.Progress, this.updateProgressHandler);
 
         this.updateErrorHandler = (event: any, payload: UpdateErrorPayload) => {
-            const phase = payload?.phase === 'download' ? 'Download' : 'Check';
+            const phase =
+                payload?.phase === 'download'
+                    ? 'Download'
+                    : payload?.phase === 'install'
+                    ? 'Install'
+                    : 'Check';
             notification.close(PROGRESS_NOTIFICATION_KEY);
             notification.open({
                 key: ERROR_NOTIFICATION_KEY,
@@ -107,13 +113,34 @@ export class UpdateController extends React.Component<any, State> {
     };
 
     notifyDownloaded = () => {
-        const args = {
-            key: 'update-downloaded',
+        notification.open({
+            key: DOWNLOADED_NOTIFICATION_KEY,
             message: 'Update Downloaded',
-            description: 'When you are ready, quit the app to start installation',
+            description: 'Restart now to install the update, or quit the app to install it later.',
+            btn: (
+                <Button type="primary" size="small" onClick={this.onInstallNow}>
+                    Restart &amp; Install
+                </Button>
+            ),
             duration: 0,
-        };
-        notification.open(args);
+        });
+    };
+
+    onInstallNow = () => {
+        notification.close(DOWNLOADED_NOTIFICATION_KEY);
+        // Explain what is about to happen; the NSIS installer takes over (with its
+        // native progress banner) right after the app quits, and the modal is
+        // dismissed along with the process. The OK button stays available so this
+        // modal can still be closed during development, where the install request
+        // is only logged.
+        Modal.info({
+            title: 'Installing Update',
+            content:
+                'The application is quitting to install the update. It will start again automatically once the installation finishes.',
+        });
+        setTimeout(() => {
+            ipcRenderer.send(IpcEventName.InstallUpdate);
+        }, 1500);
     };
 
     render() {

@@ -7,6 +7,7 @@ export enum IpcEventName {
     SetTray = 'set-tray',
     DownloadUpdate = 'download-update',
     CheckUpdate = 'check-update',
+    InstallUpdate = 'install-update',
     ExportData = 'exportData',
     ImportData = 'importData',
     ActiveWin = 'activeWin',
@@ -33,7 +34,7 @@ export enum UpdateEventName {
 }
 
 /** Phase of the update flow the error occurred in. */
-export type UpdatePhase = 'check' | 'download';
+export type UpdatePhase = 'check' | 'download' | 'install';
 
 export type UpdateErrorPayload = {
     phase: UpdatePhase;

@@ -1,13 +1,17 @@
-name: Build/release
+name: Build apps & upload to GitHub Release
 
 on:
   push:
-    # Built artifacts upload to the GitHub Release that semantic-release
-    # created, so this workflow only runs on version tags. Everyday pushes
-    # to master run the Release workflow instead (lint/test/semantic-release),
-    # which keeps one push == one build instead of building everything twice.
+    # Built artifacts are attached to the GitHub Release that semantic-release
+    # created, so this workflow only runs on version tags. Everyday pushes to
+    # master run the Semantic Release workflow instead (lint/test/tag +
+    # release, no commits pushed), keeping one push == one release.
     tags:
       - 'v*'
+
+permissions:
+  # Upload artifacts to the release semantic-release created.
+  contents: write
 
 jobs:
   release:
@@ -39,12 +43,24 @@ jobs:
           mkdir -p ~/private_keys/
           echo '${{ secrets.api_key }}' > ~/private_keys/AuthKey_${{ secrets.api_key_id }}.p8
         
-      - name: Build/release Electron app
+      - name: Stamp package.json version from tag
+        shell: bash
+        # The repository tracks versions with git tags only -- nothing is
+        # committed on release (see the semantic-release FAQ). But
+        # electron-builder reads the version from package.json (installer
+        # filenames, electron-updater, app.getVersion()), so rewrite the tag
+        # version (v1.2.3 -> 1.2.3) into the CI working tree before building.
+        # --allow-same-version keeps workflow re-runs safe.
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+      - name: Build Electron app & upload to release
         uses: samuelmeuli/action-electron-builder@v1
         with:
-          # GitHub token, automatically provided to the action
-          # (No need to define this secret in the repo settings)
-          github_token: ${{ secrets.GIT_TOKEN }}
+          # Default token is enough here: it only uploads artifacts to the
+          # release that semantic-release already created.
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
           # If the commit is tagged with a version (e.g. "v1.0.0"),
           # release the app after building

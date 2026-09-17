@@ -10,8 +10,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/NightZed/PomodoroLogger-Enhanced/actions/workflows/build.yml">
-    <img src="https://github.com/NightZed/PomodoroLogger-Enhanced/actions/workflows/build.yml/badge.svg" alt="Build status"/>
+  <a href="https://github.com/NightZed/PomodoroLogger-Enhanced/actions/workflows/build-apps.yml">
+    <img src="https://github.com/NightZed/PomodoroLogger-Enhanced/actions/workflows/build-apps.yml/badge.svg" alt="Build status"/>
   </a>
   <a href="https://github.com/semantic-release/semantic-release">
     <img src="https://img.shields.io/badge/semantic--release-angular-e10079?logo=semantic-release" alt="semantic-release"/>

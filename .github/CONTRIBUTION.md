@@ -78,15 +78,20 @@ electron_mirror "https://npmmirror.com/mirrors/electron/"
 
 ## Release
 
-Releases are fully automatic via [semantic-release](https://semantic-release.gitbook.io/):
+Releases are fully automatic via [semantic-release](https://semantic-release.org/usage/getting-started/):
 
 1. Just merge/push [Conventional Commits](https://www.conventionalcommits.org/)-style
    commits to `master` — never bump `package.json` version or create tags by hand.
-2. The `Release` workflow runs lint + tests, then semantic-release analyzes commits
-   since the last release, bumps the version, updates `CHANGELOG.md` + `package.json`,
-   creates the `vX.Y.Z` tag and a GitHub Release.
-3. The tag push triggers the `Build/release` workflow, which builds the
+2. The `Semantic Release` workflow runs lint + tests, then semantic-release analyzes
+   commits since the last release and creates the `vX.Y.Z` tag plus a GitHub Release.
+   Versions live in git tags only — nothing is committed back to the repository
+   (no `chore(release)` commit and no `CHANGELOG.md` update; release notes live in
+   GitHub Releases). `package.json`'s `version` is a fixed placeholder
+   (`0.0.0-semantically-released`).
+3. The tag push triggers the `Build apps & upload to GitHub Release` workflow, which
+   stamps the tag's version into `package.json` in the CI working tree, builds the
    Windows/macOS/Linux installers and uploads them to that Release.
 
-Preview the next version locally with `yarn release --dry-run` (no GitHub token
-needed for version analysis).
+Preview the next version locally with `GH_TOKEN=<token> yarn release --dry-run`
+(the GitHub plugin verifies authentication even in dry-run, so a token with
+repo read access is required).

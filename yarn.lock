@@ -2238,15 +2238,6 @@
   resolved "https://registry.npmmirror.com/@sec-ant/readable-stream/-/readable-stream-0.4.1.tgz#60de891bb126abfdc5410fdc6166aca065f10a0c"
   integrity sha512-831qok9r2t8AlxLko40y2ebgSDhenenCatLVeW/uBtnHPyhHOvG0C7TvfgecV+wHzIm5KUICgzmVpWS+IMEAeg==
 
-"@semantic-release/changelog@^7.0.0":
-  version "7.0.0"
-  resolved "https://registry.npmmirror.com/@semantic-release/changelog/-/changelog-7.0.0.tgz#dbc9b5f1d521c3134e9b12189fdfa36ebc8fefdf"
-  integrity sha512-TNPyag5db24o7jWjre7UwKB4EcL8oJxbRhnDQ7hmZRAYqzreAc6PgdxQuU3pppp5xQinYtiumL0iG8SSKvnlzg==
-  dependencies:
-    "@semantic-release/error" "^4.0.0"
-    aggregate-error "^5.0.0"
-    lodash-es "^4.17.21"
-
 "@semantic-release/commit-analyzer@^13.0.1":
   version "13.0.1"
   resolved "https://registry.npmmirror.com/@semantic-release/commit-analyzer/-/commit-analyzer-13.0.1.tgz#d84b599c3fef623ccc01f0cc2025eb56a57d8feb"
@@ -2265,20 +2256,6 @@
   version "4.0.0"
   resolved "https://registry.npmmirror.com/@semantic-release/error/-/error-4.0.0.tgz#692810288239637f74396976a9340fbc0aa9f6f9"
   integrity sha512-mgdxrHTLOjOddRVYIYDo0fR3/v61GNN1YGkfbrjuIKg/uMgCd+Qzo3UAXJ+woLQQpos4pl5Esuw5A7AoNlzjUQ==
-
-"@semantic-release/git@^11.0.1":
-  version "11.0.1"
-  resolved "https://registry.npmmirror.com/@semantic-release/git/-/git-11.0.1.tgz#f6c6e56715a017981559c5049a63c1769c19cade"
-  integrity sha512-Zr8BUYCTZMc8V6wDKN2dpR7nJgewd9I6THL3ydLTnp3OEdTo1/4RBLNYaeRucYMsjMv+BXoCNfXA0NADj1kwhw==
-  dependencies:
-    "@semantic-release/error" "^4.0.0"
-    aggregate-error "^5.0.0"
-    debug "^4.0.0"
-    dir-glob "^3.0.0"
-    execa "^10.0.0"
-    lodash-es "^4.17.21"
-    micromatch "^4.0.0"
-    p-reduce "^3.0.0"
 
 "@semantic-release/github@^12.0.0", "@semantic-release/github@^12.0.9":
   version "12.0.9"
@@ -2302,27 +2279,6 @@
     tinyglobby "^0.2.14"
     undici "^7.0.0"
     url-join "^5.0.0"
-
-"@semantic-release/npm@^13.1.1":
-  version "13.1.5"
-  resolved "https://registry.npmmirror.com/@semantic-release/npm/-/npm-13.1.5.tgz#99178d57ca8f68fb4ea2aa2d388052ec3f397498"
-  integrity sha512-Hq5UxzoatN3LHiq2rTsWS54nCdqJHlsssGERCo8WlvdfFA9LoN0vO+OuKVSjtNapIc/S8C2LBj206wKLHg62mg==
-  dependencies:
-    "@actions/core" "^3.0.0"
-    "@semantic-release/error" "^4.0.0"
-    aggregate-error "^5.0.0"
-    env-ci "^11.2.0"
-    execa "^9.0.0"
-    fs-extra "^11.0.0"
-    lodash-es "^4.17.21"
-    nerf-dart "^1.0.0"
-    normalize-url "^9.0.0"
-    npm "^11.6.2"
-    rc "^1.2.8"
-    read-pkg "^10.0.0"
-    registry-auth-token "^5.0.0"
-    semver "^7.1.2"
-    tempy "^3.0.0"
 
 "@semantic-release/release-notes-generator@^14.1.0":
   version "14.1.1"

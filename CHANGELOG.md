@@ -1,3 +1,17 @@
+## [0.14.1](https://github.com/NightZed/PomodoroLogger-Enhanced/compare/v0.14.0...v0.14.1) (2026-09-17)
+
+
+### Bug Fixes
+
+* **update:** 修复明明已经是最新版但仍触发自动更新下载报错的问题 ([5820cda](https://github.com/NightZed/PomodoroLogger-Enhanced/commit/5820cda4892241dffb23f9585c3c6f3e18c7e1c4))
+
+
+### Performance Improvements
+
+* **history:** 优化加载历史数据时的表现效果 ([c77a74b](https://github.com/NightZed/PomodoroLogger-Enhanced/commit/c77a74b3462746a01f62493a491d2707267a52b4))
+* **history:** 聚合计算下沉db worker并缓存结果，避免大数据量下切换卡顿 ([03fc0e2](https://github.com/NightZed/PomodoroLogger-Enhanced/commit/03fc0e2bfce609e925aeace7ebf9603aa1ab4e10))
+* **kanban:** 优化大窗口下打开卡片时的卡顿效果 ([4df7f74](https://github.com/NightZed/PomodoroLogger-Enhanced/commit/4df7f74bf3d2e1aaaad612b563a1c063a25ce0b8))
+
 # [0.14.0](https://github.com/NightZed/PomodoroLogger-Enhanced/compare/v0.13.0...v0.14.0) (2026-09-16)
 
 

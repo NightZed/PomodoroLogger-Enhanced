@@ -25,7 +25,7 @@ import { Card, CardLabel } from '../type';
 import { Markdown } from '../style/Markdown';
 import formatMarkdown from './formatMarkdown';
 import { findFormatBlock } from './selectionFormat';
-import { EditorContainer } from '../style/editorStyle';
+import { EditorContainer, EditorAnimation } from '../style/editorStyle';
 import { CreatedTime } from '../style/CreatedTime';
 import { formatTimeYmdHm } from '../../Visualization/Timeline';
 import { LabelEditor } from './LabelEditor';
@@ -417,9 +417,12 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             onCancel={onCancel}
             cancelButtonProps={{ style: { display: 'none' } }}
             style={{ minWidth: 300 }}
-            width={'60vw'}
+            width={960}
+            transitionName="card-editor-zoom"
+            maskTransitionName="card-editor-fade"
             onOk={onSave}
         >
+            <EditorAnimation />
             <EditorContainer>
                 <Form layout="vertical" onKeyDown={keydownEventHandler}>
                     <Form.Item label="Title">
@@ -484,7 +487,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                             {getFieldDecorator('content')(
                                 <TextArea
                                     ref={contentRef}
-                                    autoSize={{ minRows: 6 }}
+                                    autoSize={{ minRows: 6, maxRows: 16 }}
                                     placeholder={'Description'}
                                     onKeyDown={onContentKeyDown}
                                     onChange={(e: any) => setCardContent(e.target.value)}

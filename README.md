@@ -196,6 +196,7 @@ These raw records are aggregated into the time proportion pie chart and word clo
 
 -   **Switch pages**: `Ctrl+Tab` / `Ctrl+Shift+Tab`.
 -   **Search cards**: `Ctrl+F` (Kanban page).
+-   **Quick Save**：`Ctrl+Enter`（Card edit）。
 -   **Quit**: `Ctrl+Q`.
 -   **Mini mode**: `F11` / `F12`.
 

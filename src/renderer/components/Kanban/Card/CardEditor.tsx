@@ -173,7 +173,8 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             applyMarkdown((selected, { current, start, end }) => {
                 const block = findFormatBlock(current, start, end, prefix, suffix);
                 if (block) {
-                    // 已包裹（场景A/B）→ 解包为普通文本，光标落在解包文本末尾
+                    // already wrapped (case A/B) -> unwrap to plain text,
+                    // caret lands at the end of the unwrapped text
                     return {
                         text: block.content,
                         caretOffset: block.content.length,
@@ -198,15 +199,15 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
     }, [applyMarkdown]);
 
     const insertBold = React.useCallback(() => {
-        wrapSelection('**', '**', '粗体文本');
+        wrapSelection('**', '**', 'bold text');
     }, [wrapSelection]);
 
     const insertItalic = React.useCallback(() => {
-        wrapSelection('*', '*', '斜体文本');
+        wrapSelection('*', '*', 'italic text');
     }, [wrapSelection]);
 
     const insertStrikethrough = React.useCallback(() => {
-        wrapSelection('~~', '~~', '删除线文本');
+        wrapSelection('~~', '~~', 'strikethrough text');
     }, [wrapSelection]);
 
     const openLinkModal = React.useCallback(() => {
@@ -222,7 +223,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             pendingLinkRef.current = {
                 start,
                 end,
-                text: current.slice(start, end) || '链接文本',
+                text: current.slice(start, end) || 'link text',
             };
             setLinkUrl('');
             setLinkModalVisible(true);
@@ -413,21 +414,33 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
         <Modal
             visible={visible}
             title={thisIsCreating ? 'Create a new card' : 'Edit'}
-            okText={thisIsCreating ? 'Create' : 'Save'}
+            // custom footer: wrap the Save button in an antd Tooltip so the
+            // Ctrl+Enter hint pops fast (~0.1s) instead of the slow native title
+            footer={
+                thisIsCreating ? (
+                    <Button type="primary" onClick={onSave}>
+                        Create
+                    </Button>
+                ) : (
+                    <Tooltip title={'Ctrl+Enter'}>
+                        <Button type="primary" onClick={onSave}>
+                            Save
+                        </Button>
+                    </Tooltip>
+                )
+            }
             onCancel={onCancel}
-            cancelButtonProps={{ style: { display: 'none' } }}
             style={{ minWidth: 300 }}
             width={960}
             transitionName="card-editor-zoom"
             maskTransitionName="card-editor-fade"
-            onOk={onSave}
         >
             <EditorAnimation />
             <EditorContainer>
                 <Form layout="vertical" onKeyDown={keydownEventHandler}>
                     <Form.Item label="Title">
                         {getFieldDecorator('title', {
-                            rules: [{ required: true, message: 'Please input the name of board!' }],
+                            rules: [{ required: true, message: 'Please input the title of card!' }],
                         })(<Input placeholder={'Title'} onKeyDown={keydownEventHandler} />)}
                         {!thisIsCreating && card && card.createdTime !== undefined ? (
                             <CreatedTime style={{ marginTop: 4 }}>
@@ -443,12 +456,12 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                     >
                         <TabPane tab="Edit" key="edit">
                             <div style={{ marginBottom: 4 }}>
-                                <Tooltip title={'插入任务复选框 [ ]（快捷键 Ctrl+L）'}>
+                                <Tooltip title={'Insert task checkbox [ ] (Ctrl+L)'}>
                                     <Button size={'small'} onClick={insertCheckbox}>
                                         ☐
                                     </Button>
                                 </Tooltip>
-                                <Tooltip title={'切换加粗 **文本**（快捷键 Ctrl+B）'}>
+                                <Tooltip title={'Toggle bold **text** (Ctrl+B)'}>
                                     <Button
                                         size={'small'}
                                         style={{ marginLeft: 4 }}
@@ -457,7 +470,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                         <b>B</b>
                                     </Button>
                                 </Tooltip>
-                                <Tooltip title={'切换斜体 *文本*（快捷键 Ctrl+I）'}>
+                                <Tooltip title={'Toggle italic *text* (Ctrl+I)'}>
                                     <Button
                                         size={'small'}
                                         style={{ marginLeft: 4 }}
@@ -466,7 +479,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                         <i>I</i>
                                     </Button>
                                 </Tooltip>
-                                <Tooltip title={'切换删除线 ~~文本~~（快捷键 Ctrl+Shift+X）'}>
+                                <Tooltip title={'Toggle strikethrough ~~text~~ (Ctrl+Shift+X)'}>
                                     <Button
                                         size={'small'}
                                         style={{ marginLeft: 4, textDecoration: 'line-through' }}
@@ -475,7 +488,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                         S
                                     </Button>
                                 </Tooltip>
-                                <Tooltip title={'插入链接 [文本](URL)（快捷键 Ctrl+K）'}>
+                                <Tooltip title={'Insert link [text](URL) (Ctrl+K)'}>
                                     <Button
                                         size={'small'}
                                         style={{ marginLeft: 4 }}
@@ -582,10 +595,10 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                 </Form>
             </EditorContainer>
             <Modal
-                title={'插入链接'}
+                title={'Insert link'}
                 visible={linkModalVisible}
-                okText={'插入'}
-                cancelText={'取消'}
+                okText={'Insert'}
+                cancelText={'Cancel'}
                 width={360}
                 onOk={confirmLink}
                 onCancel={closeLinkModal}

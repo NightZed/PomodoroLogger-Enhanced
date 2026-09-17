@@ -195,6 +195,7 @@ pomodoro-logger [C:\code\pomodoro-logger] .\src\renderer\components\src\Applicat
 
 - **页面切换**：`Ctrl+Tab` / `Ctrl+Shift+Tab`。
 - **搜索卡片**：`Ctrl+F`（Kanban 页）。
+- **快速保存**：`Ctrl+Enter`（Card 编辑）。
 - **退出应用**：`Ctrl+Q`。
 - **迷你模式**：`F11` / `F12`。
 

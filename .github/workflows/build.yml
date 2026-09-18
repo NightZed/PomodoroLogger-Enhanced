@@ -16,6 +16,15 @@ on:
   push:
     branches:
       - master
+  # Manual rebuild of an existing tag's installers: runs ONLY the build job
+  # for the given tag (semantic-release does not run -- releases are
+  # push-driven only, per the semantic-release docs).
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing version tag to build, e.g. v0.15.0'
+        required: true
+        type: string
 
 # Serialize releases: only one run at a time, never cancel one (a cancelled
 # run could leave a half-pushed tag).
@@ -30,10 +39,15 @@ permissions:
 
 jobs:
   semantic-release:
+    # Releases are push-driven only; workflow_dispatch runs skip this job.
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
 
     outputs:
-      tag: ${{ steps.semantic.outputs.new_release_tag }}
+      # NOTE: the action's output for the Git tag is `new_release_git_tag`
+      # (there is no `new_release_tag` -- getting this wrong silently
+      # yields an empty string and skips the build job).
+      tag: ${{ steps.semantic.outputs.new_release_git_tag }}
       version: ${{ steps.semantic.outputs.new_release_version }}
 
     steps:
@@ -78,9 +92,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build:
-    # Only build when a release was actually cut (docs/chore-only pushes
-    # produce empty outputs and skip the build).
-    if: needs.semantic-release.outputs.tag != ''
+    # Runs either right after a fresh release (push) or on a manual rebuild
+    # of an existing tag (workflow_dispatch with the tag input).
+    if: >-
+      (github.event_name == 'push' && needs.semantic-release.outputs.tag != '') ||
+      (github.event_name == 'workflow_dispatch' && inputs.tag != '')
     needs: semantic-release
     runs-on: ${{ matrix.os }}
 
@@ -93,9 +109,9 @@ jobs:
       - name: Check out Git repository
         uses: actions/checkout@v4
         with:
-          # Pin to the exact commit the release was cut from (the tag
-          # semantic-release just created).
-          ref: ${{ needs.semantic-release.outputs.tag }}
+          # Pin to the tag's commit: freshly released (push) or manually
+          # selected for a rebuild (workflow_dispatch).
+          ref: ${{ needs.semantic-release.outputs.tag || inputs.tag }}
           # Only used to fetch the ref; electron-builder does not need git
           # credentials afterwards.
           persist-credentials: false
@@ -122,11 +138,17 @@ jobs:
         # electron-builder reads the version from package.json (installer
         # filenames, electron-updater, app.getVersion()), but the repository
         # keeps a placeholder version and tracks releases via tags only.
-        # Write the released version (from the semantic-release output, no
-        # "v" prefix) into the CI working tree before building.
+        # Write the released version into the CI working tree before
+        # building: semantic-release's output (push) or the dispatch tag
+        # with its "v" prefix stripped (workflow_dispatch).
         # --allow-same-version keeps job re-runs safe.
+        env:
+          SR_VERSION: ${{ needs.semantic-release.outputs.version }}
+          DISPATCH_TAG: ${{ inputs.tag }}
         run: |
-          npm version "${{ needs.semantic-release.outputs.version }}" --no-git-tag-version --allow-same-version
+          VERSION="$SR_VERSION"
+          if [ -z "$VERSION" ]; then VERSION="${DISPATCH_TAG#v}"; fi
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
 
       - name: Build/release Electron app
         uses: samuelmeuli/action-electron-builder@v1

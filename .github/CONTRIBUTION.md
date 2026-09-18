@@ -93,6 +93,11 @@ Releases are fully automatic via [semantic-release](https://semantic-release.org
    CI working tree, builds the Windows/macOS/Linux installers and uploads them to
    that Release. Everything runs on the auto-provided `GITHUB_TOKEN` — no PAT.
 
+Rebuild an existing tag's installers without cutting a release: Actions →
+`Build/release` → **Run workflow** and enter the tag (e.g. `v0.15.0`) — only
+the build job runs, and the artifacts are uploaded to that tag's existing
+release.
+
 Preview the next version locally with `GH_TOKEN=<token> yarn release --dry-run`
 (the GitHub plugin verifies authentication even in dry-run, so a token with
 repo read access is required).

@@ -160,8 +160,17 @@ const getPinScore = ({ pin: aPin }: KanbanBoard, { pin: bPin }: KanbanBoard) => 
 
 const applyDirection = (value: number, desc?: boolean) => (desc ? -value : value);
 
-// Sort board names with ICU zh (pinyin) collation so Chinese names are ordered by pinyin
-const nameCollator = new Intl.Collator('zh-Hans-CN');
+// Sort board names so that (ascending) English names come first (a-z), then Chinese names
+// by pinyin; descending reverses the whole order, like Windows Explorer.
+const pinyinCollator = new Intl.Collator('zh-Hans-CN');
+const isAscii = (s: string) => /^[\x00-\x7F]/.test(s); // first char ASCII => English group
+const compareName = (a: string, b: string): number => {
+    const aAscii = isAscii(a);
+    const bAscii = isAscii(b);
+    if (aAscii !== bAscii) return aAscii ? -1 : 1; // English group before Chinese group
+    return pinyinCollator.compare(a, b); // English alphabetical / Chinese pinyin order
+};
+const nameCollator = { compare: compareName };
 
 const sortFunc: Map<SortType, (a: KanbanBoard, b: KanbanBoard, desc?: boolean) => number> =
     new Map();
@@ -293,8 +302,8 @@ const OverviewCards = connect(
                 const onClick = () => setId(_id);
                 const onSettingClick = props.showConfigById
                     ? () => {
-                        props.showConfigById!(_id);
-                    }
+                          props.showConfigById!(_id);
+                      }
                     : undefined;
                 return (
                     <BoardBrief

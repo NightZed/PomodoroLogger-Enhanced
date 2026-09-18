@@ -94,9 +94,16 @@ jobs:
   build:
     # Runs either right after a fresh release (push) or on a manual rebuild
     # of an existing tag (workflow_dispatch with the tag input).
+    # NOTE: `!cancelled()` is required so this job's `if` is still evaluated
+    # when the semantic-release job above is skipped (workflow_dispatch runs):
+    # a skipped `needs` dependency would otherwise skip this job too,
+    # regardless of its own condition.
     if: >-
-      (github.event_name == 'push' && needs.semantic-release.outputs.tag != '') ||
-      (github.event_name == 'workflow_dispatch' && inputs.tag != '')
+      !cancelled() &&
+      (
+        (github.event_name == 'push' && needs.semantic-release.outputs.tag != '') ||
+        (github.event_name == 'workflow_dispatch' && inputs.tag != '')
+      )
     needs: semantic-release
     runs-on: ${{ matrix.os }}
 

@@ -20,7 +20,14 @@ const mFocusSelector: FunctionComponent<Props> = (props: Props) => {
         props.setId(value || undefined);
     };
 
-    const options = Object.values(props.kanban.boards).map((v) => (
+    // Sort boards by creation time in descending order so the newest project
+    // is rendered first in the dropdown, i.e. closest to the select box.
+    // Legacy boards without createdTime are treated as the oldest.
+    const sortedBoards = Object.values(props.kanban.boards).sort(
+        (a, b) => (b.createdTime ?? 0) - (a.createdTime ?? 0)
+    );
+
+    const options = sortedBoards.map((v) => (
         <Option key={v._id} value={v._id} className="focus-option">
             {v.name}
         </Option>

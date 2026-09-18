@@ -23,8 +23,15 @@ const Title = styled.p`
 const Group = styled.div`
     padding: 4px;
     max-width: 280px;
-    word-break: normal;
     line-height: 1.8;
+
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 2px;
+
+    .pl-tag {
+        white-space: nowrap;
+    }
 `;
 
 export const SearchPanel = ({

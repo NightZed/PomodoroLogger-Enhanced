@@ -780,18 +780,19 @@ class Timer extends Component<Props, State> {
                     </MySider>
                 )}
                 <TimerLayout ref={this.mainDiv}>
-                    <Button
-                        icon={'fullscreen-exit'}
-                        onClick={this.minimize}
-                        title="Minimize (F12)"
-                        shape={'circle'}
-                        style={{
-                            position: 'absolute',
-                            zIndex: 50,
-                            top: 14,
-                            right: 14,
-                        }}
-                    />
+                    <Tooltip title="Minimize (F12)" placement="bottom">
+                        <Button
+                            icon={'fullscreen-exit'}
+                            onClick={this.minimize}
+                            shape={'circle'}
+                            style={{
+                                position: 'absolute',
+                                zIndex: 50,
+                                top: 14,
+                                right: 14,
+                            }}
+                        />
+                    </Tooltip>
                     <HelpIcon
                         storyName={'allStories'}
                         style={{
@@ -840,53 +841,55 @@ class Timer extends Component<Props, State> {
                         <ButtonRow>
                             <div id="start-timer-button" style={{ lineHeight: 0 }}>
                                 {isRunning ? (
-                                    <Button
-                                        icon="pause"
-                                        title="Pause (F6)"
-                                        shape={'circle'}
-                                        onClick={this.onStopResumeOrStart}
-                                    />
+                                    <Tooltip title="Pause (F6)">
+                                        <Button
+                                            icon="pause"
+                                            shape={'circle'}
+                                            onClick={this.onStopResumeOrStart}
+                                        />
+                                    </Tooltip>
                                 ) : (
-                                    <Button
-                                        icon="caret-right"
-                                        title="Start (F5)"
-                                        shape={'circle'}
-                                        onClick={this.onStopResumeOrStart}
-                                    />
+                                    <Tooltip title="Start (F5)">
+                                        <Button
+                                            icon="caret-right"
+                                            shape={'circle'}
+                                            onClick={this.onStopResumeOrStart}
+                                        />
+                                    </Tooltip>
                                 )}
                             </div>
                             {this.props.timer.isRunning || this.props.timer.targetTime ? (
-                                <Button
-                                    title="Finish"
-                                    icon="check"
-                                    shape={'circle'}
-                                    onClick={this.onFinishButtonClick}
-                                />
+                                <Tooltip title="Finish">
+                                    <Button
+                                        icon="check"
+                                        shape={'circle'}
+                                        onClick={this.onFinishButtonClick}
+                                    />
+                                </Tooltip>
                             ) : (
-                                <Button
-                                    id="mode-switching-button"
-                                    title="Switch Mode (Tab)"
-                                    icon="swap"
-                                    shape="circle"
-                                    onClick={this.switchMode}
-                                />
+                                <Tooltip title="Switch Mode (Tab)">
+                                    <Button
+                                        id="mode-switching-button"
+                                        icon="swap"
+                                        shape="circle"
+                                        onClick={this.switchMode}
+                                    />
+                                </Tooltip>
                             )}
                             <div id="clear-timer-button" style={{ lineHeight: 0 }}>
-                                <Button
-                                    shape="circle"
-                                    icon="close"
-                                    title="Clear"
-                                    onClick={this.onClear}
-                                />
+                                <Tooltip title="Clear">
+                                    <Button shape="circle" icon="close" onClick={this.onClear} />
+                                </Tooltip>
                             </div>
                             {this.state.pomodorosToday.length ? (
-                                <Button
-                                    id="more-timer-button"
-                                    icon="more"
-                                    shape="circle"
-                                    title="Show More"
-                                    onClick={this.toggleMode}
-                                />
+                                <Tooltip title="Show More">
+                                    <Button
+                                        id="more-timer-button"
+                                        icon="more"
+                                        shape="circle"
+                                        onClick={this.toggleMode}
+                                    />
+                                </Tooltip>
                             ) : undefined}
                         </ButtonRow>
 

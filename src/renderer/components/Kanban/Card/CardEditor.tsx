@@ -1,9 +1,9 @@
-import React, { FC, useEffect, useState, KeyboardEvent, useRef } from 'react';
+import React, { FC, useEffect, useState, useRef } from 'react';
 import { connect } from 'react-redux';
+import { unstable_batchedUpdates } from 'react-dom';
 import { actions, CardActionTypes } from './action';
 import { actions as kanbanActions } from '../action';
 import { RootState } from '../../../reducers';
-import ReactHotkeys from 'react-hot-keys';
 import { genMapDispatchToProp } from '../../../utils';
 import {
     Button,
@@ -60,7 +60,14 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
     const isCreating = !card;
     const lastIsCreating = React.useRef<boolean | null>(null);
     const thisIsCreating = visible ? isCreating : lastIsCreating.current ?? isCreating;
-    const { getFieldDecorator, setFieldsValue, validateFields, resetFields } = form;
+    const {
+        getFieldDecorator,
+        setFieldsValue,
+        setFields,
+        getFieldsValue,
+        validateFields,
+        resetFields,
+    } = form;
     useEffect(() => {
         lastIsCreating.current = isCreating;
     }, [isCreating]);
@@ -273,7 +280,10 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
         completedTime,
     }: FormData) => {
         const time = estimatedTime || 0;
-        setCardContent(content || '');
+        // NOTE: no setCardContent here - the preview text is already kept in
+        // sync by the textarea onChange / tab switch / link insertion paths,
+        // and it is re-synced when the editor opens; syncing during save
+        // would force another full modal re-render into the closing animation
         if (!card) {
             // Creating
             const _id = shortid.generate();
@@ -282,14 +292,18 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             // setEstimatedTime/setLabels concurrently with addCard could lose
             // them after a restart.
             await props.addCard(_id, listId, title, content);
-            props.setEstimatedTime(_id, time);
-            if (cardLabels.length > 0) {
-                props.setLabels(_id, cardLabels);
-            }
-            if (isInDoneList) {
-                // born inside the done list: complete the moment it is created
-                props.setCompletedTime(_id, +new Date());
-            }
+            // post-insert updates run after the paint; batch them so the
+            // follow-up store writes render once instead of once per dispatch
+            unstable_batchedUpdates(() => {
+                props.setEstimatedTime(_id, time);
+                if (cardLabels.length > 0) {
+                    props.setLabels(_id, cardLabels);
+                }
+                if (isInDoneList) {
+                    // born inside the done list: complete the moment it is created
+                    props.setCompletedTime(_id, +new Date());
+                }
+            });
         } else {
             // Edit
             props.renameCard(card._id, title);
@@ -333,34 +347,118 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
     };
 
     const onSave = () => {
-        validateFields((err: Error, values: FormData) => {
-            if (err) {
-                throw err;
-            }
+        // Synchronous validation: antd's validateFields marks every rule
+        // field as `validating` (setFields) and forces two full re-renders of
+        // this heavy modal before its callback fires, so Ctrl+Enter felt
+        // laggy while Esc (no validation) felt instant. The form only has
+        // one rule - title required - so check it inline: the happy path
+        // closes the editor in the same tick, and failures get the same
+        // antd-style error display. Mirror any new rule here.
+        const values = getFieldsValue() as FormData;
+        if (values.title === undefined || values.title === null || values.title === '') {
+            setFields({
+                title: {
+                    errors: [{ message: 'Please input the title of card!' }],
+                },
+            });
+            return;
+        }
 
-            saveValues(values);
-            setTimeout(resetFields, 200);
+        // We are outside React's batching (native keydown handler): without
+        // this wrapper every dispatch below would flush its own synchronous
+        // re-render (close render + cards store + lists store + label sync =
+        // 300+ms of renders before a single paint). Batched = ONE render.
+        unstable_batchedUpdates(() => {
             onCancel();
+            saveValues(values);
         });
+        setTimeout(resetFields, 200);
     };
 
-    const keydownEventHandler = React.useCallback(
-        (event: KeyboardEvent<any>) => {
-            if (
-                (event.ctrlKey || event.altKey || event.shiftKey) &&
-                (event.which === 13 || event.keyCode === 13)
-            ) {
-                onSave();
-            } else if (event.keyCode === 27) {
-                onCancel();
-                event.stopPropagation();
+    // Ctrl+Enter (save) / Esc (cancel) for the whole editor, handled by ONE
+    // document-level listener. They used to be handled by onKeyDown props on
+    // the Form, the title input AND the description textarea at the same
+    // time: one keypress bubbled through several of those handlers, so
+    // Ctrl+Enter in the title input ran onSave twice and created two cards.
+    // The single document listener also keeps the shortcuts working when no
+    // input inside the form has focus, e.g. after clicking the label
+    // editor's Add button (it turns disabled and drops focus to <body>) or
+    // after clicking a blank spot of the modal.
+    const latestOnSaveRef = React.useRef(onSave);
+    const latestOnCancelRef = React.useRef(onCancel);
+    latestOnSaveRef.current = onSave;
+    latestOnCancelRef.current = onCancel;
+
+    useEffect(() => {
+        if (!visible || linkModalVisible) {
+            return undefined;
+        }
+
+        const handler = (event: KeyboardEvent) => {
+            const target = (event.target as HTMLElement) || null;
+            const isEnter = event.key === 'Enter' || event.keyCode === 13;
+            const isEsc = event.key === 'Escape' || event.keyCode === 27;
+            if (!isEnter && !isEsc) {
+                return;
             }
-        },
-        [onSave, onCancel]
-    );
+
+            const mod = event.ctrlKey || event.metaKey || event.altKey || event.shiftKey;
+
+            // antd popups (Popconfirm, DatePicker panel, select menus, ...)
+            // portal under <body>: a key starting inside one belongs to the
+            // popup and must not save/close the editor
+            const inAntdPopup =
+                target !== null &&
+                typeof target.closest === 'function' &&
+                target.closest('.ant-popover, .ant-select-dropdown, .ant-calendar');
+            if (inAntdPopup) {
+                return;
+            }
+
+            // rc-select already closes an open dropdown on Esc and stops the
+            // event; do not additionally close the editor (a second Esc, with
+            // the dropdown closed, does)
+            if (
+                isEsc &&
+                document.querySelector('.ant-select-dropdown:not(.ant-select-dropdown-hidden)')
+            ) {
+                return;
+            }
+
+            // react to keys of this editor only: target inside the editor
+            // modal, or focus dropped to <body> (no element focused).
+            // NOTE: check .ant-modal-root, NOT .ant-modal-content - antd's
+            // rc-dialog wrap div carries tabIndex={-1}, so clicking any
+            // non-focusable spot of the modal (blank areas, the title bar,
+            // label chips...) leaves focus ON the wrap div, which sits
+            // outside .ant-modal-content
+            const insideEditor =
+                target !== null &&
+                typeof target.closest === 'function' &&
+                target.closest('.ant-modal-root') !== null;
+            const focusOnBody =
+                target === null || target === document.body || target === document.documentElement;
+            if (!insideEditor && !focusOnBody) {
+                return;
+            }
+
+            if (isEnter && mod) {
+                event.preventDefault();
+                latestOnSaveRef.current();
+            } else if (isEsc) {
+                event.preventDefault();
+                latestOnCancelRef.current();
+            }
+        };
+
+        document.addEventListener('keydown', handler);
+        return () => {
+            document.removeEventListener('keydown', handler);
+        };
+    }, [visible, linkModalVisible]);
 
     const onContentKeyDown = React.useCallback(
-        (event: KeyboardEvent<any>) => {
+        (event: React.KeyboardEvent<any>) => {
             const mod = event.ctrlKey || event.metaKey;
             if (mod && (event.which === 76 || event.keyCode === 76)) {
                 event.preventDefault();
@@ -387,16 +485,9 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                 openLinkModal();
                 return;
             }
-            keydownEventHandler(event);
+            // Ctrl+Enter / Esc fall through to the document-level listener
         },
-        [
-            insertCheckbox,
-            insertBold,
-            insertItalic,
-            insertStrikethrough,
-            openLinkModal,
-            keydownEventHandler,
-        ]
+        [insertCheckbox, insertBold, insertItalic, insertStrikethrough, openLinkModal]
     );
 
     const onTabChange = React.useCallback((name: string) => {
@@ -437,11 +528,11 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
         >
             <EditorAnimation />
             <EditorContainer>
-                <Form layout="vertical" onKeyDown={keydownEventHandler}>
+                <Form layout="vertical">
                     <Form.Item label="Title">
                         {getFieldDecorator('title', {
                             rules: [{ required: true, message: 'Please input the title of card!' }],
-                        })(<Input placeholder={'Title'} onKeyDown={keydownEventHandler} />)}
+                        })(<Input placeholder={'Title'} />)}
                         {!thisIsCreating && card && card.createdTime !== undefined ? (
                             <CreatedTime style={{ marginTop: 4 }}>
                                 Created: {formatTimeYmdHm(card.createdTime)}

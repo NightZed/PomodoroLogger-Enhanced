@@ -1,4 +1,4 @@
-import { Button, Divider, message, Tooltip } from 'antd';
+import { Button, Divider, Icon, message, Tooltip } from 'antd';
 import * as remote from '@electron/remote';
 import { debounce } from 'lodash';
 import React, { Component } from 'react';
@@ -20,6 +20,7 @@ import { KanbanActionTypes } from '../Kanban/action';
 import Board from '../Kanban/Board';
 import { BoardActionTypes } from '../Kanban/Board/action';
 import { HelpIcon } from '../UserGuide/HelpIcon';
+import backIcon from '../../../res/back.svg';
 import { PomodoroDualPieChart } from '../Visualization/DualPieChart';
 import { AsyncWordCloud } from '../Visualization/WordCloud';
 import { LONG_BREAK_INTERVAL, TimerActionTypes as ThisActionTypes, uiStateNames } from './action';
@@ -34,16 +35,31 @@ import { WorkRestIcon } from './WorkRestIcon';
 const setMenuItems: (...args: any) => void = remote.getGlobal('setMenuItems');
 
 const KanbanName = styled.h1`
-    max-width: 270px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-size: 1.5em;
+    position: relative;
+    margin: 0;
     padding-left: 12px;
+    padding-right: 32px;
+    font-size: 1.5em;
     transition: color 0.2s;
     user-select: none;
     cursor: pointer;
     :hover {
         color: rgb(85, 87, 240);
+    }
+    .kanban-name-arrow {
+        position: absolute;
+        right: 28px;
+        top: 50%;
+        transform: translateY(-50%);
+        height: 22px;
+        width: 22px;
+        padding: 0;
+        font-size: 16px;
+        line-height: 1;
+        border: none;
+        svg {
+            transform: scaleX(-1);
+        }
     }
 `;
 
@@ -759,6 +775,9 @@ class Timer extends Component<Props, State> {
                     >
                         <KanbanName onClick={this.switchToKanban}>
                             {this.props.kanban.boards[boardId].name}
+                            <Button className={'kanban-name-arrow'}>
+                                <Icon component={backIcon} />
+                            </Button>
                         </KanbanName>
                         <Board
                             boardId={boardId}

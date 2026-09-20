@@ -4,6 +4,8 @@ import { Provider } from 'react-redux';
 import { AppContainer } from 'react-hot-loader';
 
 import Application from './components/Application';
+import { ThemeController } from './components/ThemeController';
+import { GlobalStyle } from './theme';
 import store from './store';
 
 import { ipcRenderer } from 'electron';
@@ -55,7 +57,11 @@ const render = (Component: any) => {
     ReactDOM.render(
         <AppContainer>
             <Provider store={store}>
-                <Component />
+                <React.Fragment>
+                    <GlobalStyle />
+                    <ThemeController />
+                    <Component />
+                </React.Fragment>
             </Provider>
         </AppContainer>,
         mainElement

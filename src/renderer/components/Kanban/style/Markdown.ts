@@ -4,6 +4,7 @@ import { thinScrollBar } from '../../../style/scrollbar';
 export const Markdown = styled.div`
     overflow: auto;
     font-size: 14px;
+    color: var(--pl-text);
     position: relative;
     padding: 0 0 4px 0;
     line-height: 1.4;
@@ -17,7 +18,7 @@ export const Markdown = styled.div`
         width: 100%;
         height: 0.4rem;
         background: linear-gradient(
-            rgba(255, 255, 255, 1),
+            var(--pl-bg-elevated),
             rgba(255, 255, 255, 0.001)
         ); /* transparent keyword is broken in Safari */
         pointer-events: none;
@@ -32,7 +33,7 @@ export const Markdown = styled.div`
         height: 0.4rem;
         background: linear-gradient(
             rgba(255, 255, 255, 0.001),
-            rgba(255, 255, 255, 1)
+            var(--pl-bg-elevated)
         ); /* transparent keyword is broken in Safari */
         pointer-events: none;
     }
@@ -43,7 +44,9 @@ export const Markdown = styled.div`
         padding: 2px 0.5em;
         cursor: pointer;
         background-color: #98989869;
-        color: #222;
+        /* formatMarkdown injects an inline color:#222 into every tag, which
+           would be unreadable on a dark card, hence the override. */
+        color: var(--pl-text) !important;
         margin: 0px 2px;
         line-height: 1.8;
         &:hover {
@@ -90,6 +93,9 @@ export const Markdown = styled.div`
 
     .search-highlight {
         background-color: rgba(208, 227, 66, 1);
+        /* the highlight background stays bright in both themes, so the text
+           must not inherit the (possibly light) theme color */
+        color: #141414;
     }
 
     input {

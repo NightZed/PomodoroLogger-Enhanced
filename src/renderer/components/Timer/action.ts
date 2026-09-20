@@ -12,6 +12,7 @@ import { workers } from '../../workers';
 import { DEBUG_TIME_SCALE, __DEV__ } from '../../../config';
 import { AsyncDB } from '../../../utils/dbHelper';
 import { getNameFromBoardId } from '../../getNameFromBoardId';
+import { DEFAULT_THEME_ID, ThemeDefinition } from '../../theme/tokens';
 
 export const LONG_BREAK_INTERVAL = 4;
 const settingDB = new AsyncDB(dbs.settingDB);
@@ -32,6 +33,12 @@ export interface Setting {
     useHardwareAcceleration: boolean;
     distractingList: DistractingRow[];
     calendarBaseColor: string;
+    /** Id of the active theme, see `theme/tokens.ts`. */
+    themeId: string;
+    /** When on, the theme follows the OS light/dark preference. */
+    followSystemTheme: boolean;
+    /** User defined themes. Not editable in the UI yet, kept for later use. */
+    customThemes?: ThemeDefinition[];
 }
 
 export interface TimerManager {
@@ -82,6 +89,9 @@ export const defaultState: TimerState = {
     monitorInterval: 1000,
     screenShotInterval: undefined,
     calendarBaseColor: '#aceebb',
+    themeId: DEFAULT_THEME_ID,
+    followSystemTheme: false,
+    customThemes: undefined,
     currentTab: 'timer',
 };
 
@@ -167,6 +177,18 @@ export const setCalendarBaseColor = createActionCreator(
     (resolve) => (color: string) => resolve(color)
 );
 export const switchFocusRestMode = createActionCreator('[Timer]SWITCH_FOCUS_MODE');
+export const setThemeId = createActionCreator(
+    '[Setting]SET_THEME_ID',
+    (resolve) => (themeId: string) => resolve(themeId)
+);
+export const setFollowSystemTheme = createActionCreator(
+    '[Setting]SET_FOLLOW_SYSTEM_THEME',
+    (resolve) => (follow: boolean) => resolve(follow)
+);
+export const setCustomThemes = createActionCreator(
+    '[Setting]SET_CUSTOM_THEMES',
+    (resolve) => (customThemes: ThemeDefinition[]) => resolve(customThemes)
+);
 export const changeAppTab = createActionCreator(
     '[App]CHANGE_APP_TAB',
     (resolve) => (tab: tabType) => resolve(tab)
@@ -212,6 +234,9 @@ export const actions = {
             ['distractingList', setDistractingList],
             ['autoUpdate', setAutoUpdate],
             ['calendarBaseColor', setCalendarBaseColor],
+            ['themeId', setThemeId],
+            ['followSystemTheme', setFollowSystemTheme],
+            ['customThemes', setCustomThemes],
         ];
         for (const key of settingKeywords) {
             if (key[0] in settings) {
@@ -311,6 +336,33 @@ export const actions = {
         dbs.settingDB.update(
             { name: 'setting' },
             { $set: { calendarBaseColor } },
+            { upsert: true },
+            throwError
+        );
+    },
+    setThemeId: (themeId: string) => async (dispatch: Dispatch) => {
+        dispatch(setThemeId(themeId));
+        dbs.settingDB.update(
+            { name: 'setting' },
+            { $set: { themeId } },
+            { upsert: true },
+            throwError
+        );
+    },
+    setFollowSystemTheme: (follow: boolean) => async (dispatch: Dispatch) => {
+        dispatch(setFollowSystemTheme(follow));
+        dbs.settingDB.update(
+            { name: 'setting' },
+            { $set: { followSystemTheme: follow } },
+            { upsert: true },
+            throwError
+        );
+    },
+    setCustomThemes: (customThemes: ThemeDefinition[]) => async (dispatch: Dispatch) => {
+        dispatch(setCustomThemes(customThemes));
+        dbs.settingDB.update(
+            { name: 'setting' },
+            { $set: { customThemes } },
             { upsert: true },
             throwError
         );
@@ -428,6 +480,13 @@ export const reducer = createReducer<TimerState, any>(defaultState, (handle) => 
         ...state,
         calendarBaseColor: payload,
     })),
+
+    handle(setThemeId, (state, { payload }) => ({ ...state, themeId: payload })),
+    handle(setFollowSystemTheme, (state, { payload }) => ({
+        ...state,
+        followSystemTheme: payload,
+    })),
+    handle(setCustomThemes, (state, { payload }) => ({ ...state, customThemes: payload })),
 
     handle(switchFocusRestMode, (state) => ({
         ...state,

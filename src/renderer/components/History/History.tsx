@@ -27,6 +27,7 @@ const ALL_TIME: 'all' = 'all';
 const Container = styled.div`
     overflow-y: auto;
     margin: 0;
+    color: var(--pl-text);
     padding: 20px;
     height: calc(100vh - 45px);
     ${fatScrollBar}
@@ -415,7 +416,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                                 <span
                                     style={{
                                         fontSize: 14,
-                                        color: '#7f7f7f',
+                                        color: 'var(--pl-text-secondary)',
                                         margin: '0 5px',
                                         display: 'inline-block',
                                     }}
@@ -435,7 +436,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                                 <div
                                     style={{
                                         fontSize: 14,
-                                        color: '#7f7f7f',
+                                        color: 'var(--pl-text-secondary)',
                                         margin: '20px 0',
                                         textAlign: 'center',
                                     }}

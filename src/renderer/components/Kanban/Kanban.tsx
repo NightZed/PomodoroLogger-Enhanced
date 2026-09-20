@@ -29,15 +29,15 @@ const Content = styled.main`
     ::-webkit-scrollbar {
         width: 8px;
         height: 8px;
-        background-color: #f5f5f5;
+        background-color: var(--pl-bg-sunken);
     }
     ::-webkit-scrollbar-thumb {
         border-radius: 8px;
-        background-color: rgba(50, 50, 50, 0.3);
+        background-color: var(--pl-scrollbar-thumb);
     }
     ::-webkit-scrollbar-track {
         border-radius: 8px;
-        background-color: rgba(200, 200, 200, 0.5);
+        background-color: var(--pl-scrollbar-track);
     }
 `;
 
@@ -49,6 +49,7 @@ export const TextAreaContainer = styled.div`
 
 const Title = styled.h1`
     user-select: none;
+    color: var(--pl-text);
     max-width: calc(100vw - 380px);
     overflow: hidden;
     text-overflow: ellipsis;

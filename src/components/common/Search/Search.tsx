@@ -27,16 +27,16 @@ const fadeIn = keyframes`
 
 const StyledSearch = styled.div<StyledProps>`
     font-size: 0.9rem;
-    background-color: white;
+    background-color: var(--pl-bg-elevated);
     margin: 0 4px;
     box-sizing: border-box;
     padding: 5px;
     height: 32px;
     border-radius: 16px;
     transition: width 200ms, padding 200ms;
-    border: 1px solid #dadada;
+    border: 1px solid var(--pl-border);
     outline: none;
-    color: #555;
+    color: var(--pl-text);
     z-index: 5;
 
     ${({ isSearching }) =>
@@ -77,13 +77,14 @@ const StyledSearch = styled.div<StyledProps>`
             animation: ${fadeIn} 300ms ease;
 
             &:hover {
-                background-color: #d5d5d5;
+                background-color: var(--pl-bg-hover);
             }
         }
 
         input {
             width: 140px;
             background: transparent;
+            color: var(--pl-text);
             flex-grow: 1;
             border: none;
             outline: none;
@@ -95,10 +96,10 @@ const StyledSearch = styled.div<StyledProps>`
     }
 
     :focus {
-        border: 1px solid #aaaaaa;
+        border: 1px solid var(--pl-primary);
     }
     :hover {
-        border: 1px solid #aba9a6;
+        border: 1px solid var(--pl-primary);
     }
 `;
 

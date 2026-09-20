@@ -16,7 +16,7 @@ const Container = styled.div`
     padding: 4px;
     margin: 6px;
     border-radius: 6px;
-    background-color: rgb(254, 254, 254);
+    background-color: var(--pl-bg-elevated);
 `;
 
 const ListHead = styled.div`
@@ -24,7 +24,8 @@ const ListHead = styled.div`
     height: 4em;
     min-width: 250px;
     padding: 4px 12px;
-    background-color: rgb(254, 254, 254);
+    background-color: var(--pl-bg-elevated);
+    color: var(--pl-text);
     border-radius: 6px;
     position: relative;
 
@@ -50,7 +51,7 @@ const ListHead = styled.div`
     }
 
     .list-head-icon i:hover {
-        color: #0074d9;
+        color: var(--pl-primary);
     }
 `;
 
@@ -63,8 +64,8 @@ const BeforePlaceHolder = styled.div`
     height: 0.6rem;
     margin-bottom: 10px;
     background: linear-gradient(
-        rgba(222, 222, 222, 1),
-        rgba(222, 222, 222, 0.001)
+        var(--pl-border),
+        rgba(255, 255, 255, 0.001)
     ); /* transparent keyword is broken in Safari */
     pointer-events: none;
     z-index: 1;
@@ -79,8 +80,8 @@ const AfterPlaceHolder = styled.div`
     width: 100%;
     height: 0.6rem;
     background: linear-gradient(
-        rgba(222, 222, 222, 0.001),
-        rgba(222, 222, 222, 1)
+        rgba(255, 255, 255, 0.001),
+        var(--pl-border)
     ); /* transparent keyword is broken in Safari */
     pointer-events: none;
     z-index: 1;
@@ -107,7 +108,7 @@ const displayScrollbarFn = ({ displayScrollbar }: CardsProps) => {
 const Cards = styled.div<CardsProps>`
     position: relative;
     padding: 0;
-    background-color: #dedede;
+    background-color: var(--pl-bg-sunken);
     border-radius: 4px;
     max-height: calc(100vh - 230px);
     overflow-y: overlay;
@@ -115,7 +116,7 @@ const Cards = styled.div<CardsProps>`
     min-height: 200px;
     max-width: 270px;
     & > * {
-        color: black;
+        color: var(--pl-text);
     }
 
     ${displayScrollbarFn} ::-webkit-scrollbar {

@@ -21,6 +21,7 @@ import Board from '../Kanban/Board';
 import { BoardActionTypes } from '../Kanban/Board/action';
 import { HelpIcon } from '../UserGuide/HelpIcon';
 import backIcon from '../../../res/back.svg';
+import { DAY_THEME_ID, NIGHT_THEME_ID } from '../../theme/tokens';
 import { PomodoroDualPieChart } from '../Visualization/DualPieChart';
 import { AsyncWordCloud } from '../Visualization/WordCloud';
 import { LONG_BREAK_INTERVAL, TimerActionTypes as ThisActionTypes, uiStateNames } from './action';
@@ -97,10 +98,10 @@ const MySider = styled.aside`
     position: relative;
     flex: 0 0 300px;
     padding: 6px;
-    border-right: 1px solid #dfdfdf;
-    background-color: #eaeaea;
+    border-right: 1px solid var(--pl-border);
+    background-color: var(--pl-bg-sunken);
     float: left;
-    box-shadow: 2px 0 6px 0 rgba(234, 234, 234, 0.6);
+    box-shadow: 2px 0 6px 0 var(--pl-shadow);
     transition: margin-left 0.2s;
     ${tabMaxHeight}
 `;
@@ -122,7 +123,7 @@ const ButtonRow = styled.div`
     justify-content: space-around;
     font-size: 32px;
     margin: 0 auto 22px auto;
-    color: darkslategray;
+    color: var(--pl-text);
 
     i {
         transition: transform 0.2s;
@@ -135,6 +136,24 @@ const ButtonRow = styled.div`
 
 const MoreInfo = styled.div`
     margin: 10px auto;
+`;
+
+const ThemeToggleRow = styled.div`
+    margin: 0.6em auto 0 auto;
+    text-align: center;
+    line-height: 1;
+`;
+
+const ThemeToggle = styled(Icon)`
+    font-size: 18px;
+    color: var(--pl-text-secondary);
+    cursor: pointer;
+    transition: color 0.2s, transform 0.2s;
+
+    :hover {
+        color: var(--pl-primary);
+        transform: scale(1.15);
+    }
 `;
 
 export interface Props extends ThisActionTypes, KanbanActionTypes, RootState, BoardActionTypes {}
@@ -717,17 +736,28 @@ class Timer extends Component<Props, State> {
         this.props.setMinimize(!this.props.timer.minimize);
     };
 
+    toggleTheme = () => {
+        const nextThemeId =
+            this.props.timer.themeId === NIGHT_THEME_ID ? DAY_THEME_ID : NIGHT_THEME_ID;
+        this.props.setThemeId(nextThemeId);
+        // Picking a theme explicitly takes over from the OS preference.
+        if (this.props.timer.followSystemTheme) {
+            this.props.setFollowSystemTheme(false);
+        }
+    };
+
     render() {
         const { leftTime, percent, more, pomodorosToday, showMask } = this.state;
         const { isRunning, targetTime, minimize, isFocusing } = this.props.timer;
         const shownLeftTime =
             (isRunning || targetTime) && leftTime.length ? leftTime : this.defaultLeftTime();
         const boardId = this.props.timer.boardId;
+        const isNightTheme = this.props.timer.themeId === NIGHT_THEME_ID;
 
         if (minimize) {
             const name = boardId && this.props.kanban.boards[boardId]?.name;
             return (
-                <Layout style={{ backgroundColor: 'white' }} ref={this.selfRef}>
+                <Layout style={{ backgroundColor: 'var(--pl-bg)' }} ref={this.selfRef}>
                     <ReactHotkeys keyName={'f5,f6,tab'} onKeyDown={this.onKeyDown} />
                     <MiniLogger
                         clear={this.onClear}
@@ -757,7 +787,7 @@ class Timer extends Component<Props, State> {
             boardId !== undefined ? this.props.kanban.boards[boardId].focusedList : undefined;
 
         return (
-            <Layout style={{ backgroundColor: 'white' }} ref={this.selfRef}>
+            <Layout style={{ backgroundColor: 'var(--pl-bg)' }} ref={this.selfRef}>
                 <ReactHotkeys keyName={'f5,f6,tab'} onKeyDown={this.onKeyDown} />
                 <TimerMask
                     extendCurrentSession={this.extendCurrentSession}
@@ -853,6 +883,18 @@ class Timer extends Component<Props, State> {
                                 </ProgressTextContainer>
                             </Progress>
                         </ProgressContainer>
+
+                        <ThemeToggleRow>
+                            <Tooltip
+                                title={
+                                    isNightTheme
+                                        ? 'Switch to the day theme'
+                                        : 'Switch to the night theme'
+                                }
+                            >
+                                <ThemeToggle type="bulb" onClick={this.toggleTheme} />
+                            </Tooltip>
+                        </ThemeToggleRow>
 
                         <div style={{ margin: '2em auto', textAlign: 'center' }}>
                             <FocusSelector width={240} />

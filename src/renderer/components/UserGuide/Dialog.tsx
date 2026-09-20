@@ -13,12 +13,12 @@ const Container = styled.div`
 
 const Card = styled.div`
     font-size: 1rem;
-    color: #5f5f5f;
+    color: var(--pl-text);
     border-radius: 8px;
-    background-color: rgb(245, 245, 245);
+    background-color: var(--pl-bg-elevated);
     padding: 8px 0.8rem;
     max-width: 400px;
-    box-shadow: 0 0 4px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 0 4px 4px var(--pl-shadow);
 `;
 
 export interface DialogProps {
@@ -35,7 +35,7 @@ export const Dialog: React.FC<DialogProps> = (props: DialogProps) => {
         position = { bottom: 24, right: 36 },
         targetSelector,
         hasConfirm = true,
-        onConfirm
+        onConfirm,
     } = props;
     useEffect(() => {
         if (targetSelector == null) {
@@ -45,7 +45,7 @@ export const Dialog: React.FC<DialogProps> = (props: DialogProps) => {
     return (
         <Container
             style={{
-                ...position
+                ...position,
             }}
         >
             <Card>
@@ -55,9 +55,7 @@ export const Dialog: React.FC<DialogProps> = (props: DialogProps) => {
                         <Divider style={{ margin: '6px 0' }} />
                         <Button onClick={onConfirm}>Confirm</Button>
                     </>
-                ) : (
-                    undefined
-                )}
+                ) : undefined}
             </Card>
         </Container>
     );

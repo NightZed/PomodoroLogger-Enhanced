@@ -19,9 +19,10 @@ const Bar = styled.div`
     top: 90px;
     right: 30px;
     z-index: 10000;
-    box-shadow: 2px 2px 4px 1px rgba(0, 0, 0, 0.2);
-    border: 1px solid #dfdfdf;
-    background-color: white;
+    box-shadow: 2px 2px 4px 1px var(--pl-shadow);
+    border: 1px solid var(--pl-border);
+    background-color: var(--pl-bg-elevated);
+    color: var(--pl-text);
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -32,14 +33,15 @@ const Bar = styled.div`
     }
 
     & > .divider {
-        border-right: 1px solid rgba(50, 50, 50, 0.2);
+        border-right: 1px solid var(--pl-border);
         height: 1.4rem;
         margin: 0 0.2rem;
     }
 
     & > input {
         border: none;
-        background-color: none;
+        background-color: transparent;
+        color: var(--pl-text);
         padding: 3px;
         margin: 1px;
 

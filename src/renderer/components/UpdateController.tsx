@@ -163,7 +163,7 @@ export class UpdateController extends React.Component<any, State> {
                         style={{
                             maxHeight: 300,
                             overflowY: 'auto',
-                            border: '1px solid #e8e8e8',
+                            border: '1px solid var(--pl-border)',
                             borderRadius: 4,
                             padding: 12,
                             marginBottom: 12,

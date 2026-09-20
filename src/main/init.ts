@@ -1,10 +1,20 @@
-import { nativeImage, Tray, BrowserWindow, Menu, ipcMain, MenuItem, app } from 'electron';
+import {
+    nativeImage,
+    Tray,
+    BrowserWindow,
+    Menu,
+    ipcMain,
+    MenuItem,
+    app,
+    nativeTheme,
+} from 'electron';
 import * as path from 'path';
 import * as url from 'url';
 import * as db from './db';
 import logo from '../res/icon_sm.png';
 import fs from 'fs';
-import { dbBaseDir } from '../config';
+import { dbBaseDir, dbPaths } from '../config';
+import { DAY_THEME_ID } from '../renderer/theme/tokens';
 import { build } from '../../package.json';
 import { AutoUpdater } from './AutoUpdater';
 import { initialize } from './ipc/ipc';
@@ -64,7 +74,36 @@ if (process.platform === 'win32') {
     app.setAppUserModelId('com.electron.time-logger');
 }
 
+/**
+ * Settings live in a single nedb document that is persisted as one JSON object
+ * per line, so the last line holds the most recent state. Reading it
+ * synchronously lets the window pick the right background color (and the right
+ * `prefers-color-scheme`) before anything is painted, which avoids a white
+ * flash when the night theme is active.
+ */
+function readThemeSetting(): { themeId?: string; followSystemTheme?: boolean } {
+    try {
+        const content = fs.readFileSync(dbPaths.settingDB, { encoding: 'utf-8' });
+        const lines = content.split('\n').filter((line) => !!line);
+        if (lines.length === 0) {
+            return {};
+        }
+
+        const latest = JSON.parse(lines[lines.length - 1]);
+        return { themeId: latest.themeId, followSystemTheme: latest.followSystemTheme };
+    } catch (e) {
+        return {};
+    }
+}
+
 const createWindow = async () => {
+    const { themeId, followSystemTheme } = readThemeSetting();
+    nativeTheme.themeSource = followSystemTheme
+        ? 'system'
+        : themeId === DAY_THEME_ID
+        ? 'light'
+        : 'dark';
+
     win = new BrowserWindow({
         width: 1440,
         height: 960,
@@ -72,6 +111,7 @@ const createWindow = async () => {
         minHeight: 63,
         frame: true,
         useContentSize: false,
+        backgroundColor: nativeTheme.shouldUseDarkColors ? '#141414' : '#ffffff',
         icon: nativeImage.createFromPath(path.join(__dirname, logo)),
         title: 'Pomodoro Logger',
         webPreferences: {

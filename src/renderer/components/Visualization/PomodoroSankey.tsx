@@ -21,7 +21,7 @@ const FullscreenStyled = styled.div`
     left: 0;
     top: 0;
     overflow: auto;
-    background-color: rgba(255, 255, 255, 0.98);
+    background-color: var(--pl-bg);
     width: 100%;
     height: 100vh;
     ${fatScrollBar}
@@ -47,11 +47,11 @@ const Header = styled.div`
     }
 
     h4 {
-        color: #7f7f7f;
+        color: var(--pl-text-secondary);
     }
 
     h5 {
-        color: #7f7f7f;
+        color: var(--pl-text-secondary);
         font-size: 10px;
     }
 `;

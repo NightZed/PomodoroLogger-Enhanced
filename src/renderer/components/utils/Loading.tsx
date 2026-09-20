@@ -10,7 +10,7 @@ const SpinContainer = styled.div`
     display: flex;
     justify-content: center;
     align-items: center;
-    background-color: rgba(230, 230, 230, 0.2);
+    background-color: var(--pl-bg-hover);
 `;
 
 interface Props {
@@ -27,7 +27,7 @@ export const Loading: React.FC<Props> = (props: Props) => {
             style={{
                 height: props.height,
                 width: props.width,
-                backgroundColor: hideBackground ? 'rgba(255, 255, 255, 0)' : undefined
+                backgroundColor: hideBackground ? 'transparent' : undefined,
             }}
         >
             <Spin size={props.size} />

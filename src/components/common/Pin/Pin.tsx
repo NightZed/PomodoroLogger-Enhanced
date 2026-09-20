@@ -21,13 +21,13 @@ interface Props {
 export const Pin: React.FC<Props> = (props: Props) => {
     const [isHover, setIsHover] = React.useState(false);
     const { isRounded = false } = props;
-    let color = '#555';
+    let color = 'var(--pl-text-secondary)';
     if (isHover) {
         if (props.isPin) color = '#ee3500';
-        if (!props.isPin) color = '#666';
+        if (!props.isPin) color = 'var(--pl-text-secondary)';
     } else {
         if (props.isPin) color = 'rgb(141, 84, 61)';
-        if (!props.isPin) color = '#444';
+        if (!props.isPin) color = 'var(--pl-text)';
     }
 
     const onClick = (e: any) => {

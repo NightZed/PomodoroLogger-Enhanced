@@ -3,6 +3,7 @@ import { formatTime } from '../../../renderer/utils';
 import shortid from 'shortid';
 import styled from 'styled-components';
 import { throttle } from 'lodash';
+import { useThemeTokens } from '../../../renderer/theme/useThemeTokens';
 
 const AnimeSvg = styled.svg`
     transition: transform 0.25s;
@@ -102,6 +103,7 @@ interface TimeBadgeProps {
 
 export const TimeBadge = React.memo((props: TimeBadgeProps) => {
     const { collapsed = false } = props;
+    const { tokens, isDark } = useThemeTokens();
     const [clipState, setClipState] = React.useState('default');
     const id = React.useMemo(shortid.generate, []);
     const id1 = id + '1';
@@ -186,7 +188,7 @@ export const TimeBadge = React.memo((props: TimeBadgeProps) => {
                         textLength={sSpentTime.length * 6.2}
                         textAnchor={'start'}
                         alignmentBaseline={'central'}
-                        fill={'black'}
+                        fill={tokens.text}
                     >
                         {sSpentTime}
                     </text>
@@ -225,14 +227,20 @@ export const TimeBadge = React.memo((props: TimeBadgeProps) => {
             </defs>
 
             <g clipPath={`url(#${id1})`}>
-                <rect height={20} width={totalWidth - 50} x={50} rx={3} fill={'#b37e5b'} />
+                <rect
+                    height={20}
+                    width={totalWidth - 50}
+                    x={50}
+                    rx={3}
+                    fill={isDark ? '#8a6549' : '#b37e5b'}
+                />
                 <text
                     x={4}
                     y={10}
                     textLength={sSpentTime.length * 6.2}
                     textAnchor={'start'}
                     alignmentBaseline={'central'}
-                    fill={'black'}
+                    fill={tokens.text}
                 >
                     {sSpentTime}
                     <title>Spent Time</title>
@@ -257,7 +265,7 @@ export const TimeBadge = React.memo((props: TimeBadgeProps) => {
                     width={totalWidth - 50}
                     x={0}
                     rx={3}
-                    fill={exceeded ? '#740606' : '#ddd'}
+                    fill={exceeded ? '#740606' : isDark ? '#4a4a4a' : '#ddd'}
                 />
                 <text
                     className={'label'}
@@ -276,7 +284,7 @@ export const TimeBadge = React.memo((props: TimeBadgeProps) => {
                     textLength={sEstimatedTime.length * 6.2}
                     textAnchor={'end'}
                     alignmentBaseline={'central'}
-                    fill={'black'}
+                    fill={tokens.text}
                 >
                     {sEstimatedTime}
                     <title>{exceeded ? 'Extra Time' : 'Left Time'}</title>

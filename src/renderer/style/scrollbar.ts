@@ -2,15 +2,15 @@ export const thinScrollBar = `
     ::-webkit-scrollbar {
         width: 4px;
         height: 4px;
-        background-color: rgba(0, 0, 0, 0);
+        background-color: transparent;
     }
     ::-webkit-scrollbar-track {
         width: 4px;
-        background-color: rgba(0, 0, 0, 0);
+        background-color: transparent;
     }
     ::-webkit-scrollbar-thumb {
         width: 4px;
-        background-color: rgba(0, 0, 0, 0.2);
+        background-color: var(--pl-scrollbar-thumb);
         border-radius: 4px;
     }
 `;
@@ -19,15 +19,15 @@ export const fatScrollBar = `
     ::-webkit-scrollbar {
         width: 8px;
         height: 8px;
-        background-color: #f5f5f5;
+        background-color: var(--pl-bg-sunken);
     }
     ::-webkit-scrollbar-thumb {
         border-radius: 8px;
-        background-color: rgba(50, 50, 50, 0.3);
+        background-color: var(--pl-scrollbar-thumb);
     }
     ::-webkit-scrollbar-track {
         border-radius: 8px;
-        background-color: rgba(200, 200, 200, 0);
+        background-color: var(--pl-scrollbar-track);
     }
 `;
 

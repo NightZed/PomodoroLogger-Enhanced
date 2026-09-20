@@ -60,7 +60,7 @@ const ColorGroup = styled.div`
 
 const ColorGroupLabel = styled.span`
     user-select: none;
-    color: #777;
+    color: var(--pl-text-secondary);
     font-size: 0.8rem;
     margin-right: 4px;
 `;

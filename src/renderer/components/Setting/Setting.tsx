@@ -9,9 +9,11 @@ import { isShallowEqualByKeys } from '../../utils';
 import pkg from '../../../../package.json';
 import { IpcEventName, UpdateErrorPayload, UpdateEventName } from '../../../main/ipc/type';
 import { refreshDbs } from '../../../main/db';
+import { BUILTIN_THEMES, ThemeDefinition } from '../../theme/tokens';
 
 const Container = styled.div`
     padding: 12px 36px;
+    color: var(--pl-text);
 `;
 
 const SliderContainer = styled.div`
@@ -37,28 +39,78 @@ const ColorInput = styled.input`
         padding: 0;
     }
     ::-webkit-color-swatch {
-        border: 1px solid rgba(0, 0, 0, 0.15);
+        border: 1px solid var(--pl-border);
         border-radius: 2px;
     }
 `;
 
 const Footer = styled.footer`
-    border-top: 1px solid rgb(240, 240, 240);
+    border-top: 1px solid var(--pl-border);
     padding: 0.6rem 0;
     position: relative;
     margin: 0.8rem auto;
     width: 100%;
     text-align: center;
+    color: var(--pl-text-secondary);
 `;
 
 const StyledIcon = styled(Icon)`
     font-size: 1.25rem;
-    color: black;
+    color: var(--pl-text);
     transition: color 0.1s;
     margin: 0 0.3rem;
     :hover {
-        color: rgb(87, 80, 89);
+        color: var(--pl-primary);
     }
+`;
+
+const ThemeOptions = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    margin: 4px 0 4px 0;
+`;
+
+interface ThemeButtonProps {
+    active: boolean;
+}
+
+const ThemeButton = styled.button<ThemeButtonProps>`
+    display: flex;
+    align-items: center;
+    padding: 6px 12px;
+    margin: 4px 8px 4px 0;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background-color 0.15s;
+    background-color: ${({ active }) => (active ? 'var(--pl-bg-hover)' : 'var(--pl-bg-elevated)')};
+    border: 1px solid ${({ active }) => (active ? 'var(--pl-primary)' : 'var(--pl-border)')};
+    color: ${({ active }) => (active ? 'var(--pl-primary)' : 'var(--pl-text)')};
+
+    :hover {
+        border-color: var(--pl-primary);
+    }
+`;
+
+const Swatches = styled.span`
+    display: inline-flex;
+    margin-right: 8px;
+    border-radius: 2px;
+    overflow: hidden;
+    border: 1px solid var(--pl-border);
+
+    i {
+        display: block;
+        width: 12px;
+        height: 14px;
+    }
+`;
+
+const SettingLabel = styled.span`
+    font-weight: 500;
+    font-size: 14px;
+    color: var(--pl-text);
 `;
 
 const marks = {
@@ -91,6 +143,9 @@ const settingUiStates = [
     'startOnBoot',
     'distractingList',
     'calendarBaseColor',
+    'themeId',
+    'followSystemTheme',
+    'customThemes',
 ];
 
 interface Props extends TimerState, TimerActionTypes {}
@@ -193,6 +248,26 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             props.setCalendarBaseColor(DEFAULT_CALENDAR_BASE_COLOR);
         }, []);
 
+        const themes = React.useMemo(
+            () => (props.customThemes ? BUILTIN_THEMES.concat(props.customThemes) : BUILTIN_THEMES),
+            [props.customThemes]
+        );
+
+        const onSelectTheme = useCallback(
+            (themeId: string) => {
+                props.setThemeId(themeId);
+                // Picking a theme explicitly takes over from the OS preference.
+                if (props.followSystemTheme) {
+                    props.setFollowSystemTheme(false);
+                }
+            },
+            [props.followSystemTheme]
+        );
+
+        const onToggleFollowSystem = useCallback((follow: boolean) => {
+            props.setFollowSystemTheme(follow);
+        }, []);
+
         const onDeleteData = useCallback(() => {
             deleteAllUserData().then(() => {
                 message.info('All user data is removed. Pomodoro needs to restart.');
@@ -216,6 +291,32 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
 
         return (
             <Container>
+                <h4>Appearance</h4>
+                <ThemeOptions>
+                    {themes.map((theme: ThemeDefinition) => (
+                        <ThemeButton
+                            key={theme.id}
+                            active={!props.followSystemTheme && props.themeId === theme.id}
+                            onClick={() => onSelectTheme(theme.id)}
+                            title={`Switch to the ${theme.name} theme`}
+                        >
+                            <Swatches>
+                                <i style={{ backgroundColor: theme.tokens.bg }} />
+                                <i style={{ backgroundColor: theme.tokens.bgElevated }} />
+                                <i style={{ backgroundColor: theme.tokens.primary }} />
+                            </Swatches>
+                            {theme.name}
+                        </ThemeButton>
+                    ))}
+                </ThemeOptions>
+                <SettingLabel>Follow System</SettingLabel>
+                <Switch
+                    onChange={onToggleFollowSystem}
+                    checked={props.followSystemTheme}
+                    style={{ margin: 8 }}
+                />
+                <br />
+
                 <h4>Focus Duration</h4>
                 <SliderContainer>
                     <Slider
@@ -256,9 +357,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                         </SliderContainer>
                     </Col>
                 </Row>
-                <span style={{ fontWeight: 500, fontSize: 14, color: 'rgba(0, 0, 0, 0.85)' }}>
-                    Hardware Acceleration
-                </span>
+                <SettingLabel>Hardware Acceleration</SettingLabel>
                 <Switch
                     onChange={setUseHardwareAcceleration}
                     checked={props.useHardwareAcceleration}
@@ -266,18 +365,14 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 />
                 <br />
 
-                <span style={{ fontWeight: 500, fontSize: 14, color: 'rgba(0, 0, 0, 0.85)' }}>
-                    Start On Boot
-                </span>
+                <SettingLabel>Start On Boot</SettingLabel>
                 <Switch
                     onChange={setStartOnBoot}
                     checked={props.startOnBoot}
                     style={{ margin: 8 }}
                 />
                 <br />
-                <span style={{ fontWeight: 500, fontSize: 14, color: 'rgba(0, 0, 0, 0.85' }}>
-                    Auto Update
-                </span>
+                <SettingLabel>Auto Update</SettingLabel>
                 <Switch
                     onChange={switchAutoUpdate}
                     checked={props.autoUpdate}
@@ -288,9 +383,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 </Button>
                 <br />
 
-                <span style={{ fontWeight: 500, fontSize: 14, color: 'rgba(0, 0, 0, 0.85' }}>
-                    Screenshot
-                </span>
+                <SettingLabel>Screenshot</SettingLabel>
                 <Switch
                     onChange={switchScreenshot}
                     checked={!!props.screenShotInterval}
@@ -298,9 +391,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 />
                 <br />
 
-                <span style={{ fontWeight: 500, fontSize: 14, color: 'rgba(0, 0, 0, 0.85)' }}>
-                    Calendar Base Color
-                </span>
+                <SettingLabel>Calendar Base Color</SettingLabel>
                 <ColorInput
                     type="color"
                     value={props.calendarBaseColor}

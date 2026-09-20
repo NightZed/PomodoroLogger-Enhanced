@@ -42,7 +42,8 @@ export const WordCloud: React.FC<MProps> = (props: MProps) => {
             },
             rotateRatio: 0.5,
             rotationSteps: 2,
-            backgroundColor: 'white',
+            // Transparent so the canvas follows the active theme background.
+            backgroundColor: 'transparent',
         });
     }, [weights]);
 

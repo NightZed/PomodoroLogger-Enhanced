@@ -27,7 +27,7 @@ const CardContainer = styled.div`
     position: relative;
     width: 262px;
     word-break: break-word;
-    background-color: white;
+    background-color: var(--pl-bg-elevated);
     margin: 8px 4px 0 4px;
     border-radius: 6px;
     cursor: grab;
@@ -36,11 +36,11 @@ const CardContainer = styled.div`
     z-index: 0;
     &.is-dragging {
         z-index: 1;
-        box-shadow: 0 0 18px 8px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 0 18px 8px var(--pl-shadow);
     }
     :hover {
         z-index: 5;
-        box-shadow: 0 0 18px 8px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 0 18px 8px var(--pl-shadow);
     }
 `;
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import { useThemeTokens } from '../../../renderer/theme/useThemeTokens';
 
 const Container = styled.div`
     position: relative;
@@ -18,7 +19,7 @@ const SvgContainer = styled.div`
 `;
 
 const SvgText = styled.text`
-    fill: #444;
+    fill: var(--pl-text-secondary);
     font-weight: 300;
 `;
 
@@ -95,8 +96,12 @@ function hexToHsl(hex: string): [number, number, number] {
     return [h, s * 100, l * 100];
 }
 
-function getBaseGridFill(h: number, s: number, intensity: number) {
-    const lightness = Math.max(0, Math.min(92, 92 - intensity * 70));
+function getBaseGridFill(h: number, s: number, intensity: number, isDark: boolean) {
+    // On dark backgrounds the lightness ramp is inverted so that busier days
+    // glow instead of glaring; light backgrounds keep the original look.
+    const lightness = isDark
+        ? Math.max(0, Math.min(68, 16 + intensity * 50))
+        : Math.max(0, Math.min(92, 92 - intensity * 70));
     return `hsl(${h.toFixed(1)}, ${s.toFixed(1)}%, ${lightness.toFixed(1)}%)`;
 }
 
@@ -148,6 +153,7 @@ function getHoverInfo(data: GridData) {
 
 export const GridCalendar = React.memo((props: Props) => {
     const [chosenIndex, setChosenIndex] = React.useState<undefined | number>(undefined);
+    const { isDark } = useThemeTokens();
     const { till = new Date(), width = 800, data, shownWeeks = 53, baseColor = '#aceebb' } = props;
     const maxIntensity = hexToHsl(baseColor);
     const tillTimestamp = getLastDayTimestamp(till);
@@ -224,11 +230,12 @@ export const GridCalendar = React.memo((props: Props) => {
                 y={v.day * (gridWidth + gridMargin)}
                 fill={
                     v.count === 0
-                        ? '#ebebeb'
+                        ? undefined
                         : getBaseGridFill(
                               maxIntensity[0],
                               maxIntensity[1],
-                              v.count / maxCountInADay
+                              v.count / maxCountInADay,
+                              isDark
                           )
                 }
                 key={index}
@@ -238,6 +245,8 @@ export const GridCalendar = React.memo((props: Props) => {
                 onClick={onClick}
                 style={{
                     cursor: props.clickDate ? 'pointer' : undefined,
+                    // SVG attributes cannot resolve var(), the style form can.
+                    fill: v.count === 0 ? 'var(--pl-bg-sunken)' : undefined,
                 }}
             />
         );
@@ -246,7 +255,7 @@ export const GridCalendar = React.memo((props: Props) => {
     const targetYear = new Date(till).getFullYear();
     let rects = React.useMemo(
         () => grids.map((v, index) => (v.year === targetYear ? createRect(v, index, false) : null)),
-        [grids, gridWidth, gridMargin, gridHeight, targetYear]
+        [grids, gridWidth, gridMargin, gridHeight, targetYear, isDark]
     );
     if (chosenIndex != null) {
         rects = rects.concat();

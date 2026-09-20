@@ -16,7 +16,7 @@ const StyledPanel = styled(Markdown)`
 
 const Title = styled.p`
     user-select: none;
-    color: #777;
+    color: var(--pl-text-secondary);
     font-size: 0.8rem;
 `;
 

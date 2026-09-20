@@ -11,6 +11,7 @@ import { SearchBar } from '../Kanban/SearchBar';
 const Container = styled.div`
     position: relative;
     max-width: 800px;
+    color: var(--pl-text);
     margin: 0 auto;
     padding: 2em;
     overflow: auto;

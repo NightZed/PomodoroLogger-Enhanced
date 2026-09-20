@@ -72,7 +72,7 @@ const StateDiv = styled.div<LineProps>`
 
     font-weight: 700;
     margin: 0 2px 0 4px;
-    color: #555;
+    color: var(--pl-text-secondary);
     flex-shrink: 0;
     text-align: right;
 `;
@@ -102,7 +102,7 @@ const StyledLogger = styled.div`
     }
 
     & > div.task {
-        color: #777;
+        color: var(--pl-text-tertiary);
         white-space: nowrap;
         text-overflow: ellipsis;
         overflow: hidden;

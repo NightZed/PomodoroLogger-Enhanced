@@ -27,7 +27,8 @@ const BriefCard = styled.div`
     position: relative;
     display: inline-block;
     padding: 6px;
-    background-color: white;
+    background-color: var(--pl-bg-elevated);
+    color: var(--pl-text);
     margin: 6px;
     border-radius: 6px;
     width: 260px;
@@ -36,7 +37,7 @@ const BriefCard = styled.div`
     transition: box-shadow 0.5s, transform 0.5s;
 
     :hover {
-        box-shadow: 2px 2px 4px 4px rgba(0, 0, 0, 0.14);
+        box-shadow: 2px 2px 4px 4px var(--pl-shadow);
         transform: translate(-3px -3px);
         z-index: 100;
     }

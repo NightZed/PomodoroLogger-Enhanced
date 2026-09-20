@@ -21,6 +21,12 @@ export function useThemeTokens(): { tokens: ThemeTokens; isDark: boolean } {
     const [tokens, setTokens] = React.useState<ThemeTokens>(getThemeTokens);
 
     React.useEffect(() => {
+        // Synchronize once after mount: the first applyTheme() may run in a
+        // sibling effect that executes after this component's state was
+        // initialized during render, so the captured value can be stale.
+        const synced = getThemeTokens();
+        setTokens((prev) => (prev === synced ? prev : synced));
+
         if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') {
             return undefined;
         }

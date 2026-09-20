@@ -5,7 +5,7 @@ import { AppContainer } from 'react-hot-loader';
 
 import Application from './components/Application';
 import { ThemeController } from './components/ThemeController';
-import { GlobalStyle } from './theme';
+import { applyTheme, GlobalStyle, resolveTheme } from './theme';
 import store from './store';
 
 import { ipcRenderer } from 'electron';
@@ -51,6 +51,18 @@ const splashElement = document.getElementById('logo-container');
 // document.body.removeChild(splashScreen!);
 // @ts-ignore
 window['__react-beautiful-dnd-disable-dev-warnings'] = true;
+
+// Apply the persisted (or default) theme before the first render. Components
+// that read the theme during their initial render (useThemeTokens) would
+// otherwise see no `data-theme` attribute yet and fall back to the light
+// tokens until the next theme change.
+const initialTimerState = store.getState()!.timer;
+const initialTheme = resolveTheme(
+    initialTimerState.themeId,
+    initialTimerState.followSystemTheme,
+    initialTimerState.customThemes
+);
+applyTheme(initialTheme.tokens, initialTheme.source);
 
 // Render components
 const render = (Component: any) => {

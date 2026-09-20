@@ -21,7 +21,7 @@ export const GlobalStyle = createGlobalStyle`
         --pl-bg-elevated: #1f1f1f;
         --pl-bg-sunken: #262626;
         --pl-bg-hover: rgba(255, 255, 255, 0.08);
-        --pl-text: rgba(255, 255, 255, 0.85);
+        --pl-text: rgba(255, 255, 255, 0.75);
         --pl-text-secondary: rgba(255, 255, 255, 0.55);
         --pl-text-tertiary: rgba(255, 255, 255, 0.35);
         --pl-border: #303030;
@@ -451,9 +451,11 @@ export const GlobalStyle = createGlobalStyle`
         .ant-progress-text {
             color: var(--pl-text);
         }
-        .ant-progress-circle-trail {
-            stroke: var(--pl-border);
-        }
+        /* NOTE: the circle trail is NOT themed here on purpose.
+           rc-progress writes the trail color as inline style (builtin default
+           D9D9D9 gray), which beats any non-important CSS rule. The themed
+           color is therefore passed via the trailColor prop in
+           Timer/Progress.tsx (a live var in inline style). */
 
         /* ---------- timeline ---------- */
         .ant-timeline-item-tail {

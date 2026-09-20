@@ -13,6 +13,8 @@ import { fatScrollBar } from '../../style/scrollbar';
 import ReactHotkeys from 'react-hot-keys';
 import { formatTimeHMS, formatTimeYmdHms } from './Timeline';
 import { EChartOption } from 'echarts';
+import { ThemeTokens } from '../../theme/tokens';
+import { useThemeTokens } from '../../theme/useThemeTokens';
 
 const FullscreenStyled = styled.div`
     padding: 20px;
@@ -240,7 +242,7 @@ const getLinkAndNode = (
     };
 };
 
-const getOption = (props: Props): EChartOption => {
+const getOption = (props: Props, tokens: ThemeTokens): EChartOption => {
     const data = getLinkAndNode(props.record!, props.efficiencyAnalyser, props.showSwitch);
     return {
         title: {
@@ -249,6 +251,12 @@ const getOption = (props: Props): EChartOption => {
         tooltip: {
             trigger: 'item',
             triggerOn: 'mousemove',
+            backgroundColor: 'var(--pl-bg-elevated)',
+            borderColor: 'var(--pl-border)',
+            textStyle: {
+                color: 'var(--pl-text)',
+            },
+            extraCssText: 'box-shadow: 0 2px 8px var(--pl-shadow);',
         },
         series: [
             {
@@ -297,7 +305,7 @@ const getOption = (props: Props): EChartOption => {
                 label: {
                     normal: {
                         textStyle: {
-                            color: 'rgba(0,0,0,0.7)',
+                            color: tokens.text,
                             fontFamily: 'Arial',
                             fontSize: 14,
                         },
@@ -321,6 +329,15 @@ const getOption = (props: Props): EChartOption => {
 };
 
 export const PomodoroSankey = (props: Props) => {
+    const { tokens } = useThemeTokens();
+    // Every hook must run unconditionally: this component stays mounted even
+    // before a record is chosen, and the early returns below used to change
+    // the hook count between renders, which crashed with "Rendered more hooks
+    // than during the previous render".
+    const option = React.useMemo(
+        () => (props.record == null ? undefined : getOption(props, tokens)),
+        [props.record, tokens]
+    );
     if (props.record == null) {
         return <></>;
     }
@@ -335,12 +352,12 @@ export const PomodoroSankey = (props: Props) => {
         );
         return <></>;
     }
-
-    const [option, setOption] = React.useState(getOption(props));
+    if (option == null) {
+        // Unreachable in practice: the memo above computes the option as soon
+        // as a record is present; it just keeps the type narrow for ReactEcharts.
+        return <></>;
+    }
     const { width = '100%' } = props;
-    React.useEffect(() => {
-        setOption(getOption(props));
-    }, [props.record]);
     const onKeyDown = (keyname: string) => {
         switch (keyname) {
             case 'enter':

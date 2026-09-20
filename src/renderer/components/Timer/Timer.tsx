@@ -556,7 +556,7 @@ class Timer extends Component<Props, State> {
     private calculateSessionEfficiency() {
         if (this.stagedSession != null) {
             const boardDistractionList = this.props.timer.boardId
-                ? this.props.kanban.boards[this.props.timer.boardId].distractionList || []
+                ? this.props.kanban.boards[this.props.timer.boardId]?.distractionList || []
                 : [];
             this.efficiencyAnalyser.update(
                 this.props.timer.distractingList.concat(boardDistractionList)
@@ -587,12 +587,17 @@ class Timer extends Component<Props, State> {
             this.setState({ pomodoroNum: this.state.pomodoroNum + 1 });
             this.stagedSession.spentTimeInHour += this.extendedTimeInMinute / 60;
             this.extendedTimeInMinute = 0;
-            if (this.props.timer.boardId !== undefined) {
-                this.stagedSession.boardId = this.props.timer.boardId;
-                const kanban = this.props.kanban;
-                const cards: string[] =
-                    kanban.lists[kanban.boards[this.props.timer.boardId].focusedList].cards;
-                await this.props.timerFinished(this.stagedSession, cards, this.props.timer.boardId);
+            // `timer.boardId` may point to a board that no longer exists (e.g.
+            // deleted right after a session, or a corrupted value persisted by
+            // older builds). Fall back to an unattributed session instead of
+            // crashing on `kanban.boards[boardId].focusedList`.
+            const boardId = this.props.timer.boardId;
+            const focusedListId =
+                boardId === undefined ? undefined : this.props.kanban.boards[boardId]?.focusedList;
+            if (boardId !== undefined && focusedListId !== undefined) {
+                this.stagedSession.boardId = boardId;
+                const cards: string[] = this.props.kanban.lists[focusedListId]?.cards ?? [];
+                await this.props.timerFinished(this.stagedSession, cards, boardId);
             } else {
                 await this.props.timerFinished(this.stagedSession);
             }
@@ -784,7 +789,7 @@ class Timer extends Component<Props, State> {
         }
 
         const listId =
-            boardId !== undefined ? this.props.kanban.boards[boardId].focusedList : undefined;
+            boardId !== undefined ? this.props.kanban.boards[boardId]?.focusedList : undefined;
 
         return (
             <Layout style={{ backgroundColor: 'var(--pl-bg)' }} ref={this.selfRef}>
@@ -804,7 +809,7 @@ class Timer extends Component<Props, State> {
                         }}
                     >
                         <KanbanName onClick={this.switchToKanban}>
-                            {this.props.kanban.boards[boardId].name}
+                            {this.props.kanban.boards[boardId]?.name}
                             <Button className={'kanban-name-arrow'}>
                                 <Icon component={backIcon} />
                             </Button>

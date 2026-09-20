@@ -2,6 +2,7 @@ import {
     actions,
     defaultState,
     reducer,
+    setBoardId,
     setFocusDuration,
     setLongBreakDuration,
     setRestDuration,
@@ -10,9 +11,10 @@ import {
     startTimer,
     stopTimer,
     timerFinished,
-    TimerState
+    TimerState,
 } from './action';
 import { generateRandomName } from '../../utils';
+import { workers } from '../../workers';
 import { getAllSession } from '../../monitor/sessionManager';
 import { dbPaths } from '../../../config';
 import { existsSync, unlinkSync } from 'fs';
@@ -98,7 +100,7 @@ describe('Reducer', () => {
         const leftTime = state.targetTime! - new Date().getTime();
         await dispatch(actions.stopTimer());
         expect(state.isRunning).toBeFalsy();
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise((r) => setTimeout(r, 1000));
         const targetTime = new Date().getTime() + leftTime;
         await dispatch(actions.continueTimer());
         expect(state.isRunning).toBeTruthy();
@@ -116,7 +118,7 @@ describe('Reducer', () => {
             'monitorInterval',
             'screenShotInterval',
             'startOnBoot',
-            'longBreakDuration'
+            'longBreakDuration',
         ];
         for (const setting of settings) {
             // @ts-ignore
@@ -144,19 +146,96 @@ describe('On timerFinished', () => {
                     spentTimeInHour: 10,
                     appName: 'Chrome',
                     screenStaticDuration: 5,
-                    titleSpentTime: {}
-                }
+                    titleSpentTime: {},
+                },
             },
             screenStaticDuration: 5,
-            switchTimes: 3
+            switchTimes: 3,
         };
 
         const thunk = actions.timerFinished(record);
-        await thunk(x => {
+        await thunk((x) => {
             return x;
         });
         const sessions = await getAllSession();
-        const found = sessions.find(v => v.startTime === record.startTime);
+        const found = sessions.find((v) => v.startTime === record.startTime);
         expect(found).not.toBeUndefined();
+    });
+});
+
+describe('On inferProject', () => {
+    const makeDispatchRecorder = () => {
+        const dispatched: any[] = [];
+        const dispatch = ((action: any) => {
+            dispatched.push(action);
+        }) as Dispatch;
+        return { dispatch, dispatched };
+    };
+
+    const stubPredict = (result: string) => {
+        const original = workers.knn.predict;
+        // @ts-ignore
+        workers.knn.predict = async () => result;
+        return () => {
+            // @ts-ignore
+            workers.knn.predict = original;
+        };
+    };
+
+    const record: PomodoroRecord = {
+        _id: 'infer-project-record',
+        startTime: new Date().getTime(),
+        spentTimeInHour: 1,
+        switchActivities: [],
+        apps: {},
+        screenStaticDuration: 0,
+        switchTimes: 0,
+    };
+
+    it('stores the predicted board _id, not its name', async () => {
+        const boardId = generateRandomName();
+        const boardName = `Predicted Project ${generateRandomName()}`;
+        await workers.dbWorkers.kanbanDB.insert({ _id: boardId, name: boardName });
+
+        const restore = stubPredict(boardId);
+        const { dispatch, dispatched } = makeDispatchRecorder();
+        try {
+            await actions.inferProject(record)(dispatch);
+        } finally {
+            restore();
+        }
+
+        expect(dispatched).toHaveLength(1);
+        const expected = setBoardId(boardId);
+        expect(dispatched[0].type).toBe(expected.type);
+        expect(dispatched[0].payload.boardId).toBe(boardId);
+        // Regression: the board NAME used to leak into `timer.boardId`, which
+        // made `kanban.boards[boardId]` undefined and crashed `Timer`'s render
+        // with "Cannot read properties of undefined (reading 'focusedList')".
+        expect(dispatched[0].payload.boardId).not.toBe(boardName);
+    });
+
+    it('does not switch when the predicted board no longer exists', async () => {
+        const restore = stubPredict(`missing-board-${generateRandomName()}`);
+        const { dispatch, dispatched } = makeDispatchRecorder();
+        try {
+            await actions.inferProject(record)(dispatch);
+        } finally {
+            restore();
+        }
+
+        expect(dispatched).toHaveLength(0);
+    });
+
+    it('does not switch on an empty prediction', async () => {
+        const restore = stubPredict('');
+        const { dispatch, dispatched } = makeDispatchRecorder();
+        try {
+            await actions.inferProject(record)(dispatch);
+        } finally {
+            restore();
+        }
+
+        expect(dispatched).toHaveLength(0);
     });
 });

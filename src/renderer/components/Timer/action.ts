@@ -11,7 +11,6 @@ import { PomodoroRecord } from '../../monitor/type';
 import { workers } from '../../workers';
 import { DEBUG_TIME_SCALE, __DEV__ } from '../../../config';
 import { AsyncDB } from '../../../utils/dbHelper';
-import { getNameFromBoardId } from '../../getNameFromBoardId';
 import { DEFAULT_THEME_ID, ThemeDefinition } from '../../theme/tokens';
 
 export const LONG_BREAK_INTERVAL = 4;
@@ -392,9 +391,19 @@ export const actions = {
             return undefined;
         })) as string | undefined;
 
+        // `timer.boardId` must always be a real board `_id`: `Timer` renders
+        // `kanban.boards[boardId]` directly, so storing anything else (e.g.
+        // the board name) makes that lookup `undefined` and crashes the app.
+        // The prediction label is the board `_id` of the closest historical
+        // session; only switch to it when that board still exists. This also
+        // filters out degenerate predictions such as an empty string.
         if (newProjectId !== undefined) {
-            const newProject = await getNameFromBoardId(newProjectId);
-            dispatch(setBoardId(newProject));
+            const board = await workers.dbWorkers.kanbanDB
+                .findOne({ _id: newProjectId })
+                .catch(() => undefined);
+            if (board) {
+                dispatch(setBoardId(newProjectId));
+            }
         }
     },
     switchToKanban: (kanbanId: string) => (dispatch: Dispatch) => {

@@ -26,9 +26,11 @@ import { PomodoroDualPieChart } from '../Visualization/DualPieChart';
 import { AsyncWordCloud } from '../Visualization/WordCloud';
 import { LONG_BREAK_INTERVAL, TimerActionTypes as ThisActionTypes, uiStateNames } from './action';
 import { FocusSelector } from './FocusSelector';
+import { getFocusStartWarning, FocusStartWarning } from './focusStartWarning';
 import { setTrayImageWithMadeIcon } from './iconMaker';
 import { PomodoroNumView } from './PomodoroNumView';
 import Progress from './Progress';
+import { Dialog } from '../UserGuide/Dialog';
 import { TimerMask } from './SessionEndingMask';
 import { waitUntil } from './wait';
 import { WorkRestIcon } from './WorkRestIcon';
@@ -185,6 +187,7 @@ interface State {
     pomodorosToday: PomodoroRecord[];
     showMask: boolean;
     pomodoroNum: number;
+    focusStartWarning?: FocusStartWarning;
 }
 
 class Timer extends Component<Props, State> {
@@ -440,13 +443,54 @@ class Timer extends Component<Props, State> {
     };
 
     onStart = () => {
-        if (this.props.timer.isFocusing) {
-            this.monitor = new Monitor(() => {}, 1000, this.props.timer.screenShotInterval);
-            this.monitor.start();
+        if (!this.props.timer.isFocusing) {
+            return this.startResting();
         }
+
+        // Warn once before a fresh focus session when there is no project to
+        // link it to, or the selected project's "In Progress" list is empty.
+        return this.startFocusingSession(false);
+    };
+
+    private startResting = () => {
+        this.props.startTimer();
+        requestAnimationFrame(this.updateLeftTime);
+    };
+
+    private startFocusingSession = (acknowledged: boolean) => {
+        if (this.props.timer.isRunning || this.props.timer.targetTime != null) {
+            return;
+        }
+
+        if (!acknowledged) {
+            const warning = getFocusStartWarning(
+                this.props.timer.boardId,
+                this.props.kanban.boards,
+                this.props.kanban.lists,
+                this.props.kanban.cards
+            );
+            if (warning) {
+                // Reuse the guide dialog style: it stays on screen until the
+                // user picks OK (start anyway) or Cancel (stay put).
+                this.setState({ focusStartWarning: warning });
+                return;
+            }
+        }
+
+        this.setState({ focusStartWarning: undefined });
+        this.monitor = new Monitor(() => {}, 1000, this.props.timer.screenShotInterval);
+        this.monitor.start();
 
         this.props.startTimer();
         requestAnimationFrame(this.updateLeftTime);
+    };
+
+    private confirmFocusStart = () => {
+        this.startFocusingSession(true);
+    };
+
+    private cancelFocusStart = () => {
+        this.setState({ focusStartWarning: undefined });
     };
 
     private getDuration = (isFocusing?: boolean) => {
@@ -752,7 +796,7 @@ class Timer extends Component<Props, State> {
     };
 
     render() {
-        const { leftTime, percent, more, pomodorosToday, showMask } = this.state;
+        const { leftTime, percent, more, pomodorosToday, showMask, focusStartWarning } = this.state;
         const { isRunning, targetTime, minimize, isFocusing } = this.props.timer;
         const shownLeftTime =
             (isRunning || targetTime) && leftTime.length ? leftTime : this.defaultLeftTime();
@@ -857,6 +901,17 @@ class Timer extends Component<Props, State> {
                         }}
                     />
                     <TimerInnerLayout>
+                        {focusStartWarning ? (
+                            <Dialog
+                                centered={true}
+                                title={focusStartWarning.title}
+                                text={focusStartWarning.content}
+                                confirmText="OK"
+                                cancelText="Cancel"
+                                onConfirm={this.confirmFocusStart}
+                                onCancel={this.cancelFocusStart}
+                            />
+                        ) : undefined}
                         <ProgressContainer>
                             <Progress
                                 type="circle"

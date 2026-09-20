@@ -13,6 +13,7 @@ import {
     timerFinished,
     TimerState,
 } from './action';
+import { getFocusStartWarning } from './focusStartWarning';
 import { generateRandomName } from '../../utils';
 import { workers } from '../../workers';
 import { getAllSession } from '../../monitor/sessionManager';
@@ -237,5 +238,126 @@ describe('On inferProject', () => {
         }
 
         expect(dispatched).toHaveLength(0);
+    });
+});
+
+describe('getFocusStartWarning', () => {
+    it('warns when no project is selected', () => {
+        expect(getFocusStartWarning(undefined, {}, {}, {})).toMatchObject({
+            kind: 'no-project',
+        });
+    });
+
+    it('warns when the selected project is missing', () => {
+        expect(getFocusStartWarning('gone', {}, {}, {})).toMatchObject({
+            kind: 'no-project',
+        });
+    });
+
+    it('warns when In Progress is empty', () => {
+        const boardId = 'board';
+        expect(
+            getFocusStartWarning(
+                boardId,
+                {
+                    [boardId]: {
+                        _id: boardId,
+                        name: 'board',
+                        description: '',
+                        lists: ['list'],
+                        focusedList: 'list',
+                        doneList: 'done',
+                        relatedSessions: [],
+                        spentHours: 0,
+                    },
+                },
+                {
+                    list: { _id: 'list', title: 'In Progress', cards: [] },
+                    done: { _id: 'done', title: 'Done', cards: [] },
+                },
+                {}
+            )
+        ).toMatchObject({ kind: 'no-focus-cards' });
+    });
+
+    it('warns when In Progress points at a missing list', () => {
+        const boardId = 'board';
+        expect(
+            getFocusStartWarning(
+                boardId,
+                {
+                    [boardId]: {
+                        _id: boardId,
+                        name: 'board',
+                        description: '',
+                        lists: ['list'],
+                        focusedList: 'list',
+                        doneList: 'done',
+                        relatedSessions: [],
+                        spentHours: 0,
+                    },
+                },
+                {},
+                {}
+            )
+        ).toMatchObject({ kind: 'no-focus-cards' });
+    });
+
+    it('ignores stale card ids when checking In Progress', () => {
+        const boardId = 'board';
+        expect(
+            getFocusStartWarning(
+                boardId,
+                {
+                    [boardId]: {
+                        _id: boardId,
+                        name: 'board',
+                        description: '',
+                        lists: ['list'],
+                        focusedList: 'list',
+                        doneList: 'done',
+                        relatedSessions: [],
+                        spentHours: 0,
+                    },
+                },
+                {
+                    list: { _id: 'list', title: 'In Progress', cards: ['gone'] },
+                },
+                {}
+            )
+        ).toMatchObject({ kind: 'no-focus-cards' });
+    });
+
+    it('stays silent when In Progress has a card', () => {
+        const boardId = 'board';
+        expect(
+            getFocusStartWarning(
+                boardId,
+                {
+                    [boardId]: {
+                        _id: boardId,
+                        name: 'board',
+                        description: '',
+                        lists: ['list'],
+                        focusedList: 'list',
+                        doneList: 'done',
+                        relatedSessions: [],
+                        spentHours: 0,
+                    },
+                },
+                {
+                    list: { _id: 'list', title: 'In Progress', cards: ['card'] },
+                },
+                {
+                    card: {
+                        _id: 'card',
+                        title: 'task',
+                        content: '',
+                        sessionIds: [],
+                        spentTimeInHour: { estimated: 1, actual: 0 },
+                    },
+                }
+            )
+        ).toBeUndefined();
     });
 });

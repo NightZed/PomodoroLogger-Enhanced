@@ -60,7 +60,7 @@ A work cycle = **focus + rest**: 25 minutes of focus and a 5-minute short break 
 | :---------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------: |
 | <img height="240" src="./screenshots/session-Finished.gif" alt="Session finished"/> | <img height="240" src="./screenshots/switch-Mode.gif" alt="Switching between focus and rest"/> | <img width="240" src="./screenshots/choose-Focus.gif" alt="Choosing a focus task"/> |
 
-### Tray & Mini Mode
+### Tray / Mini / Small / Night Mode
 
 -   **Tray**: closing the main window minimizes the app to the system tray.
 
@@ -68,11 +68,25 @@ A work cycle = **focus + rest**: 25 minutes of focus and a 5-minute short break 
   <img width="200" src="./screenshots/tray.png" alt="Countdown in the system tray"/>
 </p>
 
--   **Mini mode**: use `F11` / `F12` to switch between the full interface and mini mode.
+-   **Mini mode**: use `F12` to switch between the full interface and mini mode.
 
 <p align="center">
-  <img width="360" src="./screenshots/mini.png" alt="Mini mode"/>
+  <img width="280" src="./screenshots/mini.png" alt="Mini Mode"/>
+  <img width="280" src="./screenshots/night-mini.png" alt="Night Mini Mode"/>
 </p>
+
+-   **Small Mode**：use `F11` to switch between the full interface and small mode.
+
+<p align="center">
+  <img height="300" src="./screenshots/small-screen.png" alt="Small Mode"/>
+  <img height="300" src="./screenshots/night-small.png" alt="Night Small Mode"/>
+
+<a id="kanban-board"></a>
+
+-   **Night Mode**：switch between day and night modes.
+
+<p align="center">
+  <img height="400" src="./screenshots/promotional-image.png" alt="Night Mode"/>
 
 <a id="kanban-board"></a>
 
@@ -112,7 +126,7 @@ The built-in [Kanban board](https://en.wikipedia.org/wiki/Kanban_board) works to
 Total time and pomodoro count, broken down by **project + year**.
 
 <p align="center">
-  <img width="570" src="./screenshots/project-cost-time.png" alt="Time spent per project"/>
+  <img width="520" src="./screenshots/project-cost-time.png" alt="Time spent per project"/>
 </p>
 
 ### 🗓️ Calendar Heat Map
@@ -142,8 +156,8 @@ The **Sankey diagram** connects distracting apps with where your time went.
 The **pie chart** shows the share of time per project / app, and the **word cloud** shows the keywords that appear most often in window titles. Click a day on the heat map, or switch the project and year, and the charts update accordingly.
 
 <p align="center">
-  <img width="400" src="./screenshots/time-proportion-pie-chart.png" alt="Time proportion pie chart"/>
-  <img width="400" src="./screenshots/word-cloud.png" alt="Word cloud"/>
+  <img height="270" src="./screenshots/time-proportion-pie-chart.png" alt="Time proportion pie chart"/>
+  <img height="270" src="./screenshots/word-cloud.png" alt="Word cloud"/>
 </p>
 
 <a id="features"></a>
@@ -198,7 +212,8 @@ These raw records are aggregated into the time proportion pie chart and word clo
 -   **Search cards**: `Ctrl+F` (Kanban page).
 -   **Quick Save**：`Ctrl+Enter`（Card edit）。
 -   **Quit**: `Ctrl+Q`.
--   **Mini mode**: `F11` / `F12`.
+-   **Mini mode**: `F12`.
+-   **Small mode**：`F11`.
 
 <a id="quick-start"></a>
 
@@ -207,13 +222,13 @@ These raw records are aggregated into the time proportion pie chart and word clo
 Platforms: **Windows 10 / macOS / Linux**.
 Download: [release page](https://github.com/NightZed/PomodoroLogger-Enhanced/releases).
 
-## 🤝 Contribution
+## 🤝 CONTRIBUTING
 
-Welcome! The development setup, coding conventions, and release process are all documented in [the Contribution Guide](./.github/CONTRIBUTION.md).
+Welcome! The development setup, coding conventions, and release process are all documented in [the CONTRIBUTING Guide](./.github/CONTRIBUTING.md).
 
 -   The roadmap is shown on the [issue page](https://github.com/NightZed/PomodoroLogger-Enhanced/issues)
 -   If you find a bug or want a new feature, [create an issue](https://github.com/NightZed/PomodoroLogger-Enhanced/issues)
--   If you want to start working on an issue, read [the Contribution Guide](./.github/CONTRIBUTION.md) and comment on the issue to let me know
+-   If you want to start working on an issue, read [the CONTRIBUTING Guide](./.github/CONTRIBUTING.md) and comment on the issue to let me know
 
 ## 📄 License
 

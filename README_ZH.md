@@ -60,7 +60,7 @@
 | :-----------------------------------------------------------------------------: | :------------------------------------------------------------------------------: | :------------------------------------------------------------------------: |
 | <img height="240" src="./screenshots/session-Finished.gif" alt="时段结束提醒"/> | <img height="240" src="./screenshots/switch-Mode.gif" alt="切换专注与休息模式"/> | <img width="240" src="./screenshots/choose-Focus.gif" alt="选择专注对象"/> |
 
-### 托盘与迷你模式
+### 托盘 / 迷你 / 小屏 / 夜间模式
 
 - **托盘**：关闭主页面缩放到系统托盘
 
@@ -68,11 +68,25 @@
   <img width="200" src="./screenshots/tray.png" alt="系统托盘上的倒计时"/>
 </p>
 
-- **迷你模式**：用 `F11` / `F12` 在完整界面与迷你模式之间切换。
+- **迷你模式**：用 `F12` 在完整界面与迷你模式之间切换。
 
 <p align="center">
-  <img width="" src="./screenshots/mini.png" alt="迷你模式"/>
+  <img width="280" src="./screenshots/mini.png" alt="迷你模式"/>
+  <img width="280" src="./screenshots/night-mini.png" alt="夜间迷你模式"/>
 </p>
+
+- **小屏模式**：用 `F11` 在完整界面与小屏模式之间切换。
+
+<p align="center">
+  <img height="300" src="./screenshots/small-screen.png" alt="小屏模式"/>
+  <img height="300" src="./screenshots/night-small.png" alt="夜间小屏模式"/>
+
+<a id="kanban-board"></a>
+
+- **夜间模式**：可以在白天和夜间模式之间切换。
+
+<p align="center">
+  <img height="400" src="./screenshots/promotional-image.png" alt="夜间模式"/>
 
 <a id="kanban-board"></a>
 
@@ -112,7 +126,8 @@
 按**项目 + 年份**统计总耗时与完成的番茄钟数量。
 
 <p align="center">
-  <img width="" src="./screenshots/project-cost-time.png" alt="项目消耗时间"/>
+  <img width="520" src="./screenshots/project-cost-time.png" alt="项目消耗时间"/>
+</p>
 
 ### 🗓️ 日历热力图
 
@@ -141,8 +156,8 @@
 **饼图**看各项目 / 应用的时间占比，**词云**看窗口标题里出现最多的关键词。点开热力图中的某一天，或切换项目与年份，图表都会跟着更新。
 
 <p align="center">
-  <img width="400" src="./screenshots/time-proportion-pie-chart.png" alt="时间占比饼图"/>
-  <img width="400" src="./screenshots/word-cloud.png" alt="词云"/>
+  <img height="270" src="./screenshots/time-proportion-pie-chart.png" alt="时间占比饼图"/>
+  <img height="270" src="./screenshots/word-cloud.png" alt="词云"/>
 </p>
 
 <a id="features"></a>
@@ -197,7 +212,8 @@ pomodoro-logger [C:\code\pomodoro-logger] .\src\renderer\components\src\Applicat
 - **搜索卡片**：`Ctrl+F`（Kanban 页）。
 - **快速保存**：`Ctrl+Enter`（Card 编辑）。
 - **退出应用**：`Ctrl+Q`。
-- **迷你模式**：`F11` / `F12`。
+- **迷你模式**：`F12`。
+- **小屏模式**：`F11`。
 
 <a id="quick-start"></a>
 
@@ -208,11 +224,11 @@ pomodoro-logger [C:\code\pomodoro-logger] .\src\renderer\components\src\Applicat
 
 ## 🤝 参与贡献
 
-欢迎你的参与！开发环境搭建、代码规范与发版流程都写在[贡献指南](./.github/CONTRIBUTION.md)里。
+欢迎你的参与！开发环境搭建、代码规范与发版流程都写在[贡献指南](./.github/CONTRIBUTING.md)里。
 
 - 路线图见 [issue 页面](https://github.com/NightZed/PomodoroLogger-Enhanced/issues)
 - 发现 bug 或想提新功能，请[创建 issue](https://github.com/NightZed/PomodoroLogger-Enhanced/issues)
-- 想动手处理某个 issue，阅读[贡献指南](./.github/CONTRIBUTION.md)并在 issue 下留言即可
+- 想动手处理某个 issue，阅读[贡献指南](./.github/CONTRIBUTING.md)并在 issue 下留言即可
 
 ## 📄 许可证
 

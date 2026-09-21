@@ -54,6 +54,15 @@ export function initialize() {
             win.setBounds({ height: 960, width: 1440 });
         }
     });
+    handle(IpcEventName.CompactWindow, (on, alwaysOnTop = true) => {
+        if (!win) return;
+        win.setAlwaysOnTop(on && alwaysOnTop);
+        if (on) {
+            win.setBounds({ width: 400, height: 560 });
+        } else {
+            win.setBounds({ width: 1440, height: 960 });
+        }
+    });
     handle(IpcEventName.OpenAtLogin, (on) => {
         if (on) {
             app.setLoginItemSettings({

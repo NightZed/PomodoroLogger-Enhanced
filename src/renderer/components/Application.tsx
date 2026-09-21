@@ -26,6 +26,7 @@ import { ConnectedPomodoroSankey } from './Visualization/PomodoroSankey';
 
 interface StyledProps {
     minimize: boolean;
+    compact: boolean;
 }
 
 const Main = styled.div<StyledProps>`
@@ -33,10 +34,22 @@ const Main = styled.div<StyledProps>`
         margin: 0;
     }
 
-    ${({ minimize }) => (minimize ? 'overflow: hidden; height: 100vh;' : '')}
+    ${({ minimize, compact }) => (minimize || compact ? 'overflow: hidden; height: 100vh;' : '')}
     .ant-tabs-nav-container,.ant-modal-content {
         ${({ minimize }) => (minimize ? 'display: none;' : '')}
     }
+    ${({ compact }) =>
+        compact
+            ? `
+                .ant-tabs-bar {
+                    height: 40px;
+                }
+                .ant-tabs-nav .ant-tabs-tab {
+                    margin: 0;
+                    padding: 10px 22px;
+                }
+            `
+            : ''}
 
     .ant-btn-icon-only > i {
         transform: translateY(-0.5px);
@@ -52,6 +65,7 @@ const { TabPane } = Tabs;
 interface Props extends TimerActionTypes, HistoryActionCreatorTypes {
     currentTab: string;
     minimize: boolean;
+    compact: boolean;
 
     fetchKanban: () => void;
 }
@@ -83,6 +97,8 @@ class Application extends React.Component<Props> {
                 ipcRenderer.send(IpcEventName.Quit, 'quit');
                 break;
             case 'f11':
+                this.props.setCompact(!this.props.compact);
+                break;
             case 'f12':
                 this.props.setMinimize(!this.props.minimize);
                 break;
@@ -110,15 +126,21 @@ class Application extends React.Component<Props> {
     }
 
     render() {
-        const { currentTab, changeAppTab, minimize } = this.props;
+        const { currentTab, changeAppTab, minimize, compact, setCompact } = this.props;
+        const handleTabChange = (tab: string) => {
+            if (compact) {
+                setCompact(false);
+            }
+            changeAppTab(tab as any);
+        };
         return (
-            <Main minimize={minimize}>
-                <Tabs activeKey={minimize ? 'timer' : currentTab} onChange={changeAppTab as any}>
+            <Main minimize={minimize} compact={compact}>
+                <Tabs activeKey={minimize ? 'timer' : currentTab} onChange={handleTabChange}>
                     <TabPane
                         tab={
                             <span>
                                 <Icon type="clock-circle" />
-                                Pomodoro
+                                {!compact && 'Pomodoro'}
                             </span>
                         }
                         forceRender={true}
@@ -131,7 +153,7 @@ class Application extends React.Component<Props> {
                         tab={
                             <span>
                                 <Icon type="project" />
-                                Kanban
+                                {!compact && 'Kanban'}
                             </span>
                         }
                         forceRender={false}
@@ -149,7 +171,7 @@ class Application extends React.Component<Props> {
                         tab={
                             <span>
                                 <Icon type="history" />
-                                History
+                                {!compact && 'History'}
                             </span>
                         }
                         forceRender={false}
@@ -167,7 +189,7 @@ class Application extends React.Component<Props> {
                         tab={
                             <span>
                                 <Icon type="setting" />
-                                Setting
+                                {!compact && 'Setting'}
                             </span>
                         }
                         key="setting"
@@ -193,7 +215,11 @@ class Application extends React.Component<Props> {
 }
 
 const ApplicationContainer = connect(
-    (state: RootState) => ({ currentTab: state.timer.currentTab, minimize: state.timer.minimize }),
+    (state: RootState) => ({
+        currentTab: state.timer.currentTab,
+        minimize: state.timer.minimize,
+        compact: state.timer.compact,
+    }),
     genMapDispatchToProp<TimerActionTypes & HistoryActionCreatorTypes>({
         ...timerActions,
         ...historyActions,

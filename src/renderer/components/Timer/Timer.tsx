@@ -76,6 +76,15 @@ const KanbanName = styled.h1`
     }
 `;
 
+const CompactModeIcon = styled.span<{ compact: boolean }>`
+    display: inline-block;
+    width: ${({ compact }) => (compact ? '14px' : '8px')};
+    height: ${({ compact }) => (compact ? '8px' : '14px')};
+    border: 1px solid currentColor;
+    border-radius: 1px;
+    vertical-align: middle;
+`;
+
 const ProgressTextContainer = styled.div`
     user-select: none;
     margin-top: -50px;
@@ -84,20 +93,29 @@ const ProgressTextContainer = styled.div`
     transform: translateY(0.4em);
 `;
 
-const TimerLayout = styled.div`
+const TimerLayout = styled.div<{ compact: boolean }>`
     position: relative;
     padding: 0 24px 0 24px;
-    overflow-y: auto;
+    overflow-y: ${({ compact }) => (compact ? 'hidden' : 'auto')};
     width: 100%;
     height: calc(100vh - 45px);
+    ${({ compact }) => (compact ? 'padding: 0 8px;' : '')}
     ${thinScrollBar}
 `;
 
-const TimerInnerLayout = styled.div`
+const TimerInnerLayout = styled.div<{ compact: boolean }>`
     overflow-x: hidden;
     min-width: 350px;
     max-width: 850px;
     margin: 0 auto;
+    ${({ compact }) =>
+        compact
+            ? `
+                min-width: 0;
+                max-width: 380px;
+                padding-top: 36px;
+            `
+            : ''}
 `;
 
 const Layout = styled.div`
@@ -773,6 +791,9 @@ class Timer extends Component<Props, State> {
     }
 
     toggleMode = () => {
+        if (this.props.timer.compact) {
+            this.props.setCompact(false);
+        }
         this.setState((state) => {
             // TODO: need better control
             const more = !state.more;
@@ -918,7 +939,7 @@ class Timer extends Component<Props, State> {
             focusStartWarning,
             focusStartWarningDontRemind,
         } = this.state;
-        const { isRunning, targetTime, minimize, isFocusing } = this.props.timer;
+        const { isRunning, targetTime, minimize, compact, isFocusing } = this.props.timer;
         const shownLeftTime =
             (isRunning || targetTime) && leftTime.length ? leftTime : this.defaultLeftTime();
         const boardId = this.props.timer.boardId;
@@ -974,38 +995,56 @@ class Timer extends Component<Props, State> {
                     onStart={this.onMaskButtonClick}
                     pomodoros={pomodorosToday}
                 />
-                {listId === undefined || boardId === undefined ? undefined : (
-                    <MySider
-                        style={{
-                            marginLeft: this.state.showSider ? 0 : -300,
-                        }}
+                {!compact &&
+                    (listId === undefined || boardId === undefined ? undefined : (
+                        <MySider
+                            style={{
+                                marginLeft: this.state.showSider ? 0 : -300,
+                            }}
+                        >
+                            <KanbanName onClick={this.switchToKanban}>
+                                {this.props.kanban.boards[boardId]?.name}
+                                <Button className={'kanban-name-arrow'}>
+                                    <Icon component={backIcon} />
+                                </Button>
+                            </KanbanName>
+                            <Board
+                                boardId={boardId}
+                                doesOnlyShowFocusedList={true}
+                                showHeader={false}
+                            />
+                            <Button
+                                icon={'more'}
+                                style={{
+                                    position: 'absolute',
+                                    right: 0,
+                                    top: 20,
+                                    marginRight: -15,
+                                    zIndex: 50,
+                                    boxShadow: '4px 0 6px -1px rgba(234, 234, 234, 0.6)',
+                                }}
+                                onClick={this.switchSider}
+                            />
+                        </MySider>
+                    ))}
+                <TimerLayout compact={compact} ref={this.mainDiv}>
+                    <Tooltip
+                        title={compact ? 'Normal-screen(F11)' : 'Small-screen(F11)'}
+                        placement="bottom"
                     >
-                        <KanbanName onClick={this.switchToKanban}>
-                            {this.props.kanban.boards[boardId]?.name}
-                            <Button className={'kanban-name-arrow'}>
-                                <Icon component={backIcon} />
-                            </Button>
-                        </KanbanName>
-                        <Board
-                            boardId={boardId}
-                            doesOnlyShowFocusedList={true}
-                            showHeader={false}
-                        />
                         <Button
-                            icon={'more'}
+                            onClick={() => this.props.setCompact(!compact)}
+                            shape={'circle'}
                             style={{
                                 position: 'absolute',
-                                right: 0,
-                                top: 20,
-                                marginRight: -15,
                                 zIndex: 50,
-                                boxShadow: '4px 0 6px -1px rgba(234, 234, 234, 0.6)',
+                                top: 14,
+                                right: 52,
                             }}
-                            onClick={this.switchSider}
-                        />
-                    </MySider>
-                )}
-                <TimerLayout ref={this.mainDiv}>
+                        >
+                            <CompactModeIcon compact={compact} />
+                        </Button>
+                    </Tooltip>
                     <Tooltip title="Minimize (F12)" placement="bottom">
                         <Button
                             icon={'fullscreen-exit'}
@@ -1019,16 +1058,18 @@ class Timer extends Component<Props, State> {
                             }}
                         />
                     </Tooltip>
-                    <HelpIcon
-                        storyName={'allStories'}
-                        style={{
-                            position: 'absolute',
-                            zIndex: 50,
-                            bottom: 14,
-                            right: 14,
-                        }}
-                    />
-                    <TimerInnerLayout>
+                    {!compact && (
+                        <HelpIcon
+                            storyName={'allStories'}
+                            style={{
+                                position: 'absolute',
+                                zIndex: 50,
+                                bottom: 14,
+                                right: 14,
+                            }}
+                        />
+                    )}
+                    <TimerInnerLayout compact={compact}>
                         {focusStartWarning ? (
                             <Dialog
                                 centered={true}
@@ -1051,7 +1092,7 @@ class Timer extends Component<Props, State> {
                                     '100%': '#87d068',
                                 }}
                                 percent={percent}
-                                width={300}
+                                width={compact ? 220 : 300}
                                 style={{
                                     margin: '0 auto',
                                 }}
@@ -1087,8 +1128,13 @@ class Timer extends Component<Props, State> {
                             </Tooltip>
                         </ThemeToggleRow>
 
-                        <div style={{ margin: '2em auto', textAlign: 'center' }}>
-                            <FocusSelector width={240} />
+                        <div
+                            style={{
+                                margin: compact ? '0.6em auto' : '2em auto',
+                                textAlign: 'center',
+                            }}
+                        >
+                            <FocusSelector width={compact ? 200 : 240} />
                         </div>
                         <ButtonRow>
                             <div id="start-timer-button" style={{ lineHeight: 0 }}>

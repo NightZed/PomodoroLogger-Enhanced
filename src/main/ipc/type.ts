@@ -13,6 +13,7 @@ export enum IpcEventName {
     ActiveWin = 'activeWin',
     OpenAtLogin = 'openAtLogin',
     MinimizeWindow = 'minimizeWindow',
+    CompactWindow = 'compactWindow',
     OpenDevTools = 'openDevTools',
     Notify = 'notify',
     FocusOnWindow = 'focusOnWindow',
@@ -47,6 +48,7 @@ export type ExposedAPI = {
     [IpcEventName.ActiveWin](): Promise<BaseResult | undefined>;
     [IpcEventName.OpenAtLogin](on: boolean): void;
     [IpcEventName.MinimizeWindow](on: boolean, contentHeight: number): void;
+    [IpcEventName.CompactWindow](on: boolean, alwaysOnTop?: boolean): void;
     [IpcEventName.OpenDevTools](): void;
     [IpcEventName.Notify](title: string, body: string, iconPath: string): void;
     [IpcEventName.FocusOnWindow](): void;

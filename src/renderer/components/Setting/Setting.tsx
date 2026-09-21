@@ -141,6 +141,7 @@ const settingUiStates = [
     'screenShotInterval',
     'warnBeforeFocusStart',
     'useHardwareAcceleration',
+    'compactAlwaysOnTop',
     'startOnBoot',
     'distractingList',
     'calendarBaseColor',
@@ -374,6 +375,13 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 <Switch
                     onChange={setStartOnBoot}
                     checked={props.startOnBoot}
+                    style={{ margin: 8 }}
+                />
+                <br />
+                <SettingLabel>Keep Small Window Always On Top</SettingLabel>
+                <Switch
+                    onChange={props.setCompactAlwaysOnTop}
+                    checked={props.compactAlwaysOnTop}
                     style={{ margin: 8 }}
                 />
                 <br />

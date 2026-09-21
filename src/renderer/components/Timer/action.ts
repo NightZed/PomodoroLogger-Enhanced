@@ -36,6 +36,7 @@ export interface Setting {
     warnBeforeFocusStart: boolean;
     startOnBoot: boolean;
     useHardwareAcceleration: boolean;
+    compactAlwaysOnTop: boolean;
     distractingList: DistractingRow[];
     calendarBaseColor: string;
     /** Id of the active theme, see `theme/tokens.ts`. */
@@ -62,6 +63,7 @@ export interface TimerState extends Setting {
     boardId?: string;
     iBreak: number; // i-th break session, if i can be divided by 4, start longer break
     minimize: boolean;
+    compact: boolean;
 
     currentTab: tabType;
 }
@@ -89,7 +91,9 @@ export const defaultState: TimerState = {
     isFocusing: true,
     startOnBoot: false,
     useHardwareAcceleration: false,
+    compactAlwaysOnTop: true,
     minimize: false,
+    compact: false,
 
     monitorInterval: 1000,
     screenShotInterval: undefined,
@@ -116,6 +120,7 @@ export const uiStateNames = [
     'boardId',
     'iBreak',
     'minimize',
+    'compact',
 ];
 
 export const startTimer = createActionCreator('[Timer]START_TIMER');
@@ -125,6 +130,14 @@ export const clearTimer = createActionCreator('[Timer]CLEAR_TIMER');
 export const timerFinished = createActionCreator('[Timer]TIMER_FINISHED');
 export const setMinimize = createActionCreator(
     '[Timer]SET_MINIMIZE',
+    (resolve) => (value: boolean) => resolve(value)
+);
+export const setCompact = createActionCreator(
+    '[Timer]SET_COMPACT',
+    (resolve) => (value: boolean) => resolve(value)
+);
+export const setCompactAlwaysOnTop = createActionCreator(
+    '[Timer]SET_COMPACT_ALWAYS_ON_TOP',
     (resolve) => (value: boolean) => resolve(value)
 );
 export const setAutoUpdate = createActionCreator(
@@ -292,6 +305,7 @@ export const actions = {
             ['warnBeforeFocusStart', setWarnBeforeFocusStart],
             ['startOnBoot', setStartOnBoot],
             ['useHardwareAcceleration', setUseHardwareAcceleration],
+            ['compactAlwaysOnTop', setCompactAlwaysOnTop],
             ['longBreakDuration', setLongBreakDuration],
             ['distractingList', setDistractingList],
             ['autoUpdate', setAutoUpdate],
@@ -330,6 +344,21 @@ export const actions = {
         dispatch(setMinimize(mini));
         const contentHeight = document.documentElement.offsetHeight;
         window.api.minimizeWindow(mini, contentHeight);
+    },
+    setCompact: (compact: boolean) => async (dispatch: Dispatch, getState: any) => {
+        dispatch(setCompact(compact));
+        window.api.compactWindow(compact, getState().timer.compactAlwaysOnTop);
+    },
+    setCompactAlwaysOnTop: (value: boolean) => async (dispatch: Dispatch, getState: any) => {
+        dispatch(setCompactAlwaysOnTop(value));
+        await settingDB.update(
+            { name: 'setting' },
+            { $set: { compactAlwaysOnTop: value } },
+            { upsert: true }
+        );
+        if (getState().timer.compact) {
+            window.api.compactWindow(true, value);
+        }
     },
     setDistractingList: (distractingList: DistractingRow[]) => async (dispatch: Dispatch) => {
         dispatch(setDistractingList(distractingList));
@@ -600,6 +629,17 @@ export const reducer = createReducer<TimerState, any>(defaultState, (handle) => 
     handle(setMinimize, (state, { payload }) => ({
         ...state,
         minimize: payload,
+        compact: false,
         currentTab: 'timer',
+    })),
+    handle(setCompact, (state, { payload }) => ({
+        ...state,
+        compact: payload,
+        minimize: false,
+        currentTab: payload ? 'timer' : state.currentTab,
+    })),
+    handle(setCompactAlwaysOnTop, (state, { payload }) => ({
+        ...state,
+        compactAlwaysOnTop: payload,
     })),
 ]);

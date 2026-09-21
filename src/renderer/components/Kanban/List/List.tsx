@@ -56,6 +56,14 @@ const ListHead = styled.div`
 `;
 
 // Using css ::before and ::after will cause dnd component jitter
+//
+// Both placeholders are sticky overlays that make the cards fade out while they
+// scroll underneath the (rounded) top / bottom edge of the list. They are only
+// meant to be visible *over a card*, which means their color has to be the
+// background color of the list body (`Cards` below) -- with any other color
+// (e.g. `--pl-border`) they show up as a stray shadow / glow band on the empty
+// area of the list, and that band moves around whenever dnd pushes the
+// placeholder element up and down during a drag.
 const BeforePlaceHolder = styled.div`
     position: sticky;
     display: block;
@@ -64,7 +72,7 @@ const BeforePlaceHolder = styled.div`
     height: 0.6rem;
     margin-bottom: 10px;
     background: linear-gradient(
-        var(--pl-border),
+        var(--pl-bg-sunken),
         rgba(255, 255, 255, 0.001)
     ); /* transparent keyword is broken in Safari */
     pointer-events: none;
@@ -81,7 +89,7 @@ const AfterPlaceHolder = styled.div`
     height: 0.6rem;
     background: linear-gradient(
         rgba(255, 255, 255, 0.001),
-        var(--pl-border)
+        var(--pl-bg-sunken)
     ); /* transparent keyword is broken in Safari */
     pointer-events: none;
     z-index: 1;
@@ -91,10 +99,13 @@ interface CardsProps {
     displayScrollbar: boolean;
 }
 
+// The thumb of `Cards` paints itself with `box-shadow: inset 0 0 0 10px`, i.e.
+// with `currentColor`, so `color` *is* the scrollbar color here and has to come
+// from the theme: a fixed dark color is invisible on a dark list body.
 const displayScrollbarFn = ({ displayScrollbar }: CardsProps) => {
     if (displayScrollbar) {
         return `
-            color: rgba(0, 0, 0, 0.2);
+            color: var(--pl-scrollbar-thumb);
             transition: color 250ms;
         `;
     }

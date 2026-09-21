@@ -28,6 +28,12 @@ export interface Setting {
     longBreakDuration: number;
     monitorInterval: number;
     screenShotInterval?: number;
+    /**
+     * When on, starting a focus session without a focusing project (or with an
+     * empty "In Progress" list) asks for a confirmation first. Turned off from
+     * the "Don't remind me again" check box or in the settings.
+     */
+    warnBeforeFocusStart: boolean;
     startOnBoot: boolean;
     useHardwareAcceleration: boolean;
     distractingList: DistractingRow[];
@@ -87,6 +93,7 @@ export const defaultState: TimerState = {
 
     monitorInterval: 1000,
     screenShotInterval: undefined,
+    warnBeforeFocusStart: true,
     calendarBaseColor: '#aceebb',
     themeId: DEFAULT_THEME_ID,
     followSystemTheme: false,
@@ -100,6 +107,7 @@ export const uiStateNames = [
     'longBreakDuration',
     'monitorInterval',
     'screenShotInterval',
+    'warnBeforeFocusStart',
     'chosenRecord',
     'targetTime',
     'leftTime',
@@ -171,6 +179,10 @@ export const setScreenShotInterval = createActionCreator(
     '[Timer]SET_SCREEN_SHOT_INTERVAL',
     (resolve) => (interval?: number) => resolve(interval)
 );
+export const setWarnBeforeFocusStart = createActionCreator(
+    '[Timer]SET_WARN_BEFORE_FOCUS_START',
+    (resolve) => (warn: boolean) => resolve(warn)
+);
 export const setCalendarBaseColor = createActionCreator(
     '[Timer]SET_CALENDAR_BASE_COLOR',
     (resolve) => (color: string) => resolve(color)
@@ -227,6 +239,7 @@ export const actions = {
             ['restDuration', setRestDuration],
             ['monitorInterval', setMonitorInterval],
             ['screenShotInterval', setScreenShotInterval],
+            ['warnBeforeFocusStart', setWarnBeforeFocusStart],
             ['startOnBoot', setStartOnBoot],
             ['useHardwareAcceleration', setUseHardwareAcceleration],
             ['longBreakDuration', setLongBreakDuration],
@@ -326,6 +339,15 @@ export const actions = {
         dbs.settingDB.update(
             { name: 'setting' },
             { $set: { screenShotInterval } },
+            { upsert: true },
+            throwError
+        );
+    },
+    setWarnBeforeFocusStart: (warnBeforeFocusStart: boolean) => async (dispatch: Dispatch) => {
+        dispatch(setWarnBeforeFocusStart(warnBeforeFocusStart));
+        dbs.settingDB.update(
+            { name: 'setting' },
+            { $set: { warnBeforeFocusStart } },
             { upsert: true },
             throwError
         );
@@ -510,6 +532,10 @@ export const reducer = createReducer<TimerState, any>(defaultState, (handle) => 
     handle(setStartOnBoot, (state, { payload }) => ({
         ...state,
         startOnBoot: payload,
+    })),
+    handle(setWarnBeforeFocusStart, (state, { payload }) => ({
+        ...state,
+        warnBeforeFocusStart: payload,
     })),
     handle(setUseHardwareAcceleration, (state, { payload }) => ({
         ...state,

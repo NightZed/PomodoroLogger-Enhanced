@@ -26,6 +26,12 @@ export const NO_FOCUS_CARDS_WARNING: { title: string; content: string } = {
 };
 
 /**
+ * Opt-out check box rendered inside the warning dialog. Ticking it turns off
+ * `Setting.warnBeforeFocusStart`, which can be turned back on in the settings.
+ */
+export const DONT_REMIND_AGAIN_LABEL = "Don't remind me again";
+
+/**
  * Decide whether starting a fresh focus session needs an explicit
  * confirmation from the user. Returns the warning to show, or `undefined`
  * when the session can start silently.
@@ -58,4 +64,23 @@ export function getFocusStartWarning(
     }
 
     return undefined;
+}
+
+/**
+ * Same as {@link getFocusStartWarning}, but honours `Setting.warnBeforeFocusStart`:
+ * when the user ticked "Don't remind me again" (or turned the switch off in the
+ * settings) no warning is produced at all.
+ */
+export function getFocusStartWarningIfEnabled(
+    enabled: boolean,
+    boardId: string | undefined,
+    boards: { [boardId: string]: KanbanBoard },
+    lists: { [listId: string]: List },
+    cards: { [cardId: string]: Card }
+): FocusStartWarning | undefined {
+    if (!enabled) {
+        return undefined;
+    }
+
+    return getFocusStartWarning(boardId, boards, lists, cards);
 }

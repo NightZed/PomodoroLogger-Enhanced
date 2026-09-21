@@ -8,12 +8,17 @@ import {
     setRestDuration,
     setScreenShotInterval,
     setStartOnBoot,
+    setWarnBeforeFocusStart,
     startTimer,
     stopTimer,
     timerFinished,
     TimerState,
 } from './action';
-import { getFocusStartWarning } from './focusStartWarning';
+import {
+    DONT_REMIND_AGAIN_LABEL,
+    getFocusStartWarning,
+    getFocusStartWarningIfEnabled,
+} from './focusStartWarning';
 import { generateRandomName } from '../../utils';
 import { workers } from '../../workers';
 import { getAllSession } from '../../monitor/sessionManager';
@@ -50,6 +55,13 @@ describe('Reducer', () => {
         expect(state.focusDuration).toBe(100);
         state = reducer(state, setRestDuration(123));
         expect(state.restDuration).toBe(123);
+    });
+
+    it('reminds before a focus session by default and can be turned off', () => {
+        const state = reducer(undefined, stopTimer());
+        expect(state.warnBeforeFocusStart).toBe(true);
+        expect(reducer(state, setWarnBeforeFocusStart(false)).warnBeforeFocusStart).toBe(false);
+        expect(reducer(state, setWarnBeforeFocusStart(true)).warnBeforeFocusStart).toBe(true);
     });
 
     it('records break count', async () => {
@@ -95,6 +107,8 @@ describe('Reducer', () => {
         expect(state.longBreakDuration).toBe(99991);
         await actions.setScreenShotInterval(91111)(dispatch);
         expect(state.screenShotInterval).toBe(91111);
+        await actions.setWarnBeforeFocusStart(false)(dispatch);
+        expect(state.warnBeforeFocusStart).toBeFalsy();
         await dispatch(actions.startTimer());
         expect(state.targetTime).not.toBeUndefined();
         expect(state.isRunning).toBeTruthy();
@@ -120,6 +134,7 @@ describe('Reducer', () => {
             'screenShotInterval',
             'startOnBoot',
             'longBreakDuration',
+            'warnBeforeFocusStart',
         ];
         for (const setting of settings) {
             // @ts-ignore
@@ -359,5 +374,21 @@ describe('getFocusStartWarning', () => {
                 }
             )
         ).toBeUndefined();
+    });
+});
+
+describe('getFocusStartWarningIfEnabled', () => {
+    it('warns when reminders are on', () => {
+        expect(getFocusStartWarningIfEnabled(true, undefined, {}, {}, {})).toMatchObject({
+            kind: 'no-project',
+        });
+    });
+
+    it('stays silent when reminders were turned off', () => {
+        expect(getFocusStartWarningIfEnabled(false, undefined, {}, {}, {})).toBeUndefined();
+    });
+
+    it('offers an opt-out check box label', () => {
+        expect(DONT_REMIND_AGAIN_LABEL).toMatch(/don't remind/i);
     });
 });

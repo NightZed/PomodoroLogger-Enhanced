@@ -139,6 +139,7 @@ const settingUiStates = [
     'longBreakDuration',
     'monitorInterval',
     'screenShotInterval',
+    'warnBeforeFocusStart',
     'useHardwareAcceleration',
     'startOnBoot',
     'distractingList',
@@ -242,6 +243,10 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
 
         const setCalendarColor = useCallback((v: string) => {
             props.setCalendarBaseColor(v);
+        }, []);
+
+        const onToggleFocusStartWarning = useCallback((v: boolean) => {
+            props.setWarnBeforeFocusStart(v);
         }, []);
 
         const resetCalendarColor = useCallback(() => {
@@ -387,6 +392,14 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 <Switch
                     onChange={switchScreenshot}
                     checked={!!props.screenShotInterval}
+                    style={{ margin: 8 }}
+                />
+                <br />
+
+                <SettingLabel>Focus Start Warning</SettingLabel>
+                <Switch
+                    onChange={onToggleFocusStartWarning}
+                    checked={props.warnBeforeFocusStart}
                     style={{ margin: 8 }}
                 />
                 <br />

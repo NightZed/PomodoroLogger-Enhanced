@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import { getElementAbsoluteOffsetBySelector } from './utils';
 import { Position } from './type';
-import { Button, Divider } from 'antd';
+import { Button, Checkbox, Divider } from 'antd';
 
 const Container = styled.div`
     z-index: 2001;
@@ -41,6 +41,10 @@ const ButtonRow = styled.div`
     justify-content: flex-end;
 `;
 
+const CheckboxRow = styled.div`
+    margin-top: 8px;
+`;
+
 export interface DialogProps {
     text?: string;
     title?: string;
@@ -50,6 +54,10 @@ export interface DialogProps {
     hasConfirm?: boolean;
     confirmText?: string;
     cancelText?: string;
+    /** When given, an opt-out check box is rendered above the buttons. */
+    checkboxLabel?: string;
+    checkboxChecked?: boolean;
+    onCheckboxChange?: (checked: boolean) => void;
     onConfirm?: () => void;
     onCancel?: () => void;
 }
@@ -64,9 +72,17 @@ export const Dialog: React.FC<DialogProps> = (props: DialogProps) => {
         hasConfirm = true,
         confirmText = 'OK',
         cancelText,
+        checkboxLabel,
+        checkboxChecked = false,
+        onCheckboxChange,
         onConfirm,
         onCancel,
     } = props;
+    const onCheckboxToggle = (e: { target: { checked: boolean } }) => {
+        if (onCheckboxChange) {
+            onCheckboxChange(e.target.checked);
+        }
+    };
     useEffect(() => {
         if (targetSelector == null) {
             return;
@@ -86,6 +102,13 @@ export const Dialog: React.FC<DialogProps> = (props: DialogProps) => {
             <Card>
                 {title ? <Title>{title}</Title> : undefined}
                 <p style={{ margin: 0 }}>{text}</p>
+                {checkboxLabel ? (
+                    <CheckboxRow>
+                        <Checkbox checked={checkboxChecked} onChange={onCheckboxToggle}>
+                            {checkboxLabel}
+                        </Checkbox>
+                    </CheckboxRow>
+                ) : undefined}
                 {hasConfirm ? (
                     <>
                         <Divider style={{ margin: '6px 0' }} />

@@ -26,7 +26,11 @@ import { PomodoroDualPieChart } from '../Visualization/DualPieChart';
 import { AsyncWordCloud } from '../Visualization/WordCloud';
 import { LONG_BREAK_INTERVAL, TimerActionTypes as ThisActionTypes, uiStateNames } from './action';
 import { FocusSelector } from './FocusSelector';
-import { getFocusStartWarning, FocusStartWarning } from './focusStartWarning';
+import {
+    DONT_REMIND_AGAIN_LABEL,
+    FocusStartWarning,
+    getFocusStartWarningIfEnabled,
+} from './focusStartWarning';
 import { setTrayImageWithMadeIcon } from './iconMaker';
 import { PomodoroNumView } from './PomodoroNumView';
 import Progress from './Progress';
@@ -188,6 +192,8 @@ interface State {
     showMask: boolean;
     pomodoroNum: number;
     focusStartWarning?: FocusStartWarning;
+    /** Reflects the "Don't remind me again" check box of the warning dialog. */
+    focusStartWarningDontRemind: boolean;
 }
 
 class Timer extends Component<Props, State> {
@@ -212,6 +218,7 @@ class Timer extends Component<Props, State> {
             showMask: false,
             pomodoroNum: 0,
             showSider: true,
+            focusStartWarningDontRemind: false,
         };
         this.mainDiv = React.createRef<HTMLDivElement>();
         this.sound = React.createRef<HTMLAudioElement>();
@@ -463,7 +470,9 @@ class Timer extends Component<Props, State> {
         }
 
         if (!acknowledged) {
-            const warning = getFocusStartWarning(
+            // Warn only while the user still wants to be reminded.
+            const warning = getFocusStartWarningIfEnabled(
+                this.props.timer.warnBeforeFocusStart,
                 this.props.timer.boardId,
                 this.props.kanban.boards,
                 this.props.kanban.lists,
@@ -472,12 +481,12 @@ class Timer extends Component<Props, State> {
             if (warning) {
                 // Reuse the guide dialog style: it stays on screen until the
                 // user picks OK (start anyway) or Cancel (stay put).
-                this.setState({ focusStartWarning: warning });
+                this.setState({ focusStartWarning: warning, focusStartWarningDontRemind: false });
                 return;
             }
         }
 
-        this.setState({ focusStartWarning: undefined });
+        this.setState({ focusStartWarning: undefined, focusStartWarningDontRemind: false });
         this.monitor = new Monitor(() => {}, 1000, this.props.timer.screenShotInterval);
         this.monitor.start();
 
@@ -486,11 +495,27 @@ class Timer extends Component<Props, State> {
     };
 
     private confirmFocusStart = () => {
+        this.applyDontRemindSetting();
         this.startFocusingSession(true);
     };
 
     private cancelFocusStart = () => {
-        this.setState({ focusStartWarning: undefined });
+        this.applyDontRemindSetting();
+        this.setState({ focusStartWarning: undefined, focusStartWarningDontRemind: false });
+    };
+
+    private onToggleDontRemind = (checked: boolean) => {
+        this.setState({ focusStartWarningDontRemind: checked });
+    };
+
+    /**
+     * Persist the "Don't remind me again" check box. It is honoured both when
+     * the user starts the session anyway and when the start is cancelled.
+     */
+    private applyDontRemindSetting = () => {
+        if (this.state.focusStartWarningDontRemind && this.props.timer.warnBeforeFocusStart) {
+            this.props.setWarnBeforeFocusStart(false);
+        }
     };
 
     private getDuration = (isFocusing?: boolean) => {
@@ -796,7 +821,15 @@ class Timer extends Component<Props, State> {
     };
 
     render() {
-        const { leftTime, percent, more, pomodorosToday, showMask, focusStartWarning } = this.state;
+        const {
+            leftTime,
+            percent,
+            more,
+            pomodorosToday,
+            showMask,
+            focusStartWarning,
+            focusStartWarningDontRemind,
+        } = this.state;
         const { isRunning, targetTime, minimize, isFocusing } = this.props.timer;
         const shownLeftTime =
             (isRunning || targetTime) && leftTime.length ? leftTime : this.defaultLeftTime();
@@ -906,6 +939,9 @@ class Timer extends Component<Props, State> {
                                 centered={true}
                                 title={focusStartWarning.title}
                                 text={focusStartWarning.content}
+                                checkboxLabel={DONT_REMIND_AGAIN_LABEL}
+                                checkboxChecked={focusStartWarningDontRemind}
+                                onCheckboxChange={this.onToggleDontRemind}
                                 confirmText="OK"
                                 cancelText="Cancel"
                                 onConfirm={this.confirmFocusStart}

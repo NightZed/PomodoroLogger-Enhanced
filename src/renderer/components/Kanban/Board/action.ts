@@ -6,7 +6,8 @@ import { actions as kanbanActions } from '../action';
 import { actions as historyActions } from '../../History/action';
 import shortid from 'shortid';
 import { lang } from '../../../../lang/en';
-import { DistractingRow } from '../../Timer/action';
+import { actions as timerActions, DistractingRow } from '../../Timer/action';
+import { RootState } from '../../../reducers';
 import { workers } from '../../../workers';
 import { PomodoroRecord } from '../../../monitor/type';
 import { AggInfo, Card, KanbanBoard, List, MoveInfo } from '../type';
@@ -418,8 +419,16 @@ export const actions = {
         dispatch(addList(_id, listId));
         await db.update({ _id }, { $push: { lists: listId } });
     },
-    deleteBoard: (_id: string) => async (dispatch: Dispatch) => {
+    deleteBoard: (_id: string) => async (dispatch: Dispatch, getState?: () => RootState) => {
         dispatch(deleteBoard(_id));
+        // `timer.boardId` (the focusing project on the Timer page) may
+        // point at the board being deleted. Leaving it dangling makes the
+        // Timer's sider keep rendering the lists/cards of a nonexistent
+        // board, which crashes the renderer as soon as the board state is
+        // removed. Clear the selection in the same update batch.
+        if (getState !== undefined && getState().timer.boardId === _id) {
+            dispatch(timerActions.setBoardId(undefined));
+        }
         await kanbanActions.setChosenBoardId(undefined)(dispatch);
         await db.remove({ _id });
     },

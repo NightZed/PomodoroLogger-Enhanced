@@ -25,9 +25,17 @@ const getCardsGetter = (state: RootState): CardGetter => {
             return Object.values(state.kanban.cards);
         }
 
+        // The board (or one of its lists) can be deleted while the History
+        // filter still points at it; fall back to no cards instead of
+        // crashing on the missing entries.
+        const board = state.kanban.boards[boardId];
+        if (board === undefined) {
+            return [];
+        }
+
         const cardIds: string[] = [];
-        for (const listId of state.kanban.boards[boardId].lists) {
-            cardIds.push(...state.kanban.lists[listId].cards);
+        for (const listId of board.lists) {
+            cardIds.push(...(state.kanban.lists[listId]?.cards ?? []));
         }
 
         return cardIds.map((id) => state.kanban.cards[id]);

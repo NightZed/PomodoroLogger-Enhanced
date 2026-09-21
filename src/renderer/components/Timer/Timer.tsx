@@ -353,6 +353,19 @@ class Timer extends Component<Props, State> {
         ]);
     }
 
+    componentDidUpdate(): void {
+        // The focusing project (`timer.boardId`) can be deleted on the kanban
+        // page while it is still selected here. Deleting a board only removes
+        // it from `kanban.boards`, so the selection would keep pointing at a
+        // board that no longer exists (a dangling entry in `FocusSelector` and
+        // a focus target that can never be resolved). Clear it as soon as the
+        // referenced board disappears.
+        const { boardId } = this.props.timer;
+        if (boardId !== undefined && this.props.kanban.boards[boardId] === undefined) {
+            this.props.setBoardId(undefined);
+        }
+    }
+
     componentWillUnmount(): void {
         this.componentGone = true;
         if (this.monitor) {

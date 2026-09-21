@@ -74,6 +74,16 @@ export const Board: FC<Props> = React.memo(
             await props.addList(props._id, 'TestList');
         };
 
+        // `mapStateToProps` spreads `state.kanban.boards[props.boardId]`,
+        // which becomes `undefined` as soon as the board is deleted (e.g. from
+        // the board editor while the Timer page still shows this board in its
+        // sider). Rendering the children with such props would feed
+        // `undefined` list/card ids into `List` and crash the renderer, so
+        // bail out until the parent stops rendering this (deleted) board.
+        if (!props._id) {
+            return null;
+        }
+
         const { doesOnlyShowFocusedList = false } = props;
         let lists;
         if (doesOnlyShowFocusedList) {

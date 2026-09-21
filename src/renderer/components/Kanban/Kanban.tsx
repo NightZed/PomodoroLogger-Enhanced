@@ -258,18 +258,18 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                     <Hotkeys keyName={'ctrl+n'} onKeyDown={onKeyDown} />
                     {props.kanban.chosenBoardId ? (
                         <>
-                            <Title>{props.boards[props.kanban.chosenBoardId].name}</Title>
+                            <Title>{props.boards[props.kanban.chosenBoardId]?.name}</Title>
                             <Button
                                 style={{ paddingLeft: 10, paddingRight: 10, marginLeft: 10 }}
                                 onClick={goBack}
                             >
                                 <Icon component={backIcon} />
                             </Button>
-                            {props.boards[props.kanban.chosenBoardId].createdTime !== undefined ? (
+                            {props.boards[props.kanban.chosenBoardId]?.createdTime !== undefined ? (
                                 <CreatedTime>
                                     Created:{' '}
                                     {formatTimeYmdHm(
-                                        props.boards[props.kanban.chosenBoardId].createdTime!
+                                        props.boards[props.kanban.chosenBoardId]!.createdTime!
                                     )}
                                 </CreatedTime>
                             ) : undefined}

@@ -210,6 +210,10 @@ export const List: FC<Props> = React.memo((props: Props) => {
         const visibleCards_ = cards.filter((id) => {
             if (!reg) return true;
             const card = cardsState[id];
+            // The card may already be gone while this list is still mounted
+            // (e.g. its whole board was just deleted); hide it instead of
+            // crashing on `.title`.
+            if (card === undefined) return false;
             return (
                 card.title.match(reg) ||
                 card.content.match(reg) ||
@@ -228,9 +232,14 @@ export const List: FC<Props> = React.memo((props: Props) => {
         () =>
             filteredCards.reduce(
                 (l: [number, number], r: string) => {
+                    const card = props.cardsState[r];
+                    // The card may already be gone while this list is still
+                    // mounted (e.g. its whole board was just deleted); skip it
+                    // instead of crashing on `.spentTimeInHour`.
+                    if (card === undefined) return l;
                     return [
-                        l[0] + props.cardsState[r].spentTimeInHour.estimated,
-                        l[1] + props.cardsState[r].spentTimeInHour.actual,
+                        l[0] + card.spentTimeInHour.estimated,
+                        l[1] + card.spentTimeInHour.actual,
                     ] as [number, number];
                 },
                 [0, 0] as [number, number]
@@ -239,6 +248,9 @@ export const List: FC<Props> = React.memo((props: Props) => {
     );
     const overallTimeInfo =
         estimatedTimeSum > 0 ? `${actualTimeSum.toFixed(1)}h/${estimatedTimeSum.toFixed(1)}h` : '';
+    // `cards` comes from the store and can be `undefined` while the parent is
+    // re-rendering a board/list that has just been deleted.
+    const cardCount = props.cards?.length ?? 0;
     const [isEditing, setIsEditing] = useState(false);
     const [value, setValue] = useState('');
     const inputRef = useRef<Input>();
@@ -339,12 +351,12 @@ export const List: FC<Props> = React.memo((props: Props) => {
                                         <span>
                                             {searchReg == null ? (
                                                 <>
-                                                    {props.cards.length} Card
-                                                    {props.cards.length > 1 ? 's ' : ' '}
+                                                    {cardCount} Card
+                                                    {cardCount > 1 ? 's ' : ' '}
                                                 </>
                                             ) : (
                                                 <>
-                                                    {filteredCards.length} / {props.cards.length}
+                                                    {filteredCards.length} / {cardCount}
                                                 </>
                                             )}
                                             &nbsp; {overallTimeInfo}

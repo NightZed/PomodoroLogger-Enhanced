@@ -1,7 +1,9 @@
 import {
     actions,
     defaultState,
+    inferProject,
     reducer,
+    resolveSessionProjectId,
     setBoardId,
     setFocusDuration,
     setLongBreakDuration,
@@ -179,24 +181,18 @@ describe('On timerFinished', () => {
     });
 });
 
-describe('On inferProject', () => {
-    const makeDispatchRecorder = () => {
-        const dispatched: any[] = [];
-        const dispatch = ((action: any) => {
-            dispatched.push(action);
-        }) as Dispatch;
-        return { dispatch, dispatched };
-    };
-
-    const stubPredict = (result: string) => {
+describe('inferProject', () => {
+    const stubPredict = (impl: () => Promise<any>) => {
         const original = workers.knn.predict;
         // @ts-ignore
-        workers.knn.predict = async () => result;
+        workers.knn.predict = impl;
         return () => {
             // @ts-ignore
             workers.knn.predict = original;
         };
     };
+
+    const stubPrediction = (result: string) => stubPredict(async () => result);
 
     const record: PomodoroRecord = {
         _id: 'infer-project-record',
@@ -208,51 +204,85 @@ describe('On inferProject', () => {
         switchTimes: 0,
     };
 
-    it('stores the predicted board _id, not its name', async () => {
+    it('returns the predicted board _id, not its name', async () => {
         const boardId = generateRandomName();
         const boardName = `Predicted Project ${generateRandomName()}`;
         await workers.dbWorkers.kanbanDB.insert({ _id: boardId, name: boardName });
 
-        const restore = stubPredict(boardId);
-        const { dispatch, dispatched } = makeDispatchRecorder();
+        const restore = stubPrediction(boardId);
+        let predicted: string | undefined;
         try {
-            await actions.inferProject(record)(dispatch);
+            predicted = await inferProject(record);
         } finally {
             restore();
         }
 
-        expect(dispatched).toHaveLength(1);
-        const expected = setBoardId(boardId);
-        expect(dispatched[0].type).toBe(expected.type);
-        expect(dispatched[0].payload.boardId).toBe(boardId);
+        expect(predicted).toBe(boardId);
         // Regression: the board NAME used to leak into `timer.boardId`, which
         // made `kanban.boards[boardId]` undefined and crashed `Timer`'s render
         // with "Cannot read properties of undefined (reading 'focusedList')".
-        expect(dispatched[0].payload.boardId).not.toBe(boardName);
+        // The prediction is written into the session record, so it must be the
+        // `_id` the project pies resolve through the kanban DB.
+        expect(predicted).not.toBe(boardName);
     });
 
-    it('does not switch when the predicted board no longer exists', async () => {
-        const restore = stubPredict(`missing-board-${generateRandomName()}`);
-        const { dispatch, dispatched } = makeDispatchRecorder();
+    it('ignores a prediction whose board no longer exists', async () => {
+        const restore = stubPrediction(`missing-board-${generateRandomName()}`);
         try {
-            await actions.inferProject(record)(dispatch);
+            expect(await inferProject(record)).toBeUndefined();
         } finally {
             restore();
         }
-
-        expect(dispatched).toHaveLength(0);
     });
 
-    it('does not switch on an empty prediction', async () => {
-        const restore = stubPredict('');
-        const { dispatch, dispatched } = makeDispatchRecorder();
+    it('ignores an empty prediction', async () => {
+        const restore = stubPrediction('');
         try {
-            await actions.inferProject(record)(dispatch);
+            expect(await inferProject(record)).toBeUndefined();
         } finally {
             restore();
         }
+    });
 
-        expect(dispatched).toHaveLength(0);
+    it('resolves to undefined when the model cannot predict yet', async () => {
+        // A freshly installed app has no model to predict with; the error is
+        // reported but must not break the caller of the prediction.
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        const restore = stubPredict(async () => {
+            throw new Error('Must fit before predicting');
+        });
+        try {
+            expect(await inferProject(record)).toBeUndefined();
+        } finally {
+            restore();
+            errorSpy.mockRestore();
+        }
+    });
+
+    it('is not dispatchable, so a guess can never move the focusing selection', () => {
+        // It used to be an action creator dispatching `setBoardId`, which raced
+        // with the ending mask: the finished session was credited to the guess
+        // or to "Unknown" depending on the timing, and the guess silently stayed
+        // selected for every later session. Callers now await the result and
+        // write it into the session record instead.
+        expect((actions as any).inferProject).toBeUndefined();
+    });
+});
+
+describe('resolveSessionProjectId', () => {
+    it('keeps the project the session was confirmed with', () => {
+        // The prediction may arrive before or after the user picks a project;
+        // it must never override the explicit choice.
+        expect(resolveSessionProjectId('picked', 'predicted')).toBe('picked');
+        expect(resolveSessionProjectId('picked', undefined)).toBe('picked');
+    });
+
+    it('falls back to the predicted project when nothing was selected', () => {
+        expect(resolveSessionProjectId(undefined, 'predicted')).toBe('predicted');
+    });
+
+    it('leaves the session unattributed without a selection or a prediction', () => {
+        expect(resolveSessionProjectId(undefined, undefined)).toBeUndefined();
     });
 });
 

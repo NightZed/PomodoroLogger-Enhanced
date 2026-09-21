@@ -63,6 +63,12 @@ export interface InputProps {
     onStart: () => void;
     pomodoros: PomodoroRecord[];
     newPomodoro?: PomodoroRecord;
+    /**
+     * Project predicted for `newPomodoro`. Shown while no project is selected,
+     * because that is the project the record is going to be credited to unless
+     * the user picks another one here.
+     */
+    stagedProjectId?: string;
     extendCurrentSession: (timeInMinutes: number) => void;
 }
 
@@ -76,6 +82,10 @@ export interface MaskProps extends InputProps {
 
 const _TimerMask = (props: MaskProps) => {
     const { boards = [], setBoard = () => {} } = props;
+    // An explicit choice (timer page or the popover below) wins. Otherwise the
+    // session is going to be credited to the predicted project, so showing it
+    // here lets the user notice a wrong guess before confirming.
+    const shownProjectId = props.boardId !== undefined ? props.boardId : props.stagedProjectId;
     // Pass board objects (not their names) so the click handler can dispatch
     // the board `_id`. `timer.boardId` must always be a `_id` — `Timer` looks
     // it up in `kanban.boards` when rendering.
@@ -131,9 +141,9 @@ const _TimerMask = (props: MaskProps) => {
                     {props.isFocusing ? (
                         <Popover title="Project Name" content={content}>
                             <ProjectName>
-                                {props.boardId === undefined
+                                {shownProjectId === undefined
                                     ? undefined
-                                    : props.boards[props.boardId]?.name}
+                                    : props.boards[shownProjectId]?.name}
                             </ProjectName>
                         </Popover>
                     ) : (

@@ -209,6 +209,56 @@ export const switchTab = createActionCreator(
     (resolve) => (direction: 1 | -1) => resolve(direction)
 );
 
+/**
+ * Predict the project a finished session belongs to, so a session the user did
+ * not attribute explicitly still lands on the right project in the statistics
+ * (project pies, board hours, cards).
+ *
+ * Deliberately NOT an action creator: the prediction is a property of the
+ * session record, not of the UI. Dispatching `setBoardId` here used to move the
+ * user's focusing selection, which raced with the ending mask: whether the
+ * session was credited to the predicted project or to "Unknown" depended on
+ * whether the worker answered before the user confirmed the mask, and the guess
+ * silently stayed selected for every later session.
+ *
+ * Returns the predicted board `_id`, or `undefined` when there is no usable
+ * prediction. Never rejects, so callers can await it unconditionally.
+ */
+export async function inferProject(sessionData: PomodoroRecord): Promise<string | undefined> {
+    // Predict session's project
+    const newProjectId = (await workers.knn.predict(sessionData).catch((err) => {
+        console.error('predicting error', err);
+        return undefined;
+    })) as string | undefined;
+
+    if (newProjectId === undefined) {
+        return undefined;
+    }
+
+    // The prediction label is the board `_id` of the closest historical
+    // session, and records must refer to a real board `_id` (`Timer` renders
+    // `kanban.boards[boardId]` directly, and the pies resolve ids through the
+    // kanban DB). Only use the prediction while that board still exists; this
+    // also filters out degenerate predictions such as an empty string.
+    const board = await workers.dbWorkers.kanbanDB
+        .findOne({ _id: newProjectId })
+        .catch(() => undefined);
+    return board ? newProjectId : undefined;
+}
+
+/**
+ * Which project a finished session is credited to. An explicit choice (the
+ * focusing project of the timer page, or the one picked on the ending mask)
+ * always wins over the prediction, so a guess can never override the user, no
+ * matter whether the prediction arrived before or after that choice.
+ */
+export function resolveSessionProjectId(
+    confirmedBoardId?: string,
+    inferredProjectId?: string
+): string | undefined {
+    return confirmedBoardId !== undefined ? confirmedBoardId : inferredProjectId;
+}
+
 const throwError = (err: Error | null) => {
     if (err) {
         throw err;
@@ -405,29 +455,6 @@ export const actions = {
                 }
             }
         },
-    /* istanbul ignore next */
-    inferProject: (sessionData: PomodoroRecord) => async (dispatch: Dispatch) => {
-        // Predict session's project
-        const newProjectId = (await workers.knn.predict(sessionData).catch((err) => {
-            console.error('predicting error', err);
-            return undefined;
-        })) as string | undefined;
-
-        // `timer.boardId` must always be a real board `_id`: `Timer` renders
-        // `kanban.boards[boardId]` directly, so storing anything else (e.g.
-        // the board name) makes that lookup `undefined` and crashes the app.
-        // The prediction label is the board `_id` of the closest historical
-        // session; only switch to it when that board still exists. This also
-        // filters out degenerate predictions such as an empty string.
-        if (newProjectId !== undefined) {
-            const board = await workers.dbWorkers.kanbanDB
-                .findOne({ _id: newProjectId })
-                .catch(() => undefined);
-            if (board) {
-                dispatch(setBoardId(newProjectId));
-            }
-        }
-    },
     switchToKanban: (kanbanId: string) => (dispatch: Dispatch) => {
         dispatch(actions.changeAppTab('kanban'));
         kanbanActions.setChosenBoardId(kanbanId)(dispatch);

@@ -110,9 +110,11 @@ interface Props extends CardType, InputProps, CardActionTypes, KanbanActionTypes
 }
 
 export const Card: FC<Props> = React.memo((props: Props) => {
-    const [tagManager] = useSelector((rootState: RootState) => [
-        rootState.kanban.kanban.tagManager,
-    ]);
+    // Never wrap selector results in a freshly created array: `useSelector`
+    // compares the previous result with `===`, so a new array makes every
+    // store update re-render every mounted card (a huge CPU cost while a
+    // board with many cards is visible).
+    const tagManager = useSelector((rootState: RootState) => rootState.kanban.kanban.tagManager);
     const markdownRef = React.useRef<HTMLDivElement>(null);
     const { index, _id, isDraggingOver, listId } = props;
     const onClick = React.useCallback(
@@ -197,6 +199,26 @@ export const Card: FC<Props> = React.memo((props: Props) => {
         return newContent;
     }, [props.content, props.searchReg]);
 
+    // Parsing markdown on every render is expensive, and with a frequently
+    // updating store (e.g. the Timer's 500ms tick) every dispatch used to
+    // re-parse the markdown of every mounted card. Memoize the parse so it
+    // only re-runs when the (highlighted) content or the tag manager changes.
+    // Tag registration is idempotent (TagManager dedupes by board/list/card
+    // path), so registering once per content change is enough.
+    const renderedMarkdown = React.useMemo(
+        () =>
+            formatMarkdown(content, {
+                registerTag: (tag) => {
+                    tagManager.push(tag, {
+                        boardId: props.boardId,
+                        listId: props.listId,
+                        cardId: props.cardId,
+                    });
+                },
+            }),
+        [content, tagManager, props.boardId, props.listId, props.cardId]
+    );
+
     return (
         <>
             <Draggable draggableId={_id} index={index}>
@@ -273,17 +295,7 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                                         />
                                         {renderLabels(props.labels)}
                                         <Markdown
-                                            dangerouslySetInnerHTML={{
-                                                __html: formatMarkdown(content, {
-                                                    registerTag: (tag) => {
-                                                        tagManager.push(tag, {
-                                                            boardId: props.boardId,
-                                                            listId: props.listId,
-                                                            cardId: props.cardId,
-                                                        });
-                                                    },
-                                                }),
-                                            }}
+                                            dangerouslySetInnerHTML={{ __html: renderedMarkdown }}
                                             style={{ maxHeight: 250 }}
                                             ref={markdownRef}
                                         />

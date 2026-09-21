@@ -194,6 +194,12 @@ export const List: FC<Props> = React.memo((props: Props) => {
         hideScrollBar();
         return () => {
             cardListRef.current?.removeEventListener('scroll', onScroll);
+            // Pending debounced/throttled callbacks would still call
+            // `setShowScrollBar` after unmount ("state update on an unmounted
+            // component" warning + a leaked timer per mount/unmount cycle),
+            // so cancel them explicitly here.
+            hideScrollBar.cancel();
+            onScroll.cancel();
         };
     }, []);
 

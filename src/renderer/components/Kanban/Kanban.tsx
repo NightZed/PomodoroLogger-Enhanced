@@ -111,7 +111,11 @@ export const Kanban: FunctionComponent<Props> = React.memo(
         const onShowTableChange = (value: boolean) => {
             setShowTable(value);
         };
-        const search = debounce(props.setSearchReg, 200);
+        // Recreating the debounced function on every render leaves a pending
+        // timer behind each time and never cancels the previous one; keep a
+        // single instance and cancel it on unmount instead.
+        const search = React.useMemo(() => debounce(props.setSearchReg, 200), []);
+        useEffect(() => () => search.cancel(), []);
         const valueHandler: (values: FormValue) => void = ({ name, description }: FormValue) => {
             if (editingBoardId === undefined) {
                 props.addBoard(shortid.generate(), name, description);

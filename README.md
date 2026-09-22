@@ -83,7 +83,7 @@ A work cycle = **focus + rest**: 25 minutes of focus and a 5-minute short break 
 
 <a id="kanban-board"></a>
 
--   **Night Mode**：switch between day and night modes.
+-   **Night Mode**：switch between day and night mode.
 
 <p align="center">
   <img height="400" src="./screenshots/promotional-image.png" alt="Night Mode"/>
@@ -210,7 +210,7 @@ These raw records are aggregated into the time proportion pie chart and word clo
 
 -   **Switch pages**: `Ctrl+Tab` / `Ctrl+Shift+Tab`.
 -   **Search cards**: `Ctrl+F` (Kanban page).
--   **Quick Save**：`Ctrl+Enter`（Card edit）。
+-   **Quick Save**：`Ctrl+Enter`(Card edit).
 -   **Quit**: `Ctrl+Q`.
 -   **Mini mode**: `F12`.
 -   **Small mode**：`F11`.

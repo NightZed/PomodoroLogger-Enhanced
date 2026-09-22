@@ -1029,7 +1029,7 @@ class Timer extends Component<Props, State> {
                     ))}
                 <TimerLayout compact={compact} ref={this.mainDiv}>
                     <Tooltip
-                        title={compact ? 'Normal-screen(F11)' : 'Small-screen(F11)'}
+                        title={compact ? 'Normal-screen (F11)' : 'Small-screen (F11)'}
                         placement="bottom"
                     >
                         <Button

@@ -229,7 +229,13 @@ interface State {
 class Timer extends Component<Props, State> {
     interval?: any;
     monitor?: Monitor;
-    willStartNextSessionImmediately = false;
+    /**
+     * What to start automatically once the ending mask is confirmed. The
+     * mask's own "Start" button queues the cycle's next session (`onStart`);
+     * the tray items and F5 queue the session they name instead. Always
+     * consumed (and cleared) by `onSessionConfirmed` once the record is in.
+     */
+    private nextSessionStarter?: () => void;
     mainDiv: React.RefObject<HTMLDivElement>;
     sound: React.RefObject<HTMLAudioElement>;
     extendedTimeInMinute: number;
@@ -332,6 +338,16 @@ class Timer extends Component<Props, State> {
                 label: 'Start Focusing',
                 type: 'normal',
                 click: () => {
+                    // While the ending mask is up, first dismiss the mask and
+                    // then start exactly what this label names — not the
+                    // cycle's next session. Starting (or resuming the expired
+                    // timer) before the mask is confirmed would corrupt the
+                    // staged session; see `confirmMaskAndStart`.
+                    if (this.state.showMask) {
+                        this.confirmMaskAndStart(true);
+                        return;
+                    }
+
                     if (!this.props.timer.isFocusing) {
                         this.switchMode();
                     }
@@ -345,6 +361,16 @@ class Timer extends Component<Props, State> {
                 label: 'Start Break',
                 type: 'normal',
                 click: () => {
+                    // While the ending mask is up, first dismiss the mask and
+                    // then start exactly what this label names — not the
+                    // cycle's next session. Starting (or resuming the expired
+                    // timer) before the mask is confirmed would corrupt the
+                    // staged session; see `confirmMaskAndStart`.
+                    if (this.state.showMask) {
+                        this.confirmMaskAndStart(false);
+                        return;
+                    }
+
                     if (this.props.timer.isFocusing) {
                         this.switchMode();
                     }
@@ -575,7 +601,7 @@ class Timer extends Component<Props, State> {
             isFocusing = this.props.timer.isFocusing;
         }
 
-        const isLongBreak = this.props.timer.iBreak % 4 === 0;
+        const isLongBreak = this.props.timer.iBreak % LONG_BREAK_INTERVAL === 0;
         return isFocusing
             ? this.props.timer.focusDuration
             : isLongBreak
@@ -779,10 +805,11 @@ class Timer extends Component<Props, State> {
             this.projectInference = undefined;
         }
 
-        if (this.willStartNextSessionImmediately) {
-            this.willStartNextSessionImmediately = false;
+        const startNextSession = this.nextSessionStarter;
+        this.nextSessionStarter = undefined;
+        if (startNextSession !== undefined) {
             await new Promise((r) => setTimeout(r, 30));
-            this.onStart();
+            startNextSession();
         }
     }, 50);
 
@@ -829,8 +856,46 @@ class Timer extends Component<Props, State> {
 
     private onMaskButtonClick = async () => {
         this.setState({ showMask: false });
-        this.willStartNextSessionImmediately = true;
+        // The mask button starts the session it names: the cycle's next one.
+        this.nextSessionStarter = () => this.onStart();
         this.onSessionConfirmed(this.props.timer.boardId);
+    };
+
+    /**
+     * While the ending mask is up, the tray items and F5 must not reuse the
+     * mask button's auto-start: they name their own session (e.g. "Start
+     * Focusing" skips the pending break). So first dismiss the mask — which
+     * only confirms the staged session and flips the mode — and queue this
+     * item's start for the moment the confirmation clears the expired timer.
+     */
+    private confirmMaskAndStart = (wantsFocusing: boolean) => {
+        this.nextSessionStarter = () => this.startRequestedSession(wantsFocusing);
+        this.onMaskClick();
+    };
+
+    /**
+     * Start the named session from a just-confirmed ending mask. The
+     * confirmation guarantees a stopped timer and a clean `targetTime`, so
+     * this cannot resume the expired session (the ghost-session bug).
+     */
+    private startRequestedSession = async (wantsFocusing: boolean) => {
+        if (this.props.timer.isFocusing !== wantsFocusing) {
+            this.switchMode();
+            if (this.props.timer.isFocusing !== wantsFocusing) {
+                try {
+                    // `switchMode` dispatches asynchronously; wait for the
+                    // flip to become visible before reading it again.
+                    await waitUntil(() => this.props.timer.isFocusing === wantsFocusing);
+                } catch (err) {
+                    console.error('[Timer] mode switch timed out; not starting', err);
+                    return;
+                }
+            }
+        }
+
+        if (!this.props.timer.isRunning) {
+            this.onStopResumeOrStart();
+        }
     };
 
     private switchToKanban = () => {
@@ -892,6 +957,17 @@ class Timer extends Component<Props, State> {
     onKeyDown = (keyName: string) => {
         switch (keyName) {
             case 'f5':
+                // While the ending mask is up, F5 follows the mask button: it
+                // confirms the staged session and starts the next session of
+                // the cycle (the one the button names). The start is deferred
+                // until the confirmation has flipped the mode; starting
+                // earlier would resume the expired timer (ghost session,
+                // duplicate prompts).
+                if (this.state.showMask) {
+                    this.onMaskButtonClick();
+                    return;
+                }
+
                 if (this.props.timer.targetTime == null) {
                     return this.onStart();
                 }

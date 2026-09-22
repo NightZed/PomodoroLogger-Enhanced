@@ -201,7 +201,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
     const insertCheckbox = React.useCallback(() => {
         applyMarkdown((_selected, { current, start }) => {
             const atLineStart = start === 0 || current[start - 1] === '\n';
-            return { text: (atLineStart ? '' : '\n') + '[ ] ' };
+            return { text: (atLineStart ? '' : '\n') + '- [ ] ' };
         });
     }, [applyMarkdown]);
 
@@ -547,7 +547,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                     >
                         <TabPane tab="Edit" key="edit">
                             <div style={{ marginBottom: 4 }}>
-                                <Tooltip title={'Insert task checkbox [ ] (Ctrl+L)'}>
+                                <Tooltip title={'Insert task checkbox - [ ] (Ctrl+L)'}>
                                     <Button size={'small'} onClick={insertCheckbox}>
                                         ☐
                                     </Button>

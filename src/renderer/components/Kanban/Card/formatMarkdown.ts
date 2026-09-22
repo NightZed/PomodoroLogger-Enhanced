@@ -41,7 +41,28 @@ export const formatMarkdown = (markdown: string, context: MarkdownContext = defa
             }
             i += 1;
             return newString;
-        });
+        })
+        // GFM task list items (`- [ ] ...`) are rendered by marked itself as
+        // `<input ... disabled="" ... type="checkbox">`. The `disabled`
+        // attribute swallows click events (disabled elements never dispatch
+        // clicks), so those checkboxes could not be toggled from the card
+        // view while the plain `[ ]` boxes generated above stayed clickable.
+        // Re-mark them with the same clickable markup (keeping their checked
+        // state) so the card-level click handler can flip the source
+        // markdown for both styles.
+        .replace(
+            /<input([^>]*)type="checkbox"([^>]*)>/g,
+            (match, before: string, after: string) => {
+                const attrs = `${before}${after}`;
+                if (!attrs.includes('disabled')) {
+                    // already the clickable markup generated above
+                    return match;
+                }
+
+                const checked = /\bchecked\b/.test(attrs);
+                return `<input${checked ? ' checked' : ''} onclick="return false" type="checkbox">`;
+            }
+        );
 
     return parseTag(html, context);
 };

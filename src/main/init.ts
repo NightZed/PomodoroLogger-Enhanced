@@ -7,6 +7,7 @@ import {
     MenuItem,
     app,
     nativeTheme,
+    shell,
 } from 'electron';
 import * as path from 'path';
 import * as url from 'url';
@@ -147,14 +148,24 @@ const createWindow = async () => {
     const handleRedirect = (e: any, url: string) => {
         if (url !== win?.webContents.getURL()) {
             e.preventDefault();
-            require('electron').shell.openExternal(url);
+            shell.openExternal(url);
         }
     };
 
     win.webContents.on('will-navigate', handleRedirect);
-    win.webContents.on('new-window', handleRedirect);
+    // `new-window` was removed in Electron 22. Popups are denied and their
+    // target URL is handed over to the default browser instead.
+    win.webContents.setWindowOpenHandler((details) => {
+        if (details.url !== win?.webContents.getURL()) {
+            shell.openExternal(details.url);
+        }
 
-    win.on('close', (event: Event) => {
+        return { action: 'deny' };
+    });
+
+    // No `Event` annotation: since Electron 39 the handler receives Electron's
+    // own structural `Event` type, which is not the DOM `Event` from `lib.dom`.
+    win.on('close', (event) => {
         if (win) {
             win.hide();
             event.preventDefault();

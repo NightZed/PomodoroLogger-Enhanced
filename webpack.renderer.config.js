@@ -3,7 +3,6 @@ const merge = require('webpack-merge');
 const path = require('path');
 const CopyPlugin = require('copy-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 const { build } = require('./package');
 const baseConfig = require('./webpack.base.config');
 const fixNedbForElectronRenderer = {
@@ -136,9 +135,7 @@ module.exports = merge.smart(baseConfig, {
         ]
         },
     plugins: [
-        new ForkTsCheckerWebpackPlugin({
-            reportFiles: ['src/renderer/**/*']
-        }),
+        // Type checking is done by `yarn typecheck` (see webpack.main.config.js).
         new CopyPlugin([
             { from: path.resolve(__dirname, 'public'), to: path.resolve(__dirname, 'dist') },
         ]),

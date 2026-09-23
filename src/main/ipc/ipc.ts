@@ -1,5 +1,5 @@
-import { ipcMain, dialog, app, nativeImage, Notification } from 'electron';
-import { IpcEventName, WorkerMessageType } from './type';
+import { ipcMain, dialog, app, nativeImage, Notification, desktopCapturer, screen } from 'electron';
+import { DesktopSourceInfo, IpcEventName, WorkerMessageType } from './type';
 import { sendWorkerMessage } from '../worker/fork';
 import { promisify } from 'util';
 import { readFile, writeFile } from 'fs';
@@ -32,6 +32,36 @@ export function initialize() {
         win.show();
         win.focus();
     });
+    /**
+     * `desktopCapturer` and `screen` are main-process only since Electron 17,
+     * so the renderer asks here for the capture source of the display that
+     * currently hosts its window.
+     *
+     * Only the string fields are returned: `DesktopCapturerSource.thumbnail` is
+     * a `NativeImage`, which the IPC structured clone cannot serialize.
+     */
+    handle(
+        IpcEventName.DesktopSource,
+        async (x: number, y: number): Promise<DesktopSourceInfo | undefined> => {
+            const displays = screen.getAllDisplays();
+            const display =
+                displays.find(
+                    (d) =>
+                        x >= d.bounds.x &&
+                        x <= d.bounds.x + d.bounds.width &&
+                        y >= d.bounds.y &&
+                        y <= d.bounds.y + d.bounds.height
+                ) || screen.getPrimaryDisplay();
+
+            const sources = await desktopCapturer.getSources({
+                types: ['screen'],
+                thumbnailSize: { width: 0, height: 0 },
+            });
+
+            const source = sources.find((s) => `${s.display_id}` === `${display.id}`);
+            return source ? { id: source.id, display_id: source.display_id } : undefined;
+        }
+    );
     handle(IpcEventName.Notify, (title, body, iconPath) => {
         const notification = new Notification({
             title,

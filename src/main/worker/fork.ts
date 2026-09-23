@@ -5,12 +5,14 @@ import { WorkerMessage, WorkerMessageType, WorkerResponse } from '../ipc/type';
 interface PendingRequest {
     resolve: (data: WorkerResponse<any>) => void;
     reject: (err: any) => void;
-    timeout: NodeJS.Timer;
+    // `ReturnType<typeof setTimeout>` works with every @types/node version;
+    // `NodeJS.Timer` no longer matches the `clearTimeout` overloads of node 22.
+    timeout: ReturnType<typeof setTimeout>;
 }
 
 let workerProcess: ReturnType<typeof fork> | undefined;
 const pendingMap: { [id: string]: PendingRequest } = {};
-let idleTimer: NodeJS.Timer | undefined;
+let idleTimer: ReturnType<typeof setTimeout> | undefined;
 
 // 惰性创建 worker 进程：只有首次发送消息时才 fork，
 // 避免应用启动阶段就无条件多驻留一个完整的 Node 进程。

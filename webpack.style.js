@@ -2,7 +2,6 @@ const webpack = require('webpack');
 const merge = require('webpack-merge');
 const path = require('path');
 const HappyPack = require('happypack');
-const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 const baseConfig = require('./webpack.base.config');
 
 module.exports = merge.smart(baseConfig, {
@@ -72,9 +71,6 @@ module.exports = merge.smart(baseConfig, {
     },
     plugins: [
         new webpack.HotModuleReplacementPlugin(),
-        new ForkTsCheckerWebpackPlugin({
-            reportFiles: ['src/components/**/*'],
-        }),
         new webpack.NamedModulesPlugin(),
     ],
 });

@@ -1,34 +1,19 @@
-import * as electron from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { screenshotDir } from '../../config';
 import * as remote from '@electron/remote';
 
-const getCurrentScreen = () => {
-    try {
-        const screen = electron.screen || remote.screen;
-        const currentWindow = remote.getCurrentWindow();
-        const { x, y } = currentWindow.getBounds();
-        return screen.getAllDisplays().filter((d) => {
-            return (
-                x <= d.bounds.x + d.bounds.width &&
-                x >= d.bounds.x &&
-                y <= d.bounds.y + d.bounds.height &&
-                y >= d.bounds.y
-            );
-        })[0];
-    } catch (e) {
-        if (process.env.NODE_ENV === 'test') {
-            // Test env may not have electron
-            console.warn(e);
-            return { id: undefined };
-        }
-
-        throw e;
-    }
+/**
+ * `desktopCapturer` and `screen` are main-process APIs since Electron 17, so the
+ * main process resolves which capture source belongs to the display that hosts
+ * the window (see `IpcEventName.DesktopSource`).
+ */
+const getDesktopSource = async (): Promise<{ id: string; display_id: string } | undefined> => {
+    const currentWindow = remote.getCurrentWindow();
+    const { x, y } = currentWindow.getBounds();
+    return await window.api.desktopSource(x, y);
 };
 
-const curScreen = getCurrentScreen();
 function getScreenCallback(
     maxSize: number | undefined,
     callback: (err?: Error, canvas?: HTMLCanvasElement) => void
@@ -81,35 +66,31 @@ function getScreenCallback(
     };
 
     if (require('os').platform() === 'win32') {
-        require('electron')
-            .desktopCapturer.getSources({
-                types: ['screen'],
-                thumbnailSize: { width: 1, height: 1 },
-            })
-            .then((sources) => {
-                const selectSource = sources.filter(
-                    (source: any) => source.display_id + '' === curScreen.id + ''
-                )[0];
-                navigator.mediaDevices
-                    .getUserMedia({
-                        audio: false,
-                        video: {
-                            // @ts-ignore
-                            mandatory: {
-                                chromeMediaSource: 'desktop',
-                                chromeMediaSourceId: selectSource.id + '',
-                                // minWidth: 3,
-                                // minHeight: 3,
-                                // maxWidth: maxSize,
-                                // maxHeight: maxSize
-                            },
+        getDesktopSource()
+            .then((source) => {
+                if (!source) {
+                    throw new Error('Cannot find a desktop capture source for the current screen');
+                }
+
+                return navigator.mediaDevices.getUserMedia({
+                    audio: false,
+                    video: {
+                        // @ts-ignore
+                        mandatory: {
+                            chromeMediaSource: 'desktop',
+                            chromeMediaSourceId: source.id + '',
+                            // minWidth: 3,
+                            // minHeight: 3,
+                            // maxWidth: maxSize,
+                            // maxHeight: maxSize
                         },
-                    })
-                    .then((e: MediaStream) => {
-                        handleStream(e);
-                    })
-                    .catch(handleError);
-            });
+                    },
+                });
+            })
+            .then((stream) => {
+                handleStream(stream);
+            })
+            .catch(handleError);
     } else {
         navigator.mediaDevices
             .getUserMedia({

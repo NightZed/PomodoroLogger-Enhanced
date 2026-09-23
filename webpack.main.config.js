@@ -1,6 +1,5 @@
 const webpack = require('webpack');
 const merge = require('webpack-merge');
-const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 
 const baseConfig = require('./webpack.base.config');
 
@@ -42,9 +41,11 @@ module.exports = merge.smart(baseConfig, {
     },
     watch: true,
     plugins: [
-        new ForkTsCheckerWebpackPlugin({
-            reportFiles: ['src/main/**/*'],
-        }),
+        // Type checking is done by `yarn typecheck` (tsc --noEmit -p tsconfig.json)
+        // instead of fork-ts-checker-webpack-plugin: the 1.x version used before
+        // crashed webpack ("Cannot read properties of undefined (reading 'dispatch')")
+        // on shutdown, and its successors need a different options schema (and
+        // webpack 5 for the current releases).
         new webpack.DefinePlugin({
             'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
         }),

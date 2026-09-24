@@ -219,7 +219,7 @@ These raw records are aggregated into the time proportion pie chart and word clo
 
 ## 🚀 Quick Start
 
-Platforms: **Windows 10 / macOS / Linux**.
+Platforms: **Windows 10 / macOS 12+ / Linux**.
 Download: [release page](https://github.com/NightZed/PomodoroLogger-Enhanced/releases).
 
 ## 🤝 CONTRIBUTING

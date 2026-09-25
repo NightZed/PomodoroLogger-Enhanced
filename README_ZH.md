@@ -219,7 +219,7 @@ pomodoro-logger [C:\code\pomodoro-logger] .\src\renderer\components\src\Applicat
 
 ## 🚀 快速开始
 
-平台支持： **Windows 10 / macOS / Linux**，
+平台支持： **Windows 10 / macOS 12+ / Linux**，
 下载：[发布页面](https://github.com/NightZed/PomodoroLogger-Enhanced/releases)。
 
 ## 🤝 参与贡献

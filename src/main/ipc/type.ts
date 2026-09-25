@@ -17,6 +17,7 @@ export enum IpcEventName {
     OpenDevTools = 'openDevTools',
     Notify = 'notify',
     FocusOnWindow = 'focusOnWindow',
+    DesktopSource = 'desktopSource',
 }
 
 /**
@@ -52,6 +53,19 @@ export type ExposedAPI = {
     [IpcEventName.OpenDevTools](): void;
     [IpcEventName.Notify](title: string, body: string, iconPath: string): void;
     [IpcEventName.FocusOnWindow](): void;
+    [IpcEventName.DesktopSource](x: number, y: number): Promise<DesktopSourceInfo | undefined>;
+};
+
+/**
+ * Identifiers of the `desktopCapturer` source that belongs to the display which
+ * hosts the window at `(x, y)`.
+ *
+ * Only the string fields are sent over IPC: `thumbnail` is a `NativeImage` and
+ * cannot be structured-cloned by the IPC layer.
+ */
+export type DesktopSourceInfo = {
+    id: string;
+    display_id: string;
 };
 
 export enum WorkerMessageType {

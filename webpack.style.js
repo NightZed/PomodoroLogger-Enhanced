@@ -1,11 +1,9 @@
 const webpack = require('webpack');
-const merge = require('webpack-merge');
+const { merge } = require('webpack-merge');
 const path = require('path');
-const HappyPack = require('happypack');
-const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 const baseConfig = require('./webpack.base.config');
 
-module.exports = merge.smart(baseConfig, {
+module.exports = merge(baseConfig, {
     mode: process.env.NODE_ENV,
     target: 'web',
     entry: {
@@ -55,26 +53,19 @@ module.exports = merge.smart(baseConfig, {
             },
             {
                 test: /\.(gif|png|jpe?g)$/,
-                use: [
-                    {
-                        loader: 'url-loader',
-                        options: {
-                            limit: 8192,
-                        },
-                    },
-                ],
+                type: 'asset',
+                parser: {
+                    dataUrlCondition: { maxSize: 8192 }
+                }
             },
             {
                 test: /\.css$/,
-                loaders: ['style-loader', 'css-loader']
+                use: ['style-loader', 'css-loader']
             },
         ],
     },
     plugins: [
         new webpack.HotModuleReplacementPlugin(),
-        new ForkTsCheckerWebpackPlugin({
-            reportFiles: ['src/components/**/*'],
-        }),
         new webpack.NamedModulesPlugin(),
     ],
 });

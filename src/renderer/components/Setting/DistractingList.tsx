@@ -42,7 +42,7 @@ class DynamicFieldSet extends React.Component<
 
         // can use data-binding to set
         form.setFieldsValue({
-            keys: keys.filter((key: number) => key !== k)
+            keys: keys.filter((key: number) => key !== k),
         });
     };
 
@@ -55,7 +55,7 @@ class DynamicFieldSet extends React.Component<
         // can use data-binding to set
         // important! notify form to detect changes
         form.setFieldsValue({
-            keys: nextKeys
+            keys: nextKeys,
         });
     };
 
@@ -68,7 +68,7 @@ class DynamicFieldSet extends React.Component<
         this.id = Math.max(...keys) + 1;
         this.props.form.setFieldsValue(
             {
-                keys
+                keys,
             },
             console.error
         );
@@ -76,7 +76,7 @@ class DynamicFieldSet extends React.Component<
         this.props.form.setFieldsValue(
             {
                 apps,
-                titles
+                titles,
             },
             console.error
         );
@@ -89,12 +89,13 @@ class DynamicFieldSet extends React.Component<
 
         this.props.form.validateFields((err: Error, values: any) => {
             if (!err) {
-                // tslint:disable-next-line:prefer-const
-                let { keys, apps, titles } = values;
+                // `keys` is filtered below, the other two are only read
+                const { apps, titles } = values;
+                let { keys } = values;
                 keys = keys.filter((v: any, i: any) => apps[i] || titles[i]);
                 this.props.form.setFieldsValue(
                     {
-                        keys
+                        keys,
                     },
                     console.error
                 );
@@ -103,7 +104,7 @@ class DynamicFieldSet extends React.Component<
                 for (const key of keys) {
                     ans.push({
                         app: apps[key],
-                        title: titles[key]
+                        title: titles[key],
                     });
                 }
 
@@ -117,18 +118,18 @@ class DynamicFieldSet extends React.Component<
         const formItemLayout = {
             labelCol: {
                 xs: { span: 24 },
-                sm: { span: 4 }
+                sm: { span: 4 },
             },
             wrapperCol: {
                 xs: { span: 24 },
-                sm: { span: 20 }
-            }
+                sm: { span: 20 },
+            },
         };
         const formItemLayoutWithOutLabel = {
             wrapperCol: {
                 xs: { span: 24, offset: 0 },
-                sm: { span: 20, offset: 4 }
-            }
+                sm: { span: 20, offset: 4 },
+            },
         };
 
         getFieldDecorator('keys', { initialValue: [] });
@@ -207,8 +208,8 @@ class PrivateDistractingList extends React.Component<Props> {
         }
 
         this.ref.current.setValues(
-            this.props.distractingList.map(v => v.app),
-            this.props.distractingList.map(v => v.title)
+            this.props.distractingList.map((v) => v.app),
+            this.props.distractingList.map((v) => v.title)
         );
     }
 
@@ -235,25 +236,25 @@ export const DistractingList = connect(
     (state: RootState, props: InputProps) => {
         if (props.boardId == null) {
             return {
-                distractingList: state.timer.distractingList
+                distractingList: state.timer.distractingList,
             };
         }
 
         return {
-            distractingList: state.kanban.boards[props.boardId].distractionList || []
+            distractingList: state.kanban.boards[props.boardId].distractionList || [],
         };
     },
     (dispatch: Dispatch, props: InputProps) => {
         if (props.boardId == null) {
             return {
                 setDistractingList: (rows: DistractingRow[]) =>
-                    actions.setDistractingList(rows)(dispatch)
+                    actions.setDistractingList(rows)(dispatch),
             };
         }
 
         return {
             setDistractingList: (rows?: DistractingRow[]) =>
-                boardActions.setDistractionList(props.boardId!, rows)(dispatch)
+                boardActions.setDistractionList(props.boardId!, rows)(dispatch),
         };
     },
     null,

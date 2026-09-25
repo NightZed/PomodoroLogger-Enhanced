@@ -133,6 +133,7 @@
         "classnames": "^2.2.6",
         "codecov": "^3.5.0",
         "concurrently": "^10.0.5",
+        "conventional-changelog-conventionalcommits": "9.3.1",
         "copy-webpack-plugin": "^14.0.0",
         "cross-env": "^10.1.0",
         "css-loader": "^7.1.5",

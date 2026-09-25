@@ -73,7 +73,8 @@ electron_mirror "https://npmmirror.com/mirrors/electron/"
 - Commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/)
   (enforced by commitlint). This drives automatic versioning and releases:
   `feat:` triggers a minor release, `fix:`/`perf:` a patch release,
-  `BREAKING CHANGE:` in the body a major release; `docs:`/`chore:`/`test:`
+  `!` after the type/scope (for example, `fix(electron)!: ...`) or a
+  `BREAKING CHANGE:` body triggers a major release; `docs:`/`chore:`/`test:`
   etc. trigger no release.
 
 ## Release

@@ -48,7 +48,12 @@ export interface Setting {
 }
 
 export interface TimerManager {
-    start: () => void;
+    /**
+     * Start a focus session. `boardId` identifies the project the caller
+     * intends to use for this request. It is optional because the Timer page
+     * can start a session using its current selection.
+     */
+    start: (boardId?: string) => void;
     pause: () => void;
     clear: () => void;
 }

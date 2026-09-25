@@ -213,7 +213,7 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
                 props.timerManager.pause();
                 message.info('Paused');
             } else {
-                props.timerManager.start();
+                props.timerManager.start(props._id);
                 message.success('Start Focusing');
             }
         },

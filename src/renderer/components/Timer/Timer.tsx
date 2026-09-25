@@ -216,6 +216,8 @@ interface State {
     showMask: boolean;
     pomodoroNum: number;
     focusStartWarning?: FocusStartWarning;
+    /** Board explicitly selected by the current start request, if any. */
+    focusStartWarningBoardId?: string;
     /** Reflects the "Don't remind me again" check box of the warning dialog. */
     focusStartWarningDontRemind: boolean;
     /**
@@ -467,7 +469,15 @@ class Timer extends Component<Props, State> {
         }
     };
 
-    startFocusing = async () => {
+    startFocusing = async (boardId?: string) => {
+        if (boardId !== undefined && this.props.timer.boardId !== boardId) {
+            // Kanban dispatches SET_BOARD_ID before invoking this manager, but
+            // the connected Timer props can still contain the previous value
+            // until React processes the store update. Keep the request
+            // explicit and apply the selection here as a safeguard.
+            this.props.setBoardId(boardId);
+        }
+
         if (this.props.timer.isRunning) {
             if (this.props.timer.isFocusing) {
                 return;
@@ -482,16 +492,16 @@ class Timer extends Component<Props, State> {
             await waitUntil(() => this.props.timer.isFocusing);
         }
 
-        this.startOrResume();
+        this.startOrResume(boardId);
     };
 
-    startOrResume = () => {
+    startOrResume = (boardId?: string) => {
         if (this.props.timer.isRunning) {
             return;
         }
 
         if (this.props.timer.targetTime == null) {
-            return this.onStart();
+            return this.onStart(boardId);
         }
 
         this.onResume();
@@ -526,14 +536,14 @@ class Timer extends Component<Props, State> {
         }
     };
 
-    onStart = () => {
+    onStart = (boardId?: string) => {
         if (!this.props.timer.isFocusing) {
             return this.startResting();
         }
 
         // Warn once before a fresh focus session when there is no project to
         // link it to, or the selected project's "In Progress" list is empty.
-        return this.startFocusingSession(false);
+        return this.startFocusingSession(false, boardId);
     };
 
     private startResting = () => {
@@ -541,29 +551,43 @@ class Timer extends Component<Props, State> {
         requestAnimationFrame(this.updateLeftTime);
     };
 
-    private startFocusingSession = (acknowledged: boolean) => {
+    private startFocusingSession = (acknowledged: boolean, boardId?: string) => {
         if (this.props.timer.isRunning || this.props.timer.targetTime != null) {
             return;
         }
 
         if (!acknowledged) {
             // Warn only while the user still wants to be reminded.
+            // Prefer the board explicitly selected by a Kanban start
+            // request. The Redux-connected props may not have received
+            // SET_BOARD_ID yet when this method is called.
+            const focusBoardId = boardId !== undefined ? boardId : this.props.timer.boardId;
             const warning = getFocusStartWarningIfEnabled(
                 this.props.timer.warnBeforeFocusStart,
-                this.props.timer.boardId,
+                focusBoardId,
                 this.props.kanban.boards,
                 this.props.kanban.lists,
                 this.props.kanban.cards
             );
             if (warning) {
                 // Reuse the guide dialog style: it stays on screen until the
-                // user picks OK (start anyway) or Cancel (stay put).
-                this.setState({ focusStartWarning: warning, focusStartWarningDontRemind: false });
+                // user picks OK (start anyway) or Cancel (stay put). Keep the
+                // request's board as well: the user may confirm before the
+                // connected Timer has rendered the SET_BOARD_ID update.
+                this.setState({
+                    focusStartWarning: warning,
+                    focusStartWarningBoardId: focusBoardId,
+                    focusStartWarningDontRemind: false,
+                });
                 return;
             }
         }
 
-        this.setState({ focusStartWarning: undefined, focusStartWarningDontRemind: false });
+        this.setState({
+            focusStartWarning: undefined,
+            focusStartWarningBoardId: undefined,
+            focusStartWarningDontRemind: false,
+        });
         this.monitor = new Monitor(() => {}, 1000, this.props.timer.screenShotInterval);
         this.monitor.start();
 
@@ -573,12 +597,16 @@ class Timer extends Component<Props, State> {
 
     private confirmFocusStart = () => {
         this.applyDontRemindSetting();
-        this.startFocusingSession(true);
+        this.startFocusingSession(true, this.state.focusStartWarningBoardId);
     };
 
     private cancelFocusStart = () => {
         this.applyDontRemindSetting();
-        this.setState({ focusStartWarning: undefined, focusStartWarningDontRemind: false });
+        this.setState({
+            focusStartWarning: undefined,
+            focusStartWarningBoardId: undefined,
+            focusStartWarningDontRemind: false,
+        });
     };
 
     private onToggleDontRemind = (checked: boolean) => {

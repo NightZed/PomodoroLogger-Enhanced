@@ -220,7 +220,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                 props.timerManager.pause();
             } else {
                 message.success('Start Focusing');
-                props.timerManager.start();
+                props.timerManager.start(props.kanban.chosenBoardId);
             }
         }, [props.kanban.chosenBoardId, props.timerManager, props.isTimerRunning]);
 

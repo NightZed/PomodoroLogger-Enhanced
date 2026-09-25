@@ -65,7 +65,7 @@ A work cycle = **focus + rest**: 25 minutes of focus and a 5-minute short break 
 -   **Tray**: closing the main window minimizes the app to the system tray.
 
 <p align="center">
-  <img width="200" src="./screenshots/tray.png" alt="Countdown in the system tray"/>
+  <img width="100" src="./screenshots/tray.png" alt="Countdown in the system tray"/>
 </p>
 
 -   **Mini mode**: use `F12` to switch between the full interface and mini mode.
@@ -148,7 +148,7 @@ The **History view** aggregates all records into a calendar heat map: the denser
 The **Sankey diagram** connects distracting apps with where your time went.
 
 <p align="center">
-  <img width="600" src="./screenshots/sankey-diagram.png" alt="Distraction Sankey diagram"/>
+  <img width="520" src="./screenshots/sankey-diagram.png" alt="Distraction Sankey diagram"/>
 </p>
 
 ### 🥧 Time Proportion Pie Chart · Word Cloud

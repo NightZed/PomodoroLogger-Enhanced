@@ -65,7 +65,7 @@
 - **托盘**：关闭主页面缩放到系统托盘
 
 <p align="center">
-  <img width="200" src="./screenshots/tray.png" alt="系统托盘上的倒计时"/>
+  <img width="100" src="./screenshots/tray.png" alt="系统托盘上的倒计时"/>
 </p>
 
 - **迷你模式**：用 `F12` 在完整界面与迷你模式之间切换。
@@ -148,7 +148,7 @@
 **桑基图**把分心应用与时间去向连成一张流向图。
 
 <p align="center">
-  <img width="600" src="./screenshots/sankey-diagram.png" alt="分心应用桑基图"/>
+  <img width="520" src="./screenshots/sankey-diagram.png" alt="分心应用桑基图"/>
 </p>
 
 ### 🥧 时间占比饼图 · 词云

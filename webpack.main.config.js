@@ -37,5 +37,7 @@ module.exports = merge(baseConfig, {
     ],
     externals: {
         'active-win': 'commonjs2 active-win',
+        'electron-updater': 'commonjs2 electron-updater',
+        'builder-util-runtime': 'commonjs2 builder-util-runtime',
     },
 });

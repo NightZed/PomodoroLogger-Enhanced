@@ -143,7 +143,7 @@ const getLinkAndNode = (
             if (key.length > 48) {
                 key = key.slice(0, 45) + '...';
             }
-            if (!_app.titleSpentTime.hasOwnProperty(title)) {
+            if (!Object.prototype.hasOwnProperty.call(_app.titleSpentTime, title)) {
                 continue;
             }
 
@@ -161,8 +161,9 @@ const getLinkAndNode = (
                 },
                 tooltip: {
                     formatter: (params: any) => {
-                        // tslint:disable-next-line:prefer-const
-                        let { source, target, value: dataValue, name } = params.data;
+                        // `source` and `target` are rewritten below, the rest is read-only
+                        let { source, target } = params.data;
+                        const { value: dataValue, name } = params.data;
                         if (name) {
                             return `${breakWord(new_title, '<br/>')}: ${value}`;
                         }

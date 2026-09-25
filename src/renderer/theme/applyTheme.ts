@@ -38,7 +38,6 @@ export function getNativeTheme():
     | { themeSource?: ThemeSource; shouldUseDarkColors?: boolean }
     | undefined {
     try {
-        // tslint:disable-next-line:no-var-requires
         return require('electron').nativeTheme;
     } catch (e) {
         return undefined;

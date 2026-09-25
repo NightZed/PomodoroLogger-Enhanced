@@ -22,7 +22,7 @@ import { DualPieChart } from '../../../components/Visualization/DualPieChart';
 const { Option } = Select;
 
 type YearChoice = number | 'all';
-const ALL_TIME: 'all' = 'all';
+const ALL_TIME = 'all' as const;
 
 const Container = styled.div`
     overflow-y: auto;

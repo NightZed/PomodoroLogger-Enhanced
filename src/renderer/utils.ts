@@ -123,8 +123,9 @@ export function parseTime(formattedTime: string) {
     if (matchedH == null || matchedM == null) {
         throw new Error();
     }
-    const hour = parseInt(matchedH.entries().next().value[1], 10);
-    const minute = parseInt(matchedM.entries().next().value[1], 10);
+    // `match.entries().next().value` stopped type checking with TypeScript 5
+    const hour = parseInt(matchedH[1], 10);
+    const minute = parseInt(matchedM[1], 10);
     return hour + minute / 60;
 }
 

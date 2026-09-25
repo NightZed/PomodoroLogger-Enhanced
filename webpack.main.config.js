@@ -1,9 +1,9 @@
 const webpack = require('webpack');
-const merge = require('webpack-merge');
+const { merge } = require('webpack-merge');
 
 const baseConfig = require('./webpack.base.config');
 
-module.exports = merge.smart(baseConfig, {
+module.exports = merge(baseConfig, {
     target: 'electron-main',
     entry: {
         main: './src/main/main.ts',
@@ -17,26 +17,11 @@ module.exports = merge.smart(baseConfig, {
                 exclude: /node_modules/,
                 loader: 'ts-loader',
             },
-            {
-                test: /\.(gif|png|jpe?g)$/,
-                use: [
-                    'file-loader',
-                    {
-                        loader: 'image-webpack-loader',
-                        options: {
-                            disable: true,
-                        },
-                    },
-                ],
-            },
-            {
-                test: /\.dat$/,
-                use: 'file-loader',
-            },
-            {
-                test: /\.worker\.js$/,
-                use: { loader: 'index-loader' },
-            },
+            // Images and .dat files are emitted next to `main.js` and resolved at
+            // runtime through `path.join(__dirname, ...)` (asset modules replace
+            // file-loader, which only supports webpack 4).
+            { test: /\.(gif|png|jpe?g)$/, type: 'asset/resource' },
+            { test: /\.dat$/, type: 'asset/resource' },
         ],
     },
     watch: true,

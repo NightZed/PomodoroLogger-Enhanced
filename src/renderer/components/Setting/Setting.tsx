@@ -203,6 +203,10 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             setCheckingUpdate(true);
             // The main process answers with one of the three events below; the timeout
             // is only a safety net so the button never gets stuck in loading state.
+            // prefer-const is a false positive here: the value is assigned once, but
+            // only after the listeners below are registered (merging it into the
+            // declaration would read the binding before it is initialised).
+            // eslint-disable-next-line prefer-const
             let timeout: any;
             const onResult = () => {
                 clearTimeout(timeout);

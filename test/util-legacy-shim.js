@@ -16,6 +16,14 @@
 // still exist, and this file is never bundled by webpack.
 'use strict';
 
+// Jest only defaults NODE_ENV to 'test' when it is not already defined in the
+// outer shell. When a developer's environment exports NODE_ENV=development
+// (or anything else), test-only branches guarded by
+// `process.env.NODE_ENV === 'test'` (FakeDBWorker, in-memory db paths, ...)
+// silently turn off and the suites exercise the production code paths instead.
+// setupFiles run before any test module is loaded, so pin it here.
+process.env.NODE_ENV = 'test';
+
 const util = require('util');
 
 function isBufferLike(value) {

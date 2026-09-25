@@ -46,7 +46,8 @@ describe('util.random', () => {
         const arr = Array.from(Array(100).keys());
         expect(random.sample(arr, 0)[0].length).toBe(0);
         expect(random.sample(arr, 1)[1].length).toBe(0);
-        expect(() => random.sample(arr, -0.01)).toThrowError();
-        expect(() => random.sample(arr, 1.01)).toThrowError();
+        // jest 30 removed the `toThrowError` alias
+        expect(() => random.sample(arr, -0.01)).toThrow();
+        expect(() => random.sample(arr, 1.01)).toThrow();
     });
 });

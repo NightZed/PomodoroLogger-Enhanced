@@ -206,14 +206,17 @@ describe('listReducer', () => {
         // expect(state).toStrictEqual(oldState);
     });
 
-    it('should update', async (done) => {
+    it('should update', async () => {
         let state: ListsState = {};
+        // A test function may either take `done` or return a promise, never both
+        // (jest 30 rejects the combination), so the card callback is recorded here.
+        let cardAdded = false;
 
         // @ts-ignore
         const dispatch: Dispatch = (action: any) => {
             if (action.type.startsWith('[Card]')) {
                 if (action.payload.title === 'newcardid') {
-                    done();
+                    cardAdded = true;
                     return;
                 }
             }
@@ -231,6 +234,7 @@ describe('listReducer', () => {
         await actions.renameList(_id0, 'id011')(dispatch);
         expect(state[_id0].title).toBe('id011');
         await actions.addCard(_id0, 'newcardid')(dispatch);
+        expect(cardAdded).toBe(true);
     });
 
     it('stamps completedTime only when a card lands in the board done list', async () => {

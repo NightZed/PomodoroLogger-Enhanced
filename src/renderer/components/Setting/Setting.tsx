@@ -124,12 +124,13 @@ const DEFAULT_CALENDAR_BASE_COLOR = '#aceebb';
 const restMarks = {
     5: '5min',
     10: '10min',
+    15: '15min',
 };
 
 const longBreakMarks = {
-    10: '10min',
+    5: '5min',
     15: '15min',
-    20: '20min',
+    25: '25min',
 };
 
 const settingUiStates = [
@@ -346,7 +347,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             <Slider
                                 marks={restMarks}
                                 step={1}
-                                min={process.env.NODE_ENV === 'production' ? 5 : 1}
+                                min={process.env.NODE_ENV === 'production' ? 1 : 1}
                                 max={20}
                                 value={props.restDuration / 60}
                                 onChange={onChangeRest}
@@ -359,7 +360,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             <Slider
                                 marks={longBreakMarks}
                                 step={1}
-                                min={10}
+                                min={1}
                                 max={40}
                                 value={props.longBreakDuration / 60}
                                 onChange={onChangeLongBreak}

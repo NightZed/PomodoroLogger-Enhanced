@@ -42,6 +42,12 @@ function flushUpdateEvents() {
     }
 }
 
+// In development, isolate userData to prevent locking conflicts with installed / production app
+if (process.env.NODE_ENV !== 'production') {
+    const devUserData = path.join(app.getPath('appData'), `${build.productName}-Dev`);
+    app.setPath('userData', devUserData);
+}
+
 export const gotTheLock = process.env.NODE_ENV !== 'production' || app.requestSingleInstanceLock();
 
 if (!gotTheLock) {

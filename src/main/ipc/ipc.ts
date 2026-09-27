@@ -74,23 +74,28 @@ export function initialize() {
         if (!win) return;
         win.webContents.openDevTools({ activate: true, mode: 'detach' });
     });
-    handle(IpcEventName.MinimizeWindow, (on, contentHeight) => {
+    handle(IpcEventName.MinimizeWindow, (on) => {
         if (!win) return;
         win.setAlwaysOnTop(on);
-        const { height } = win.getBounds();
         if (on) {
-            win.setBounds({ height: height - contentHeight + 43, width: 366 });
+            // Mini bar: content must be exactly the two-row MiniLogger size
+            // (90px; Application.tsx hides the 1px .ant-tabs-bar border while
+            // minimized so no extra chrome remains). setContentSize keeps the
+            // semantics identical to `useContentSize: true` at construction --
+            // setBounds() would set the outer frame instead and shrink the
+            // content by the title bar and Windows invisible resize borders.
+            win.setContentSize(200, 90);
         } else {
-            win.setBounds({ height: 960, width: 1440 });
+            win.setContentSize(1440, 960);
         }
     });
     handle(IpcEventName.CompactWindow, (on, alwaysOnTop = true) => {
         if (!win) return;
         win.setAlwaysOnTop(on && alwaysOnTop);
         if (on) {
-            win.setBounds({ width: 400, height: 560 });
+            win.setContentSize(400, 560);
         } else {
-            win.setBounds({ width: 1440, height: 960 });
+            win.setContentSize(1440, 960);
         }
     });
     handle(IpcEventName.OpenAtLogin, (on) => {

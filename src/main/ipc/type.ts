@@ -54,7 +54,7 @@ export type ExposedAPI = {
     [IpcEventName.ExportData](): Promise<void>;
     [IpcEventName.ActiveWin](): Promise<BaseResult | undefined>;
     [IpcEventName.OpenAtLogin](on: boolean): void;
-    [IpcEventName.MinimizeWindow](on: boolean, contentHeight: number): void;
+    [IpcEventName.MinimizeWindow](on: boolean): void;
     [IpcEventName.CompactWindow](on: boolean, alwaysOnTop?: boolean): void;
     [IpcEventName.OpenDevTools](): void;
     [IpcEventName.Notify](title: string, body: string, iconPath: string): void;

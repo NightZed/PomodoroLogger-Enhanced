@@ -35,10 +35,14 @@ const Main = styled.div<StyledProps>`
     }
 
     ${({ minimize, compact }) => (minimize || compact ? 'overflow: hidden; height: 100vh;' : '')}
-    /* While minimized the window is a 43px strip; dialogs of the feedback layer
+    /* While minimized the window is a 90px strip; dialogs of the feedback layer
        are rendered into the body (outside this container), so their mask has to
        be hidden as well -- otherwise the strip would be covered by a mask that
-       cannot be clicked away (maskClosable is false for blocking dialogs). */
+       cannot be clicked away (maskClosable is false for blocking dialogs).
+       The tabs bar is hidden too: only its 1px bottom border would remain, and
+       the strip's content height (MiniLogger 90px) must match the window
+       content size exactly (see ipc.ts setContentSize). */
+    .ant-tabs-bar,
     .ant-tabs-nav-container,
     .ant-modal-content,
     .ant-modal-mask {

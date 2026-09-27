@@ -114,10 +114,13 @@ const createWindow = async () => {
     win = new BrowserWindow({
         width: 1440,
         height: 960,
-        minWidth: 380,
-        minHeight: 63,
+        // Content-size minimums: the mini bar occupies exactly 200x90 of
+        // content (see ipc.ts setContentSize), so the window must never be
+        // resizable below that or the bar would be clipped.
+        minWidth: 200,
+        minHeight: 90,
         frame: true,
-        useContentSize: false,
+        useContentSize: true,
         backgroundColor: nativeTheme.shouldUseDarkColors ? '#141414' : '#ffffff',
         icon: nativeImage.createFromPath(path.join(__dirname, logo)),
         title: 'Pomodoro Logger',

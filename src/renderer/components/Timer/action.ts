@@ -347,8 +347,7 @@ export const actions = {
     },
     setMinimize: (mini: boolean) => async (dispatch: Dispatch) => {
         dispatch(setMinimize(mini));
-        const contentHeight = document.documentElement.offsetHeight;
-        window.api.minimizeWindow(mini, contentHeight);
+        window.api.minimizeWindow(mini);
     },
     setCompact: (compact: boolean) => async (dispatch: Dispatch, getState: any) => {
         dispatch(setCompact(compact));

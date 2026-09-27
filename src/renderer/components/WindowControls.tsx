@@ -7,7 +7,7 @@ import styled from 'styled-components';
  * (`frame: false` in src/main/init.ts). Rendered on the right of the tabs row
  * in normal and compact mode; mini mode has no title bar at all.
  */
-const Controls = styled.div`
+const Controls = styled.div<{ compact: boolean }>`
     /* The tabs row is the window drag region (see Application.tsx); the
        buttons must stay out of it so they remain clickable. */
     -webkit-app-region: no-drag;
@@ -16,7 +16,7 @@ const Controls = styled.div`
     height: 100%;
 
     button {
-        width: 44px;
+        width: ${({ compact }) => (compact ? '32px' : '44px')};
         height: 100%;
         padding: 0;
         border: none;
@@ -26,7 +26,7 @@ const Controls = styled.div`
         align-items: center;
         justify-content: center;
         cursor: default;
-        font-size: 14px;
+        font-size: ${({ compact }) => (compact ? '12px' : '14px')};
 
         &:hover {
             background-color: var(--pl-bg-hover);
@@ -40,11 +40,11 @@ const Controls = styled.div`
     }
 `;
 
-const WindowControls: FC = () => {
+const WindowControls: FC<{ compact?: boolean }> = ({ compact = false }) => {
     const call = (action: 'minimize' | 'maximize' | 'close') => () =>
         window.api.windowAction(action);
     return (
-        <Controls>
+        <Controls compact={compact}>
             <button type="button" title="Minimize" onClick={call('minimize')}>
                 <Icon type="minus" />
             </button>

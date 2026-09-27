@@ -76,7 +76,7 @@ const Main = styled.div<StyledProps>`
                 }
                 .ant-tabs-nav .ant-tabs-tab {
                     margin: 0;
-                    padding: 10px 22px;
+                    padding: 8px 10px;
                 }
             `
             : ''}
@@ -170,7 +170,7 @@ class Application extends React.Component<Props> {
                     onChange={handleTabChange}
                     /* Caption buttons for the frameless window; hidden with the
                        tabs row itself while minimized (no title bar in mini). */
-                    tabBarExtraContent={minimize ? null : <WindowControls />}
+                    tabBarExtraContent={minimize ? null : <WindowControls compact={compact} />}
                 >
                     <TabPane
                         tab={

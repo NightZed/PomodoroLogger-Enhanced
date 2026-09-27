@@ -16,7 +16,7 @@ const ButtonContainer = styled.div`
     right: 16px;
 `;
 
-const Mask = styled.div`
+const Mask = styled.div<{ compact: boolean }>`
     left: 0;
     top: 0;
     height: 100%;
@@ -32,14 +32,15 @@ const Mask = styled.div`
     flex-direction: column;
 `;
 
-const MaskInnerContainer = styled.div`
+const MaskInnerContainer = styled.div<{ compact: boolean }>`
     max-width: 500px;
+    width: ${({ compact }) => (compact ? 'calc(100% - 24px)' : '100%')};
     /* The session summary is copyable, like every other feedback surface. */
     user-select: text;
 `;
 
-const ProjectName = styled.h1`
-    font-size: 4em;
+const ProjectName = styled.h1<{ compact: boolean }>`
+    font-size: ${({ compact }) => (compact ? '2em' : '4em')};
     transition: color 0.4s;
     color: black;
     cursor: pointer;
@@ -80,6 +81,7 @@ export interface MaskProps extends InputProps {
     boardId?: string;
     boards: KanbanBoardState;
     isLongBreak: boolean;
+    compact: boolean;
 }
 
 const _TimerMask = (props: MaskProps) => {
@@ -137,21 +139,31 @@ const _TimerMask = (props: MaskProps) => {
     );
 
     return (
-        <Mask style={{ display: props.showMask ? 'flex' : 'none' }} onClick={props.onCancel}>
-            <MaskInnerContainer>
+        <Mask
+            compact={props.compact}
+            style={{ display: props.showMask ? 'flex' : 'none' }}
+            onClick={props.onCancel}
+        >
+            <MaskInnerContainer compact={props.compact}>
                 <Row onClick={onProjectClick}>
                     {props.isFocusing ? (
                         <Popover title="Project Name" content={content}>
-                            <ProjectName>
+                            <ProjectName compact={props.compact}>
                                 {shownProjectId === undefined
                                     ? undefined
                                     : props.boards[shownProjectId]?.name}
                             </ProjectName>
                         </Popover>
                     ) : (
-                        <ProjectName>Break</ProjectName>
+                        <ProjectName compact={props.compact}>Break</ProjectName>
                     )}
-                    <h1 style={{ color: 'white', fontSize: '3.5em', marginBottom: '1em' }}>
+                    <h1
+                        style={{
+                            color: 'white',
+                            fontSize: props.compact ? '2em' : '3.5em',
+                            marginBottom: props.compact ? '0.6em' : '1em',
+                        }}
+                    >
                         Session Finished
                     </h1>
                 </Row>
@@ -170,6 +182,7 @@ const _TimerMask = (props: MaskProps) => {
                         color={'#f9ec52'}
                         showNum={false}
                         newPomodoro={props.newPomodoro}
+                        compact={props.compact}
                     />
                 </Row>
             </MaskInnerContainer>
@@ -193,6 +206,7 @@ export const TimerMask = connect(
         isLongBreak: !((state.timer.iBreak + 1) % LONG_BREAK_INTERVAL),
         boardId: state.timer.boardId,
         boards: state.kanban.boards,
+        compact: state.timer.compact,
     }),
     (dispatch: Dispatch) => ({
         setBoard: (_id?: string) => dispatch(actions.setBoardId(_id)),

@@ -1318,6 +1318,7 @@ class Timer extends Component<Props, State> {
                                     pomodoros={this.state.pomodorosToday}
                                     showNum={false}
                                     animation={isRunning}
+                                    compact={compact}
                                     chooseRecord={this.props.setChosenRecord}
                                 />
                             </Tooltip>

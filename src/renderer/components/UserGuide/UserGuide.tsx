@@ -13,7 +13,7 @@ const Mask = styled.div`
     top: 0;
     left: 0;
     position: fixed;
-    background-color: rgba(0, 0, 0, 0.6);
+    background-color: var(--pl-mask);
     width: 100vw;
     height: 100vh;
     z-index: 100;
@@ -98,7 +98,7 @@ const _UserGuide: React.FC<UserGuideProps> = (props: UserGuideProps) => {
         hasConfirm,
         blurId,
         pointerDirection,
-        pointerTargetSelector
+        pointerTargetSelector,
     } = props.story;
     const { next } = props;
 
@@ -115,9 +115,7 @@ const _UserGuide: React.FC<UserGuideProps> = (props: UserGuideProps) => {
                     direction={pointerDirection}
                     animate={targetJumping}
                 />
-            ) : (
-                undefined
-            )}
+            ) : undefined}
             <Dialog
                 text={hint}
                 hasConfirm={hasConfirm}
@@ -139,26 +137,24 @@ const _UserGuide: React.FC<UserGuideProps> = (props: UserGuideProps) => {
                             position: 'fixed',
                             zIndex: 2000,
                             top: 16,
-                            right: 16
+                            right: 16,
                         }}
                     />
                 </>
-            ) : (
-                undefined
-            )}
+            ) : undefined}
         </>
     );
 };
 
 export const UserGuide = connect(
     ({ story: { name, index, stories } }: RootState) => ({
-        story: name == null ? undefined : stories[name][index]
+        story: name == null ? undefined : stories[name][index],
     }),
     (dispatch: Dispatch) => {
         return {
             next: () => dispatch(actions.nextStory()),
             prev: () => dispatch(actions.preStory()),
-            exit: () => dispatch(actions.quit())
+            exit: () => dispatch(actions.quit()),
         };
     }
 )(_UserGuide);

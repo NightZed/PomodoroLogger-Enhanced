@@ -34,6 +34,8 @@ const Mask = styled.div`
 
 const MaskInnerContainer = styled.div`
     max-width: 500px;
+    /* The session summary is copyable, like every other feedback surface. */
+    user-select: text;
 `;
 
 const ProjectName = styled.h1`

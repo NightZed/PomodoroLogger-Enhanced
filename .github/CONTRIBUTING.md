@@ -70,6 +70,13 @@ electron_mirror "https://npmmirror.com/mirrors/electron/"
 
 - Don't use independent CSS file, use [styled-component](https://www.styled-components.com) instead
 - Follow the linter
+- All in-app notifications go through the [feedback layer](../src/renderer/components/feedback)
+  (`feedback.toast` / `feedback.notice` / `feedback.confirm` / `feedback.alert`, plus the
+  `ConfirmPopover` variant for in-place confirmations). The layer fixes which channel a
+  situation uses, so position, lifetime, styling and selectable copy stay consistent:
+  receipts are toasts (top center), background status is a notice (top right, closable) and
+  decisions are centered dialogs. Don't import antd's `message` / `notification` directly
+  (enforced by `no-restricted-imports`); shared wording lives in `feedback/messages.ts`.
 - Commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/)
   (enforced by commitlint). This drives automatic versioning and releases:
   `feat:` triggers a minor release, `fix:`/`perf:` a patch release,

@@ -94,7 +94,7 @@ export function initialize() {
         if (!win) return;
         win.setAlwaysOnTop(on && alwaysOnTop);
         if (on) {
-            win.setContentSize(400, 560);
+            win.setContentSize(370, 490);
         } else {
             win.setContentSize(1440, 960);
         }

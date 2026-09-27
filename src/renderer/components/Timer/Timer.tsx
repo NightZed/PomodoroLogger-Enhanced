@@ -114,6 +114,7 @@ const TimerInnerLayout = styled.div<{ compact: boolean }>`
     min-width: 350px;
     max-width: 850px;
     margin: 0 auto;
+    padding-top: ${({ compact }) => (compact ? '16px' : '32px')};
     ${({ compact }) =>
         compact
             ? `
@@ -147,7 +148,7 @@ const ProgressContainer = styled.div`
     margin: 0 auto;
     width: 100%;
     position: relative;
-    padding: 10px;
+    padding: 0px;
     display: flex;
     justify-content: center;
 `;
@@ -1218,7 +1219,7 @@ class Timer extends Component<Props, State> {
                                     '100%': '#87d068',
                                 }}
                                 percent={percent}
-                                width={compact ? 220 : 300}
+                                width={compact ? 240 : 300}
                                 style={{
                                     margin: '0 auto',
                                 }}

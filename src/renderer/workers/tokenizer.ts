@@ -5,13 +5,15 @@ import { BaseWorker } from './BaseWorker';
 import { Card } from '../components/Kanban/type';
 
 export class Tokenizer extends BaseWorker {
-    protected worker = new Worker();
+    protected worker?: Worker;
+    protected idleTimeout = 5 * 60 * 1000;
 
     public async tokenize(records: PomodoroRecord[], cards: Card[]): Promise<[string, number][]> {
         if (process.env.NODE_ENV === 'test') {
             return [];
         }
 
+        this.worker ??= new Worker();
         return (await this.createHandler(
             {
                 type: 'tokenize',

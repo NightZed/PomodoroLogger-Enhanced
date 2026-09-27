@@ -11,7 +11,6 @@ export enum IpcEventName {
     ExportData = 'exportData',
     ImportData = 'importData',
     SelectWallpaper = 'selectWallpaper',
-    LoadWallpaper = 'loadWallpaper',
     ActiveWin = 'activeWin',
     OpenAtLogin = 'openAtLogin',
     MinimizeWindow = 'minimizeWindow',
@@ -55,7 +54,6 @@ export type UpdateErrorPayload = {
 export type ExposedAPI = {
     [IpcEventName.ImportData](): Promise<void>;
     [IpcEventName.SelectWallpaper](): Promise<string | undefined>;
-    [IpcEventName.LoadWallpaper](filePath: string): Promise<string>;
     [IpcEventName.ExportData](): Promise<void>;
     [IpcEventName.ActiveWin](): Promise<BaseResult | undefined>;
     [IpcEventName.OpenAtLogin](on: boolean): void;

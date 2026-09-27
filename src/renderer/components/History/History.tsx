@@ -23,6 +23,7 @@ const { Option } = Select;
 
 type YearChoice = number | 'all';
 const ALL_TIME = 'all' as const;
+const MAX_AGG_CACHE_ENTRIES = 4;
 
 const Container = styled.div`
     overflow-y: auto;
@@ -117,6 +118,26 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
     const aggCache = useRef(new Map<string, AggPomodoroInfo>());
     const lastExpiringKey = useRef(props.expiringKey);
     useEffect(() => {
+        const cache = aggCache.current;
+        return () => {
+            cache.clear();
+        };
+    }, []);
+
+    const cacheAggregation = (key: string, value: AggPomodoroInfo) => {
+        const cache = aggCache.current;
+        cache.delete(key);
+        cache.set(key, value);
+        while (cache.size > MAX_AGG_CACHE_ENTRIES) {
+            const oldestKey = cache.keys().next().value;
+            if (oldestKey === undefined) {
+                break;
+            }
+            cache.delete(oldestKey);
+        }
+    };
+
+    useEffect(() => {
         let cancelled = false;
         if (lastExpiringKey.current !== props.expiringKey) {
             lastExpiringKey.current = props.expiringKey;
@@ -126,6 +147,8 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         const cacheKey = `${props.chosenId ?? 'all'}|${chosenYear}`;
         const cached = aggCache.current.get(cacheKey);
         if (cached) {
+            aggCache.current.delete(cacheKey);
+            aggCache.current.set(cacheKey, cached);
             setAggInfo(cached);
             setTargetDate(undefined);
             setSelectedDatePieChart(undefined);
@@ -191,7 +214,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                     return;
                 }
 
-                aggCache.current.set(cacheKey, ans);
+                cacheAggregation(cacheKey, ans);
                 setAggInfo(ans);
                 setTargetDate(undefined);
                 setSelectedDatePieChart(undefined);

@@ -41,6 +41,12 @@ export type UpdatePhase = 'check' | 'download' | 'install';
 export type UpdateErrorPayload = {
     phase: UpdatePhase;
     message: string;
+    /**
+     * True when the check was skipped rather than failed (for example because
+     * the app is not packaged). The page that asked for the check reports it
+     * itself, so the app wide error notice stays quiet.
+     */
+    skipped?: boolean;
 };
 
 export type ExposedAPI = {

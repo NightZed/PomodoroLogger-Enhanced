@@ -138,6 +138,28 @@ describe('AutoUpdater', () => {
         expect(events[0].info.releaseNotes).toBe('plain note');
     });
 
+    it('should report a skipped check instead of staying silent in an unpackaged app', () => {
+        const { updater, events } = createUpdater();
+        // Regression: electron-updater resolves without emitting anything when the
+        // app is not packaged, so the "Check Update" button kept spinning until its
+        // 30s safety timeout, without any explanation.
+        (updater as any).isPackaged = () => false;
+
+        updater.checkUpdate(true);
+
+        expect(mockUpdater.checkForUpdates).not.toHaveBeenCalled();
+        expect(events).toEqual([
+            {
+                type: UpdateEventName.Error,
+                info: {
+                    phase: 'check',
+                    message: expect.stringContaining('installed application'),
+                    skipped: true,
+                },
+            },
+        ]);
+    });
+
     it('should not check twice in parallel', () => {
         const { updater } = createUpdater();
 

@@ -3,6 +3,14 @@ import { GithubOptions } from 'builder-util-runtime';
 import { UpdateErrorPayload, UpdateEventName, UpdatePhase } from './ipc/type';
 
 /**
+ * Reported when a manual check is skipped because the app is not packaged:
+ * electron-updater refuses to run in that case, and staying silent would leave
+ * the user staring at a spinning button.
+ */
+const UPDATE_CHECK_REQUIRES_PACKAGED_APP =
+    'Update check is only available in the installed application';
+
+/**
  * Thin wrapper around electron-updater.
  *
  * electron-updater emits a single `error` event for both the check phase and the
@@ -81,6 +89,21 @@ export class AutoUpdater {
             return;
         }
 
+        // `AppUpdater.isUpdaterActive` makes electron-updater resolve without
+        // emitting anything in an unpackaged app, so the renderer would wait for
+        // its 30s safety timeout without ever being told why. Report the skip
+        // instead: `skipped` keeps the app wide error notice quiet, while the
+        // page that asked for the check explains it. Background checks never get
+        // here (init.ts skips them in development).
+        if (manual && !this.isPackaged()) {
+            this.sendStatusToWindow(UpdateEventName.Error, {
+                phase: 'check',
+                message: UPDATE_CHECK_REQUIRES_PACKAGED_APP,
+                skipped: true,
+            } as UpdateErrorPayload);
+            return;
+        }
+
         const data = {
             provider: 'github',
             owner: 'nightzed',
@@ -121,6 +144,20 @@ export class AutoUpdater {
     quitAndInstall() {
         this.phase = 'install';
         autoUpdater.quitAndInstall(false);
+    }
+
+    /**
+     * Whether the running app is a packaged build.
+     *
+     * `electron` cannot be loaded outside of the Electron runtime (unit tests),
+     * so it is resolved lazily; when it is unavailable the check runs as before.
+     */
+    private isPackaged(): boolean {
+        try {
+            return require('electron').app?.isPackaged !== false;
+        } catch (e) {
+            return true;
+        }
     }
 
     private reportError(err: any) {

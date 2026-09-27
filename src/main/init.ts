@@ -2,6 +2,7 @@ import {
     nativeImage,
     Tray,
     BrowserWindow,
+    protocol,
     Menu,
     ipcMain,
     MenuItem,
@@ -23,6 +24,18 @@ import { IpcEventName, UpdateEventName } from './ipc/type';
 import * as remoteMain from '@electron/remote/main';
 import { initActiveWin } from './activeWin';
 remoteMain.initialize();
+
+protocol.registerSchemesAsPrivileged([
+    {
+        scheme: 'wallpaper',
+        privileges: {
+            standard: true,
+            secure: true,
+            supportFetchAPI: true,
+            corsEnabled: true,
+        },
+    },
+]);
 
 const { refreshDbs, loadDBs } = db;
 export let win: BrowserWindow | undefined;
@@ -228,6 +241,19 @@ app.on('ready', async () => {
     if (!gotTheLock) {
         return;
     }
+    protocol.registerFileProtocol('wallpaper', (request, callback) => {
+        try {
+            const wallpaperPath = new URL(request.url).searchParams.get('path');
+            if (!wallpaperPath) {
+                callback({ error: -6 });
+                return;
+            }
+            callback({ path: wallpaperPath });
+        } catch (error) {
+            console.error('Failed to resolve wallpaper path:', error);
+            callback({ error: -2 });
+        }
+    });
 
     const img = nativeImage.createFromPath(path.join(__dirname, logo));
     img.resize({ width: 16, height: 16 });

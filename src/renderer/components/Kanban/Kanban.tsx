@@ -261,7 +261,13 @@ export const Kanban: FunctionComponent<Props> = React.memo(
         }, [props.kanban.sortDirection]);
 
         return (
-            <Layout style={{ padding: 4, height: 'calc(100vh - 45px)' }}>
+            <Layout
+                style={{
+                    padding: 4,
+                    height: 'calc(100vh - 45px)',
+                    backgroundColor: 'transparent',
+                }}
+            >
                 <Header>
                     <Hotkeys keyName={'ctrl+n'} onKeyDown={onKeyDown} />
                     {props.kanban.chosenBoardId ? (

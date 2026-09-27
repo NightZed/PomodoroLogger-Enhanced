@@ -26,7 +26,16 @@ const TitleBar = styled.div<{ compact: boolean }>`
         margin: 0;
         height: 44px;
         box-sizing: border-box;
+        background-color: transparent !important;
         -webkit-app-region: drag;
+    }
+
+    .ant-tabs,
+    .ant-tabs-nav,
+    .ant-tabs-nav-container,
+    .ant-tabs-nav-wrap,
+    .ant-tabs-nav-scroll {
+        background-color: transparent !important;
     }
 
     .ant-tabs-nav-container,

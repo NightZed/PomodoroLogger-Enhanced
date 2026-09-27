@@ -1,4 +1,5 @@
 import { ipcMain, dialog, app, nativeImage, Notification, desktopCapturer, screen } from 'electron';
+import * as path from 'path';
 import { DesktopSourceInfo, IpcEventName, WorkerMessageType, WindowAction } from './type';
 import { sendWorkerMessage } from '../worker/fork';
 import { promisify } from 'util';
@@ -180,5 +181,38 @@ export function initialize() {
         // TODO: Show Warning
         await writeAllFile(merged.payload.merged);
         restart();
+    });
+    handle(IpcEventName.SelectWallpaper, async (): Promise<string | undefined> => {
+        const result = await dialog.showOpenDialog({
+            properties: ['openFile'],
+            filters: [
+                {
+                    name: 'Images',
+                    extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'],
+                },
+            ],
+        });
+        if (result.canceled || result.filePaths.length === 0) {
+            return undefined;
+        }
+        const filePath = result.filePaths[0];
+        return filePath;
+    });
+    handle(IpcEventName.LoadWallpaper, async (filePath: string): Promise<string> => {
+        const extension = path.extname(filePath).toLowerCase();
+        const mimeTypes: Record<string, string> = {
+            '.bmp': 'image/bmp',
+            '.gif': 'image/gif',
+            '.jpeg': 'image/jpeg',
+            '.jpg': 'image/jpeg',
+            '.png': 'image/png',
+            '.webp': 'image/webp',
+        };
+        const mimeType = mimeTypes[extension];
+        if (!mimeType) {
+            throw new Error(`Unsupported wallpaper format: ${extension || 'unknown'}`);
+        }
+        const image = await promisify(readFile)(filePath);
+        return `data:${mimeType};base64,${image.toString('base64')}`;
     });
 }

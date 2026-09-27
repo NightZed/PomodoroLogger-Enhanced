@@ -1095,7 +1095,7 @@ class Timer extends Component<Props, State> {
                 this.state.stagedProjectId &&
                 this.props.kanban.boards[this.state.stagedProjectId]?.name;
             return (
-                <Layout style={{ backgroundColor: 'var(--pl-bg)' }} ref={this.selfRef}>
+                <Layout style={{ backgroundColor: 'transparent' }} ref={this.selfRef}>
                     <ReactHotkeys keyName={'f5,f6,tab'} onKeyDown={this.onKeyDown} />
                     <MiniLogger
                         clear={this.onClear}
@@ -1125,7 +1125,7 @@ class Timer extends Component<Props, State> {
             boardId !== undefined ? this.props.kanban.boards[boardId]?.focusedList : undefined;
 
         return (
-            <Layout style={{ backgroundColor: 'var(--pl-bg)' }} ref={this.selfRef}>
+            <Layout style={{ backgroundColor: 'transparent' }} ref={this.selfRef}>
                 <ReactHotkeys keyName={'f5,f6,tab'} onKeyDown={this.onKeyDown} />
                 <TimerMask
                     extendCurrentSession={this.extendCurrentSession}

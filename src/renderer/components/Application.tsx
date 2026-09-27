@@ -31,13 +31,25 @@ interface StyledProps {
 }
 
 const Main = styled.div<StyledProps>`
+    position: relative;
     height: 100vh;
     overflow: hidden;
-    background-color: var(--pl-bg);
-    opacity: ${({ opacity }) => opacity};
+    /* Keep a barely visible hit-test surface so transparent Windows do not
+       pass pointer events through to the desktop. */
+    background-color: rgba(0, 0, 0, 0.01);
     border-radius: ${({ minimize, compact }) => (minimize ? '10px' : compact ? '16px' : '12px')};
     border: 1px solid var(--pl-border);
     box-sizing: border-box;
+
+    &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        background-color: var(--pl-bg);
+        opacity: ${({ opacity }) => opacity};
+    }
 
     ${({ minimize, compact }) => (minimize || compact ? 'overflow: hidden; height: 100vh;' : '')}
     /* While minimized the window is a 90px strip; dialogs of the feedback layer
@@ -62,12 +74,39 @@ const Main = styled.div<StyledProps>`
     }
 `;
 
+const Wallpaper = styled.div<{ path?: string; opacity: number }>`
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+
+    &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-image: ${({ path }) => (path ? `url("${path}")` : 'none')};
+        background-position: center;
+        background-size: cover;
+        background-repeat: no-repeat;
+        opacity: ${({ opacity }) => opacity};
+    }
+`;
+
+const Content = styled.div<{ opacity: number }>`
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    opacity: ${({ opacity }) => opacity};
+`;
+
 interface Props extends TimerActionTypes, HistoryActionCreatorTypes {
     currentTab: string;
     minimize: boolean;
     compact: boolean;
     compactAlwaysOnTop: boolean;
     windowOpacity: number;
+    wallpaperDataUrl?: string;
+    wallpaperOpacity: number;
 
     fetchKanban: () => void;
 }
@@ -146,6 +185,8 @@ class Application extends React.Component<Props> {
             compact,
             compactAlwaysOnTop,
             windowOpacity,
+            wallpaperDataUrl,
+            wallpaperOpacity,
             setCompact,
             setCompactAlwaysOnTop,
         } = this.props;
@@ -162,44 +203,47 @@ class Application extends React.Component<Props> {
         };
         return (
             <Main minimize={minimize} compact={compact} opacity={windowOpacity}>
-                <AppTitleBar
-                    currentTab={currentTab}
-                    minimize={minimize}
-                    compact={compact}
-                    alwaysOnTop={compactAlwaysOnTop}
-                    onToggleAlwaysOnTop={() => setCompactAlwaysOnTop(!compactAlwaysOnTop)}
-                    onTabChange={handleTabChange}
-                    timer={this.timer}
-                    kanban={
-                        <DestroyOnTimeoutWrapper
-                            isVisible={currentTab === 'kanban'}
-                            timeout={600000}
-                        >
-                            <Kanban />
-                        </DestroyOnTimeoutWrapper>
-                    }
-                    history={
-                        <DestroyOnTimeoutWrapper
-                            isVisible={currentTab === 'history'}
-                            timeout={600000}
-                        >
-                            <History />
-                        </DestroyOnTimeoutWrapper>
-                    }
-                    setting={<Setting />}
-                />
-                {!minimize && (
-                    <>
-                        <UserGuide />
-                        <UpdateController />
-                        <CardInDetail />
-                        <ConnectedPomodoroSankey />
-                    </>
-                )}
-                <ReactHotkeys
-                    keyName={'ctrl+tab,ctrl+shift+tab,ctrl+f12,ctrl+q,f11,f12'}
-                    onKeyDown={this.onKeyDown}
-                />
+                <Wallpaper path={wallpaperDataUrl} opacity={wallpaperOpacity} />
+                <Content opacity={windowOpacity}>
+                    <AppTitleBar
+                        currentTab={currentTab}
+                        minimize={minimize}
+                        compact={compact}
+                        alwaysOnTop={compactAlwaysOnTop}
+                        onToggleAlwaysOnTop={() => setCompactAlwaysOnTop(!compactAlwaysOnTop)}
+                        onTabChange={handleTabChange}
+                        timer={this.timer}
+                        kanban={
+                            <DestroyOnTimeoutWrapper
+                                isVisible={currentTab === 'kanban'}
+                                timeout={600000}
+                            >
+                                <Kanban />
+                            </DestroyOnTimeoutWrapper>
+                        }
+                        history={
+                            <DestroyOnTimeoutWrapper
+                                isVisible={currentTab === 'history'}
+                                timeout={600000}
+                            >
+                                <History />
+                            </DestroyOnTimeoutWrapper>
+                        }
+                        setting={<Setting />}
+                    />
+                    {!minimize && (
+                        <>
+                            <UserGuide />
+                            <UpdateController />
+                            <CardInDetail />
+                            <ConnectedPomodoroSankey />
+                        </>
+                    )}
+                    <ReactHotkeys
+                        keyName={'ctrl+tab,ctrl+shift+tab,ctrl+f12,ctrl+q,f11,f12'}
+                        onKeyDown={this.onKeyDown}
+                    />
+                </Content>
             </Main>
         );
     }
@@ -212,6 +256,8 @@ const ApplicationContainer = connect(
         compact: state.timer.compact,
         compactAlwaysOnTop: state.timer.compactAlwaysOnTop,
         windowOpacity: state.timer.windowOpacity,
+        wallpaperDataUrl: state.timer.wallpaperDataUrl,
+        wallpaperOpacity: state.timer.wallpaperOpacity,
     }),
     genMapDispatchToProp<TimerActionTypes & HistoryActionCreatorTypes>({
         ...timerActions,

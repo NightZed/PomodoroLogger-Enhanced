@@ -15,6 +15,7 @@ import { DEFAULT_THEME_ID, ThemeDefinition } from '../../theme/tokens';
 
 export const LONG_BREAK_INTERVAL = 4;
 const settingDB = new AsyncDB(dbs.settingDB);
+let wallpaperOpacitySaveTimer: ReturnType<typeof setTimeout> | undefined;
 export const TABS: tabType[] = ['timer', 'kanban', 'history', 'setting'];
 if (process.env.NODE_ENV !== 'production') {
     TABS.push('analyser');
@@ -38,6 +39,9 @@ export interface Setting {
     useHardwareAcceleration: boolean;
     compactAlwaysOnTop: boolean;
     windowOpacity: number;
+    wallpaperPath?: string;
+    wallpaperDataUrl?: string;
+    wallpaperOpacity: number;
     distractingList: DistractingRow[];
     calendarBaseColor: string;
     /** Id of the active theme, see `theme/tokens.ts`. */
@@ -99,6 +103,9 @@ export const defaultState: TimerState = {
     useHardwareAcceleration: false,
     compactAlwaysOnTop: true,
     windowOpacity: 1,
+    wallpaperPath: undefined,
+    wallpaperDataUrl: undefined,
+    wallpaperOpacity: 1,
     minimize: false,
     compact: false,
 
@@ -139,6 +146,10 @@ export const setMinimize = createActionCreator(
     '[Timer]SET_MINIMIZE',
     (resolve) => (value: boolean) => resolve(value)
 );
+export const setWallpaperDataUrl = createActionCreator(
+    '[Setting]SET_WALLPAPER_DATA_URL',
+    (resolve) => (value?: string) => resolve(value)
+);
 export const setCompact = createActionCreator(
     '[Timer]SET_COMPACT',
     (resolve) => (value: boolean) => resolve(value)
@@ -149,6 +160,14 @@ export const setCompactAlwaysOnTop = createActionCreator(
 );
 export const setWindowOpacity = createActionCreator(
     '[Setting]SET_WINDOW_OPACITY',
+    (resolve) => (value: number) => resolve(value)
+);
+export const setWallpaperPath = createActionCreator(
+    '[Setting]SET_WALLPAPER_PATH',
+    (resolve) => (value?: string) => resolve(value)
+);
+export const setWallpaperOpacity = createActionCreator(
+    '[Setting]SET_WALLPAPER_OPACITY',
     (resolve) => (value: number) => resolve(value)
 );
 export const setAutoUpdate = createActionCreator(
@@ -318,6 +337,8 @@ export const actions = {
             ['useHardwareAcceleration', setUseHardwareAcceleration],
             ['compactAlwaysOnTop', setCompactAlwaysOnTop],
             ['windowOpacity', setWindowOpacity],
+            ['wallpaperPath', setWallpaperPath],
+            ['wallpaperOpacity', setWallpaperOpacity],
             ['longBreakDuration', setLongBreakDuration],
             ['distractingList', setDistractingList],
             ['autoUpdate', setAutoUpdate],
@@ -332,6 +353,15 @@ export const actions = {
                 const action = key[1](settings[key[0]]);
                 dispatch(action);
             }
+        }
+        if (settings.wallpaperPath) {
+            dispatch(
+                setWallpaperDataUrl(
+                    settings.wallpaperPath.startsWith('data:')
+                        ? settings.wallpaperPath
+                        : `wallpaper://local?path=${encodeURIComponent(settings.wallpaperPath)}`
+                )
+            );
         }
     },
     setAutoUpdate: (value: boolean) => async (dispatch: Dispatch) => {
@@ -378,6 +408,37 @@ export const actions = {
             { $set: { windowOpacity: value } },
             { upsert: true }
         );
+    },
+    setWallpaperPath: (value?: string) => async (dispatch: Dispatch) => {
+        dispatch(setWallpaperPath(value));
+        dispatch(setWallpaperDataUrl(undefined));
+        await settingDB.update(
+            { name: 'setting' },
+            value ? { $set: { wallpaperPath: value } } : { $unset: { wallpaperPath: true } },
+            { upsert: true }
+        );
+        if (value) {
+            dispatch(
+                setWallpaperDataUrl(
+                    value.startsWith('data:')
+                        ? value
+                        : `wallpaper://local?path=${encodeURIComponent(value)}`
+                )
+            );
+        }
+    },
+    setWallpaperOpacity: (value: number) => async (dispatch: Dispatch) => {
+        dispatch(setWallpaperOpacity(value));
+        if (wallpaperOpacitySaveTimer) {
+            clearTimeout(wallpaperOpacitySaveTimer);
+        }
+        wallpaperOpacitySaveTimer = setTimeout(() => {
+            settingDB.update(
+                { name: 'setting' },
+                { $set: { wallpaperOpacity: value } },
+                { upsert: true }
+            );
+        }, 300);
     },
     setDistractingList: (distractingList: DistractingRow[]) => async (dispatch: Dispatch) => {
         dispatch(setDistractingList(distractingList));
@@ -664,5 +725,17 @@ export const reducer = createReducer<TimerState, any>(defaultState, (handle) => 
     handle(setWindowOpacity, (state, { payload }) => ({
         ...state,
         windowOpacity: payload,
+    })),
+    handle(setWallpaperPath, (state, { payload }) => ({
+        ...state,
+        wallpaperPath: payload,
+    })),
+    handle(setWallpaperDataUrl, (state, { payload }) => ({
+        ...state,
+        wallpaperDataUrl: payload,
+    })),
+    handle(setWallpaperOpacity, (state, { payload }) => ({
+        ...state,
+        wallpaperOpacity: payload,
     })),
 ]);

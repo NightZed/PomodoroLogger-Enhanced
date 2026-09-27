@@ -95,5 +95,36 @@ module.exports = tseslint.config(
             '@typescript-eslint/no-require-imports': 'off'
         }
     },
+    {
+        files: ['src/**/*.{ts,tsx}'],
+        rules: {
+            // Every in-app message goes through the feedback layer, which is what
+            // keeps channel (toast / notice / dialog), position, lifetime, styling
+            // and copy consistent. `Modal` stays allowed for content dialogs
+            // (editors, forms) -- use `feedback.confirm` / `feedback.alert` for
+            // decisions and acknowledgements.
+            'no-restricted-imports': [
+                'warn',
+                {
+                    paths: [
+                        {
+                            name: 'antd',
+                            importNames: ['message', 'notification'],
+                            message:
+                                'Use the feedback layer instead ' +
+                                '(src/renderer/components/feedback): feedback.toast / feedback.notice.'
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    {
+        // The feedback layer is the one place that talks to antd directly.
+        files: ['src/renderer/components/feedback/**/*.{ts,tsx}'],
+        rules: {
+            'no-restricted-imports': 'off'
+        }
+    },
     prettier
 );

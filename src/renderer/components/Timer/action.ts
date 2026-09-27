@@ -37,6 +37,7 @@ export interface Setting {
     startOnBoot: boolean;
     useHardwareAcceleration: boolean;
     compactAlwaysOnTop: boolean;
+    windowOpacity: number;
     distractingList: DistractingRow[];
     calendarBaseColor: string;
     /** Id of the active theme, see `theme/tokens.ts`. */
@@ -97,6 +98,7 @@ export const defaultState: TimerState = {
     startOnBoot: false,
     useHardwareAcceleration: false,
     compactAlwaysOnTop: true,
+    windowOpacity: 1,
     minimize: false,
     compact: false,
 
@@ -144,6 +146,10 @@ export const setCompact = createActionCreator(
 export const setCompactAlwaysOnTop = createActionCreator(
     '[Timer]SET_COMPACT_ALWAYS_ON_TOP',
     (resolve) => (value: boolean) => resolve(value)
+);
+export const setWindowOpacity = createActionCreator(
+    '[Setting]SET_WINDOW_OPACITY',
+    (resolve) => (value: number) => resolve(value)
 );
 export const setAutoUpdate = createActionCreator(
     '[Timer]SET_AUTO_UPDATE',
@@ -311,6 +317,7 @@ export const actions = {
             ['startOnBoot', setStartOnBoot],
             ['useHardwareAcceleration', setUseHardwareAcceleration],
             ['compactAlwaysOnTop', setCompactAlwaysOnTop],
+            ['windowOpacity', setWindowOpacity],
             ['longBreakDuration', setLongBreakDuration],
             ['distractingList', setDistractingList],
             ['autoUpdate', setAutoUpdate],
@@ -363,6 +370,14 @@ export const actions = {
         if (getState().timer.compact) {
             window.api.compactWindow(true, value);
         }
+    },
+    setWindowOpacity: (value: number) => async (dispatch: Dispatch) => {
+        dispatch(setWindowOpacity(value));
+        await settingDB.update(
+            { name: 'setting' },
+            { $set: { windowOpacity: value } },
+            { upsert: true }
+        );
     },
     setDistractingList: (distractingList: DistractingRow[]) => async (dispatch: Dispatch) => {
         dispatch(setDistractingList(distractingList));
@@ -645,5 +660,9 @@ export const reducer = createReducer<TimerState, any>(defaultState, (handle) => 
     handle(setCompactAlwaysOnTop, (state, { payload }) => ({
         ...state,
         compactAlwaysOnTop: payload,
+    })),
+    handle(setWindowOpacity, (state, { payload }) => ({
+        ...state,
+        windowOpacity: payload,
     })),
 ]);

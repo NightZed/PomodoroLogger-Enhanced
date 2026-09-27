@@ -17,6 +17,11 @@ interface Props {
 }
 
 const TitleBar = styled.div<{ compact: boolean }>`
+    .ant-tabs-content,
+    .ant-tabs-tabpane {
+        -webkit-app-region: no-drag;
+    }
+
     .ant-tabs-bar {
         margin: 0;
         height: 44px;

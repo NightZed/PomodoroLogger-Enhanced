@@ -27,12 +27,14 @@ import AppTitleBar from './AppTitleBar/AppTitleBar';
 interface StyledProps {
     minimize: boolean;
     compact: boolean;
+    opacity: number;
 }
 
 const Main = styled.div<StyledProps>`
     height: 100vh;
     overflow: hidden;
     background-color: var(--pl-bg);
+    opacity: ${({ opacity }) => opacity};
     border-radius: ${({ minimize, compact }) => (minimize ? '10px' : compact ? '16px' : '12px')};
     border: 1px solid var(--pl-border);
     box-sizing: border-box;
@@ -65,6 +67,7 @@ interface Props extends TimerActionTypes, HistoryActionCreatorTypes {
     minimize: boolean;
     compact: boolean;
     compactAlwaysOnTop: boolean;
+    windowOpacity: number;
 
     fetchKanban: () => void;
 }
@@ -142,6 +145,7 @@ class Application extends React.Component<Props> {
             minimize,
             compact,
             compactAlwaysOnTop,
+            windowOpacity,
             setCompact,
             setCompactAlwaysOnTop,
         } = this.props;
@@ -157,7 +161,7 @@ class Application extends React.Component<Props> {
             changeAppTab(tab as any);
         };
         return (
-            <Main minimize={minimize} compact={compact}>
+            <Main minimize={minimize} compact={compact} opacity={windowOpacity}>
                 <AppTitleBar
                     currentTab={currentTab}
                     minimize={minimize}
@@ -207,6 +211,7 @@ const ApplicationContainer = connect(
         minimize: state.timer.minimize,
         compact: state.timer.compact,
         compactAlwaysOnTop: state.timer.compactAlwaysOnTop,
+        windowOpacity: state.timer.windowOpacity,
     }),
     genMapDispatchToProp<TimerActionTypes & HistoryActionCreatorTypes>({
         ...timerActions,

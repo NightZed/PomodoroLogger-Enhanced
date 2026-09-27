@@ -15,10 +15,13 @@ import { BUILTIN_THEMES, ThemeDefinition } from '../../theme/tokens';
 const Container = styled.div`
     padding: 12px 36px;
     color: var(--pl-text);
+    -webkit-app-region: no-drag;
 `;
 
 const SliderContainer = styled.div`
     padding: 4px 24px;
+    -webkit-app-region: no-drag;
+    pointer-events: auto;
 `;
 
 const ButtonWrapper = styled.div`
@@ -134,6 +137,12 @@ const longBreakMarks = {
     25: '25min',
 };
 
+const opacityMarks = {
+    40: '40%',
+    70: '70%',
+    100: '100%',
+};
+
 const settingUiStates = [
     'focusDuration',
     'restDuration',
@@ -144,6 +153,7 @@ const settingUiStates = [
     'warnBeforeFocusStart',
     'useHardwareAcceleration',
     'compactAlwaysOnTop',
+    'windowOpacity',
     'startOnBoot',
     'distractingList',
     'calendarBaseColor',
@@ -422,6 +432,21 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                     style={{ margin: 8 }}
                 />
                 <br />
+                <h4>Window Opacity</h4>
+                <SliderContainer>
+                    <Slider
+                        marks={opacityMarks}
+                        min={40}
+                        max={100}
+                        step={5}
+                        value={Math.round(props.windowOpacity * 100)}
+                        onChange={(value) => {
+                            if (typeof value === 'number') {
+                                props.setWindowOpacity(value / 100);
+                            }
+                        }}
+                    />
+                </SliderContainer>
                 <SettingLabel>Auto Update</SettingLabel>
                 <Switch
                     onChange={switchAutoUpdate}

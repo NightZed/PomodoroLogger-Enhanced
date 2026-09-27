@@ -34,6 +34,8 @@ const Main = styled.div<StyledProps>`
     overflow: hidden;
     background-color: var(--pl-bg);
     border-radius: ${({ minimize, compact }) => (minimize ? '10px' : compact ? '16px' : '12px')};
+    border: 1px solid var(--pl-border);
+    box-sizing: border-box;
 
     ${({ minimize, compact }) => (minimize || compact ? 'overflow: hidden; height: 100vh;' : '')}
     /* While minimized the window is a 90px strip; dialogs of the feedback layer

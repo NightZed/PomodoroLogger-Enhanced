@@ -2,7 +2,8 @@ import React, { FunctionComponent, useCallback, useEffect, useRef, useState } fr
 import { KanbanActionTypes } from './action';
 import { KanbanState, uiStateNames } from './reducer';
 import { BoardActionTypes } from './Board/action';
-import { message, Button, Form, Icon, Layout, Select, Switch, Tooltip } from 'antd';
+import { Button, Form, Icon, Layout, Select, Switch, Tooltip } from 'antd';
+import { feedback, FEEDBACK_MESSAGES } from '../feedback';
 import Board from './Board';
 import styled from 'styled-components';
 import { Overview } from './Board/Overview';
@@ -216,10 +217,13 @@ export const Kanban: FunctionComponent<Props> = React.memo(
             }
 
             if (props.isFocusingOnChosenBoard && props.isTimerRunning) {
-                message.info('Paused');
+                feedback.toast({ kind: 'info', content: FEEDBACK_MESSAGES.kanban.paused });
                 props.timerManager.pause();
             } else {
-                message.success('Start Focusing');
+                feedback.toast({
+                    kind: 'success',
+                    content: FEEDBACK_MESSAGES.kanban.startFocusing,
+                });
                 props.timerManager.start(props.kanban.chosenBoardId);
             }
         }, [props.kanban.chosenBoardId, props.timerManager, props.isTimerRunning]);

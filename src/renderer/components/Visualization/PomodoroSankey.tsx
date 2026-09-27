@@ -1,6 +1,6 @@
 import * as React from 'react';
 import ReactEcharts from 'echarts-for-react';
-import { message } from 'antd';
+import { feedback, FEEDBACK_MESSAGES } from '../feedback';
 import { actions } from '../Timer/action';
 import { PomodoroRecord } from '../../monitor/type';
 import { EfficiencyAnalyser } from '../../../shared/efficiency/efficiency';
@@ -347,10 +347,12 @@ export const PomodoroSankey = (props: Props) => {
         props.record.stayTimeInSecond == null ||
         props.record.switchActivities.length !== props.record.stayTimeInSecond.length;
     if (isOutdated) {
-        message.info(
-            'Cannot plot Sankey Diagram. ' +
-                'Chosen pomodoro was recorded in a version that lacks of required data'
-        );
+        // A fixed key keeps re-renders from stacking identical toasts.
+        feedback.toast({
+            kind: 'info',
+            key: 'sankey-outdated',
+            content: FEEDBACK_MESSAGES.statistics.sankeyOutdated,
+        });
         return <></>;
     }
     if (option == null) {

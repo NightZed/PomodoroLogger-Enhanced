@@ -1,5 +1,6 @@
 import React from 'react';
-import { Button, Form, Input, Modal, Popconfirm, Tabs } from 'antd';
+import { Button, Form, Input, Modal, Tabs } from 'antd';
+import { ConfirmPopover } from '../feedback';
 import TextArea from 'antd/es/input/TextArea';
 import Hotkeys from 'react-hot-keys';
 import { DistractingListModalButton } from '../Setting/DistractingList';
@@ -159,11 +160,11 @@ export const EditKanbanForm = Form.create<
                             {!isCreating ? (
                                 <>
                                     <Form.Item>
-                                        <Popconfirm title={'Are you sure?'} onConfirm={onDelete}>
+                                        <ConfirmPopover onConfirm={onDelete}>
                                             <Button type={'danger'} icon={'delete'}>
                                                 Delete
                                             </Button>
-                                        </Popconfirm>
+                                        </ConfirmPopover>
                                     </Form.Item>
                                     <DistractingListModalButton boardId={boardId} />
                                 </>

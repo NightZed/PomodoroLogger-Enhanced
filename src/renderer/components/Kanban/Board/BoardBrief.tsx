@@ -7,7 +7,8 @@ import { actions as kanbanActions } from '../action';
 import { Dispatch } from 'redux';
 import styled, { keyframes } from 'styled-components';
 import { CardsState } from '../Card/action';
-import { Button, Divider, message } from 'antd';
+import { Button, Divider } from 'antd';
+import { feedback, FEEDBACK_MESSAGES } from '../../feedback';
 import { Badge, TimeBadge } from '../../../../components/Visualization/Badge/Badge';
 import formatMarkdown from '../Card/formatMarkdown';
 import { IdTrend } from '../../Visualization/ProjectTrend';
@@ -211,10 +212,13 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
 
             if (isFocusingOnThisBoard && isTimerRunning) {
                 props.timerManager.pause();
-                message.info('Paused');
+                feedback.toast({ kind: 'info', content: FEEDBACK_MESSAGES.kanban.paused });
             } else {
                 props.timerManager.start(props._id);
-                message.success('Start Focusing');
+                feedback.toast({
+                    kind: 'success',
+                    content: FEEDBACK_MESSAGES.kanban.startFocusing,
+                });
             }
         },
         [props._id, isFocusingOnThisBoard, isTimerRunning, props.timerManager]

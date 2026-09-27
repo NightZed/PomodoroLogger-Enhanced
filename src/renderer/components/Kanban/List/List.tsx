@@ -5,7 +5,8 @@ import React, { FC, useRef, useState, useEffect } from 'react';
 import { ListActionTypes } from './action';
 import styled from 'styled-components';
 import Card from '../Card';
-import { Button, Dropdown, Icon, Input, Menu, message, Popconfirm, Tooltip } from 'antd';
+import { Button, Dropdown, Icon, Input, Menu, Tooltip } from 'antd';
+import { ConfirmPopover, feedback, FEEDBACK_MESSAGES } from '../../feedback';
 import { KanbanActionTypes } from '../action';
 import { CardsState } from '../Card/action';
 import { List as ListType } from '../type';
@@ -267,7 +268,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
 
     const onDelete = () => {
         if (focused || done) {
-            message.warn('Cannot delete the focused / done list.');
+            feedback.toast({ kind: 'warning', content: FEEDBACK_MESSAGES.kanban.cannotDeleteList });
             return;
         }
 
@@ -293,7 +294,8 @@ export const List: FC<Props> = React.memo((props: Props) => {
         inputRef.current.focus();
     };
 
-    const popConfirmRef = useRef<Popconfirm>();
+    /** The shared popover forwards the antd instance, so the menu can open it. */
+    const popConfirmRef = useRef<{ setVisible: (visible: boolean) => void }>();
     const onPreDelete = React.useCallback(() => {
         if (popConfirmRef.current) {
             popConfirmRef.current.setVisible(true);
@@ -309,13 +311,9 @@ export const List: FC<Props> = React.memo((props: Props) => {
                     </Menu.Item>
                     <Menu.Divider />
                     <Menu.Item key="3" onClick={onPreDelete}>
-                        <Popconfirm
-                            title={'Are you sure?'}
-                            onConfirm={onDelete}
-                            ref={popConfirmRef as any}
-                        >
+                        <ConfirmPopover onConfirm={onDelete} ref={popConfirmRef as any}>
                             <Icon type={'delete'} /> Delete
-                        </Popconfirm>
+                        </ConfirmPopover>
                     </Menu.Item>
                 </Menu>
             ) : (

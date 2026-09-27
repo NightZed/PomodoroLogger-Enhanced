@@ -1,4 +1,4 @@
-import { Button, Divider, Icon, message, Tooltip } from 'antd';
+import { Button, Divider, Icon, Tooltip } from 'antd';
 import * as remote from '@electron/remote';
 import { debounce } from 'lodash';
 import React, { Component } from 'react';
@@ -40,7 +40,7 @@ import {
 import { setTrayImageWithMadeIcon } from './iconMaker';
 import { PomodoroNumView } from './PomodoroNumView';
 import Progress from './Progress';
-import { Dialog } from '../UserGuide/Dialog';
+import { feedback, FEEDBACK_MESSAGES } from '../feedback';
 import { TimerMask } from './SessionEndingMask';
 import { waitUntil } from './wait';
 import { WorkRestIcon } from './WorkRestIcon';
@@ -252,6 +252,11 @@ class Timer extends Component<Props, State> {
     private projectInference?: Promise<string | undefined>;
     selfRef: React.RefObject<HTMLDivElement> = React.createRef();
     private componentGone = false;
+    /**
+     * The open "no project / no cards" confirmation, if any. A new start request
+     * destroys the previous dialog instead of stacking another one on top.
+     */
+    private focusStartWarningModal?: ReturnType<typeof feedback.confirm>;
 
     constructor(props: Props) {
         super(props);
@@ -570,15 +575,11 @@ class Timer extends Component<Props, State> {
                 this.props.kanban.cards
             );
             if (warning) {
-                // Reuse the guide dialog style: it stays on screen until the
-                // user picks OK (start anyway) or Cancel (stay put). Keep the
+                // Ask through the feedback layer's blocking dialog so the other
+                // decisions of the app look and behave the same way. Keep the
                 // request's board as well: the user may confirm before the
                 // connected Timer has rendered the SET_BOARD_ID update.
-                this.setState({
-                    focusStartWarning: warning,
-                    focusStartWarningBoardId: focusBoardId,
-                    focusStartWarningDontRemind: false,
-                });
+                this.showFocusStartWarning(warning, focusBoardId);
                 return;
             }
         }
@@ -606,6 +607,43 @@ class Timer extends Component<Props, State> {
             focusStartWarning: undefined,
             focusStartWarningBoardId: undefined,
             focusStartWarningDontRemind: false,
+        });
+    };
+
+    /**
+     * Asks whether a fresh focus session should start although it cannot be
+     * linked to a project / to any In Progress card.
+     *
+     * The dialog comes from the feedback layer, so this decision looks and
+     * behaves like every other one in the app: centered, masked, Escape or the
+     * cross cancels. The "Don't remind me again" box is answered through
+     * `state`, which both `confirmFocusStart` and `cancelFocusStart` read.
+     */
+    private showFocusStartWarning = (warning: FocusStartWarning, boardId?: string) => {
+        if (this.focusStartWarningModal) {
+            // A newer request wins: replace the pending dialog instead of
+            // stacking a second one on top of it.
+            this.focusStartWarningModal.destroy();
+        }
+
+        this.setState({
+            focusStartWarning: warning,
+            focusStartWarningBoardId: boardId,
+            focusStartWarningDontRemind: false,
+        });
+        this.focusStartWarningModal = feedback.confirm({
+            kind: 'warning',
+            title: warning.title,
+            content: warning.content,
+            checkbox: {
+                label: DONT_REMIND_AGAIN_LABEL,
+                checked: false,
+                onChange: this.onToggleDontRemind,
+            },
+            okText: 'OK',
+            cancelText: 'Cancel',
+            onOk: this.confirmFocusStart,
+            onCancel: this.cancelFocusStart,
         });
     };
 
@@ -858,7 +896,7 @@ class Timer extends Component<Props, State> {
 
     switchMode = () => {
         if (this.props.timer.isRunning || this.state.percent !== 0) {
-            message.warn('Cannot switch mode when timer is running');
+            feedback.toast({ kind: 'warning', content: FEEDBACK_MESSAGES.timer.cannotSwitchMode });
             return;
         }
 
@@ -971,7 +1009,7 @@ class Timer extends Component<Props, State> {
 
         const eTime = this.getElapsedTimeInSecond();
         if (eTime < 600) {
-            message.warn('Focus at least for 10 minutes to finish');
+            feedback.toast({ kind: 'warning', content: FEEDBACK_MESSAGES.timer.finishTooEarly });
             return;
         }
 
@@ -1016,7 +1054,7 @@ class Timer extends Component<Props, State> {
     };
 
     componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-        message.error(error.toString());
+        feedback.toast({ kind: 'error', content: error.toString() });
     }
 
     minimize = () => {
@@ -1034,15 +1072,7 @@ class Timer extends Component<Props, State> {
     };
 
     render() {
-        const {
-            leftTime,
-            percent,
-            more,
-            pomodorosToday,
-            showMask,
-            focusStartWarning,
-            focusStartWarningDontRemind,
-        } = this.state;
+        const { leftTime, percent, more, pomodorosToday, showMask } = this.state;
         const { isRunning, targetTime, minimize, compact, isFocusing } = this.props.timer;
         const shownLeftTime =
             (isRunning || targetTime) && leftTime.length ? leftTime : this.defaultLeftTime();
@@ -1174,20 +1204,6 @@ class Timer extends Component<Props, State> {
                         />
                     )}
                     <TimerInnerLayout compact={compact}>
-                        {focusStartWarning ? (
-                            <Dialog
-                                centered={true}
-                                title={focusStartWarning.title}
-                                text={focusStartWarning.content}
-                                checkboxLabel={DONT_REMIND_AGAIN_LABEL}
-                                checkboxChecked={focusStartWarningDontRemind}
-                                onCheckboxChange={this.onToggleDontRemind}
-                                confirmText="OK"
-                                cancelText="Cancel"
-                                onConfirm={this.confirmFocusStart}
-                                onCancel={this.cancelFocusStart}
-                            />
-                        ) : undefined}
                         <ProgressContainer>
                             <Progress
                                 type="circle"

@@ -1,6 +1,7 @@
 import React, { FC, useState } from 'react';
 import styled from 'styled-components';
-import { AutoComplete, Button, Icon, Input, message } from 'antd';
+import { AutoComplete, Button, Icon, Input } from 'antd';
+import { feedback, FEEDBACK_MESSAGES } from '../../feedback';
 import { CardLabel } from '../type';
 
 const { Option } = AutoComplete;
@@ -130,7 +131,7 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
         }
 
         if (labels.some((label) => label.name === name)) {
-            message.warning('标签已存在 / Label already exists');
+            feedback.toast({ kind: 'warning', content: FEEDBACK_MESSAGES.kanban.labelExists });
             return;
         }
 
@@ -183,7 +184,7 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
         }
 
         if (labels.some((label, i) => i !== editingIndex && label.name === name)) {
-            message.warning('标签已存在 / Label already exists');
+            feedback.toast({ kind: 'warning', content: FEEDBACK_MESSAGES.kanban.labelExists });
             return;
         }
 

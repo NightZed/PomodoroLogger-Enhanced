@@ -23,6 +23,7 @@ import { setTrayImageWithMadeIcon } from './Timer/iconMaker';
 import { UpdateController } from './UpdateController';
 import { UserGuide } from './UserGuide/UserGuide';
 import { ConnectedPomodoroSankey } from './Visualization/PomodoroSankey';
+import WindowControls from './WindowControls';
 
 interface StyledProps {
     minimize: boolean;
@@ -32,6 +33,22 @@ interface StyledProps {
 const Main = styled.div<StyledProps>`
     .ant-tabs-bar {
         margin: 0;
+        /* The window is frameless (init.ts): the tabs row doubles as the
+           window drag region. Interactive children opt out below. */
+        -webkit-app-region: drag;
+    }
+
+    .ant-tabs-tab,
+    .ant-tabs-nav-more,
+    .ant-tabs-extra-content {
+        -webkit-app-region: no-drag;
+    }
+
+    /* Keeps the caption buttons vertically centered in the tabs row. */
+    .ant-tabs-extra-content {
+        display: flex;
+        align-items: center;
+        height: 45px;
     }
 
     ${({ minimize, compact }) => (minimize || compact ? 'overflow: hidden; height: 100vh;' : '')}
@@ -52,6 +69,9 @@ const Main = styled.div<StyledProps>`
         compact
             ? `
                 .ant-tabs-bar {
+                    height: 40px;
+                }
+                .ant-tabs-extra-content {
                     height: 40px;
                 }
                 .ant-tabs-nav .ant-tabs-tab {
@@ -145,7 +165,13 @@ class Application extends React.Component<Props> {
         };
         return (
             <Main minimize={minimize} compact={compact}>
-                <Tabs activeKey={minimize ? 'timer' : currentTab} onChange={handleTabChange}>
+                <Tabs
+                    activeKey={minimize ? 'timer' : currentTab}
+                    onChange={handleTabChange}
+                    /* Caption buttons for the frameless window; hidden with the
+                       tabs row itself while minimized (no title bar in mini). */
+                    tabBarExtraContent={minimize ? null : <WindowControls />}
+                >
                     <TabPane
                         tab={
                             <span>

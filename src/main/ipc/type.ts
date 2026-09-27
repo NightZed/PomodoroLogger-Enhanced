@@ -18,6 +18,7 @@ export enum IpcEventName {
     Notify = 'notify',
     FocusOnWindow = 'focusOnWindow',
     DesktopSource = 'desktopSource',
+    WindowAction = 'windowAction',
 }
 
 /**
@@ -60,7 +61,14 @@ export type ExposedAPI = {
     [IpcEventName.Notify](title: string, body: string, iconPath: string): void;
     [IpcEventName.FocusOnWindow](): void;
     [IpcEventName.DesktopSource](x: number, y: number): Promise<DesktopSourceInfo | undefined>;
+    [IpcEventName.WindowAction](action: WindowAction): void;
 };
+
+/**
+ * Caption button actions for the frameless window, handled in ipc.ts.
+ * `close` goes through init.ts's close handler, which hides the window to tray.
+ */
+export type WindowAction = 'minimize' | 'maximize' | 'close';
 
 /**
  * Identifiers of the `desktopCapturer` source that belongs to the display which

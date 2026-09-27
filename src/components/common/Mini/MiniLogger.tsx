@@ -43,6 +43,8 @@ const StyledLogger = styled.div`
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
+    /* Frameless window: dragging anywhere except the buttons moves the strip. */
+    -webkit-app-region: drag;
 
     * {
         user-select: none;
@@ -102,6 +104,7 @@ const StyledLogger = styled.div`
         display: flex;
         align-items: center;
         gap: 8px;
+        -webkit-app-region: no-drag;
     }
 
     .btn-side.left {

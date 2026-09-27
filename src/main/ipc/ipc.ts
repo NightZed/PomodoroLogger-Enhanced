@@ -1,5 +1,5 @@
 import { ipcMain, dialog, app, nativeImage, Notification, desktopCapturer, screen } from 'electron';
-import { DesktopSourceInfo, IpcEventName, WorkerMessageType } from './type';
+import { DesktopSourceInfo, IpcEventName, WorkerMessageType, WindowAction } from './type';
 import { sendWorkerMessage } from '../worker/fork';
 import { promisify } from 'util';
 import { readFile, writeFile } from 'fs';
@@ -96,6 +96,22 @@ export function initialize() {
             win.setContentSize(400, 560);
         } else {
             win.setContentSize(1440, 960);
+        }
+    });
+    // Caption buttons for the frameless window (drawn by WindowControls.tsx).
+    handle(IpcEventName.WindowAction, (action: WindowAction) => {
+        if (!win) return;
+        if (action === 'minimize') {
+            win.minimize();
+        } else if (action === 'maximize') {
+            if (win.isMaximized()) {
+                win.unmaximize();
+            } else {
+                win.maximize();
+            }
+        } else if (action === 'close') {
+            // init.ts installs a close handler that hides the window to tray.
+            win.close();
         }
     });
     handle(IpcEventName.OpenAtLogin, (on) => {

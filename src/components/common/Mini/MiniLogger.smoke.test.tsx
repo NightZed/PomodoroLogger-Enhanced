@@ -129,8 +129,8 @@ describe('MiniLogger two-row mini layout', () => {
             expect(titles.length).toBeGreaterThan(0);
             return titles[0].children;
         };
-        expect(stateLabel({})).toContain('working');
-        expect(stateLabel({ isFocusing: false })).toContain('breaking');
-        expect(stateLabel({ isConfirming: true })).toContain('done');
+        expect(stateLabel({})).toContain('Working');
+        expect(stateLabel({ isFocusing: false })).toContain('Breaking');
+        expect(stateLabel({ isConfirming: true })).toContain('Done');
     });
 });

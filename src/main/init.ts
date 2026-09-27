@@ -119,7 +119,10 @@ const createWindow = async () => {
         // resizable below that or the bar would be clipped.
         minWidth: 200,
         minHeight: 90,
-        frame: true,
+        // Frameless: the title bar is drawn by the renderer (WindowControls on
+        // the right of the tabs row; mini mode has none). thickFrame keeps its
+        // default (true), so Windows still has invisible resize borders.
+        frame: false,
         useContentSize: true,
         backgroundColor: nativeTheme.shouldUseDarkColors ? '#141414' : '#ffffff',
         icon: nativeImage.createFromPath(path.join(__dirname, logo)),

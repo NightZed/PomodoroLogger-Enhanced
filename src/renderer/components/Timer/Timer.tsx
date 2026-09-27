@@ -1237,7 +1237,7 @@ class Timer extends Component<Props, State> {
                         </ProgressContainer>
 
                         <ThemeToggleRow>
-                            <Tooltip title={'Switch theme'}>
+                            <Tooltip title={'Switch Theme'}>
                                 <ThemeToggle type="bulb" onClick={this.toggleTheme} />
                             </Tooltip>
                         </ThemeToggleRow>

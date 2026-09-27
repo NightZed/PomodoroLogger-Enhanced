@@ -77,6 +77,7 @@ export function initialize() {
     handle(IpcEventName.MinimizeWindow, (on) => {
         if (!win) return;
         win.setAlwaysOnTop(on);
+        win.setSkipTaskbar(on);
         if (on) {
             // Mini bar: content must be exactly the two-row MiniLogger size
             // (90px; Application.tsx hides the 1px .ant-tabs-bar border while

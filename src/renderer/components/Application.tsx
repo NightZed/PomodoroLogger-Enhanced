@@ -35,7 +35,13 @@ const Main = styled.div<StyledProps>`
     }
 
     ${({ minimize, compact }) => (minimize || compact ? 'overflow: hidden; height: 100vh;' : '')}
-    .ant-tabs-nav-container,.ant-modal-content {
+    /* While minimized the window is a 43px strip; dialogs of the feedback layer
+       are rendered into the body (outside this container), so their mask has to
+       be hidden as well -- otherwise the strip would be covered by a mask that
+       cannot be clicked away (maskClosable is false for blocking dialogs). */
+    .ant-tabs-nav-container,
+    .ant-modal-content,
+    .ant-modal-mask {
         ${({ minimize }) => (minimize ? 'display: none;' : '')}
     }
     ${({ compact }) =>

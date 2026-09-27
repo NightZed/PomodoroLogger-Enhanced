@@ -92,7 +92,10 @@ class DynamicFieldSet extends React.Component<
                 // `keys` is filtered below, the other two are only read
                 const { apps, titles } = values;
                 let { keys } = values;
-                keys = keys.filter((v: any, i: any) => apps[i] || titles[i]);
+                // `keys` holds the row ids, which are the indexes into the (sparse)
+                // `apps` / `titles` arrays. Filtering by position would drop every
+                // row that comes after a removed one.
+                keys = keys.filter((key: any) => apps[key] || titles[key]);
                 this.props.form.setFieldsValue(
                     {
                         keys,
@@ -135,42 +138,49 @@ class DynamicFieldSet extends React.Component<
         getFieldDecorator('keys', { initialValue: [] });
         const keys = getFieldValue('keys');
         const formItems = keys.map((k: number, index: number) => (
-            <Form.Item
-                {...(index === 0 ? formItemLayout : formItemLayoutWithOutLabel)}
-                label={index === 0 ? 'RegExp' : ''}
-                required={false}
-                key={k}
-            >
-                {getFieldDecorator(
-                    `apps[${k}]`,
-                    {}
-                )(
-                    <Input
-                        placeholder="App RegExp"
-                        style={{ width: '85%', marginRight: 8 }}
-                        addonBefore={'App'}
-                    />
-                )}
-                {getFieldDecorator(
-                    `titles[${k}]`,
-                    {}
-                )(
-                    <Input
-                        placeholder="Title RegExp"
-                        style={{ width: '85%', marginRight: 8 }}
-                        addonBefore={'Title'}
-                    />
-                )}
+            // One control per `Form.Item`: antd can only derive `validateStatus`
+            // and `help` from a single decorated field, and warns when a row holds
+            // more (its error message would never show up once rules are added).
+            <React.Fragment key={k}>
+                <Form.Item
+                    {...(index === 0 ? formItemLayout : formItemLayoutWithOutLabel)}
+                    label={index === 0 ? 'RegExp' : ''}
+                    required={false}
+                    style={{ marginBottom: 4 }}
+                >
+                    {getFieldDecorator(
+                        `apps[${k}]`,
+                        {}
+                    )(
+                        <Input
+                            placeholder="App RegExp"
+                            style={{ width: '85%', marginRight: 8 }}
+                            addonBefore={'App'}
+                        />
+                    )}
+                </Form.Item>
+                <Form.Item {...formItemLayoutWithOutLabel}>
+                    {getFieldDecorator(
+                        `titles[${k}]`,
+                        {}
+                    )(
+                        <Input
+                            placeholder="Title RegExp"
+                            style={{ width: '85%', marginRight: 8 }}
+                            addonBefore={'Title'}
+                        />
+                    )}
 
-                {keys.length > 1 ? (
-                    <Icon
-                        className="dynamic-delete-button"
-                        type="minus-circle-o"
-                        /* tslint:disable-next-line:jsx-no-lambda */
-                        onClick={() => this.remove(k)}
-                    />
-                ) : null}
-            </Form.Item>
+                    {keys.length > 1 ? (
+                        <Icon
+                            className="dynamic-delete-button"
+                            type="minus-circle-o"
+                            /* tslint:disable-next-line:jsx-no-lambda */
+                            onClick={() => this.remove(k)}
+                        />
+                    ) : null}
+                </Form.Item>
+            </React.Fragment>
         ));
         return (
             <Form onSubmit={this.handleSubmit}>

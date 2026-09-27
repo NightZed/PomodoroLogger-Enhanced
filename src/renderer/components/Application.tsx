@@ -1,4 +1,3 @@
-import { Icon, Tabs } from 'antd';
 import 'antd/dist/antd.css';
 import { ipcRenderer } from 'electron';
 import * as React from 'react';
@@ -23,7 +22,7 @@ import { setTrayImageWithMadeIcon } from './Timer/iconMaker';
 import { UpdateController } from './UpdateController';
 import { UserGuide } from './UserGuide/UserGuide';
 import { ConnectedPomodoroSankey } from './Visualization/PomodoroSankey';
-import WindowControls from './WindowControls';
+import AppTitleBar from './AppTitleBar/AppTitleBar';
 
 interface StyledProps {
     minimize: boolean;
@@ -31,25 +30,8 @@ interface StyledProps {
 }
 
 const Main = styled.div<StyledProps>`
-    .ant-tabs-bar {
-        margin: 0;
-        /* The window is frameless (init.ts): the tabs row doubles as the
-           window drag region. Interactive children opt out below. */
-        -webkit-app-region: drag;
-    }
-
-    .ant-tabs-tab,
-    .ant-tabs-nav-more,
-    .ant-tabs-extra-content {
-        -webkit-app-region: no-drag;
-    }
-
-    /* Keeps the caption buttons vertically centered in the tabs row. */
-    .ant-tabs-extra-content {
-        display: flex;
-        align-items: center;
-        height: 45px;
-    }
+    height: 100vh;
+    overflow: hidden;
 
     ${({ minimize, compact }) => (minimize || compact ? 'overflow: hidden; height: 100vh;' : '')}
     /* While minimized the window is a 90px strip; dialogs of the feedback layer
@@ -65,22 +47,6 @@ const Main = styled.div<StyledProps>`
     .ant-modal-mask {
         ${({ minimize }) => (minimize ? 'display: none;' : '')}
     }
-    ${({ compact }) =>
-        compact
-            ? `
-                .ant-tabs-bar {
-                    height: 40px;
-                }
-                .ant-tabs-extra-content {
-                    height: 40px;
-                }
-                .ant-tabs-nav .ant-tabs-tab {
-                    margin: 0;
-                    padding: 8px 10px;
-                }
-            `
-            : ''}
-
     .ant-btn-icon-only > i {
         transform: translateY(-0.5px);
     }
@@ -89,8 +55,6 @@ const Main = styled.div<StyledProps>`
         outline: none;
     }
 `;
-
-const { TabPane } = Tabs;
 
 interface Props extends TimerActionTypes, HistoryActionCreatorTypes {
     currentTab: string;
@@ -102,6 +66,16 @@ interface Props extends TimerActionTypes, HistoryActionCreatorTypes {
 
 class Application extends React.Component<Props> {
     private timer = (<Timer />);
+    private returnToCompact = false;
+
+    componentDidUpdate(prevProps: Props): void {
+        if (!prevProps.compact && this.props.compact) {
+            this.returnToCompact = true;
+        } else if (prevProps.compact && !this.props.compact && this.props.currentTab === 'timer') {
+            this.returnToCompact = false;
+        }
+    }
+
     componentDidMount(): void {
         loadDBs(['settingDB']).then(() => {
             this.props.fetchSettings();
@@ -127,6 +101,7 @@ class Application extends React.Component<Props> {
                 ipcRenderer.send(IpcEventName.Quit, 'quit');
                 break;
             case 'f11':
+                this.returnToCompact = !this.props.compact;
                 this.props.setCompact(!this.props.compact);
                 break;
             case 'f12':
@@ -158,81 +133,42 @@ class Application extends React.Component<Props> {
     render() {
         const { currentTab, changeAppTab, minimize, compact, setCompact } = this.props;
         const handleTabChange = (tab: string) => {
-            if (compact) {
+            if (tab === 'timer') {
+                if (this.returnToCompact && !compact) {
+                    setCompact(true);
+                }
+            } else if (compact) {
+                this.returnToCompact = true;
                 setCompact(false);
             }
             changeAppTab(tab as any);
         };
         return (
             <Main minimize={minimize} compact={compact}>
-                <Tabs
-                    activeKey={minimize ? 'timer' : currentTab}
-                    onChange={handleTabChange}
-                    /* Caption buttons for the frameless window; hidden with the
-                       tabs row itself while minimized (no title bar in mini). */
-                    tabBarExtraContent={minimize ? null : <WindowControls compact={compact} />}
-                >
-                    <TabPane
-                        tab={
-                            <span>
-                                <Icon type="clock-circle" />
-                                {!compact && 'Pomodoro'}
-                            </span>
-                        }
-                        forceRender={true}
-                        key="timer"
-                    >
-                        {this.timer}
-                    </TabPane>
-
-                    <TabPane
-                        tab={
-                            <span>
-                                <Icon type="project" />
-                                {!compact && 'Kanban'}
-                            </span>
-                        }
-                        forceRender={false}
-                        key="kanban"
-                    >
+                <AppTitleBar
+                    currentTab={currentTab}
+                    minimize={minimize}
+                    compact={compact}
+                    onTabChange={handleTabChange}
+                    timer={this.timer}
+                    kanban={
                         <DestroyOnTimeoutWrapper
                             isVisible={currentTab === 'kanban'}
                             timeout={600000}
                         >
                             <Kanban />
                         </DestroyOnTimeoutWrapper>
-                    </TabPane>
-
-                    <TabPane
-                        tab={
-                            <span>
-                                <Icon type="history" />
-                                {!compact && 'History'}
-                            </span>
-                        }
-                        forceRender={false}
-                        key="history"
-                    >
+                    }
+                    history={
                         <DestroyOnTimeoutWrapper
                             isVisible={currentTab === 'history'}
                             timeout={600000}
                         >
                             <History />
                         </DestroyOnTimeoutWrapper>
-                    </TabPane>
-
-                    <TabPane
-                        tab={
-                            <span>
-                                <Icon type="setting" />
-                                {!compact && 'Setting'}
-                            </span>
-                        }
-                        key="setting"
-                    >
-                        <Setting />
-                    </TabPane>
-                </Tabs>
+                    }
+                    setting={<Setting />}
+                />
                 {!minimize && (
                     <>
                         <UserGuide />

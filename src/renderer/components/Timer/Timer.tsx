@@ -98,8 +98,14 @@ const TimerLayout = styled.div<{ compact: boolean }>`
     padding: 0 24px 0 24px;
     overflow-y: ${({ compact }) => (compact ? 'hidden' : 'auto')};
     width: 100%;
-    height: calc(100vh - 45px);
-    ${({ compact }) => (compact ? 'padding: 0 8px;' : '')}
+    height: calc(100vh - 44px);
+    ${({ compact }) =>
+        compact
+            ? `
+                height: calc(100vh - 32px);
+                padding: 0 8px;
+            `
+            : ''}
     ${thinScrollBar}
 `;
 

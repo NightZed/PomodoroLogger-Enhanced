@@ -18,6 +18,7 @@ ctx.addEventListener('message', async ({ data: { payload, code } }) => {
     } catch (e) {
         console.error(e);
         ctx.postMessage({
+            code,
             type: 'error',
             payload: JSON.stringify(e),
         });

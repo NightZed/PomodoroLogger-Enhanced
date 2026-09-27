@@ -7,6 +7,7 @@ import { Loading } from '../utils/Loading';
 import { Card } from '../Kanban/type';
 
 const tokenizer = workers.tokenizer;
+const EMPTY_CARDS: Card[] = [];
 
 interface Props {
     weights: [string, number][];
@@ -58,15 +59,32 @@ interface AsyncProps {
 
 type MAsyncProps = AsyncProps & { [name: string]: any };
 export const AsyncWordCloud: React.FC<MAsyncProps> = (props: MAsyncProps) => {
-    const { records, cards = [], ...restProps } = props;
+    const { records, cards = EMPTY_CARDS, ...restProps } = props;
     const [weights, setWeights] = React.useState<[string, number][]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     React.useEffect(() => {
-        tokenizer.tokenize(records, cards).then((weights) => {
-            setWeights(weights);
-            setIsLoading(false);
-        });
-    }, [records]);
+        let cancelled = false;
+        setIsLoading(true);
+        tokenizer
+            .tokenize(records, cards)
+            .then((nextWeights) => {
+                if (cancelled) {
+                    return;
+                }
+                setWeights(nextWeights);
+                setIsLoading(false);
+            })
+            .catch((error) => {
+                if (!cancelled) {
+                    console.error('[WordCloud] failed to tokenize records', error);
+                    setWeights([]);
+                    setIsLoading(false);
+                }
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [records, cards]);
     return isLoading ? (
         <Loading size={'large'} height={400} />
     ) : (

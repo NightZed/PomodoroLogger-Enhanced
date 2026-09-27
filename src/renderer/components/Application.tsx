@@ -32,6 +32,8 @@ interface StyledProps {
 const Main = styled.div<StyledProps>`
     height: 100vh;
     overflow: hidden;
+    background-color: var(--pl-bg);
+    border-radius: ${({ minimize, compact }) => (minimize ? '10px' : compact ? '16px' : '12px')};
 
     ${({ minimize, compact }) => (minimize || compact ? 'overflow: hidden; height: 100vh;' : '')}
     /* While minimized the window is a 90px strip; dialogs of the feedback layer

@@ -31,6 +31,8 @@ const Mask = styled.div<{ compact: boolean; nightTheme: boolean }>`
     justify-content: center;
     align-items: center;
     flex-direction: column;
+    border-radius: ${({ compact }) => (compact ? '16px' : '12px')};
+    overflow: hidden;
 `;
 
 const MaskInnerContainer = styled.div<{ compact: boolean }>`

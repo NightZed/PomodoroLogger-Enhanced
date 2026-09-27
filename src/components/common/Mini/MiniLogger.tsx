@@ -41,10 +41,13 @@ const StyledLogger = styled.div`
     width: 200px;
     height: 90px;
     box-sizing: border-box;
+    background-color: var(--pl-bg);
     display: flex;
     flex-direction: column;
     /* Frameless window: dragging anywhere except the buttons moves the strip. */
     -webkit-app-region: drag;
+    border-radius: 10px;
+    overflow: hidden;
 
     * {
         user-select: none;

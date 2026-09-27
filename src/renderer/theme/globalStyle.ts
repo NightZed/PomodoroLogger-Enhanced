@@ -41,7 +41,7 @@ export const GlobalStyle = createGlobalStyle`
 
     html,
     body {
-        background-color: var(--pl-bg);
+        background-color: transparent;
         color: var(--pl-text);
     }
 
@@ -49,7 +49,7 @@ export const GlobalStyle = createGlobalStyle`
        #fff) and its stylesheet is injected after the styled-components one.
        !important makes the theme colors win regardless of stylesheet order. */
     html[data-theme] body {
-        background-color: var(--pl-bg) !important;
+        background-color: transparent !important;
         color: var(--pl-text) !important;
         transition: background-color 0.2s, color 0.2s;
     }

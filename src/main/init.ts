@@ -123,8 +123,9 @@ const createWindow = async () => {
         // the right of the tabs row; mini mode has none). thickFrame keeps its
         // default (true), so Windows still has invisible resize borders.
         frame: false,
+        transparent: true,
         useContentSize: true,
-        backgroundColor: nativeTheme.shouldUseDarkColors ? '#141414' : '#ffffff',
+        backgroundColor: '#00000000',
         icon: nativeImage.createFromPath(path.join(__dirname, logo)),
         title: 'Pomodoro Logger',
         webPreferences: {

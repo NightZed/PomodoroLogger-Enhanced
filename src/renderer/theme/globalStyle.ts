@@ -677,6 +677,83 @@ export const GlobalStyle = createGlobalStyle`
             color: var(--pl-text);
         }
     }
+
+    /* ---------- feedback layer ---------- */
+    /* One visual language for toast / notice / dialog / popconfirm: same
+       surface color, 8px radius, shadow and selectable copy. The colors come
+       from the theme tokens, so these rules fit both themes -- the
+       html[data-theme] prefix only raises their specificity above antd.css.
+       Keep in sync with components/feedback/tokens.ts. */
+    html[data-theme] .pl-feedback-text {
+        /* Copy of a feedback surface can always be selected (the guide dialog
+           used to disable selection on its whole container). */
+        user-select: text;
+    }
+
+    /* toast (antd message) */
+    html[data-theme] .ant-message-notice-content {
+        background-color: var(--pl-bg-elevated);
+        border: 1px solid var(--pl-border);
+        border-radius: 8px;
+        box-shadow: 0 4px 12px var(--pl-shadow);
+        color: var(--pl-text);
+        user-select: text;
+        max-width: calc(100vw - 32px);
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    /* notice (antd notification) */
+    html[data-theme] .ant-notification {
+        max-width: calc(100vw - 24px);
+    }
+    html[data-theme] .ant-notification-notice {
+        background-color: var(--pl-bg-elevated);
+        border: 1px solid var(--pl-border);
+        border-radius: 8px;
+        box-shadow: 0 4px 12px var(--pl-shadow);
+        user-select: text;
+        width: auto;
+        min-width: 260px;
+        max-width: calc(100vw - 48px);
+    }
+    html[data-theme] .ant-notification-notice-message {
+        color: var(--pl-text);
+    }
+    html[data-theme] .ant-notification-notice-description {
+        color: var(--pl-text-secondary);
+    }
+
+    /* dialog (antd modal, including confirm / info) */
+    html[data-theme] .ant-modal {
+        max-width: calc(100vw - 32px);
+    }
+    html[data-theme] .ant-modal-content {
+        border-radius: 8px;
+        user-select: text;
+    }
+    /* antd 3 hard codes black confirm copy (rgba(0,0,0,.85) / rgba(0,0,0,.65))
+       that does not inherit from .ant-modal-content, so both lines need their own
+       override, or the night theme would show black on dark. */
+    html[data-theme] .ant-modal-confirm-title {
+        color: var(--pl-text);
+    }
+    html[data-theme] .ant-modal-confirm-content {
+        color: var(--pl-text);
+    }
+    html[data-theme] .ant-modal-confirm-body > .anticon {
+        font-size: 20px;
+    }
+
+    /* popconfirm / popover */
+    html[data-theme] .ant-popover-inner {
+        border-radius: 8px;
+        border: 1px solid var(--pl-border);
+    }
+    html[data-theme] .ant-popover-inner-content,
+    html[data-theme] .ant-popover-message-title {
+        user-select: text;
+    }
 `;
 
 export default GlobalStyle;

@@ -36,18 +36,15 @@ const CompactDotRow = styled.div`
 `;
 
 const swayLeft = keyframes`
-    0% { transform: translateX(-18px); }
-    25% { transform: translateX(0px); } 
-    75% { transform: translateX(0px); } 
-    100% { transform: translateX(-18px); } 
+    0%, 20% { transform: translate3d(-18px, 0, 0); }
+    25%, 80% { transform: translate3d(0, 0, 0); }
+    85%, 100% { transform: translate3d(-18px, 0, 0); }
 `;
 
 const swayRight = keyframes`
-    0% { transform: translateX(0px); }
-    25% { transform: translateX(0px); }
-    50% { transform: translateX(18px); }
-    75% { transform: translateX(0px); }
-    100% { transform: translateX(0px); }
+    0%, 50% { transform: translate3d(0, 0, 0); }
+    55%, 75% { transform: translate3d(18px, 0, 0); }
+    80%, 100% { transform: translate3d(0, 0, 0); }
 `;
 
 const scale = keyframes`
@@ -93,11 +90,15 @@ const AnimeSvgDot = styled(SvgDot)`
 `;
 
 const SwayLeftDot = styled(SvgDot)`
-    animation: ${swayLeft} 1.2s linear infinite;
+    animation: ${swayLeft} 1s linear infinite;
+    will-change: transform;
+    transform: translate3d(-18px, 0, 0);
 `;
 
 const SwayRightDot = styled(SvgDot)`
-    animation: ${swayRight} 1.2s linear infinite;
+    animation: ${swayRight} 1s linear infinite;
+    will-change: transform;
+    transform: translate3d(0, 0, 0);
 `;
 
 interface Props {

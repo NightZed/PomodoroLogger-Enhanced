@@ -1,9 +1,10 @@
 import React, { useCallback, useState } from 'react';
 import { TimerActionTypes, TimerState } from '../Timer/action';
 import styled from 'styled-components';
-import { Button, Col, Icon, message, notification, Popconfirm, Row, Slider, Switch } from 'antd';
+import { Button, Col, Icon, Row, Slider, Switch } from 'antd';
 import { deleteAllUserData } from '../../monitor/sessionManager';
 import { shell, ipcRenderer } from 'electron';
+import { feedback, FEEDBACK_MESSAGES } from '../feedback';
 import { DistractingListModalButton } from './DistractingList';
 import { isShallowEqualByKeys } from '../../utils';
 import pkg from '../../../../package.json';
@@ -187,11 +188,10 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 props.setScreenShotInterval(undefined);
             }
 
-            notification.open({
-                message: 'Restart App to Apply Changes',
-                description: 'Screenshot setting change needs restart to be applied',
-                duration: 0,
-                icon: <Icon type="warning" />,
+            feedback.notice({
+                kind: 'warning',
+                title: FEEDBACK_MESSAGES.setting.restartToApply,
+                description: FEEDBACK_MESSAGES.setting.screenshotRestart,
             });
         }, []);
 
@@ -218,11 +218,18 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             };
             const onAvailable = () => onResult();
             const onNotAvailable = (event: any, info: string) => {
-                message.info(info);
+                // Receipt of the check: a toast, not a dialog. "You are on the
+                // latest version" does not need an acknowledgement.
+                feedback.toast({ kind: 'info', content: info });
                 onResult();
             };
             const onError = (event: any, payload: UpdateErrorPayload) => {
-                message.error('Failed to check for update: ' + (payload?.message ?? payload));
+                feedback.toast({
+                    kind: 'error',
+                    content: FEEDBACK_MESSAGES.update.checkFailed(
+                        String(payload?.message ?? payload)
+                    ),
+                });
                 onResult();
             };
             ipcRenderer.on(UpdateEventName.Available, onAvailable);
@@ -239,11 +246,10 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
 
         const setUseHardwareAcceleration = useCallback((v: boolean) => {
             props.setUseHardwareAcceleration(v);
-            notification.open({
-                message: 'Restart App to Apply Changes',
-                description: 'Hardware acceleration setting change needs restart to be applied',
-                duration: 0,
-                icon: <Icon type="warning" />,
+            feedback.notice({
+                kind: 'warning',
+                title: FEEDBACK_MESSAGES.setting.restartToApply,
+                description: FEEDBACK_MESSAGES.setting.hardwareAccelerationRestart,
             });
         }, []);
 
@@ -281,7 +287,10 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
 
         const onDeleteData = useCallback(() => {
             deleteAllUserData().then(() => {
-                message.info('All user data is removed. Pomodoro needs to restart.');
+                feedback.toast({
+                    kind: 'info',
+                    content: FEEDBACK_MESSAGES.setting.dataRemoved,
+                });
                 setTimeout(() => {
                     ipcRenderer.send(IpcEventName.Restart);
                 }, 3000);
@@ -299,6 +308,29 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             await onExportData();
             setExporting(false);
         }, []);
+
+        // Both operations are destructive/irreversible enough to deserve the
+        // blocking dialog instead of an in place popover: the user gets the
+        // consequence spelled out in the title of the confirmation.
+        const onImportConfirm = useCallback(() => {
+            feedback.confirm({
+                kind: 'warning',
+                title: FEEDBACK_MESSAGES.setting.importConfirm,
+                okText: 'Import',
+                onOk: () => {
+                    onImportClick();
+                },
+            });
+        }, [onImportClick]);
+
+        const onDeleteConfirm = useCallback(() => {
+            feedback.confirm({
+                kind: 'error',
+                title: FEEDBACK_MESSAGES.setting.deleteAllConfirm,
+                okText: 'Delete',
+                onOk: onDeleteData,
+            });
+        }, [onDeleteData]);
 
         return (
             <Container>
@@ -435,17 +467,14 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                     </Button>
                 </ButtonWrapper>
                 <ButtonWrapper>
-                    <Popconfirm
-                        title={'Pomodoro Logger will restart after importing. Continue?'}
-                        onConfirm={onImportClick}
-                    >
-                        <Button loading={importing}>Import Data</Button>
-                    </Popconfirm>
+                    <Button loading={importing} onClick={onImportConfirm}>
+                        Import Data
+                    </Button>
                 </ButtonWrapper>
                 <ButtonWrapper>
-                    <Popconfirm title={'Sure to delete?'} onConfirm={onDeleteData}>
-                        <Button type="danger">Delete All Data</Button>
-                    </Popconfirm>
+                    <Button type="danger" onClick={onDeleteConfirm}>
+                        Delete All Data
+                    </Button>
                 </ButtonWrapper>
                 <h4>Misc</h4>
                 <ButtonWrapper>

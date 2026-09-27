@@ -9,6 +9,7 @@ import { KanbanBoardState } from '../Kanban/Board/action';
 import { KanbanBoard } from '../Kanban/type';
 import { Dispatch } from 'redux';
 import { PomodoroRecord } from '../../monitor/type';
+import { NIGHT_THEME_ID } from '../../theme/tokens';
 
 const ButtonContainer = styled.div`
     position: absolute;
@@ -16,13 +17,13 @@ const ButtonContainer = styled.div`
     right: 16px;
 `;
 
-const Mask = styled.div<{ compact: boolean }>`
+const Mask = styled.div<{ compact: boolean; nightTheme: boolean }>`
     left: 0;
     top: 0;
     height: 100%;
     width: 100%;
     position: fixed;
-    background-color: #dd5339;
+    background-color: ${({ nightTheme }) => (nightTheme ? '#27323a' : '#dd5339')};
     text-align: center;
     color: white !important;
     z-index: 1000;
@@ -82,6 +83,7 @@ export interface MaskProps extends InputProps {
     boards: KanbanBoardState;
     isLongBreak: boolean;
     compact: boolean;
+    nightTheme: boolean;
 }
 
 const _TimerMask = (props: MaskProps) => {
@@ -141,6 +143,7 @@ const _TimerMask = (props: MaskProps) => {
     return (
         <Mask
             compact={props.compact}
+            nightTheme={props.nightTheme}
             style={{ display: props.showMask ? 'flex' : 'none' }}
             onClick={props.onCancel}
         >
@@ -207,6 +210,7 @@ export const TimerMask = connect(
         boardId: state.timer.boardId,
         boards: state.kanban.boards,
         compact: state.timer.compact,
+        nightTheme: state.timer.themeId === NIGHT_THEME_ID,
     }),
     (dispatch: Dispatch) => ({
         setBoard: (_id?: string) => dispatch(actions.setBoardId(_id)),

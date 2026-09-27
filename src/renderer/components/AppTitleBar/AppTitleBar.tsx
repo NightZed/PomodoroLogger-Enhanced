@@ -12,6 +12,8 @@ interface Props {
     kanban: React.ReactNode;
     history: React.ReactNode;
     setting: React.ReactNode;
+    alwaysOnTop: boolean;
+    onToggleAlwaysOnTop: () => void;
 }
 
 const TitleBar = styled.div<{ compact: boolean }>`
@@ -136,6 +138,8 @@ const AppTitleBar: React.FC<Props> = ({
     kanban,
     history,
     setting,
+    alwaysOnTop,
+    onToggleAlwaysOnTop,
 }) => {
     const tab = (title: string, icon: string) => (
         <span
@@ -157,7 +161,15 @@ const AppTitleBar: React.FC<Props> = ({
             <Tabs
                 activeKey={minimize ? 'timer' : currentTab}
                 onChange={onTabChange}
-                tabBarExtraContent={minimize ? null : <WindowControls compact={compact} />}
+                tabBarExtraContent={
+                    minimize ? null : (
+                        <WindowControls
+                            compact={compact}
+                            alwaysOnTop={alwaysOnTop}
+                            onToggleAlwaysOnTop={onToggleAlwaysOnTop}
+                        />
+                    )
+                }
             >
                 <TabPane tab={tab('Pomodoro', 'clock-circle')} forceRender={true} key="timer">
                     {timer}

@@ -38,13 +38,41 @@ const Controls = styled.div<{ compact: boolean }>`
         background-color: #e81123;
         color: #fff;
     }
+
+    button.always-on-top-active {
+        color: var(--pl-primary);
+    }
+
+    button.always-on-top-active:hover {
+        color: var(--pl-primary);
+    }
 `;
 
-const WindowControls: FC<{ compact?: boolean }> = ({ compact = false }) => {
+interface Props {
+    compact?: boolean;
+    alwaysOnTop?: boolean;
+    onToggleAlwaysOnTop?: () => void;
+}
+
+const WindowControls: FC<Props> = ({
+    compact = false,
+    alwaysOnTop = true,
+    onToggleAlwaysOnTop,
+}) => {
     const call = (action: 'minimize' | 'maximize' | 'close') => () =>
         window.api.windowAction(action);
     return (
         <Controls compact={compact}>
+            {compact && onToggleAlwaysOnTop ? (
+                <button
+                    type="button"
+                    title={alwaysOnTop ? 'Disable always on top' : 'Enable always on top'}
+                    onClick={onToggleAlwaysOnTop}
+                    className={alwaysOnTop ? 'always-on-top-active' : undefined}
+                >
+                    <Icon type="pushpin" />
+                </button>
+            ) : undefined}
             <button type="button" title="Minimize" onClick={call('minimize')}>
                 <Icon type="minus" />
             </button>

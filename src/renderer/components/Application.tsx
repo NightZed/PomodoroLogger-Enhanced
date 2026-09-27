@@ -60,6 +60,7 @@ interface Props extends TimerActionTypes, HistoryActionCreatorTypes {
     currentTab: string;
     minimize: boolean;
     compact: boolean;
+    compactAlwaysOnTop: boolean;
 
     fetchKanban: () => void;
 }
@@ -131,7 +132,15 @@ class Application extends React.Component<Props> {
     }
 
     render() {
-        const { currentTab, changeAppTab, minimize, compact, setCompact } = this.props;
+        const {
+            currentTab,
+            changeAppTab,
+            minimize,
+            compact,
+            compactAlwaysOnTop,
+            setCompact,
+            setCompactAlwaysOnTop,
+        } = this.props;
         const handleTabChange = (tab: string) => {
             if (tab === 'timer') {
                 if (this.returnToCompact && !compact) {
@@ -149,6 +158,8 @@ class Application extends React.Component<Props> {
                     currentTab={currentTab}
                     minimize={minimize}
                     compact={compact}
+                    alwaysOnTop={compactAlwaysOnTop}
+                    onToggleAlwaysOnTop={() => setCompactAlwaysOnTop(!compactAlwaysOnTop)}
                     onTabChange={handleTabChange}
                     timer={this.timer}
                     kanban={
@@ -191,6 +202,7 @@ const ApplicationContainer = connect(
         currentTab: state.timer.currentTab,
         minimize: state.timer.minimize,
         compact: state.timer.compact,
+        compactAlwaysOnTop: state.timer.compactAlwaysOnTop,
     }),
     genMapDispatchToProp<TimerActionTypes & HistoryActionCreatorTypes>({
         ...timerActions,

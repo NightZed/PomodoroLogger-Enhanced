@@ -163,6 +163,9 @@ const StyledLogger = styled.div`
     .timer-svg {
         flex-shrink: 0;
         margin: 0 8px;
+        /* Let Chromium process SVG hover metadata instead of treating the
+           timer as part of the window drag region. */
+        -webkit-app-region: no-drag;
     }
 `;
 

@@ -23,7 +23,14 @@ const Mask = styled.div<{ compact: boolean; nightTheme: boolean }>`
     height: 100%;
     width: 100%;
     position: fixed;
-    background-color: ${({ nightTheme }) => (nightTheme ? '#27323a' : '#dd5339')};
+    /* The ending screen is an alert, not another piece of page surface: it
+       follows the background opacity so the desktop still shows through, but
+       the value is floored so the alert can never be tuned away into white text
+       floating over the desktop. */
+    background-color: ${({ nightTheme }) =>
+        nightTheme
+            ? 'color-mix(in srgb, #27323a max(var(--pl-theme-bg-opacity), 60%), transparent)'
+            : 'color-mix(in srgb, #dd5339 max(var(--pl-theme-bg-opacity), 60%), transparent)'};
     text-align: center;
     color: white !important;
     z-index: 1000;

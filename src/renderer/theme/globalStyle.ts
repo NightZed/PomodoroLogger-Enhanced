@@ -17,6 +17,7 @@ import { createGlobalStyle } from 'styled-components';
 export const GlobalStyle = createGlobalStyle`
     /* Fallback so the very first frame already matches the default (night) theme. */
     :root {
+        --pl-theme-bg-opacity: 100%;
         --pl-bg: #141414;
         --pl-bg-elevated: #1f1f1f;
         --pl-bg-sunken: #262626;
@@ -94,7 +95,11 @@ export const GlobalStyle = createGlobalStyle`
             color: var(--pl-text);
         }
         .ant-tabs-bar {
-            background-color: var(--pl-bg-elevated);
+            /* Transparent on purpose: the window background layer paints this
+               band (see Application.tsx and AppTitleBar.tsx), so painting it
+               here as well would apply the background opacity a second time on
+               top of the band. */
+            background-color: transparent;
             border-bottom-color: var(--pl-border);
         }
         .ant-tabs-nav .ant-tabs-tab {

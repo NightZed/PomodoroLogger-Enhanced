@@ -23,11 +23,32 @@ import { UpdateController } from './UpdateController';
 import { UserGuide } from './UserGuide/UserGuide';
 import { ConnectedPomodoroSankey } from './Visualization/PomodoroSankey';
 import AppTitleBar from './AppTitleBar/AppTitleBar';
+import { titleBarBandHeight } from './AppTitleBar/tokens';
+import { POPUP_CONTAINER_ID } from './popupLayer';
 
+/**
+ * Window layer stack, bottom to top, and the setting that sizes each layer:
+ *
+ * | layer              | element        | setting                  |
+ * | ------------------ | -------------- | ------------------------ |
+ * | window surfaces    | `Main::before` | `themeBackgroundOpacity` |
+ * | wallpaper          | `Wallpaper`    | `wallpaperOpacity`       |
+ * | content + overlays | `Content`      | `contentOpacity`         |
+ *
+ * `Main::before` paints the two window surfaces -- the elevated band behind the
+ * tab bar, then the page -- as ONE layer split into two non overlapping bands.
+ * The background opacity is therefore applied exactly once per band, and the
+ * title bar differs from the page below it only in its base color. The wallpaper
+ * sits above both bands, which is what keeps it visible through the title bar.
+ *
+ * The three settings are independent on purpose (a translucent background must
+ * not dim the text, and vice versa) and each has exactly one output path: the
+ * surfaces travel as the `--pl-theme-bg-opacity` custom property written by
+ * `ThemeController`, the other two are plain element opacities.
+ */
 interface StyledProps {
     minimize: boolean;
     compact: boolean;
-    opacity: number;
 }
 
 const Main = styled.div<StyledProps>`
@@ -41,28 +62,54 @@ const Main = styled.div<StyledProps>`
     border: 1px solid var(--pl-border);
     box-sizing: border-box;
 
+    /* Height of the elevated band, i.e. the tab bar that doubles as the window
+       title bar. Mini mode hides that bar, so the band collapses and the whole
+       window is page surface. The numbers come from AppTitleBar/tokens.ts so
+       the band and the bar can never disagree. */
+    --pl-titlebar-height: ${({ minimize, compact }) => titleBarBandHeight({ minimize, compact })};
+    --pl-header-surface: color-mix(
+        in srgb,
+        var(--pl-bg-elevated) var(--pl-theme-bg-opacity),
+        transparent
+    );
+    --pl-body-surface: color-mix(in srgb, var(--pl-bg) var(--pl-theme-bg-opacity), transparent);
+
     &::before {
         content: '';
         position: absolute;
         inset: 0;
         z-index: 0;
         pointer-events: none;
-        background-color: var(--pl-bg);
-        opacity: ${({ opacity }) => opacity};
+        /* Both window surfaces painted as ONE layer in two non overlapping
+           bands, so themeBackgroundOpacity is applied exactly once per band and
+           the title bar differs from the page below it only in its base color.
+           A separate band painted on top of this layer would apply the opacity
+           a second time there (the header used to end up at 2t - t squared).
+           The layer sits below the wallpaper, so the wallpaper keeps showing
+           through the bar. The consequence is that a fully opaque wallpaper
+           hides both bands equally, leaving the 1px border under the bar as the
+           separator. */
+        background-image: linear-gradient(
+            to bottom,
+            var(--pl-header-surface) 0 var(--pl-titlebar-height),
+            var(--pl-body-surface) var(--pl-titlebar-height) 100%
+        );
     }
 
     ${({ minimize, compact }) => (minimize || compact ? 'overflow: hidden; height: 100vh;' : '')}
-    /* While minimized the window is a 90px strip; dialogs of the feedback layer
-       are rendered into the body (outside this container), so their mask has to
-       be hidden as well -- otherwise the strip would be covered by a mask that
-       cannot be clicked away (maskClosable is false for blocking dialogs).
+    /* While minimized the window is a 90px strip; dialogs are now mounted
+       inside this container (see popupLayer.ts), so they have to be hidden
+       while the strip is up -- otherwise a blocking dialog (maskClosable is
+       false) would cover the strip and could not be clicked away. The whole
+       ant-modal-root is hidden rather than just its mask and content: the
+       ant-modal-wrap element is a full-viewport position:fixed box, and leaving
+       it behind would keep swallowing every click on the strip.
        The tabs bar is hidden too: only its 1px bottom border would remain, and
        the strip's content height (MiniLogger 90px) must match the window
        content size exactly (see ipc.ts setContentSize). */
     .ant-tabs-bar,
     .ant-tabs-nav-container,
-    .ant-modal-content,
-    .ant-modal-mask {
+    .ant-modal-root {
         ${({ minimize }) => (minimize ? 'display: none;' : '')}
     }
     .ant-btn-icon-only > i {
@@ -92,11 +139,11 @@ const Wallpaper = styled.div<{ path?: string; opacity: number }>`
     }
 `;
 
-const Content = styled.div<{ opacity: number }>`
+const Content = styled.div<{ contentOpacity: number }>`
     position: relative;
     z-index: 2;
     height: 100%;
-    opacity: ${({ opacity }) => opacity};
+    opacity: ${({ contentOpacity }) => contentOpacity};
 `;
 
 interface Props extends TimerActionTypes, HistoryActionCreatorTypes {
@@ -104,7 +151,7 @@ interface Props extends TimerActionTypes, HistoryActionCreatorTypes {
     minimize: boolean;
     compact: boolean;
     compactAlwaysOnTop: boolean;
-    windowOpacity: number;
+    contentOpacity: number;
     wallpaperDataUrl?: string;
     wallpaperOpacity: number;
 
@@ -184,7 +231,7 @@ class Application extends React.Component<Props> {
             minimize,
             compact,
             compactAlwaysOnTop,
-            windowOpacity,
+            contentOpacity,
             wallpaperDataUrl,
             wallpaperOpacity,
             setCompact,
@@ -202,9 +249,14 @@ class Application extends React.Component<Props> {
             changeAppTab(tab as any);
         };
         return (
-            <Main minimize={minimize} compact={compact} opacity={windowOpacity}>
+            <Main minimize={minimize} compact={compact}>
                 <Wallpaper path={wallpaperDataUrl} opacity={wallpaperOpacity} />
-                <Content opacity={windowOpacity}>
+                <Content contentOpacity={contentOpacity}>
+                    {/* Mount point of every antd overlay (dialogs, toasts,
+                        notifications, popovers). It lives inside the content
+                        layer so those surfaces fade with the page instead of
+                        escaping to <body>, see popupLayer.ts. */}
+                    <div id={POPUP_CONTAINER_ID} />
                     <AppTitleBar
                         currentTab={currentTab}
                         minimize={minimize}
@@ -255,7 +307,7 @@ const ApplicationContainer = connect(
         minimize: state.timer.minimize,
         compact: state.timer.compact,
         compactAlwaysOnTop: state.timer.compactAlwaysOnTop,
-        windowOpacity: state.timer.windowOpacity,
+        contentOpacity: state.timer.contentOpacity,
         wallpaperDataUrl: state.timer.wallpaperDataUrl,
         wallpaperOpacity: state.timer.wallpaperOpacity,
     }),

@@ -5,6 +5,7 @@ import { connect } from 'react-redux';
 import { RootState } from '../../reducers';
 import { Dispatch } from 'redux';
 import { Form, Input, Icon, Button, Modal } from 'antd';
+import { getPopupContainer } from '../popupLayer';
 import { FormComponentProps } from 'antd/es/form/Form';
 import styled from 'styled-components';
 
@@ -295,6 +296,7 @@ export const DistractingListModalButton = (props: InputProps) => {
                 onOk={onOk}
                 destroyOnClose={true}
                 okText={'Save'}
+                getContainer={getPopupContainer}
             >
                 {
                     // @ts-ignore

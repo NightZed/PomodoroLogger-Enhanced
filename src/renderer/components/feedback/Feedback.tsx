@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Checkbox, Icon, Modal, Popconfirm, message, notification } from 'antd';
+import { getPopupContainer } from '../popupLayer';
 import { FEEDBACK_MESSAGES } from './messages';
 import {
     FEEDBACK_ICON_COLORS,
@@ -38,6 +39,17 @@ import {
  * `theme/globalStyle.ts` restore `user-select: text` for them, and every text
  * node is wrapped in `FEEDBACK_TEXT_CLASS`.
  */
+
+/**
+ * Keeps the overlays inside the window instead of letting antd portal them to
+ * `<body>`, which would put them outside the content layer and therefore outside
+ * the content opacity (see `popupLayer.ts`).
+ *
+ * `Modal` and `notification` accept the node per call, while `message` reads it
+ * from its global config only -- one call is enough, because
+ * `getPopupContainer()` resolves the node lazily each time an overlay opens.
+ */
+message.config({ getContainer: getPopupContainer });
 
 const kindIcon = (kind: FeedbackKind) => (
     <Icon type={FEEDBACK_ICONS[kind]} style={{ color: FEEDBACK_ICON_COLORS[kind] }} />
@@ -87,6 +99,7 @@ export const notice = ({
         btn: actions,
         placement,
         onClose,
+        getContainer: getPopupContainer,
     });
 };
 
@@ -149,6 +162,7 @@ export const confirm = ({
         maskClosable: false,
         onOk,
         onCancel,
+        getContainer: getPopupContainer,
     });
 };
 
@@ -171,6 +185,7 @@ export const alert = ({
         centered: true,
         maskClosable: false,
         onOk,
+        getContainer: getPopupContainer,
     });
 };
 
@@ -198,6 +213,7 @@ export const ConfirmPopover = React.forwardRef<any, ConfirmPopoverProps>((props,
             placement={placement}
             onConfirm={onConfirm}
             onCancel={onCancel}
+            getPopupContainer={getPopupContainer}
         >
             {children}
         </Popconfirm>

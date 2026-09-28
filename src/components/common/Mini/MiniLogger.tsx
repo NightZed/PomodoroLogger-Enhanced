@@ -41,7 +41,12 @@ const StyledLogger = styled.div`
     width: 200px;
     height: 90px;
     box-sizing: border-box;
-    background-color: var(--pl-bg);
+    /* No surface of its own: mini mode has no title bar, so it wants the same
+       page surface as the normal and compact content areas -- and that surface
+       is already painted by the window background layer (see Application.tsx)
+       behind this component. Painting it a second time here would stack the two
+       alphas and make mini mode denser than the normal window. */
+    background-color: transparent;
     display: flex;
     flex-direction: column;
     /* Frameless window: dragging anywhere except the buttons moves the strip. */

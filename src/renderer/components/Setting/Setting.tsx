@@ -209,8 +209,9 @@ const marks = {
 };
 
 const wallpaperOpacityMarks = {
-    20: '20%',
-    60: '60%',
+    10: '10%',
+    40: '40%',
+    70: '70%',
     100: '100%',
 };
 
@@ -229,6 +230,14 @@ const longBreakMarks = {
 };
 
 const opacityMarks = {
+    10: '10%',
+    40: '40%',
+    70: '70%',
+    100: '100%',
+};
+
+const themeBackgroundOpacityMarks = {
+    10: '10%',
     40: '40%',
     70: '70%',
     100: '100%',
@@ -244,7 +253,8 @@ const settingUiStates = [
     'warnBeforeFocusStart',
     'useHardwareAcceleration',
     'compactAlwaysOnTop',
-    'windowOpacity',
+    'contentOpacity',
+    'themeBackgroundOpacity',
     'wallpaperPath',
     'wallpaperOpacity',
     'startOnBoot',
@@ -546,17 +556,22 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             </Field>
 
                             <Field>
-                                <h4>Window Opacity</h4>
+                                <h4>Content Opacity</h4>
+                                <Hint>
+                                    Fades the title bar and the page, text and icons included.
+                                    Dialogs and toasts fade with them; the window background has its
+                                    own slider below and is not affected.
+                                </Hint>
                                 <SliderContainer>
                                     <Slider
                                         marks={opacityMarks}
-                                        min={40}
+                                        min={10}
                                         max={100}
                                         step={5}
-                                        value={Math.round(props.windowOpacity * 100)}
+                                        value={Math.round(props.contentOpacity * 100)}
                                         onChange={(value) => {
                                             if (typeof value === 'number') {
-                                                props.setWindowOpacity(value / 100);
+                                                props.setContentOpacity(value / 100);
                                             }
                                         }}
                                     />
@@ -564,12 +579,26 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             </Field>
 
                             <Field>
-                                <SettingLabel>Keep Small Window Always On Top</SettingLabel>
-                                <Switch
-                                    onChange={props.setCompactAlwaysOnTop}
-                                    checked={props.compactAlwaysOnTop}
-                                    style={{ margin: 8 }}
-                                />
+                                <h4>Background Opacity</h4>
+                                <Hint>
+                                    How much of the desktop shows through the window background.
+                                    Floored above zero so the surface never disappears; the text
+                                    keeps its own opacity.
+                                </Hint>
+                                <SliderContainer>
+                                    <Slider
+                                        marks={themeBackgroundOpacityMarks}
+                                        min={10}
+                                        max={100}
+                                        step={5}
+                                        value={Math.round(props.themeBackgroundOpacity * 100)}
+                                        onChange={(value) => {
+                                            if (typeof value === 'number') {
+                                                props.setThemeBackgroundOpacity(value / 100);
+                                            }
+                                        }}
+                                    />
+                                </SliderContainer>
                             </Field>
 
                             <Field>
@@ -593,7 +622,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                 <SliderContainer>
                                     <Slider
                                         marks={wallpaperOpacityMarks}
-                                        min={20}
+                                        min={10}
                                         max={100}
                                         step={5}
                                         value={Math.round(props.wallpaperOpacity * 100)}
@@ -679,6 +708,15 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
 
                     {section === 'system' && (
                         <>
+                            <Field>
+                                <SettingLabel>Keep Small Window Always On Top</SettingLabel>
+                                <Switch
+                                    onChange={props.setCompactAlwaysOnTop}
+                                    checked={props.compactAlwaysOnTop}
+                                    style={{ margin: 8 }}
+                                />
+                            </Field>
+
                             <Field>
                                 <h4>Startup</h4>
                                 <SettingLabel>Start On Boot</SettingLabel>

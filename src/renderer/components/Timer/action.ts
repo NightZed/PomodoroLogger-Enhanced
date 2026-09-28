@@ -15,7 +15,30 @@ import { DEFAULT_THEME_ID, ThemeDefinition } from '../../theme/tokens';
 
 export const LONG_BREAK_INTERVAL = 4;
 const settingDB = new AsyncDB(dbs.settingDB);
-let wallpaperOpacitySaveTimer: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * Pending writes of the drag-driven settings, keyed by setting name.
+ *
+ * The opacity sliders dispatch on every `onChange`, i.e. dozens of times while
+ * a thumb is being dragged, and each dispatch would otherwise be its own NeDB
+ * write. Writes are debounced per key, so dragging one slider never cancels the
+ * pending write of another one.
+ */
+const pendingSettingWrites: { [name: string]: ReturnType<typeof setTimeout> } = {};
+
+/** Persists a slider-driven setting once the dragging has settled. */
+function persistSettingWithDebounce(name: string, value: number): void {
+    const pending = pendingSettingWrites[name];
+    if (pending) {
+        clearTimeout(pending);
+    }
+
+    pendingSettingWrites[name] = setTimeout(() => {
+        delete pendingSettingWrites[name];
+        settingDB.update({ name: 'setting' }, { $set: { [name]: value } }, { upsert: true });
+    }, 300);
+}
+
 export const TABS: tabType[] = ['timer', 'kanban', 'history', 'setting'];
 if (process.env.NODE_ENV !== 'production') {
     TABS.push('analyser');
@@ -38,9 +61,21 @@ export interface Setting {
     startOnBoot: boolean;
     useHardwareAcceleration: boolean;
     compactAlwaysOnTop: boolean;
-    windowOpacity: number;
+    /**
+     * Opacity of the content layer: the title bar and the active page, text and
+     * icons included. Dialogs and toasts belong to that layer as well (they are
+     * mounted inside it, see `popupLayer.ts`), while the window background and
+     * the wallpaper are separate settings below.
+     */
+    contentOpacity: number;
+    /**
+     * Opacity of the window background layer. Published to CSS as
+     * `--pl-theme-bg-opacity`, the single channel it travels through.
+     */
+    themeBackgroundOpacity: number;
     wallpaperPath?: string;
     wallpaperDataUrl?: string;
+    /** Opacity of the wallpaper image layer. */
     wallpaperOpacity: number;
     distractingList: DistractingRow[];
     calendarBaseColor: string;
@@ -102,7 +137,8 @@ export const defaultState: TimerState = {
     startOnBoot: false,
     useHardwareAcceleration: false,
     compactAlwaysOnTop: true,
-    windowOpacity: 1,
+    contentOpacity: 1,
+    themeBackgroundOpacity: 1,
     wallpaperPath: undefined,
     wallpaperDataUrl: undefined,
     wallpaperOpacity: 1,
@@ -158,8 +194,12 @@ export const setCompactAlwaysOnTop = createActionCreator(
     '[Timer]SET_COMPACT_ALWAYS_ON_TOP',
     (resolve) => (value: boolean) => resolve(value)
 );
-export const setWindowOpacity = createActionCreator(
-    '[Setting]SET_WINDOW_OPACITY',
+export const setContentOpacity = createActionCreator(
+    '[Setting]SET_CONTENT_OPACITY',
+    (resolve) => (value: number) => resolve(value)
+);
+export const setThemeBackgroundOpacity = createActionCreator(
+    '[Setting]SET_THEME_BACKGROUND_OPACITY',
     (resolve) => (value: number) => resolve(value)
 );
 export const setWallpaperPath = createActionCreator(
@@ -336,7 +376,8 @@ export const actions = {
             ['startOnBoot', setStartOnBoot],
             ['useHardwareAcceleration', setUseHardwareAcceleration],
             ['compactAlwaysOnTop', setCompactAlwaysOnTop],
-            ['windowOpacity', setWindowOpacity],
+            ['contentOpacity', setContentOpacity],
+            ['themeBackgroundOpacity', setThemeBackgroundOpacity],
             ['wallpaperPath', setWallpaperPath],
             ['wallpaperOpacity', setWallpaperOpacity],
             ['longBreakDuration', setLongBreakDuration],
@@ -401,13 +442,13 @@ export const actions = {
             window.api.compactWindow(true, value);
         }
     },
-    setWindowOpacity: (value: number) => async (dispatch: Dispatch) => {
-        dispatch(setWindowOpacity(value));
-        await settingDB.update(
-            { name: 'setting' },
-            { $set: { windowOpacity: value } },
-            { upsert: true }
-        );
+    setContentOpacity: (value: number) => (dispatch: Dispatch) => {
+        dispatch(setContentOpacity(value));
+        persistSettingWithDebounce('contentOpacity', value);
+    },
+    setThemeBackgroundOpacity: (value: number) => (dispatch: Dispatch) => {
+        dispatch(setThemeBackgroundOpacity(value));
+        persistSettingWithDebounce('themeBackgroundOpacity', value);
     },
     setWallpaperPath: (value?: string) => async (dispatch: Dispatch) => {
         dispatch(setWallpaperPath(value));
@@ -427,18 +468,9 @@ export const actions = {
             );
         }
     },
-    setWallpaperOpacity: (value: number) => async (dispatch: Dispatch) => {
+    setWallpaperOpacity: (value: number) => (dispatch: Dispatch) => {
         dispatch(setWallpaperOpacity(value));
-        if (wallpaperOpacitySaveTimer) {
-            clearTimeout(wallpaperOpacitySaveTimer);
-        }
-        wallpaperOpacitySaveTimer = setTimeout(() => {
-            settingDB.update(
-                { name: 'setting' },
-                { $set: { wallpaperOpacity: value } },
-                { upsert: true }
-            );
-        }, 300);
+        persistSettingWithDebounce('wallpaperOpacity', value);
     },
     setDistractingList: (distractingList: DistractingRow[]) => async (dispatch: Dispatch) => {
         dispatch(setDistractingList(distractingList));
@@ -722,9 +754,13 @@ export const reducer = createReducer<TimerState, any>(defaultState, (handle) => 
         ...state,
         compactAlwaysOnTop: payload,
     })),
-    handle(setWindowOpacity, (state, { payload }) => ({
+    handle(setContentOpacity, (state, { payload }) => ({
         ...state,
-        windowOpacity: payload,
+        contentOpacity: payload,
+    })),
+    handle(setThemeBackgroundOpacity, (state, { payload }) => ({
+        ...state,
+        themeBackgroundOpacity: payload,
     })),
     handle(setWallpaperPath, (state, { payload }) => ({
         ...state,

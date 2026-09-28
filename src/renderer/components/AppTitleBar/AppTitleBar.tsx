@@ -2,6 +2,7 @@ import { Icon, Tabs } from 'antd';
 import * as React from 'react';
 import styled from 'styled-components';
 import WindowControls from '../WindowControls';
+import { COMPACT_TITLE_BAR_HEIGHT, TITLE_BAR_HEIGHT } from './tokens';
 
 interface Props {
     currentTab: string;
@@ -17,20 +18,43 @@ interface Props {
 }
 
 const TitleBar = styled.div<{ compact: boolean }>`
+    .ant-tabs-bar {
+        position: relative;
+        border-bottom: 0 !important;
+    }
+
+    /* Keep the divider independent from antd's tab/extra-content layout so it
+       spans the complete window width, including below the window controls. */
+    .ant-tabs-bar::after {
+        content: '';
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        height: 1px;
+        background-color: var(--pl-border);
+        pointer-events: none;
+    }
+
     .ant-tabs-content,
     .ant-tabs-tabpane {
         -webkit-app-region: no-drag;
     }
 
+    /* The bar paints no surface of its own. The window background layer draws
+       the elevated band behind it, at exactly this height (see Application.tsx),
+       so the title bar and the page below it each receive the background
+       opacity once and differ only in their base color. Painting it here as
+       well would apply the opacity a second time on top of the band and make
+       the header denser than the page. */
     .ant-tabs-bar {
         margin: 0;
-        height: 44px;
+        height: ${TITLE_BAR_HEIGHT}px;
         box-sizing: border-box;
         background-color: transparent !important;
         -webkit-app-region: drag;
     }
 
-    .ant-tabs,
     .ant-tabs-nav,
     .ant-tabs-nav-container,
     .ant-tabs-nav-wrap,
@@ -38,18 +62,26 @@ const TitleBar = styled.div<{ compact: boolean }>`
         background-color: transparent !important;
     }
 
+    /* The tabs component also contains the page content. Keep that outer
+       wrapper transparent so the main window surface remains --pl-bg. */
+    .ant-tabs,
+    .ant-tabs-content,
+    .ant-tabs-tabpane {
+        background-color: transparent !important;
+    }
+
     .ant-tabs-nav-container,
     .ant-tabs-nav-wrap,
     .ant-tabs-nav-scroll {
-        height: 44px;
+        height: ${TITLE_BAR_HEIGHT}px;
     }
 
     .ant-tabs-nav-container {
-        line-height: 44px;
+        line-height: ${TITLE_BAR_HEIGHT}px;
     }
 
     .ant-tabs-nav {
-        height: 44px;
+        height: ${TITLE_BAR_HEIGHT}px;
     }
 
     .ant-tabs-nav-wrap {
@@ -57,9 +89,9 @@ const TitleBar = styled.div<{ compact: boolean }>`
     }
 
     .ant-tabs-nav .ant-tabs-tab {
-        height: 44px;
+        height: ${TITLE_BAR_HEIGHT}px;
         padding: 0 16px;
-        line-height: 44px;
+        line-height: ${TITLE_BAR_HEIGHT}px;
     }
 
     .ant-tabs-nav .ant-tabs-tab > span {
@@ -67,7 +99,7 @@ const TitleBar = styled.div<{ compact: boolean }>`
         align-items: center;
         justify-content: center;
         width: 100%;
-        height: 44px;
+        height: ${TITLE_BAR_HEIGHT}px;
     }
 
     .ant-tabs-nav .ant-tabs-tab .anticon {
@@ -90,14 +122,14 @@ const TitleBar = styled.div<{ compact: boolean }>`
     .ant-tabs-extra-content {
         display: flex;
         align-items: center;
-        height: 44px;
+        height: ${TITLE_BAR_HEIGHT}px;
     }
 
     ${({ compact }) =>
         compact
             ? `
                 .ant-tabs-bar {
-                    height: 32px !important;
+                    height: ${COMPACT_TITLE_BAR_HEIGHT}px !important;
                     margin: 0 !important;
                     padding: 0 !important;
                     box-sizing: border-box;
@@ -105,24 +137,24 @@ const TitleBar = styled.div<{ compact: boolean }>`
                 .ant-tabs-nav-container,
                 .ant-tabs-nav-wrap,
                 .ant-tabs-nav-scroll {
-                    height: 32px !important;
+                    height: ${COMPACT_TITLE_BAR_HEIGHT}px !important;
                 }
                 .ant-tabs-nav-container {
                     margin: 0 !important;
-                    line-height: 32px !important;
+                    line-height: ${COMPACT_TITLE_BAR_HEIGHT}px !important;
                 }
                 .ant-tabs-nav {
-                    height: 32px;
+                    height: ${COMPACT_TITLE_BAR_HEIGHT}px;
                 }
                 .ant-tabs-extra-content {
-                    height: 32px !important;
+                    height: ${COMPACT_TITLE_BAR_HEIGHT}px !important;
                 }
                 .ant-tabs-nav .ant-tabs-tab {
                     margin: 0;
-                    width: 32px;
-                    height: 32px;
+                    width: ${COMPACT_TITLE_BAR_HEIGHT}px;
+                    height: ${COMPACT_TITLE_BAR_HEIGHT}px;
                     padding: 0;
-                    line-height: 32px;
+                    line-height: ${COMPACT_TITLE_BAR_HEIGHT}px;
                     text-align: center;
                     box-sizing: border-box;
                 }
@@ -131,8 +163,8 @@ const TitleBar = styled.div<{ compact: boolean }>`
                     height: 2px !important;
                 }
                 .ant-tabs-nav .ant-tabs-tab > span {
-                    width: 32px;
-                    height: 32px;
+                    width: ${COMPACT_TITLE_BAR_HEIGHT}px;
+                    height: ${COMPACT_TITLE_BAR_HEIGHT}px;
                 }
                 .ant-tabs-nav .ant-tabs-tab .anticon {
                     margin: 0;

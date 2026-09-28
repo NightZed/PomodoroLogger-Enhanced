@@ -95,7 +95,6 @@
             "!**/node_modules/.bin",
             "!**/*.{o,h,cc,cpp,cxx,gyp,gypi,ipdb,iobj,vcxproj,filters,tlog,recipe,lastbuildstate,obj,res,pdb,exp,ilk}",
             "!**/node_modules/node-gyp{,/**}",
-            "!**/node_modules/@mapbox{,/**}",
             "!**/node_modules/active-win/{Sources,build,test,ava.config.js,binding.gyp}",
             "!**/node_modules/active-win/lib/binding/napi-*-darwin-*{,/**}",
             "!**/node_modules/active-win/lib/binding/napi-*-linux-*{,/**}",

@@ -38,7 +38,7 @@ export const FEEDBACK_ICON_COLORS: { [K in FeedbackKind]: string } = {
  * on purpose: the text is meant to be readable (and selectable) without racing a
  * timer.
  */
-export const TOAST_DURATION = 4.5;
+export const TOAST_DURATION = 2;
 
 /**
  * Width of confirm/alert dialogs: narrower than antd's 520px default so the

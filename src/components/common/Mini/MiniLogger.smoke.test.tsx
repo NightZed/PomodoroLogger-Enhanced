@@ -17,6 +17,7 @@ const baseProps = {
     isRunning: false,
     isFocusing: true,
     isConfirming: false,
+    hasSession: false,
     task: '完成 MiniLogger 重构',
 };
 
@@ -75,10 +76,41 @@ describe('MiniLogger two-row mini layout', () => {
 
     it('renders exactly 4 ghost control buttons in normal mode', () => {
         const tree = TestRenderer.create(
-            <MiniLogger {...baseProps} isRunning percentage={50} />
+            <MiniLogger {...baseProps} hasSession isRunning percentage={50} />
         ).toJSON() as ReactTestRendererJSON;
         const buttons = findAll(tree, (n) => n.type === 'button');
         expect(buttons).toHaveLength(4);
+    });
+
+    it('shows Done as soon as a session exists, even while percentage is still 0', () => {
+        // The percentage arrives in 2% steps (see Timer.updateLeftTime), so for
+        // the first 2% of a session it is still 0. The left cluster must already
+        // offer Done instead of Switch Mode, exactly like the normal/compact
+        // pages, which read the timer state instead of the percentage.
+        const leftClusterIcons = (props: Partial<typeof baseProps>) => {
+            const tree = TestRenderer.create(
+                <MiniLogger {...baseProps} {...props} />
+            ).toJSON() as ReactTestRendererJSON;
+            const left = findAll(tree, (n) => classNameOf(n).includes('btn-side left'));
+            expect(left).toHaveLength(1);
+            const icons = findAll(left[0], (n) => classNameOf(n).includes('anticon-'))
+                .map(classNameOf)
+                .join(' ');
+            return { swap: icons.includes('anticon-swap'), check: icons.includes('anticon-check') };
+        };
+
+        expect(leftClusterIcons({ hasSession: true, percentage: 0 })).toEqual({
+            swap: false,
+            check: true,
+        });
+        expect(leftClusterIcons({ hasSession: true, percentage: 3 })).toEqual({
+            swap: false,
+            check: true,
+        });
+        expect(leftClusterIcons({ hasSession: false, percentage: 0 })).toEqual({
+            swap: true,
+            check: false,
+        });
     });
 
     it('never renders the removed status icons (fire / coffee / check-circle)', () => {

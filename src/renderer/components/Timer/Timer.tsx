@@ -1101,6 +1101,10 @@ class Timer extends Component<Props, State> {
                         clear={this.onClear}
                         done={this.onDone}
                         expand={this.minimize}
+                        /* Same condition as the normal/compact pages use below:
+                           the mini "Switch Mode" button must not linger while
+                           `percent` is still 0 (it is updated in 2% steps). */
+                        hasSession={isRunning || targetTime != null}
                         isFocusing={isFocusing}
                         isRunning={isRunning}
                         pause={this.onStop}

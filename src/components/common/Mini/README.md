@@ -48,6 +48,7 @@ const Demo = () => {
             percentage={timePercentage && timePercentage[1]}
             isRunning={isRunning}
             isFocusing={isFocusing}
+            hasSession={isRunning}
             task="完成 MiniLogger 功能"
             style={{ width: 360 }}
         />
@@ -116,6 +117,7 @@ const Demo = () => {
             percentage={timePercentage && timePercentage[1]}
             isRunning={isRunning}
             isFocusing={isFocusing}
+            hasSession={isRunning}
             task="完成 MiniLogger 功能"
             style={{ width: 360 }}
         />

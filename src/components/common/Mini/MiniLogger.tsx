@@ -195,6 +195,17 @@ interface Props {
     task: string;
     style?: React.CSSProperties;
     stagedPomodoro?: PomodoroRecord;
+    /**
+     * Whether a session exists -- running, or paused with time left. It decides
+     * between "Done" and "Switch Mode" (see `getControlRow`).
+     *
+     * Never derive this from `percentage`: the owner throttles that value to 2%
+     * steps (`Timer.updateLeftTime`), so it stays 0 for the first 2% of a
+     * session -- up to 30s on a 25 minute focus session -- and the "Switch
+     * Mode" button would stay on screen after the session had already started.
+     * The owner passes the same condition as the normal/compact pages use.
+     */
+    hasSession: boolean;
 }
 
 export class MiniLogger extends React.Component<Props> {
@@ -220,7 +231,7 @@ export class MiniLogger extends React.Component<Props> {
             isRunning,
             play,
             pause,
-            percentage,
+            hasSession,
             isFocusing,
             isConfirming,
             confirmAndStartNextSession,
@@ -243,15 +254,18 @@ export class MiniLogger extends React.Component<Props> {
                 ) : (
                     <Button size="small" icon="caret-right" title="Start (F5)" onClick={play} />
                 )}
-                {percentage === 0 ? (
+                {/* `hasSession`, not `percentage`: see its documentation -- the
+                    percentage is throttled, so it cannot tell "no session" from
+                    "a session that has not reached 2% yet". */}
+                {hasSession ? (
+                    <Button size="small" icon="check" title="Done" onClick={this.props.done} />
+                ) : (
                     <Button
                         size="small"
                         icon="swap"
                         title="Switch Mode (Tab)"
                         onClick={this.props.switch}
                     />
-                ) : (
-                    <Button size="small" icon="check" title="Done" onClick={this.props.done} />
                 )}
             </>
         );

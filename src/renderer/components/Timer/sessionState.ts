@@ -15,7 +15,7 @@ export interface SessionState {
 
 /**
  * Whether a session exists -- the timer is running, or it is paused with time
- * left (`stopTimer` keeps `targetTime`, see the reducer in `action.ts`).
+ * left (`pauseTimer` keeps `targetTime`, see the reducer in `action.ts`).
  *
  * This is the single predicate the three window layouts and the mode-switch
  * guard share, so "the buttons say Finish" and "the mode cannot be switched" can
@@ -45,7 +45,7 @@ export type NamedSessionAction =
     | 'resume'
     /** Nothing to resume: start the named session (the caller switches first
         when the mode differs, which discards a paused session of the other
-        type -- exactly what Clear does). */
+        type -- exactly what Stop does). */
     | 'start';
 
 /**

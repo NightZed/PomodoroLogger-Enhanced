@@ -11,9 +11,9 @@ import {
     setScreenShotInterval,
     setSessionEnding,
     setStartOnBoot,
+    pauseTimer,
     setWarnBeforeFocusStart,
     startTimer,
-    stopTimer,
     timerFinished,
     TimerState,
 } from './action';
@@ -36,7 +36,7 @@ const { projectDB } = dbPaths;
 
 describe('Reducer', () => {
     it('has default state', () => {
-        const state = reducer(undefined, stopTimer());
+        const state = reducer(undefined, pauseTimer());
         expect(state).toHaveProperty('targetTime');
         expect(state).toHaveProperty('focusDuration');
         expect(state).toHaveProperty('restDuration');
@@ -55,7 +55,7 @@ describe('Reducer', () => {
     it('works when applying start_timer, stop_timer', () => {
         let state = reducer(undefined, startTimer());
         expect(state.isRunning).toBeTruthy();
-        state = reducer(state, stopTimer());
+        state = reducer(state, pauseTimer());
         expect(state.isRunning).toBeFalsy();
         state = reducer(state, startTimer());
         expect(state.isRunning).toBeTruthy();
@@ -69,7 +69,7 @@ describe('Reducer', () => {
     });
 
     it('reminds before a focus session by default and can be turned off', () => {
-        const state = reducer(undefined, stopTimer());
+        const state = reducer(undefined, pauseTimer());
         expect(state.warnBeforeFocusStart).toBe(true);
         expect(reducer(state, setWarnBeforeFocusStart(false)).warnBeforeFocusStart).toBe(false);
         expect(reducer(state, setWarnBeforeFocusStart(true)).warnBeforeFocusStart).toBe(true);
@@ -124,14 +124,14 @@ describe('Reducer', () => {
         expect(state.targetTime).not.toBeUndefined();
         expect(state.isRunning).toBeTruthy();
         const leftTime = state.targetTime! - new Date().getTime();
-        await dispatch(actions.stopTimer());
+        await dispatch(actions.pauseTimer());
         expect(state.isRunning).toBeFalsy();
         await new Promise((r) => setTimeout(r, 1000));
         const targetTime = new Date().getTime() + leftTime;
         await dispatch(actions.continueTimer());
         expect(state.isRunning).toBeTruthy();
         expect(state.targetTime! / 1000).toBeCloseTo(targetTime / 1000, 1);
-        await dispatch(actions.clearTimer());
+        await dispatch(actions.stopTimer());
         expect(state.targetTime).toBeUndefined();
         expect(state.isRunning).toBeFalsy();
 

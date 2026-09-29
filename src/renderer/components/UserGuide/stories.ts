@@ -39,13 +39,13 @@ export const timerStories: Story[] = [
         hint: 'Clicking the same button again pauses the timer.',
     },
     {
-        name: 'clear-timer',
-        stepId: 'timer.clear',
+        name: 'stop-timer',
+        stepId: 'timer.stop',
         useMask: true,
         spotlight: true,
-        pointerTargetSelector: '#clear-timer-button',
+        pointerTargetSelector: '#stop-timer-button',
         hasConfirm: true,
-        hint: 'You can reset the timer here',
+        hint: 'You can stop the timer here',
     },
     {
         name: 'focus-selector',

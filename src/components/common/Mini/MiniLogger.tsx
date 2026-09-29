@@ -146,7 +146,7 @@ const StyledLogger = styled.div`
         color: var(--pl-text);
     }
 
-    /* Disabled (e.g. Clear while waiting for confirmation after a rest):
+    /* Disabled (e.g. Stop while waiting for confirmation after a rest):
        dimmed and not clickable, and the hover highlight must not show. */
     .btn-side button:disabled,
     .btn-side button:disabled:hover,
@@ -181,7 +181,8 @@ interface Props {
     play: () => void;
     pause: () => void;
     done: () => void;
-    clear: () => void;
+    /** Discards the current session (what the "Stop" button calls), unlike `pause`. */
+    stop: () => void;
     switch: () => void;
     expand: () => void;
     confirm: () => void;
@@ -213,11 +214,6 @@ export class MiniLogger extends React.Component<Props> {
     constructor(props: Props) {
         super(props);
     }
-
-    clear = () => {
-        this.setState({ percentage: 0 });
-        this.props.clear();
-    };
 
     extend5Minutes = () => {
         this.props.extendCurrentSession(5);
@@ -294,14 +290,14 @@ export class MiniLogger extends React.Component<Props> {
                 </>
             ) : (
                 // Normal mode, or a rest session just ended: the right side
-                // always stays filled. Clearing is not allowed while waiting
+                // always stays filled. Stopping is not allowed while waiting
                 // for confirmation, but leaving mini mode still works.
                 <>
                     <Button
                         size="small"
                         icon="close"
                         title="Stop"
-                        onClick={this.clear}
+                        onClick={this.props.stop}
                         disabled={isConfirming}
                     />
                     <Button

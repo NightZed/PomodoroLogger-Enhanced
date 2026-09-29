@@ -302,8 +302,7 @@ class Timer extends Component<Props, State> {
         this.selfRef.current!.addEventListener('resize', this.onResize);
         this.selfRef.current!.addEventListener('keydown', this.handleNativeKeydown);
         this.props.setTimerManager({
-            clear: this.onClear,
-            pause: this.onStop,
+            pause: this.onPause,
             start: this.startFocusing,
         });
         getTodaySessions().then((finishedSessions) => {
@@ -382,11 +381,11 @@ class Timer extends Component<Props, State> {
             },
             // One handler for both labels: it pauses while the session runs and
             // resumes it while it is paused, exactly like the page's play button.
-            pauseOrContinue: this.onStopResumeOrStart,
+            pauseOrContinue: this.onPauseResumeOrStart,
             // The page's Finish button, as a menu entry: end the session now and
             // keep what it recorded.
             finish: () => this.onFinishButtonClick(),
-            stop: this.onClear,
+            stop: this.onStop,
         };
 
         setMenuItems(
@@ -470,9 +469,9 @@ class Timer extends Component<Props, State> {
         }
     };
 
-    onStopResumeOrStart = () => {
+    onPauseResumeOrStart = () => {
         if (this.props.timer.isRunning) {
-            this.onStop();
+            this.onPause();
         } else {
             this.startOrResume();
         }
@@ -502,7 +501,7 @@ class Timer extends Component<Props, State> {
                 return;
             }
 
-            this.onClear();
+            this.onStop();
             await new Promise((r) => requestAnimationFrame(r));
         }
 
@@ -547,8 +546,8 @@ class Timer extends Component<Props, State> {
         }
     }
 
-    onStop = () => {
-        this.props.stopTimer();
+    onPause = () => {
+        this.props.pauseTimer();
         setTrayImageWithMadeIcon(
             this.state.leftTime.slice(0, 2),
             this.state.percent / 100,
@@ -698,7 +697,11 @@ class Timer extends Component<Props, State> {
         return `${to2digits(this.getDuration(isFocusing) / 60)}:00`;
     };
 
-    private clearStat = () => {
+    /**
+     * Reset the display only: default left time, zero progress, tray icon. The
+     * session itself is untouched -- `onPause` keeps it, `onStop` discards it.
+     */
+    private resetStat = () => {
         setTrayImageWithMadeIcon(undefined).catch(console.error);
         this.setState((_, props) => ({
             leftTime: this.defaultLeftTime(props.timer.isFocusing),
@@ -706,14 +709,19 @@ class Timer extends Component<Props, State> {
         }));
     };
 
-    onClear = () => {
-        this.props.clearTimer();
+    /**
+     * Discard the current session: stop the timer, drop what the monitor
+     * collected for it and reset the display. This is what the "Stop" button,
+     * the tray entry and the mini window call; pausing is `onPause`.
+     */
+    onStop = () => {
+        this.props.stopTimer();
         if (this.monitor) {
             this.monitor.stop();
             this.monitor.clear();
         }
 
-        this.clearStat();
+        this.resetStat();
         this.extendedTimeInMinute = 0;
     };
 
@@ -732,9 +740,9 @@ class Timer extends Component<Props, State> {
         // finished session waits for its confirmation, the pages must not be
         // switched either, so this cannot live in the component.
         this.props.setSessionEnding(true);
-        this.props.stopTimer();
+        this.props.pauseTimer();
         this.props.changeAppTab('timer');
-        this.clearStat();
+        this.resetStat();
         if (shouldRemind) {
             this.focusOnCurrentWindow();
             this.remindUserTimeout(0);
@@ -926,7 +934,7 @@ class Timer extends Component<Props, State> {
      */
     private performModeSwitch = () => {
         this.props.switchFocusRestMode();
-        this.clearStat();
+        this.resetStat();
         // The extension only ever belonged to the session being dropped.
         this.extendedTimeInMinute = 0;
         if (this.monitor) {
@@ -1124,7 +1132,7 @@ class Timer extends Component<Props, State> {
                 break;
 
             case 'f6':
-                this.onStop();
+                this.onPause();
                 break;
 
             case 'tab':
@@ -1177,7 +1185,7 @@ class Timer extends Component<Props, State> {
                 <Layout style={{ backgroundColor: 'transparent' }} ref={this.selfRef}>
                     <ReactHotkeys keyName={'f5,f6,tab'} onKeyDown={this.onKeyDown} />
                     <MiniLogger
-                        clear={this.onClear}
+                        stop={this.onStop}
                         done={this.onDone}
                         expand={this.minimize}
                         /* One predicate for "a session exists", shared with the
@@ -1186,9 +1194,9 @@ class Timer extends Component<Props, State> {
                         hasSession={hasActiveSession}
                         isFocusing={isFocusing}
                         isRunning={isRunning}
-                        pause={this.onStop}
+                        pause={this.onPause}
                         percentage={percent}
-                        play={this.onStopResumeOrStart}
+                        play={this.onPauseResumeOrStart}
                         switch={this.switchMode}
                         task={name || stagedName || ''}
                         time={shownLeftTime.slice(0, 2)}
@@ -1348,7 +1356,7 @@ class Timer extends Component<Props, State> {
                                         <Button
                                             icon="pause"
                                             shape={'circle'}
-                                            onClick={this.onStopResumeOrStart}
+                                            onClick={this.onPauseResumeOrStart}
                                         />
                                     </Tooltip>
                                 ) : (
@@ -1356,7 +1364,7 @@ class Timer extends Component<Props, State> {
                                         <Button
                                             icon="caret-right"
                                             shape={'circle'}
-                                            onClick={this.onStopResumeOrStart}
+                                            onClick={this.onPauseResumeOrStart}
                                         />
                                     </Tooltip>
                                 )}
@@ -1379,9 +1387,9 @@ class Timer extends Component<Props, State> {
                                     />
                                 </Tooltip>
                             )}
-                            <div id="clear-timer-button" style={{ lineHeight: 0 }}>
+                            <div id="stop-timer-button" style={{ lineHeight: 0 }}>
                                 <Tooltip title="Stop">
-                                    <Button shape="circle" icon="close" onClick={this.onClear} />
+                                    <Button shape="circle" icon="close" onClick={this.onStop} />
                                 </Tooltip>
                             </div>
                             {this.state.pomodorosToday.length ? (

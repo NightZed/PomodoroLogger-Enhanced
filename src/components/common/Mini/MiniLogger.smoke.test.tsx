@@ -6,7 +6,7 @@ const baseProps = {
     play: jest.fn(),
     pause: jest.fn(),
     done: jest.fn(),
-    clear: jest.fn(),
+    stop: jest.fn(),
     switch: jest.fn(),
     expand: jest.fn(),
     confirm: jest.fn(),
@@ -142,7 +142,7 @@ describe('MiniLogger two-row mini layout', () => {
             <MiniLogger {...baseProps} isConfirming isFocusing={false} />
         ).toJSON() as ReactTestRendererJSON;
         const buttons = findAll(tree, (n) => n.type === 'button');
-        // left: Start Next Session + Done; right: Clear + Expand (never hidden)
+        // left: Start Next Session + Done; right: Stop + Expand (never hidden)
         expect(buttons).toHaveLength(4);
         const hasIcon = (b: ReactTestRendererJSON, name: string) =>
             findAll(b, (n) => classNameOf(n).includes(`anticon-${name}`)).length > 0;

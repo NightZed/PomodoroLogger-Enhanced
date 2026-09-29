@@ -95,12 +95,11 @@ export interface TimerManager {
      *
      * The named session wins, so the caller does not have to worry about the
      * mode: a paused session of either type is discarded (the switch drops it,
-     * exactly like `clear`), while a *running* rest session is cleared first. A
+     * exactly like `stop`), while a *running* rest session is stopped first. A
      * running focus session is left as it is.
      */
     start: (boardId?: string) => void;
     pause: () => void;
-    clear: () => void;
 }
 
 export interface TimerState extends Setting {
@@ -188,10 +187,14 @@ export const uiStateNames = [
     'compact',
 ];
 
+// A session lives across start / pause / continue: pausing keeps `targetTime`
+// so the very same session can be resumed. `stopTimer` is the only one that
+// discards a session (and everything collected with it) -- what the "Stop"
+// button, the tray entry and the mini window call.
 export const startTimer = createActionCreator('[Timer]START_TIMER');
-export const stopTimer = createActionCreator('[Timer]STOP_TIMER');
+export const pauseTimer = createActionCreator('[Timer]PAUSE_TIMER');
 export const continueTimer = createActionCreator('[Timer]CONTINUE_TIMER');
-export const clearTimer = createActionCreator('[Timer]CLEAR_TIMER');
+export const stopTimer = createActionCreator('[Timer]STOP_TIMER');
 export const timerFinished = createActionCreator('[Timer]TIMER_FINISHED');
 export const setMinimize = createActionCreator(
     '[Timer]SET_MINIMIZE',
@@ -371,9 +374,9 @@ const throwError = (err: Error | null) => {
     }
 };
 export const actions = {
-    stopTimer,
+    pauseTimer,
     continueTimer,
-    clearTimer,
+    stopTimer,
     startTimer,
     setBoardId,
     changeAppTab,
@@ -646,7 +649,7 @@ export const reducer = createReducer<TimerState, any>(defaultState, (handle) => 
         return { ...state, isRunning: true, targetTime: now + duration * 1000 };
     }),
 
-    handle(stopTimer, (state) => ({
+    handle(pauseTimer, (state) => ({
         ...state,
         isRunning: false,
         leftTime: state.targetTime ? state.targetTime - new Date().getTime() : undefined,
@@ -657,7 +660,7 @@ export const reducer = createReducer<TimerState, any>(defaultState, (handle) => 
         isRunning: true,
         targetTime: state.leftTime ? new Date().getTime() + state.leftTime : state.targetTime,
     })),
-    handle(clearTimer, (state) => ({
+    handle(stopTimer, (state) => ({
         ...state,
         leftTime: undefined,
         isRunning: false,

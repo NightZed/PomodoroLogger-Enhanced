@@ -10,7 +10,7 @@ const Demo = () => {
     const [isFocusing, setIsFocusing] = React.useState(true);
     return (
         <MiniLogger
-            clear={() => {
+            stop={() => {
                 clearInterval(timer);
                 setIsRunning(false);
                 setTimePercentage(['5', 0]);
@@ -73,7 +73,7 @@ const Demo = () => {
     return (
         <MiniLogger
             isConfirming
-            clear={() => {
+            stop={() => {
                 clearInterval(timer);
                 setIsRunning(false);
                 setTimePercentage(['5', 0]);

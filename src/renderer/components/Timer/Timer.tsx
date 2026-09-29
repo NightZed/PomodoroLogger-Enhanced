@@ -41,6 +41,7 @@ import { setTrayImageWithMadeIcon } from './iconMaker';
 import { PomodoroNumView } from './PomodoroNumView';
 import Progress from './Progress';
 import { feedback, FEEDBACK_MESSAGES } from '../feedback';
+import { hasSession } from './sessionState';
 import { TimerMask } from './SessionEndingMask';
 import { waitUntil } from './wait';
 import { WorkRestIcon } from './WorkRestIcon';
@@ -902,12 +903,22 @@ class Timer extends Component<Props, State> {
     };
 
     switchMode = () => {
-        if (this.props.timer.isRunning || this.state.percent !== 0) {
-            feedback.toast({ kind: 'warning', content: FEEDBACK_MESSAGES.timer.cannotSwitchMode });
+        if (this.state.showMask) {
+            // Checked first: the ending mask owns this transition -- it confirms
+            // the staged session and flips the mode itself -- and it keeps
+            // `targetTime` until then, so the guard below would answer "a
+            // session exists" and toast while the mask is already explaining
+            // what is going on. Switching (or complaining) here would be noise.
             return;
         }
 
-        if (this.state.showMask) {
+        // A session exists as soon as it started, not as soon as its first 2%
+        // elapsed: `state.percent` is committed in 2% steps, so the old
+        // `percent !== 0` guard let Tab (or the work/rest icon) silently drop a
+        // session that had just been paused. Same predicate as the buttons
+        // (see `sessionState.ts`), so the toast now matches what the user sees.
+        if (hasSession(this.props.timer.isRunning, this.props.timer.targetTime)) {
+            feedback.toast({ kind: 'warning', content: FEEDBACK_MESSAGES.timer.cannotSwitchMode });
             return;
         }
 
@@ -1081,8 +1092,12 @@ class Timer extends Component<Props, State> {
     render() {
         const { leftTime, percent, more, pomodorosToday, showMask } = this.state;
         const { isRunning, targetTime, minimize, compact, isFocusing } = this.props.timer;
+        // One predicate for "a session exists" (running, or paused with time
+        // left), shared with `switchMode` and the mini layout so the three
+        // views can never disagree; see `sessionState.ts`.
+        const hasActiveSession = hasSession(isRunning, targetTime);
         const shownLeftTime =
-            (isRunning || targetTime) && leftTime.length ? leftTime : this.defaultLeftTime();
+            hasActiveSession && leftTime.length ? leftTime : this.defaultLeftTime();
         const boardId = this.props.timer.boardId;
         const isNightTheme = this.props.timer.themeId === NIGHT_THEME_ID;
 
@@ -1101,10 +1116,10 @@ class Timer extends Component<Props, State> {
                         clear={this.onClear}
                         done={this.onDone}
                         expand={this.minimize}
-                        /* Same condition as the normal/compact pages use below:
-                           the mini "Switch Mode" button must not linger while
-                           `percent` is still 0 (it is updated in 2% steps). */
-                        hasSession={isRunning || targetTime != null}
+                        /* One predicate for "a session exists", shared with the
+                           normal/compact pages and `switchMode`; see
+                           `sessionState.ts`. */
+                        hasSession={hasActiveSession}
                         isFocusing={isFocusing}
                         isRunning={isRunning}
                         pause={this.onStop}
@@ -1282,7 +1297,7 @@ class Timer extends Component<Props, State> {
                                     </Tooltip>
                                 )}
                             </div>
-                            {this.props.timer.isRunning || this.props.timer.targetTime ? (
+                            {hasActiveSession ? (
                                 <Tooltip title="Finish">
                                     <Button
                                         icon="check"

@@ -203,7 +203,8 @@ interface Props {
      * steps (`Timer.updateLeftTime`), so it stays 0 for the first 2% of a
      * session -- up to 30s on a 25 minute focus session -- and the "Switch
      * Mode" button would stay on screen after the session had already started.
-     * The owner passes the same condition as the normal/compact pages use.
+     * The owner passes `sessionState.hasSession`, the same predicate the
+     * normal/compact pages and the mode-switch guard use.
      */
     hasSession: boolean;
 }

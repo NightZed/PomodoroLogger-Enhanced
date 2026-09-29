@@ -16,7 +16,9 @@ export const FEEDBACK_MESSAGES = {
     },
     /** Timer actions. */
     timer: {
-        cannotSwitchMode: 'Cannot switch mode when timer is running',
+        // Covers a running timer and a paused session alike: pausing keeps the
+        // session alive, so switching modes at that point would drop it.
+        cannotSwitchMode: 'Cannot switch mode while a session is in progress',
         finishTooEarly: 'Focus at least for 10 minutes to finish',
     },
     /** Statistic views. */

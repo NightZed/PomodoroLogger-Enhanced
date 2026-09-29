@@ -10,7 +10,7 @@ export type FeedbackKind = 'info' | 'success' | 'warning' | 'error';
 
 /**
  * Transient, non blocking receipt of a user action ("Start Focusing",
- * "Paused", "Cannot switch mode when timer is running").
+ * "Paused", "Cannot switch mode while a session is in progress").
  *
  * Auto dismisses, but stays long enough to be read, and its text can be
  * selected while it is on screen.

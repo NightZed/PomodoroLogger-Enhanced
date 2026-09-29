@@ -230,6 +230,7 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
             onMouseLeave={onMouseLeave}
             onMouseEnter={onMouseEnter}
             className={'kanban-brief-card'}
+            data-tour={'kanban-brief-card'}
         >
             <Header>
                 <div className="header-left">

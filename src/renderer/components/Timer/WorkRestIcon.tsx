@@ -53,6 +53,7 @@ export const WorkRestIcon: FunctionComponent<Props> = (props: Props) => {
             style={{ fontSize: '0.6em', cursor: 'pointer', position: 'relative' }}
             onClick={props.onClick}
             id={'timer-mode'}
+            data-tour={'timer-mode'}
         >
             <FadeEffect key={`icon-${animationKey}`}>
                 {props.isWorking ? <Icon component={WorkIcon} /> : <Icon component={RestIcon} />}

@@ -59,6 +59,10 @@ export interface DialogProps {
     hasConfirm?: boolean;
     confirmText?: string;
     cancelText?: string;
+    showBack?: boolean;
+    onBack?: () => void;
+    showExit?: boolean;
+    onExit?: () => void;
     /** When given, an opt-out check box is rendered above the buttons. */
     checkboxLabel?: string;
     checkboxChecked?: boolean;
@@ -77,6 +81,10 @@ export const Dialog: React.FC<DialogProps> = (props: DialogProps) => {
         hasConfirm = true,
         confirmText = 'OK',
         cancelText,
+        showBack = false,
+        onBack,
+        showExit = false,
+        onExit,
         checkboxLabel,
         checkboxChecked = false,
         onCheckboxChange,
@@ -114,18 +122,30 @@ export const Dialog: React.FC<DialogProps> = (props: DialogProps) => {
                         </Checkbox>
                     </CheckboxRow>
                 ) : undefined}
-                {hasConfirm ? (
+                {hasConfirm || showBack || showExit ? (
                     <>
                         <Divider style={{ margin: '6px 0' }} />
                         <ButtonRow>
+                            {showExit ? (
+                                <Button onClick={onExit} style={{ marginRight: 'auto' }}>
+                                    Exit tour
+                                </Button>
+                            ) : undefined}
+                            {showBack ? (
+                                <Button onClick={onBack} style={{ marginRight: 8 }}>
+                                    Back
+                                </Button>
+                            ) : undefined}
                             {cancelText !== undefined ? (
                                 <Button onClick={onCancel} style={{ marginRight: 8 }}>
                                     {cancelText}
                                 </Button>
                             ) : undefined}
-                            <Button type="primary" onClick={onConfirm}>
-                                {confirmText}
-                            </Button>
+                            {hasConfirm ? (
+                                <Button type="primary" onClick={onConfirm}>
+                                    {confirmText}
+                                </Button>
+                            ) : undefined}
                         </ButtonRow>
                     </>
                 ) : undefined}

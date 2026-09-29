@@ -187,9 +187,10 @@ const AppTitleBar: React.FC<Props> = ({
     alwaysOnTop,
     onToggleAlwaysOnTop,
 }) => {
-    const tab = (title: string, icon: string) => (
+    const tab = (title: string, icon: string, tourKey?: string) => (
         <span
             title={title}
+            data-tour={tourKey}
             style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -217,10 +218,18 @@ const AppTitleBar: React.FC<Props> = ({
                     )
                 }
             >
-                <TabPane tab={tab('Pomodoro', 'clock-circle')} forceRender={true} key="timer">
+                <TabPane
+                    tab={tab('Pomodoro', 'clock-circle', 'pomodoro-tab')}
+                    forceRender={true}
+                    key="timer"
+                >
                     {timer}
                 </TabPane>
-                <TabPane tab={tab('Kanban', 'project')} forceRender={false} key="kanban">
+                <TabPane
+                    tab={tab('Kanban', 'project', 'kanban-tab')}
+                    forceRender={false}
+                    key="kanban"
+                >
                     {kanban}
                 </TabPane>
                 <TabPane tab={tab('History', 'history')} forceRender={false} key="history">

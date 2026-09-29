@@ -299,6 +299,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                 }}
                                 onClick={addBoard}
                                 id={'create-kanban-button'}
+                                data-tour={'create-kanban-button'}
                             >
                                 <Icon type={'plus'} />
                             </Button>

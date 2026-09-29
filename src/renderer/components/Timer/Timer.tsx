@@ -1202,6 +1202,7 @@ class Timer extends Component<Props, State> {
                     {!compact && (
                         <HelpIcon
                             storyName={'allStories'}
+                            resume={true}
                             style={{
                                 position: 'absolute',
                                 zIndex: 50,

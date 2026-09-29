@@ -300,7 +300,7 @@ export class MiniLogger extends React.Component<Props> {
                     <Button
                         size="small"
                         icon="close"
-                        title="Clear"
+                        title="Stop"
                         onClick={this.clear}
                         disabled={isConfirming}
                     />

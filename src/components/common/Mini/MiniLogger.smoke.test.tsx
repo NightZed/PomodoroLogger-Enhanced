@@ -137,7 +137,7 @@ describe('MiniLogger two-row mini layout', () => {
         expect(taskNodes[0].children).toContain('No Focusing Project');
     });
 
-    it('keeps the right side filled after a rest, with Clear disabled', () => {
+    it('keeps the right side filled after a rest, with Stop disabled', () => {
         const tree = TestRenderer.create(
             <MiniLogger {...baseProps} isConfirming isFocusing={false} />
         ).toJSON() as ReactTestRendererJSON;

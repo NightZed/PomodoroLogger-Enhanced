@@ -9,6 +9,7 @@ import {
     setLongBreakDuration,
     setRestDuration,
     setScreenShotInterval,
+    setSessionEnding,
     setStartOnBoot,
     setWarnBeforeFocusStart,
     startTimer,
@@ -41,6 +42,14 @@ describe('Reducer', () => {
         expect(state).toHaveProperty('restDuration');
         expect(state).toHaveProperty('isRunning');
         expect(state).toHaveProperty('isFocusing');
+        expect(state.sessionEnding).toBe(false);
+    });
+
+    it('raises and lowers the ending mask, so the pages can react to it', () => {
+        let state = reducer(undefined, setSessionEnding(true));
+        expect(state.sessionEnding).toBe(true);
+        state = reducer(state, setSessionEnding(false));
+        expect(state.sessionEnding).toBe(false);
     });
 
     it('works when applying start_timer, stop_timer', () => {

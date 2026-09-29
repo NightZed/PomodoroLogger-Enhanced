@@ -41,7 +41,7 @@ import { setTrayImageWithMadeIcon } from './iconMaker';
 import { PomodoroNumView } from './PomodoroNumView';
 import Progress from './Progress';
 import { feedback, FEEDBACK_MESSAGES } from '../feedback';
-import { hasSession } from './sessionState';
+import { hasSession, namedSessionAction, trayMenuItems, TrayActionKey } from './sessionState';
 import { TimerMask } from './SessionEndingMask';
 import { waitUntil } from './wait';
 import { WorkRestIcon } from './WorkRestIcon';
@@ -221,7 +221,6 @@ interface State {
     showSider: boolean;
     more: boolean;
     pomodorosToday: PomodoroRecord[];
-    showMask: boolean;
     pomodoroNum: number;
     focusStartWarning?: FocusStartWarning;
     /** Board explicitly selected by the current start request, if any. */
@@ -273,7 +272,6 @@ class Timer extends Component<Props, State> {
             percent: 0,
             more: false,
             pomodorosToday: [],
-            showMask: false,
             pomodoroNum: 0,
             showSider: true,
             focusStartWarningDontRemind: false,
@@ -347,72 +345,70 @@ class Timer extends Component<Props, State> {
         return !isShallowEqualByKeys(next, _this, uiStateNames);
     }
 
+    /**
+     * (Re)builds the tray menu for the current state.
+     *
+     * The menu is state dependent -- `Pause` becomes `Continue`, and the entries
+     * a session owns are greyed while it runs (the matrix lives in
+     * `sessionState.trayMenuItems`) -- so this runs again whenever that state
+     * changes, see `componentDidUpdate`. Every entry reuses the handler the
+     * window would use, so the tray cannot drift away from the page again.
+     */
     addMenuItems(): void {
-        setMenuItems([
-            {
-                label: 'Start Focusing',
-                type: 'normal',
-                click: () => {
-                    // While the ending mask is up, first dismiss the mask and
-                    // then start exactly what this label names — not the
-                    // cycle's next session. Starting (or resuming the expired
-                    // timer) before the mask is confirmed would corrupt the
-                    // staged session; see `confirmMaskAndStart`.
-                    if (this.state.showMask) {
-                        this.confirmMaskAndStart(true);
-                        return;
-                    }
+        const clickHandlers: { [key in TrayActionKey]: () => void } = {
+            startFocusing: () => {
+                // While the ending mask is up, first dismiss the mask and then
+                // start exactly what this label names — not the cycle's next
+                // session. Starting (or resuming the expired timer) before the
+                // mask is confirmed would corrupt the staged session; see
+                // `confirmMaskAndStart`.
+                if (this.props.timer.sessionEnding) {
+                    this.confirmMaskAndStart(true);
+                    return;
+                }
 
-                    if (!this.props.timer.isFocusing) {
-                        this.switchMode();
-                    }
+                // The label names the session, so the named session wins (or
+                // the request is refused out loud); see `startNamedSession` for
+                // the whole decision table.
+                this.startNamedSession(true);
+            },
+            startBreak: () => {
+                if (this.props.timer.sessionEnding) {
+                    this.confirmMaskAndStart(false);
+                    return;
+                }
 
-                    if (!this.props.timer.isRunning) {
-                        this.onStopResumeOrStart();
-                    }
-                },
+                this.startNamedSession(false);
             },
-            {
-                label: 'Start Break',
-                type: 'normal',
-                click: () => {
-                    // While the ending mask is up, first dismiss the mask and
-                    // then start exactly what this label names — not the
-                    // cycle's next session. Starting (or resuming the expired
-                    // timer) before the mask is confirmed would corrupt the
-                    // staged session; see `confirmMaskAndStart`.
-                    if (this.state.showMask) {
-                        this.confirmMaskAndStart(false);
-                        return;
-                    }
+            // One handler for both labels: it pauses while the session runs and
+            // resumes it while it is paused, exactly like the page's play button.
+            pauseOrContinue: this.onStopResumeOrStart,
+            // The page's Finish button, as a menu entry: end the session now and
+            // keep what it recorded.
+            finish: () => this.onFinishButtonClick(),
+            stop: this.onClear,
+        };
 
-                    if (this.props.timer.isFocusing) {
-                        this.switchMode();
-                    }
-
-                    if (!this.props.timer.isRunning) {
-                        this.onStopResumeOrStart();
-                    }
-                },
-            },
-            {
-                label: 'Pause',
+        setMenuItems(
+            trayMenuItems(this.props.timer).map(({ key, label, enabled }) => ({
+                label,
                 type: 'normal',
-                click: () => {
-                    if (this.props.timer.isRunning) {
-                        this.onStopResumeOrStart();
-                    }
-                },
-            },
-            {
-                label: 'Stop',
-                type: 'normal',
-                click: this.onClear,
-            },
-        ]);
+                enabled,
+                click: clickHandlers[key],
+            }))
+        );
     }
 
-    componentDidUpdate(): void {
+    componentDidUpdate(prevProps: Props): void {
+        // The tray menu says which actions are available, so it has to be
+        // rebuilt when that changes. Only the fields `trayMenuItems` reads are
+        // compared: rebuilding on anything else would call into the main
+        // process twice a second for nothing.
+        const trayStateKeys = ['isRunning', 'isFocusing', 'targetTime', 'sessionEnding'];
+        if (!isShallowEqualByKeys(prevProps.timer, this.props.timer, trayStateKeys)) {
+            this.addMenuItems();
+        }
+
         // The focusing project (`timer.boardId`) can be deleted on the kanban
         // page while it is still selected here. Deleting a board only removes
         // it from `kanban.boards`, so the selection would keep pointing at a
@@ -483,6 +479,16 @@ class Timer extends Component<Props, State> {
     };
 
     startFocusing = async (boardId?: string) => {
+        // The ending mask owns this transition while it is up: it records the
+        // finished session and flips the mode itself, and a session started now
+        // would either be killed by `timerFinished` on confirmation or resume the
+        // expired timer (double prompt). Switching to the Kanban page is blocked
+        // while the mask is up (see `AppTitleBar`), so this is the second line of
+        // defence rather than a user facing refusal.
+        if (this.props.timer.sessionEnding) {
+            return;
+        }
+
         if (boardId !== undefined && this.props.timer.boardId !== boardId) {
             // Kanban dispatches SET_BOARD_ID before invoking this manager, but
             // the connected Timer props can still contain the previous value
@@ -501,7 +507,12 @@ class Timer extends Component<Props, State> {
         }
 
         if (!this.props.timer.isFocusing) {
-            this.switchMode();
+            // A board's own "Start Focusing" makes the session it names win,
+            // paused break included, and a switch drops whatever it replaces
+            // (the running case above was cleared already). Going through the
+            // guarded `switchMode` used to toast and then leave the `waitUntil`
+            // below to time out, so the board was never focused on at all.
+            this.performModeSwitch();
             await waitUntil(() => this.props.timer.isFocusing);
         }
 
@@ -717,9 +728,10 @@ class Timer extends Component<Props, State> {
             );
         }
 
-        this.setState({
-            showMask: true,
-        });
+        // The mask is app-wide state (see `TimerState.sessionEnding`): while the
+        // finished session waits for its confirmation, the pages must not be
+        // switched either, so this cannot live in the component.
+        this.props.setSessionEnding(true);
         this.props.stopTimer();
         this.props.changeAppTab('timer');
         this.clearStat();
@@ -902,8 +914,29 @@ class Timer extends Component<Props, State> {
         });
     };
 
+    /**
+     * Flip focus/rest and drop what the previous session held -- the timer, the
+     * display stats, the monitor and the extension it was carrying. A mode
+     * switch never carries a session over.
+     *
+     * `switchMode` guards this for the user's gestures (Tab, the two swap
+     * buttons, the work/rest icon). The paths that start a *named* session call
+     * it directly (`startNamedSession`, `startFocusing`), because there the
+     * named session has to win over a paused one; see `startNamedSession`.
+     */
+    private performModeSwitch = () => {
+        this.props.switchFocusRestMode();
+        this.clearStat();
+        // The extension only ever belonged to the session being dropped.
+        this.extendedTimeInMinute = 0;
+        if (this.monitor) {
+            this.monitor.stop();
+            this.monitor.clear();
+        }
+    };
+
     switchMode = () => {
-        if (this.state.showMask) {
+        if (this.props.timer.sessionEnding) {
             // Checked first: the ending mask owns this transition -- it confirms
             // the staged session and flips the mode itself -- and it keeps
             // `targetTime` until then, so the guard below would answer "a
@@ -917,21 +950,22 @@ class Timer extends Component<Props, State> {
         // `percent !== 0` guard let Tab (or the work/rest icon) silently drop a
         // session that had just been paused. Same predicate as the buttons
         // (see `sessionState.ts`), so the toast now matches what the user sees.
-        if (hasSession(this.props.timer.isRunning, this.props.timer.targetTime)) {
-            feedback.toast({ kind: 'warning', content: FEEDBACK_MESSAGES.timer.cannotSwitchMode });
+        if (hasSession(this.props.timer)) {
+            feedback.toast({
+                kind: 'warning',
+                content: FEEDBACK_MESSAGES.timer.cannotSwitchMode(
+                    this.props.timer.isFocusing,
+                    this.props.timer.isRunning
+                ),
+            });
             return;
         }
 
-        this.props.switchFocusRestMode();
-        this.clearStat();
-        if (this.monitor) {
-            this.monitor.stop();
-            this.monitor.clear();
-        }
+        this.performModeSwitch();
     };
 
     private onMaskClick = () => {
-        this.setState({ showMask: false });
+        this.props.setSessionEnding(false);
         // Snapshot the focusing project: the session keeps the project it was
         // confirmed with, even if the selection changes right after (or if the
         // prediction arrives late).
@@ -939,7 +973,7 @@ class Timer extends Component<Props, State> {
     };
 
     private onMaskButtonClick = async () => {
-        this.setState({ showMask: false });
+        this.props.setSessionEnding(false);
         // The mask button starts the session it names: the cycle's next one.
         this.nextSessionStarter = () => this.onStart();
         this.onSessionConfirmed(this.props.timer.boardId);
@@ -953,32 +987,62 @@ class Timer extends Component<Props, State> {
      * item's start for the moment the confirmation clears the expired timer.
      */
     private confirmMaskAndStart = (wantsFocusing: boolean) => {
-        this.nextSessionStarter = () => this.startRequestedSession(wantsFocusing);
+        this.nextSessionStarter = () => this.startNamedSession(wantsFocusing);
         this.onMaskClick();
     };
 
     /**
-     * Start the named session from a just-confirmed ending mask. The
-     * confirmation guarantees a stopped timer and a clean `targetTime`, so
-     * this cannot resume the expired session (the ghost-session bug).
+     * Start (or resume) the session the caller names: the two tray items, and
+     * the ending mask's own button once the confirmation is in.
+     *
+     * The decision itself lives in `namedSessionAction` (see `sessionState.ts`),
+     * so the menu, the mask and the guard cannot drift apart again. What is left
+     * here is the orchestration: a `start` for the other type has to switch
+     * first, and that switch drops a paused session of that other type -- which
+     * is why it cannot go through the guarded `switchMode` (that refusal used to
+     * leave the paused session running, so "Start Focusing" resumed a break).
+     *
+     * After a mask confirmation the timer is already stopped and clean, so this
+     * cannot resume the expired session (the ghost-session bug).
      */
-    private startRequestedSession = async (wantsFocusing: boolean) => {
+    private startNamedSession = async (wantsFocusing: boolean) => {
+        const action = namedSessionAction(this.props.timer, wantsFocusing);
+
+        if (action === 'nothing') {
+            return;
+        }
+
+        if (action === 'refuse') {
+            // Safety net: the tray greys the Start entries out while a session
+            // is live (see `trayMenuItems`), so this should not be reachable.
+            feedback.toast({
+                kind: 'warning',
+                content: FEEDBACK_MESSAGES.timer.cannotSwitchMode(
+                    this.props.timer.isFocusing,
+                    this.props.timer.isRunning
+                ),
+            });
+            return;
+        }
+
         if (this.props.timer.isFocusing !== wantsFocusing) {
-            this.switchMode();
-            if (this.props.timer.isFocusing !== wantsFocusing) {
-                try {
-                    // `switchMode` dispatches asynchronously; wait for the
-                    // flip to become visible before reading it again.
-                    await waitUntil(() => this.props.timer.isFocusing === wantsFocusing);
-                } catch (err) {
-                    console.error('[Timer] mode switch timed out; not starting', err);
-                    return;
-                }
+            this.performModeSwitch();
+            try {
+                // The switch dispatches asynchronously; wait for the flip to
+                // become visible before reading the mode again, so a `start`
+                // cannot pick up (or a `resume` cannot miss) the session the
+                // switch just discarded.
+                await waitUntil(() => this.props.timer.isFocusing === wantsFocusing);
+            } catch (err) {
+                console.error('[Timer] mode switch timed out; not starting', err);
+                return;
             }
         }
 
-        if (!this.props.timer.isRunning) {
-            this.onStopResumeOrStart();
+        if (action === 'resume') {
+            this.onResume();
+        } else {
+            this.onStart();
         }
     };
 
@@ -990,7 +1054,7 @@ class Timer extends Component<Props, State> {
 
     private remindUserTimeout = (timeout = 0, volume = 0.5) => {
         setTimeout(() => {
-            if (this.state.showMask) {
+            if (this.props.timer.sessionEnding) {
                 this.focusOnCurrentWindow();
                 if (this.sound.current) {
                     this.sound.current.volume = volume;
@@ -1016,7 +1080,7 @@ class Timer extends Component<Props, State> {
 
         this.extendedTimeInMinute += minutes;
         this.props.extendCurrentSession(minutes * 60);
-        this.setState({ showMask: false });
+        this.props.setSessionEnding(false);
     };
 
     private onFinishButtonClick = async () => {
@@ -1047,7 +1111,7 @@ class Timer extends Component<Props, State> {
                 // until the confirmation has flipped the mode; starting
                 // earlier would resume the expired timer (ghost session,
                 // duplicate prompts).
-                if (this.state.showMask) {
+                if (this.props.timer.sessionEnding) {
                     this.onMaskButtonClick();
                     return;
                 }
@@ -1090,12 +1154,12 @@ class Timer extends Component<Props, State> {
     };
 
     render() {
-        const { leftTime, percent, more, pomodorosToday, showMask } = this.state;
-        const { isRunning, targetTime, minimize, compact, isFocusing } = this.props.timer;
+        const { leftTime, percent, more, pomodorosToday } = this.state;
+        const { isRunning, minimize, compact, isFocusing, sessionEnding } = this.props.timer;
         // One predicate for "a session exists" (running, or paused with time
         // left), shared with `switchMode` and the mini layout so the three
         // views can never disagree; see `sessionState.ts`.
-        const hasActiveSession = hasSession(isRunning, targetTime);
+        const hasActiveSession = hasSession(this.props.timer);
         const shownLeftTime =
             hasActiveSession && leftTime.length ? leftTime : this.defaultLeftTime();
         const boardId = this.props.timer.boardId;
@@ -1129,7 +1193,7 @@ class Timer extends Component<Props, State> {
                         task={name || stagedName || ''}
                         time={shownLeftTime.slice(0, 2)}
                         style={{ zIndex: 999, overflow: 'hidden' }}
-                        isConfirming={showMask}
+                        isConfirming={sessionEnding}
                         extendCurrentSession={this.extendCurrentSession}
                         stagedPomodoro={this.stagedSession}
                         confirm={this.onMaskClick}
@@ -1150,7 +1214,7 @@ class Timer extends Component<Props, State> {
                     extendCurrentSession={this.extendCurrentSession}
                     newPomodoro={this.stagedSession}
                     stagedProjectId={this.state.stagedProjectId}
-                    showMask={showMask}
+                    showMask={sessionEnding}
                     onCancel={this.onMaskClick}
                     onStart={this.onMaskButtonClick}
                     pomodoros={pomodorosToday}
@@ -1316,7 +1380,7 @@ class Timer extends Component<Props, State> {
                                 </Tooltip>
                             )}
                             <div id="clear-timer-button" style={{ lineHeight: 0 }}>
-                                <Tooltip title="Clear">
+                                <Tooltip title="Stop">
                                     <Button shape="circle" icon="close" onClick={this.onClear} />
                                 </Tooltip>
                             </div>

@@ -8,6 +8,8 @@ interface Props {
     currentTab: string;
     minimize: boolean;
     compact: boolean;
+    /** The ending mask is up: the pages must not be switched away from it. */
+    sessionEnding: boolean;
     onTabChange: (tab: string) => void;
     timer: React.ReactNode;
     kanban: React.ReactNode;
@@ -17,7 +19,7 @@ interface Props {
     onToggleAlwaysOnTop: () => void;
 }
 
-const TitleBar = styled.div<{ compact: boolean }>`
+const TitleBar = styled.div<{ compact: boolean; sessionEnding: boolean }>`
     .ant-tabs-bar {
         position: relative;
         border-bottom: 0 !important;
@@ -171,6 +173,22 @@ const TitleBar = styled.div<{ compact: boolean }>`
                 }
             `
             : ''}
+
+    /* While the ending mask is up the finished session has to be confirmed
+       first: a session started from another page (the Kanban board buttons)
+       would be killed by that very confirmation. The mask already swallows the
+       clicks; dimming the tab row says so instead of looking broken, and the
+       pointer guard also covers the case where the mask sits behind another
+       tab. The window controls stay live, they are not page switches. */
+    ${({ sessionEnding }) =>
+        sessionEnding
+            ? `
+                .ant-tabs-nav-container {
+                    pointer-events: none;
+                    opacity: 0.4;
+                }
+            `
+            : ''}
 `;
 
 const { TabPane } = Tabs;
@@ -179,6 +197,7 @@ const AppTitleBar: React.FC<Props> = ({
     currentTab,
     minimize,
     compact,
+    sessionEnding,
     onTabChange,
     timer,
     kanban,
@@ -204,10 +223,18 @@ const AppTitleBar: React.FC<Props> = ({
     );
 
     return (
-        <TitleBar compact={compact}>
+        <TitleBar compact={compact} sessionEnding={sessionEnding}>
             <Tabs
                 activeKey={minimize ? 'timer' : currentTab}
-                onChange={onTabChange}
+                onChange={(tabKey) => {
+                    // Guarded, not only greyed: the tab entries are already
+                    // disabled while the mask is up (see below), and this keeps
+                    // every other path into `activeKey` honest as well. See
+                    // `TimerState.sessionEnding` for why.
+                    if (!sessionEnding) {
+                        onTabChange(tabKey);
+                    }
+                }}
                 tabBarExtraContent={
                     minimize ? null : (
                         <WindowControls
@@ -222,6 +249,7 @@ const AppTitleBar: React.FC<Props> = ({
                     tab={tab('Pomodoro', 'clock-circle', 'pomodoro-tab')}
                     forceRender={true}
                     key="timer"
+                    disabled={sessionEnding}
                 >
                     {timer}
                 </TabPane>
@@ -229,13 +257,19 @@ const AppTitleBar: React.FC<Props> = ({
                     tab={tab('Kanban', 'project', 'kanban-tab')}
                     forceRender={false}
                     key="kanban"
+                    disabled={sessionEnding}
                 >
                     {kanban}
                 </TabPane>
-                <TabPane tab={tab('History', 'history')} forceRender={false} key="history">
+                <TabPane
+                    tab={tab('History', 'history')}
+                    forceRender={false}
+                    key="history"
+                    disabled={sessionEnding}
+                >
                     {history}
                 </TabPane>
-                <TabPane tab={tab('Setting', 'setting')} key="setting">
+                <TabPane tab={tab('Setting', 'setting')} key="setting" disabled={sessionEnding}>
                     {setting}
                 </TabPane>
             </Tabs>

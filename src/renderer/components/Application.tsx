@@ -154,6 +154,8 @@ interface Props extends TimerActionTypes, HistoryActionCreatorTypes {
     contentOpacity: number;
     wallpaperDataUrl?: string;
     wallpaperOpacity: number;
+    /** The ending mask is up: the pages must not be switched away from it. */
+    sessionEnding: boolean;
 
     fetchKanban: () => void;
 }
@@ -183,9 +185,21 @@ class Application extends React.Component<Props> {
     onKeyDown = (keyname: string) => {
         switch (keyname) {
             case 'ctrl+tab':
+                // The ending mask owns the window until the finished session is
+                // confirmed: switching pages there would reach the Kanban board
+                // buttons, which start a session that the confirmation then
+                // kills. See `TimerState.sessionEnding`.
+                if (this.props.sessionEnding) {
+                    break;
+                }
+
                 this.props.switchTab(1);
                 break;
             case 'ctrl+shift+tab':
+                if (this.props.sessionEnding) {
+                    break;
+                }
+
                 this.props.switchTab(-1);
                 break;
             case 'ctrl+f12':
@@ -234,6 +248,7 @@ class Application extends React.Component<Props> {
             contentOpacity,
             wallpaperDataUrl,
             wallpaperOpacity,
+            sessionEnding,
             setCompact,
             setCompactAlwaysOnTop,
         } = this.props;
@@ -261,6 +276,7 @@ class Application extends React.Component<Props> {
                         currentTab={currentTab}
                         minimize={minimize}
                         compact={compact}
+                        sessionEnding={sessionEnding}
                         alwaysOnTop={compactAlwaysOnTop}
                         onToggleAlwaysOnTop={() => setCompactAlwaysOnTop(!compactAlwaysOnTop)}
                         onTabChange={handleTabChange}
@@ -310,6 +326,7 @@ const ApplicationContainer = connect(
         contentOpacity: state.timer.contentOpacity,
         wallpaperDataUrl: state.timer.wallpaperDataUrl,
         wallpaperOpacity: state.timer.wallpaperOpacity,
+        sessionEnding: state.timer.sessionEnding,
     }),
     genMapDispatchToProp<TimerActionTypes & HistoryActionCreatorTypes>({
         ...timerActions,

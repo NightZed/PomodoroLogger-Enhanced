@@ -382,7 +382,14 @@ function update() {
 
 // updater instance is created once so manual check works even when auto update is off
 const autoUpdaterCheck = update();
-function setMenuItems(items: { label: string; type: string; click: any }[]) {
+/**
+ * (Re)builds the tray context menu from the entries the renderer asks for (see
+ * `Timer.addMenuItems`). The separator and the Open/Quit entries belong to the
+ * window and are appended here, so a state dependent menu can neither grey them
+ * out nor reorder them. `enabled: false` renders an entry greyed out; it is how
+ * the renderer says "this action cannot run right now".
+ */
+function setMenuItems(items: { label: string; type: string; click: any; enabled?: boolean }[]) {
     if (!mGlobal.tray) {
         return;
     }

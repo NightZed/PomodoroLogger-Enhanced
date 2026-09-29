@@ -16,9 +16,16 @@ export const FEEDBACK_MESSAGES = {
     },
     /** Timer actions. */
     timer: {
-        // Covers a running timer and a paused session alike: pausing keeps the
-        // session alive, so switching modes at that point would drop it.
-        cannotSwitchMode: 'Cannot switch mode while a session is in progress',
+        /**
+         * A mode switch was asked for while a session is in the way (Tab or the
+         * work/rest icon). Both the reason and the way out depend on the state:
+         * a running session has to be paused or stopped first, a paused one
+         * continued or stopped.
+         */
+        cannotSwitchMode: (isFocusing: boolean, isRunning: boolean) =>
+            `Cannot switch mode while a ${isFocusing ? 'focus session' : 'break'} is ` +
+            `${isRunning ? 'running' : 'paused'} — ${isRunning ? 'pause' : 'continue'} or ` +
+            'stop it first.',
         finishTooEarly: 'Focus at least for 10 minutes to finish',
     },
     /** Statistic views. */

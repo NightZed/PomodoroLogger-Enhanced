@@ -92,6 +92,11 @@ export interface TimerManager {
      * Start a focus session. `boardId` identifies the project the caller
      * intends to use for this request. It is optional because the Timer page
      * can start a session using its current selection.
+     *
+     * The named session wins, so the caller does not have to worry about the
+     * mode: a paused session of either type is discarded (the switch drops it,
+     * exactly like `clear`), while a *running* rest session is cleared first. A
+     * running focus session is left as it is.
      */
     start: (boardId?: string) => void;
     pause: () => void;
@@ -105,6 +110,14 @@ export interface TimerState extends Setting {
     leftTime?: number;
     isFocusing: boolean;
     isRunning: boolean;
+    /**
+     * Whether the ending mask is up, i.e. a finished session is waiting to be
+     * confirmed. It lives here rather than in the Timer component because it
+     * blocks app-wide navigation: while it is up the pages must not be
+     * switched (see `AppTitleBar`), so the title bar and the global hotkeys
+     * have to read it too.
+     */
+    sessionEnding: boolean;
     boardId?: string;
     iBreak: number; // i-th break session, if i can be divided by 4, start longer break
     minimize: boolean;
@@ -134,6 +147,7 @@ export const defaultState: TimerState = {
     longBreakDuration: 15 * 60,
     isRunning: false,
     isFocusing: true,
+    sessionEnding: false,
     startOnBoot: false,
     useHardwareAcceleration: false,
     compactAlwaysOnTop: true,
@@ -167,6 +181,7 @@ export const uiStateNames = [
     'leftTime',
     'isFocusing',
     'isRunning',
+    'sessionEnding',
     'boardId',
     'iBreak',
     'minimize',
@@ -180,6 +195,14 @@ export const clearTimer = createActionCreator('[Timer]CLEAR_TIMER');
 export const timerFinished = createActionCreator('[Timer]TIMER_FINISHED');
 export const setMinimize = createActionCreator(
     '[Timer]SET_MINIMIZE',
+    (resolve) => (value: boolean) => resolve(value)
+);
+/**
+ * Raise or lower the ending mask: a finished session is waiting to be
+ * confirmed. See `TimerState.sessionEnding` for why this is app-wide state.
+ */
+export const setSessionEnding = createActionCreator(
+    '[Timer]SET_SESSION_ENDING',
     (resolve) => (value: boolean) => resolve(value)
 );
 export const setWallpaperDataUrl = createActionCreator(
@@ -356,6 +379,7 @@ export const actions = {
     changeAppTab,
     extendCurrentSession,
     setChosenRecord,
+    setSessionEnding,
     setTimerManager,
     switchFocusRestMode,
     switchTab: throttle((direction: 1 | -1) => switchTab(direction), 100),
@@ -737,6 +761,10 @@ export const reducer = createReducer<TimerState, any>(defaultState, (handle) => 
     handle(setTimerManager, (state, { payload: { manager } }) => ({
         ...state,
         timerManager: manager,
+    })),
+    handle(setSessionEnding, (state, { payload }) => ({
+        ...state,
+        sessionEnding: payload,
     })),
     handle(setMinimize, (state, { payload }) => ({
         ...state,

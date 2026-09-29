@@ -180,7 +180,7 @@ const StyledLogger = styled.div`
 interface Props {
     play: () => void;
     pause: () => void;
-    done: () => void;
+    finish: () => void;
     /** Discards the current session (what the "Stop" button calls), unlike `pause`. */
     stop: () => void;
     switch: () => void;
@@ -198,7 +198,7 @@ interface Props {
     stagedPomodoro?: PomodoroRecord;
     /**
      * Whether a session exists -- running, or paused with time left. It decides
-     * between "Done" and "Switch Mode" (see `getControlRow`).
+     * between "Finish" and "Switch Mode" (see `getControlRow`).
      *
      * Never derive this from `percentage`: the owner throttles that value to 2%
      * steps (`Timer.updateLeftTime`), so it stays 0 for the first 2% of a
@@ -242,7 +242,7 @@ export class MiniLogger extends React.Component<Props> {
                     onClick={confirmAndStartNextSession}
                     title="Start Next Session"
                 />
-                <Button size="small" icon="check" title="Done" onClick={this.props.confirm} />
+                <Button size="small" icon="check" title="Finish" onClick={this.props.confirm} />
             </>
         ) : (
             <>
@@ -255,7 +255,7 @@ export class MiniLogger extends React.Component<Props> {
                     percentage is throttled, so it cannot tell "no session" from
                     "a session that has not reached 2% yet". */}
                 {hasSession ? (
-                    <Button size="small" icon="check" title="Done" onClick={this.props.done} />
+                    <Button size="small" icon="check" title="Finish" onClick={this.props.finish} />
                 ) : (
                     <Button
                         size="small"
@@ -321,7 +321,7 @@ export class MiniLogger extends React.Component<Props> {
     /** Hover label for the countdown: which state the current session is in. */
     private getTimerStateLabel(): string {
         const { isConfirming, isFocusing } = this.props;
-        if (isConfirming) return 'Done';
+        if (isConfirming) return 'Finish';
         return isFocusing ? 'Working' : 'Breaking';
     }
 
@@ -329,7 +329,7 @@ export class MiniLogger extends React.Component<Props> {
         const { time, percentage, isFocusing, isConfirming } = this.props;
         // The disc inside the ring is the state indicator: red while focusing,
         // deep navy while resting. Confirmation keeps the color of the session
-        // that just finished -- there is no dedicated "done" color.
+        // that just finished -- there is no dedicated "finish" color.
         const stateColor = isFocusing ? '#e84545' : '#2b2e4a';
         return (
             <svg className="timer-svg" viewBox="0 0 100 100" width="30" height="30">

@@ -1186,7 +1186,7 @@ class Timer extends Component<Props, State> {
                     <ReactHotkeys keyName={'f5,f6,tab'} onKeyDown={this.onKeyDown} />
                     <MiniLogger
                         stop={this.onStop}
-                        done={this.onDone}
+                        finish={this.onFinishButtonClick}
                         expand={this.minimize}
                         /* One predicate for "a session exists", shared with the
                            normal/compact pages and `switchMode`; see

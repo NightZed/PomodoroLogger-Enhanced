@@ -15,7 +15,7 @@ const Demo = () => {
                 setIsRunning(false);
                 setTimePercentage(['5', 0]);
             }}
-            done={() => {
+            finish={() => {
                 clearInterval(timer);
                 setTimePercentage(['5', 0]);
                 setIsRunning(false);
@@ -78,7 +78,7 @@ const Demo = () => {
                 setIsRunning(false);
                 setTimePercentage(['5', 0]);
             }}
-            done={() => {
+            finish={() => {
                 clearInterval(timer);
                 setTimePercentage(['5', 0]);
                 setIsRunning(false);

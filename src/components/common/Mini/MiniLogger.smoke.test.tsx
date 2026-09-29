@@ -5,7 +5,7 @@ import { MiniLogger } from './MiniLogger';
 const baseProps = {
     play: jest.fn(),
     pause: jest.fn(),
-    done: jest.fn(),
+    finish: jest.fn(),
     stop: jest.fn(),
     switch: jest.fn(),
     expand: jest.fn(),
@@ -82,10 +82,10 @@ describe('MiniLogger two-row mini layout', () => {
         expect(buttons).toHaveLength(4);
     });
 
-    it('shows Done as soon as a session exists, even while percentage is still 0', () => {
+    it('shows Finish as soon as a session exists, even while percentage is still 0', () => {
         // The percentage arrives in 2% steps (see Timer.updateLeftTime), so for
         // the first 2% of a session it is still 0. The left cluster must already
-        // offer Done instead of Switch Mode, exactly like the normal/compact
+        // offer Finish instead of Switch Mode, exactly like the normal/compact
         // pages, which read the timer state instead of the percentage.
         const leftClusterIcons = (props: Partial<typeof baseProps>) => {
             const tree = TestRenderer.create(
@@ -96,20 +96,29 @@ describe('MiniLogger two-row mini layout', () => {
             const icons = findAll(left[0], (n) => classNameOf(n).includes('anticon-'))
                 .map(classNameOf)
                 .join(' ');
-            return { swap: icons.includes('anticon-swap'), check: icons.includes('anticon-check') };
+            return {
+                swap: icons.includes('anticon-swap'),
+                check: icons.includes('anticon-check'),
+                finish: findAll(left[0], (n) => n.type === 'button').some(
+                    (button) => button.props.title === 'Finish'
+                ),
+            };
         };
 
         expect(leftClusterIcons({ hasSession: true, percentage: 0 })).toEqual({
             swap: false,
             check: true,
+            finish: true,
         });
         expect(leftClusterIcons({ hasSession: true, percentage: 3 })).toEqual({
             swap: false,
             check: true,
+            finish: true,
         });
         expect(leftClusterIcons({ hasSession: false, percentage: 0 })).toEqual({
             swap: true,
             check: false,
+            finish: false,
         });
     });
 
@@ -142,7 +151,7 @@ describe('MiniLogger two-row mini layout', () => {
             <MiniLogger {...baseProps} isConfirming isFocusing={false} />
         ).toJSON() as ReactTestRendererJSON;
         const buttons = findAll(tree, (n) => n.type === 'button');
-        // left: Start Next Session + Done; right: Stop + Expand (never hidden)
+        // left: Start Next Session + Finish; right: Stop + Expand (never hidden)
         expect(buttons).toHaveLength(4);
         const hasIcon = (b: ReactTestRendererJSON, name: string) =>
             findAll(b, (n) => classNameOf(n).includes(`anticon-${name}`)).length > 0;
@@ -163,6 +172,6 @@ describe('MiniLogger two-row mini layout', () => {
         };
         expect(stateLabel({})).toContain('Working');
         expect(stateLabel({ isFocusing: false })).toContain('Breaking');
-        expect(stateLabel({ isConfirming: true })).toContain('Done');
+        expect(stateLabel({ isConfirming: true })).toContain('Finish');
     });
 });

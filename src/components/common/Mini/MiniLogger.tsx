@@ -53,6 +53,7 @@ const StyledLogger = styled.div`
     -webkit-app-region: drag;
     border-radius: 10px;
     overflow: hidden;
+    margin: 0 auto;
 
     * {
         user-select: none;

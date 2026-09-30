@@ -21,7 +21,9 @@ export function parseTag(
 ) {
     return html.replace(/([^&\*#@a-z]|^)(#[^\s\\<>]+)(\s|$|<)/gi, (_, p1, p2, p3) => {
         const { background, color } = stringColorMap(p2);
-        registerTag && registerTag(p2);
+        if (registerTag) {
+            registerTag(p2);
+        }
         return `${p1}<span class="pl-tag" style="background:${background}; color:${color}; --hover-background: ${
             background.slice(0, 7) + '55'
         }">${p2}</span>${p3}`;

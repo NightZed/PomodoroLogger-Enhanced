@@ -68,7 +68,12 @@ export class KnnWorker extends BaseWorker {
             { type: 'loadModel', payload: { dbSize } },
             {
                 onDone: (payload, done) => done(),
-            }
+            },
+            // Loading (and possibly retraining, which reads the whole session
+            // DB) outlasts the 10s default. Without a real budget the request
+            // timed out while the worker kept training for nobody, which burned
+            // CPU on every start.
+            60000
         );
     }
 

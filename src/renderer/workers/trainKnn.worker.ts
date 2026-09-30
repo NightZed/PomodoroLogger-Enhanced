@@ -4,32 +4,53 @@ import { KNN } from '../../main/learner/appKnn';
 import { sample } from '../../utils/random';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import nedb from 'nedb';
+import { deferCompaction } from './deferCompaction';
 
 const ctx: Worker = self as any;
 
+/**
+ * Read the session DB without touching it.
+ *
+ * This worker only reads, and the db worker is very likely loading the very same
+ * file at the same time, so neDB's load-time rewrite is masked (see
+ * ./deferCompaction): two writers on one `<file>~` temp file is what used to
+ * push a fresh start past the request timeouts.
+ *
+ * Never leaves the caller hanging: the old code logged a failed load and
+ * returned without resolving, so every caller waited forever.
+ */
 async function getRecords() {
     const sessionDB = new nedb({ filename: dbPaths.sessionDB, autoload: false });
+    deferCompaction(sessionDB);
     let reloadTimes = 0;
-    const loadDatabase = () => {
-        sessionDB.loadDatabase((err) => {
-            if (err) {
-                reloadTimes += 1;
-                if (reloadTimes > 10) {
-                    console.error(err);
+    await new Promise<void>((resolve) => {
+        const loadDatabase = () => {
+            sessionDB.loadDatabase((err) => {
+                if (!err) {
+                    resolve();
                     return;
                 }
 
-                return setTimeout(loadDatabase, 200);
-            }
-        });
-    };
+                reloadTimes += 1;
+                if (reloadTimes > 10) {
+                    console.error('[trainKnn] cannot load the session database', err);
+                    resolve();
+                    return;
+                }
 
-    loadDatabase();
-    const records: PomodoroRecord[] = await new Promise((resolve, reject) => {
+                setTimeout(loadDatabase, 200);
+            });
+        };
+
+        loadDatabase();
+    });
+
+    const records: PomodoroRecord[] = await new Promise((resolve) => {
         sessionDB.find({}, {}, (err, docs) => {
             if (err) {
                 console.error(err);
-                reject(err);
+                resolve([]);
+                return;
             }
 
             resolve(docs as PomodoroRecord[]);

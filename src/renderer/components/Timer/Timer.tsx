@@ -305,23 +305,32 @@ class Timer extends Component<Props, State> {
             pause: this.onPause,
             start: this.startFocusing,
         });
-        getTodaySessions().then((finishedSessions) => {
-            // 组件可能已在查询完成前卸载，此时不再更新状态
-            if (this.componentGone) {
-                return;
-            }
+        getTodaySessions()
+            .then((finishedSessions) => {
+                // 组件可能已在查询完成前卸载，此时不再更新状态
+                if (this.componentGone) {
+                    return;
+                }
 
-            finishedSessions.sort((a, b) => a.startTime - b.startTime);
-            this.setState({
-                pomodorosToday: finishedSessions,
-                pomodoroNum: finishedSessions.length,
+                finishedSessions.sort((a, b) => a.startTime - b.startTime);
+                this.setState({
+                    pomodorosToday: finishedSessions,
+                    pomodoroNum: finishedSessions.length,
+                });
+            })
+            .catch((err) => {
+                // The timer page still works without the list, so a failed query
+                // is logged instead of surfacing as an unhandled rejection.
+                console.error('[Timer] failed to load today sessions', err);
             });
-        });
 
         this.addMenuItems();
-        workers.dbWorkers.sessionDB.count({}).then((size) => {
-            workers.knn.loadModel(size).catch(console.error);
-        });
+        workers.dbWorkers.sessionDB
+            .count({})
+            .then((size) => workers.knn.loadModel(size))
+            .catch((err) => {
+                console.error('[Timer] failed to load the knn model', err);
+            });
     }
 
     handleNativeKeydown = (event: KeyboardEvent) => {

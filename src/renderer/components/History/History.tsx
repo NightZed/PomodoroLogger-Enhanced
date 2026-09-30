@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Card, Col, Row, Select, Statistic } from 'antd';
+import { Button, Card, Col, Row, Select, Statistic } from 'antd';
 import { HistoryActionCreatorTypes, HistoryState } from './action';
 import { GridCalendar } from '../../../components/Visualization/GridCalendar/GridCalendar';
 import styled from 'styled-components';
@@ -24,6 +24,28 @@ const { Option } = Select;
 type YearChoice = number | 'all';
 const ALL_TIME = 'all' as const;
 const MAX_AGG_CACHE_ENTRIES = 4;
+/**
+ * `loading` is the only state that shows spinners. A failed aggregation has to
+ * end in `error`: the request can fail or time out (the db worker only has so
+ * much budget for a 15MB session file), and a swallowed rejection used to leave
+ * the page spinning forever, because the effect blanks `aggInfo` before it asks.
+ */
+type LoadStatus = 'loading' | 'ready' | 'error';
+
+const EMPTY_AGG_INFO: AggPomodoroInfo = {
+    agg: {
+        day: undefined,
+        month: undefined,
+        week: undefined,
+    },
+    total: {
+        count: undefined,
+        usedTime: undefined,
+    },
+    calendarCount: undefined,
+    pieChart: undefined,
+    wordWeights: undefined,
+};
 
 const Container = styled.div`
     overflow-y: auto;
@@ -77,20 +99,11 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         undefined | [string, number][]
     >(undefined);
     const [chosenYear, setChosenYear] = useState<YearChoice>(new Date().getFullYear());
-    const [aggInfo, setAggInfo] = useState<AggPomodoroInfo>({
-        agg: {
-            day: undefined,
-            month: undefined,
-            week: undefined,
-        },
-        total: {
-            count: undefined,
-            usedTime: undefined,
-        },
-        calendarCount: undefined,
-        pieChart: undefined,
-        wordWeights: undefined,
-    });
+    const [aggInfo, setAggInfo] = useState<AggPomodoroInfo>(EMPTY_AGG_INFO);
+    const [status, setStatus] = useState<LoadStatus>('loading');
+    const [errorMsg, setErrorMsg] = useState<string | undefined>(undefined);
+    // Bumped by the retry button to re-run the aggregation effect as is.
+    const [reloadToken, setReloadToken] = useState(0);
     const container = useRef<HTMLDivElement>();
     const [calendarWidth, setCalendarWidth] = useState(document.body.clientWidth - 40);
 
@@ -150,6 +163,8 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
             aggCache.current.delete(cacheKey);
             aggCache.current.set(cacheKey, cached);
             setAggInfo(cached);
+            setStatus('ready');
+            setErrorMsg(undefined);
             setTargetDate(undefined);
             setSelectedDatePieChart(undefined);
             setSelectedDateWordWeights(undefined);
@@ -161,21 +176,12 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
 
         // Reset the stale aggregation immediately so the UI shows the same
         // Loading state as on first open, and the previous year's/project's
-        // charts (and their memory) are released right away.
-        setAggInfo({
-            agg: {
-                day: undefined,
-                month: undefined,
-                week: undefined,
-            },
-            total: {
-                count: undefined,
-                usedTime: undefined,
-            },
-            calendarCount: undefined,
-            pieChart: undefined,
-            wordWeights: undefined,
-        });
+        // charts (and their memory) are released right away. `status` is what
+        // the UI keys off, so a rejected request lands in `error` below instead
+        // of leaving these empty values spinning forever.
+        setAggInfo(EMPTY_AGG_INFO);
+        setStatus('loading');
+        setErrorMsg(undefined);
         // Avoid using outdated cache; And use worker to avoid db blocking the process
         // Load on demand to avoid pulling the whole session DB into the renderer:
         //  - records since the week/month boundary feed the Today/Week/Month stats;
@@ -184,7 +190,10 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         //  - with All time a single query covers both the recent stats and the full view.
         // The whole aggregation runs inside the db worker (aggHistory op), so raw
         // records never cross to the main thread and only the small aggregated
-        // result is transferred back.
+        // result is transferred back. The worker also resolves the project names
+        // from the kanban DB itself, which is why `props.boards` is not part of
+        // the dependency list below: loading/renaming a board must not re-run
+        // the aggregation and throw the page back into its Loading state.
         const db = workers.dbWorkers.sessionDB;
         const now = new Date();
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -205,7 +214,6 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         }
 
         db.aggHistory({
-            boardIds: Object.keys(props.boards),
             recentQuery: chosenYear === ALL_TIME ? undefined : recentArg,
             yearQuery: yearArg,
         })
@@ -216,6 +224,8 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
 
                 cacheAggregation(cacheKey, ans);
                 setAggInfo(ans);
+                setStatus('ready');
+                setErrorMsg(undefined);
                 setTargetDate(undefined);
                 setSelectedDatePieChart(undefined);
                 setSelectedDateWordWeights(undefined);
@@ -223,11 +233,21 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
             })
             .catch((err) => {
                 console.error('[History] failed to load aggregation', err);
+                if (cancelled) {
+                    return;
+                }
+
+                setStatus('error');
+                setErrorMsg(err instanceof Error ? err.message : String(err));
             });
         return () => {
             cancelled = true;
         };
-    }, [props.chosenId, props.expiringKey, props.boards, chosenYear]);
+    }, [props.chosenId, props.expiringKey, chosenYear, reloadToken]);
+
+    const retry = () => {
+        setReloadToken((token) => token + 1);
+    };
     useEffect(() => {
         if (targetDate == null) {
             return;
@@ -314,6 +334,32 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
     const shownPieChart = targetDate == null ? aggInfo.pieChart : selectedDatePieChart;
     const shownWordWeights = targetDate == null ? aggInfo.wordWeights : selectedDateWordWeights;
 
+    // The three stat cards show a spinner only while a load is actually running.
+    // After a failure they would spin forever next to the error card, so they
+    // fall back to a dash instead.
+    const statSlot = (
+        loaded: { count: number; hours: number } | undefined,
+        title: string,
+        color: string
+    ) => {
+        if (loaded != null) {
+            return (
+                <Statistic
+                    title={title}
+                    value={loaded.count}
+                    precision={0}
+                    valueStyle={{ color }}
+                />
+            );
+        }
+
+        return status === 'error' ? (
+            <Statistic title={title} value={'-'} valueStyle={{ color }} />
+        ) : (
+            <Loading hideBackground={true} />
+        );
+    };
+
     return (
         <Container>
             <SubContainer ref={container as any}>
@@ -369,36 +415,14 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                         title={aggInfo.agg.day ? aggInfo.agg.day.hours.toFixed(1) + 'h' : ''}
                         style={{ cursor: 'default' }}
                     >
-                        <Card>
-                            {aggInfo.agg.day != null ? (
-                                <Statistic
-                                    title="Pomodoros Today"
-                                    value={aggInfo.agg.day.count}
-                                    precision={0}
-                                    valueStyle={{ color: '#3f8600' }}
-                                />
-                            ) : (
-                                <Loading hideBackground={true} />
-                            )}
-                        </Card>
+                        <Card>{statSlot(aggInfo.agg.day, 'Pomodoros Today', '#3f8600')}</Card>
                     </Col>
                     <Col
                         span={8}
                         title={aggInfo.agg.week ? aggInfo.agg.week.hours.toFixed(1) + 'h' : ''}
                         style={{ cursor: 'default' }}
                     >
-                        <Card>
-                            {aggInfo.agg.week != null ? (
-                                <Statistic
-                                    title="Pomodoros This Week"
-                                    value={aggInfo.agg.week.count}
-                                    precision={0}
-                                    valueStyle={{ color: '#3f8600' }}
-                                />
-                            ) : (
-                                <Loading hideBackground={true} />
-                            )}
-                        </Card>
+                        <Card>{statSlot(aggInfo.agg.week, 'Pomodoros This Week', '#3f8600')}</Card>
                     </Col>
                     <Col
                         span={8}
@@ -406,20 +430,27 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                         style={{ cursor: 'default' }}
                     >
                         <Card>
-                            {aggInfo.agg.month != null ? (
-                                <Statistic
-                                    title="Pomodoros This Month"
-                                    value={aggInfo.agg.month.count}
-                                    precision={0}
-                                    valueStyle={{ color: '#cf1322' }}
-                                />
-                            ) : (
-                                <Loading hideBackground={true} />
-                            )}
+                            {statSlot(aggInfo.agg.month, 'Pomodoros This Month', '#cf1322')}
                         </Card>
                     </Col>
                 </Row>
-                {aggInfo.pieChart != null && aggInfo.wordWeights != null ? (
+                {status === 'error' ? (
+                    <Card style={{ textAlign: 'center' }}>
+                        <div
+                            style={{
+                                fontSize: 14,
+                                color: 'var(--pl-text-secondary)',
+                                marginBottom: 12,
+                            }}
+                        >
+                            Failed to load history data
+                            {errorMsg ? `: ${errorMsg}` : ''}
+                        </div>
+                        <Button type="primary" onClick={retry}>
+                            Retry
+                        </Button>
+                    </Card>
+                ) : aggInfo.pieChart != null && aggInfo.wordWeights != null ? (
                     calendarWidth > 670 ? (
                         <ChartContainer>
                             <GridCalendar

@@ -25,7 +25,9 @@ export function renameIllegalName(record: PomodoroRecord) {
 }
 
 /* istanbul ignore next */
-function consistencyCheck(record: PomodoroRecord) {
+// Debug helper: validates a session record's aggregate fields against its
+// per-app breakdown. Kept (rather than deleted) for future troubleshooting.
+function _consistencyCheck(record: PomodoroRecord) {
     if (record.startTime === 0) {
         throw new Error('no startTime');
     }
@@ -69,10 +71,10 @@ export async function removeSession(startTime: number) {
 
 export async function getTodaySessions(): Promise<PomodoroRecord[]> {
     const todayStartTime = new Date(new Date().toDateString()).getTime();
-    const ans = ((await dbWorkers.sessionDB.find(
+    const ans = (await dbWorkers.sessionDB.find(
         { startTime: { $gt: todayStartTime } },
         {}
-    )) as unknown) as PomodoroRecord[];
+    )) as unknown as PomodoroRecord[];
     return ans;
 }
 
@@ -108,28 +110,15 @@ export async function loadDB(path: string): Promise<nedb> {
 
 export function loadDBSync(path: string) {
     const db = new nedb({ filename: path });
-    let times = 0;
-    const load = () => {
-        db.loadDatabase((err) => {
-            if (!err) {
-                return;
-            }
-
-            times += 1;
-            if (times > 3) {
-                throw err;
-            }
-
-            return setTimeout(load, 0);
-        });
-    };
-
+    // Sync variant: nedb starts loading on construction and the caller only
+    // needs the handle; there is no retry callback to wire up here (unlike
+    // the async `loadDB` above, whose inner `load` is invoked).
     return db;
 }
 
 export const deleteFolderRecursive = (path: string) => {
     if (fs.existsSync(path)) {
-        fs.readdirSync(path).forEach((file, index) => {
+        fs.readdirSync(path).forEach((file) => {
             const curPath = path + '/' + file;
             if (fs.lstatSync(curPath).isDirectory()) {
                 // recurse

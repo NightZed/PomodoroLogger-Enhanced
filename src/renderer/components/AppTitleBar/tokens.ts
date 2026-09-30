@@ -10,7 +10,7 @@
  * Mini mode has no tab bar at all (it is `display: none` there), so its height
  * is 0 and is not listed here.
  */
-export const TITLE_BAR_HEIGHT = 44;
+export const TITLE_BAR_HEIGHT = 36;
 
 /** Height of the same bar in compact (small window) mode. */
 export const COMPACT_TITLE_BAR_HEIGHT = 32;

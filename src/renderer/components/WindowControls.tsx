@@ -1,6 +1,7 @@
 import { Icon } from 'antd';
 import React, { FC } from 'react';
 import styled from 'styled-components';
+import { COMPACT_TITLE_BAR_HEIGHT, TITLE_BAR_HEIGHT } from './AppTitleBar/tokens';
 
 /**
  * Caption buttons (minimize / maximize / close) for the frameless window
@@ -16,7 +17,7 @@ const Controls = styled.div<{ compact: boolean }>`
     height: 100%;
 
     button {
-        width: ${({ compact }) => (compact ? '32px' : '44px')};
+        width: ${({ compact }) => `${compact ? COMPACT_TITLE_BAR_HEIGHT : TITLE_BAR_HEIGHT}px`};
         height: 100%;
         padding: 0;
         border: none;

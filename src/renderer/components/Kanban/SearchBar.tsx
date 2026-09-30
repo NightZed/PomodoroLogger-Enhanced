@@ -1,11 +1,4 @@
-import React, {
-    FC,
-    useState,
-    useRef,
-    useEffect,
-    ChangeEvent,
-    KeyboardEvent as ReactKeyboardEvent,
-} from 'react';
+import React, { FC, useState, useRef, useEffect, KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { debounce } from 'lodash';
 import { actions } from './action';
 import { connect } from 'react-redux';

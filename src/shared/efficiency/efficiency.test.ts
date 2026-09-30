@@ -1,9 +1,4 @@
-import {
-    EfficiencyAnalyser,
-    compressArray,
-    getEfficiency,
-    EFFICIENCY_INC_RATE,
-} from './efficiency';
+import { EfficiencyAnalyser, compressArray, getEfficiency } from './efficiency';
 import { createRecord } from '../../../test/utils';
 
 describe('Efficiency Analysis', () => {

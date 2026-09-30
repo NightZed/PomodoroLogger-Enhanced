@@ -1,4 +1,4 @@
-import { PomodoroRecord, TitleSpentTimeDict } from '../../renderer/monitor/type';
+import { PomodoroRecord } from '../../renderer/monitor/type';
 import { DistractingRow } from '../../renderer/components/Timer/action';
 import { cloneDeep } from 'lodash';
 

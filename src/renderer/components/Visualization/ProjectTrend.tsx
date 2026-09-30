@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 // @ts-ignore
 import Trend from 'react-trend';
-import { DBWorker } from '../../workers/DBWorker';
 import { PomodoroRecord } from '../../monitor/type';
 import { workers } from '../../workers';
 

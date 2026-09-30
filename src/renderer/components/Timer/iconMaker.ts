@@ -50,7 +50,7 @@ async function makeIcon(
             console.error(e);
             reject(e);
         });
-        img.addEventListener('load', (e) => {
+        img.addEventListener('load', () => {
             if (leftTime !== undefined && !isPause) {
                 drawCircleProgress(ctx, !!isFocus, size, progress ?? 0);
                 drawText(ctx, isMac, size, leftTime);

@@ -146,12 +146,6 @@ const OverviewTable = connect((state: RootState) => ({
     cards: state.kanban.cards,
 }))(_OverviewTable);
 
-const BriefContainer = styled.div`
-    display: flex;
-    align-items: flex-start;
-    flex-wrap: wrap;
-`;
-
 const getPinScore = ({ pin: aPin }: KanbanBoard, { pin: bPin }: KanbanBoard) => {
     const a = aPin ? 1 : 0;
     const b = bPin ? 1 : 0;
@@ -304,7 +298,6 @@ const OverviewCards = connect(
     const { boards, setId } = props;
     const [ids, setIds] = useState<string[]>([]);
     useEffect(() => {
-        let alive = true;
         const desc = props.sortDirection === 'desc';
         if (
             props.sortedBy === 'due' ||
@@ -345,9 +338,6 @@ const OverviewCards = connect(
             });
         }
         setIds(boards.map((b) => b._id));
-        return () => {
-            alive = false;
-        };
     }, [
         props.sortedBy,
         props.sortDirection,

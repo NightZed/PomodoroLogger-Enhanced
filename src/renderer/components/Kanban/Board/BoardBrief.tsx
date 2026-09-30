@@ -1,6 +1,6 @@
 import React, { useCallback, useState, MouseEvent } from 'react';
 import { actions as timerActions, TimerManager } from '../../Timer/action';
-import { connect, MapDispatchToPropsParam } from 'react-redux';
+import { connect } from 'react-redux';
 import { RootState } from '../../../reducers';
 import { actions } from './action';
 import { actions as kanbanActions } from '../action';

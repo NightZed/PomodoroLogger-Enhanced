@@ -204,7 +204,7 @@ function to2digits(num: number) {
     return num;
 }
 
-function joinDict<T>(maps: { [key: string]: T }[]): { [key: string]: T } {
+function _joinDict<T>(maps: { [key: string]: T }[]): { [key: string]: T } {
     const dict: { [key: string]: T } = {};
     for (const d of maps) {
         for (const key in d) {
@@ -342,7 +342,7 @@ class Timer extends Component<Props, State> {
     shouldComponentUpdate(
         nextProps: Readonly<Props>,
         nextState: Readonly<State>,
-        nextContext: any
+        _nextContext: any
     ): boolean {
         if (!isShallowEqual(this.state, nextState)) {
             return true;
@@ -1152,7 +1152,7 @@ class Timer extends Component<Props, State> {
         return;
     };
 
-    componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
+    componentDidCatch(error: Error, _errorInfo: React.ErrorInfo): void {
         feedback.toast({ kind: 'error', content: error.toString() });
     }
 
@@ -1180,7 +1180,6 @@ class Timer extends Component<Props, State> {
         const shownLeftTime =
             hasActiveSession && leftTime.length ? leftTime : this.defaultLeftTime();
         const boardId = this.props.timer.boardId;
-        const isNightTheme = this.props.timer.themeId === NIGHT_THEME_ID;
 
         if (minimize) {
             const name = boardId && this.props.kanban.boards[boardId]?.name;

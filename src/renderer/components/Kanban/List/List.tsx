@@ -1,7 +1,7 @@
 import { Draggable, Droppable } from 'react-beautiful-dnd';
 import FocusIcon from '../../../../res/Focus.svg';
 import DoneIcon from '../../../../res/done.svg';
-import React, { FC, useRef, useState, useEffect } from 'react';
+import React, { FC, useRef, useState } from 'react';
 import { ListActionTypes } from './action';
 import styled from 'styled-components';
 import Card from '../Card';
@@ -328,7 +328,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
 
     return (
         <Draggable draggableId={props.listId} index={props.index}>
-            {(provided, { draggingOver }) => (
+            {(provided, _snapshot) => (
                 <div>
                     <Container
                         ref={provided.innerRef}

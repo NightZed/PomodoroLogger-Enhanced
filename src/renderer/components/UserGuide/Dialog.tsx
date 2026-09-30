@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
-import { getElementAbsoluteOffsetBySelector } from './utils';
 import { Position } from './type';
 import { Button, Checkbox, Divider } from 'antd';
 

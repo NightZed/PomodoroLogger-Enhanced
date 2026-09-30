@@ -4,13 +4,10 @@ import {
     inferProject,
     reducer,
     resolveSessionProjectId,
-    setBoardId,
     setFocusDuration,
     setLongBreakDuration,
     setRestDuration,
-    setScreenShotInterval,
     setSessionEnding,
-    setStartOnBoot,
     pauseTimer,
     setWarnBeforeFocusStart,
     startTimer,
@@ -29,8 +26,6 @@ import { dbPaths } from '../../../config';
 import { existsSync, unlinkSync } from 'fs';
 import { PomodoroRecord } from '../../monitor/type';
 import { Dispatch } from 'redux';
-import { boardReducer } from '../Kanban/Board/action';
-import set = Reflect.set;
 
 const { projectDB } = dbPaths;
 

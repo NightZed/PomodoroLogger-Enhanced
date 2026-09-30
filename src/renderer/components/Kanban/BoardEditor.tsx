@@ -3,7 +3,6 @@ import { Button, Form, Input, Modal, Tabs } from 'antd';
 import { ConfirmPopover } from '../feedback';
 import { getPopupContainer } from '../popupLayer';
 import TextArea from 'antd/es/input/TextArea';
-import Hotkeys from 'react-hot-keys';
 import { DistractingListModalButton } from '../Setting/DistractingList';
 import { EditorContainer } from './style/editorStyle';
 import { CreatedTime } from './style/CreatedTime';

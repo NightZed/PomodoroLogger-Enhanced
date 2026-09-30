@@ -6,7 +6,7 @@ import {
     loadDB,
     loadDBSync,
     getTodaySessions,
-    deleteFolderRecursive
+    deleteFolderRecursive,
 } from './sessionManager';
 import { join } from 'path';
 import { dbBaseDir, dbPaths } from '../../config';
@@ -34,12 +34,12 @@ describe('sessionManager', () => {
             apps: {},
             switchTimes: 0,
             screenStaticDuration: 0,
-            spentTimeInHour: 0
+            spentTimeInHour: 0,
         };
 
         await addSession(record);
         const sessions = await getAllSession();
-        const ans = sessions.find(v => v.boardId === record.boardId);
+        const ans = sessions.find((v) => v.boardId === record.boardId);
         expect(ans).toBeTruthy();
     });
 
@@ -52,13 +52,13 @@ describe('sessionManager', () => {
             apps: {},
             switchTimes: 0,
             screenStaticDuration: 0,
-            spentTimeInHour: 0
+            spentTimeInHour: 0,
         };
 
         await addSession(record);
         await removeSession(record.startTime);
         const sessions = await getAllSession();
-        const ans = sessions.find(v => v.boardId === record.boardId);
+        const ans = sessions.find((v) => v.boardId === record.boardId);
         expect(ans).toBeUndefined();
     });
 
@@ -66,10 +66,10 @@ describe('sessionManager', () => {
         const record = createRecord('123', 123, [
             ['abc.exe', 123],
             ['abd.exe', 123],
-            ['abf.eeeee', 123]
+            ['abf.eeeee', 123],
         ]);
         record.apps['abc.exe'].titleSpentTime = {
-            'hello.123': { normalizedWeight: 0.12, occurrence: 123, index: 0 }
+            'hello.123': { normalizedWeight: 0.12, occurrence: 123, index: 0 },
         };
         renameIllegalName(record);
         for (const app in record.apps) {
@@ -97,16 +97,16 @@ describe('sessionManager', () => {
 
     it('should load Db', async () => {
         {
-            const db = await loadDB(join(dbBaseDir, 'test_loading.db'));
+            await loadDB(join(dbBaseDir, 'test_loading.db'));
         }
         {
-            const db = await loadDB(join(dbBaseDir, 'test_loading.db'));
+            await loadDB(join(dbBaseDir, 'test_loading.db'));
         }
         {
-            const db = loadDBSync(join(dbBaseDir, 'test_loading.db'));
+            loadDBSync(join(dbBaseDir, 'test_loading.db'));
         }
         {
-            const db = loadDBSync(join(dbBaseDir, 'test_loading.db'));
+            loadDBSync(join(dbBaseDir, 'test_loading.db'));
         }
     });
 
@@ -118,7 +118,7 @@ describe('sessionManager', () => {
         await addSession(todaySession);
         await addSession(yesterdayRecord);
         const sessions = await getTodaySessions();
-        expect(sessions.some(record => record.boardId === 'today')).toBeTruthy();
-        expect(sessions.every(record => record.boardId !== 'yesterday')).toBeTruthy();
+        expect(sessions.some((record) => record.boardId === 'today')).toBeTruthy();
+        expect(sessions.every((record) => record.boardId !== 'yesterday')).toBeTruthy();
     });
 });

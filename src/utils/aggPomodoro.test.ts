@@ -4,7 +4,6 @@ import {
     getPomodoroCalendarData,
     getTimeSpentDataFromRecordsSync,
 } from './aggPomodoro';
-import { PomodoroRecord } from '../renderer/monitor/type';
 
 function createRecord(boardId: string, spentTime: number, apps: [string, number][]): any {
     const appNameDict: any = {};

@@ -241,7 +241,7 @@ export const cardReducer = createReducer<CardsState, any>({}, (handle) => [
     }),
 
     handle(deleteCard, (state, { payload: { _id } }) => {
-        const { [_id]: deleted, ...rest } = state;
+        const { [_id]: _deleted, ...rest } = state;
         return rest;
     }),
 

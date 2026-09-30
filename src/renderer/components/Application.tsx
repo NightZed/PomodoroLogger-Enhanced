@@ -232,7 +232,7 @@ class Application extends React.Component<Props> {
         }, 3000);
     };
 
-    componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
+    componentDidCatch(error: Error, _errorInfo: React.ErrorInfo): void {
         if (process.env.NODE_ENV === 'production') {
             this.handleError(error);
         }

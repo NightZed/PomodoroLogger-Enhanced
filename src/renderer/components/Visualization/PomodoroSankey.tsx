@@ -11,7 +11,7 @@ import { RootState } from '../../reducers';
 import styled from 'styled-components';
 import { fatScrollBar } from '../../style/scrollbar';
 import ReactHotkeys from 'react-hot-keys';
-import { formatTimeHMS, formatTimeYmdHms } from './Timeline';
+import { formatTimeYmdHms } from './Timeline';
 import { EChartOption } from 'echarts';
 import { ThemeTokens } from '../../theme/tokens';
 import { useThemeTokens } from '../../theme/useThemeTokens';

@@ -75,11 +75,18 @@ export default class Progress extends React.Component<ProgressProps> {
 
     renderProgress = ({ getPrefixCls }: ConfigConsumerProps) => {
         const props = this.props;
+        // Destructure-then-ignore: antd's Circle forwards unknown props to the
+        // DOM, so every prop this component consumes itself (or deliberately
+        // drops) is picked out here to keep it out of `restProps`, which is
+        // spread onto the wrapper div below.
         const {
             prefixCls: customizePrefixCls,
             className,
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             percent = 0,
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             status,
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             format,
             // The trail ring must not rely on the rc-progress builtin default
             // ('#D9D9D9', written as inline style so CSS cannot override it).
@@ -88,14 +95,21 @@ export default class Progress extends React.Component<ProgressProps> {
             // explicit trailColor prop still takes precedence.
             trailColor = 'var(--pl-border)',
             size,
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             successPercent,
             type,
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             strokeWidth,
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             width,
             showInfo,
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             gapDegree = 0,
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             gapPosition,
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             strokeColor,
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             strokeLinecap = 'round',
             children,
             ...restProps

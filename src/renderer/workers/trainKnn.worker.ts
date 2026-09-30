@@ -1,4 +1,4 @@
-import { dbPaths, env, modelPath } from '../../config';
+import { dbPaths, modelPath } from '../../config';
 import { PomodoroRecord } from '../monitor/type';
 import { KNN } from '../../main/learner/appKnn';
 import { sample } from '../../utils/random';

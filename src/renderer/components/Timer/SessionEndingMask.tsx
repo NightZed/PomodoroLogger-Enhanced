@@ -213,7 +213,7 @@ const _TimerMask = (props: MaskProps) => {
 };
 
 export const TimerMask = connect(
-    (state: RootState, props: InputProps) => ({
+    (state: RootState, _props: InputProps) => ({
         isFocusing: state.timer.isFocusing,
         isLongBreak: !((state.timer.iBreak + 1) % LONG_BREAK_INTERVAL),
         boardId: state.timer.boardId,

@@ -35,7 +35,7 @@ const Group = styled.div`
 `;
 
 export const SearchPanel = ({
-    history = ['Search History'],
+    history: _history = ['Search History'],
     tags = ['#TAG'],
     search,
 }: PanelProps) => {

@@ -72,7 +72,7 @@ class TrueDBWorker extends BaseWorker {
 class FakeDBWorker {
     private readonly db: nedb;
 
-    constructor(private dbType: string, worker?: undefined) {
+    constructor(private dbType: string, _worker?: undefined) {
         // @ts-ignore
         this.db = dbs[dbType];
     }
@@ -81,7 +81,7 @@ class FakeDBWorker {
         return undefined;
     }
 
-    setWorker(worker: Worker) {}
+    setWorker(_worker: Worker) {}
 
     genHandler =
         (op: string) =>

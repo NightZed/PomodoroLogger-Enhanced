@@ -28,7 +28,9 @@ ipcRenderer.on('reply', (e, token, arg, err) => {
         console.error(err);
     } else {
         msgMap.get(token)!.resolve(arg);
-        console.log(arg);
+        if (arg !== undefined) {
+            console.log(arg);
+        }
     }
     msgMap.delete(token);
 });
@@ -41,7 +43,7 @@ for (const name of Object.values(IpcEventName)) {
         });
 }
 
-console.log(dict);
+// console.log(dict);
 (window as any).api = dict;
 
 // Create main element

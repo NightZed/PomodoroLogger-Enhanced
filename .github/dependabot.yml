@@ -1,0 +1,59 @@
+# Dependabot version updates.
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# PRs opened here are tested by .github/workflows/test.yml (pull_request
+# trigger) before they can be merged. Dependabot runs those workflows with a
+# read-only GITHUB_TOKEN and no secrets -- test.yml needs neither.
+version: 2
+updates:
+  # Yarn/npm dependencies (Dependabot's "npm" ecosystem reads yarn.lock too;
+  # the repo's .npmrc registry override is honoured automatically).
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Shanghai
+    # Headroom for the grouped minor/patch PR plus individually reviewed
+    # major bumps. Security-update PRs never count against this limit.
+    open-pull-requests-limit: 10
+    commit-message:
+      # Merges become "chore(deps): bump ..." / "chore(deps-dev): bump ..." --
+      # Conventional Commits friendly, and chore never triggers a
+      # semantic-release release (see .releaserc.json).
+      prefix: chore
+      include: scope
+    groups:
+      # One PR for all minor+patch bumps (production and dev alike); major
+      # bumps stay in their own PRs so breaking changes are reviewed one at
+      # a time.
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  # GitHub Actions versions used in .github/workflows/*.yml.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      # A breaking action bump would only surface in the dispatch-only
+      # build.yml, which PRs never run -- so majors stay ungrouped and get
+      # an explicit look.
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch

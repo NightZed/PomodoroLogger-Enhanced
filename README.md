@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="./screenshots/icon.png" width="180" alt="Pomodoro Logger icon"/>
+  <img src="./screenshots/promo-head-mini.png" width="200" alt="Mini Mode promo head image"/>
+</p>
+
+<p align="center">
+  <img src="./screenshots/promo-head-compact.png" height="400" alt="Small Screen promo head image"/>
 </p>
 
 <p align="center">
@@ -42,25 +46,24 @@ This repository is an enhanced edition of the [original Pomodoro Logger](https:/
 ## 📖 Overview
 
 <p align="center">
-  <img width="400" src="./screenshots/Kanban-Board.png" alt="Kanban board"/>
-  <img width="400" src="./screenshots/history-main-view.png" alt="History view"/>
+  <img width="800" src="./screenshots/kanban.png" alt="Kanban board"/>
+  <img width="800" src="./screenshots/history-main-view.png" alt="History view"/>
 </p>
 
-> Above: the Kanban board (left) and the History view (right) — from planning tasks to reviewing your time.
+> Above: the Kanban board (p1) and the History view (p2) — from planning tasks to reviewing your time.
 
 <a id="pomodoro"></a>
 
 ## ⏱️ Pomodoro
 
 A work cycle = **focus + rest**: 25 minutes of focus and a 5-minute short break by default, plus a longer long break. All three durations can be adjusted in the settings.
+After creating a task on the Kanban board, select it on the timer page to track the task.
 
-### Timer & Mode Switching
+<p align="center">
+  <img width="800" src="./screenshots/normal-timer-shadow.png" alt="Normal Mode"/>
+</p>
 
-|                                  Session Finished                                   |                                         Switching Mode                                         |                                Choosing a Focus Task                                |
-| :---------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------: |
-| <img height="240" src="./screenshots/session-Finished.gif" alt="Session finished"/> | <img height="240" src="./screenshots/switch-Mode.gif" alt="Switching between focus and rest"/> | <img width="240" src="./screenshots/choose-Focus.gif" alt="Choosing a focus task"/> |
-
-### Tray / Mini / Small / Night Mode
+### Tray / Mini / Small / Night Mode / Transparency / Wallpaper
 
 -   **Tray**: closing the main window minimizes the app to the system tray.
 
@@ -71,22 +74,23 @@ A work cycle = **focus + rest**: 25 minutes of focus and a 5-minute short break 
 -   **Mini mode**: use `F12` to switch between the full interface and mini mode.
 
 <p align="center">
-  <img width="280" src="./screenshots/mini.png" alt="Mini Mode"/>
-  <img width="280" src="./screenshots/night-mini.png" alt="Night Mini Mode"/>
+  <img width="200" src="./screenshots/mini-day-shadow.png" alt="Day Mini Mode"/>
+  <img width="200" src="./screenshots/mini-night-shadow.png" alt="Night Mini Mode"/>
 </p>
 
 -   **Small Mode**：use `F11` to switch between the full interface and small mode.
 
 <p align="center">
-  <img height="300" src="./screenshots/small-screen.png" alt="Small Mode"/>
-  <img height="300" src="./screenshots/night-small.png" alt="Night Small Mode"/>
+  <img height="300" src="./screenshots/compact-wallpaper-day-shadow.png" alt="Day Small Mode"/>
+  <img height="300" src="./screenshots/compact-wallpaper-night-shadow.png" alt="Night Small Mode"/>
+</p>
 
-<a id="kanban-board"></a>
-
--   **Night Mode**：switch between day and night mode.
+-   **Night Mode / Transparency / Wallpaper**：switch between day and night mode. Support free setting of application transparency and wallpaper.
 
 <p align="center">
-  <img height="400" src="./screenshots/promotional-image.png" alt="Night Mode"/>
+  <img width="400" src="./screenshots/normal-day-night-shadow.png" alt="Night Mode"/>
+  <img width="400" src="./screenshots/setting-shadow.png" alt="Setting View"/>
+</p>
 
 <a id="kanban-board"></a>
 
@@ -102,9 +106,10 @@ The built-in [Kanban board](https://en.wikipedia.org/wiki/Kanban_board) works to
 
 > 💡 Tip: the fewer cards in `In Progress`, the more accurate your statistics.
 
-|                                 Dragging Cards                                 |                                Searching Cards                                |
-| :----------------------------------------------------------------------------: | :---------------------------------------------------------------------------: |
-| <img height="260" src="./screenshots/moving-Around.gif" alt="Dragging cards"/> | <img height="260" src="./screenshots/search-Card.gif" alt="Searching cards"/> |
+<p align="center">
+  <img width="800" src="./screenshots/kanban-board-shadow.png" alt="Kanban board"/>
+  <img width="800" src="./screenshots/kanban-shadow.png" alt="Kanban"/>
+</p>
 
 ### 🃏 Cards
 
@@ -113,9 +118,9 @@ The built-in [Kanban board](https://en.wikipedia.org/wiki/Kanban_board) works to
 -   **Creation / completion time**: boards and cards both show their creation time, and a card shows its completion time once it is dragged into `Done`.
 -   **Estimated time**: set an estimate on a card, and the Pomodoro timer accumulates the actual time spent.
 
-|                                        Card Editor & Labels                                         |                            Estimated Time on a Card                             |
-| :-------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------: |
-| <img height="256" src="./screenshots/kanban-card-editor.png" alt="Card editor and colored labels"/> | <img height="256" src="./screenshots/todo.png" alt="Estimated time on a card"/> |
+<p align="center">
+  <img width="800" src="./screenshots/kanban-card-editor-shadow.png" alt="kanban Card Editor"/>
+</p>
 
 <a id="statistics"></a>
 
@@ -126,7 +131,7 @@ The built-in [Kanban board](https://en.wikipedia.org/wiki/Kanban_board) works to
 Total time and pomodoro count, broken down by **project + year**.
 
 <p align="center">
-  <img width="520" src="./screenshots/project-cost-time.png" alt="Time spent per project"/>
+  <img width="480" src="./screenshots/project-cost-time.png" alt="Time spent per project"/>
 </p>
 
 ### 🗓️ Calendar Heat Map

@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="./screenshots/icon.png" width="180" alt="番茄日志图标"/>
+  <img src="./screenshots/promo-head-mini.png" width="200" alt="迷你宣传头图"/>
+</p>
+
+<p align="center">
+  <img src="./screenshots/promo-head-compact.png" height="400" alt="小屏宣传头图"/>
 </p>
 
 <p align="center">
@@ -42,25 +46,24 @@
 ## 📖 概览 Overview
 
 <p align="center">
-  <img width="400" src="./screenshots/Kanban-Board.png" alt="看板主界面"/>
-  <img width="400" src="./screenshots/history-main-view.png" alt="历史视图主界面"/>
+  <img width="800" src="./screenshots/kanban.png" alt="看板主界面"/>
+  <img width="800" src="./screenshots/history-main-view.png" alt="历史视图主界面"/>
 </p>
 
-> 上图：看板（左）与历史视图（右）——从规划任务到回看时间。
+> 上图：看板（图1）与历史视图（图2）——从规划任务到回看时间。
 
 <a id="pomodoro"></a>
 
 ## ⏱️ 番茄钟 Pomodoro
 
 一个工作循环 = **专注 + 休息**：默认 25 分钟专注、5 分钟短休，长休更长一些，三者时长都可以在设置页调整。
+看板创建任务后，在计时器页选中来进行任务追踪。
 
-### 计时与模式切换
+<p align="center">
+  <img width="800" src="./screenshots/normal-timer-shadow.png" alt="普通模式"/>
+</p>
 
-|                                  时段结束提醒                                   |                                     切换模式                                     |                                选择专注对象                                |
-| :-----------------------------------------------------------------------------: | :------------------------------------------------------------------------------: | :------------------------------------------------------------------------: |
-| <img height="240" src="./screenshots/session-Finished.gif" alt="时段结束提醒"/> | <img height="240" src="./screenshots/switch-Mode.gif" alt="切换专注与休息模式"/> | <img width="240" src="./screenshots/choose-Focus.gif" alt="选择专注对象"/> |
-
-### 托盘 / 迷你 / 小屏 / 夜间模式
+### 托盘 / 迷你 / 小屏 / 夜间模式 / 透明度 / 壁纸
 
 - **托盘**：关闭主页面缩放到系统托盘
 
@@ -71,22 +74,23 @@
 - **迷你模式**：用 `F12` 在完整界面与迷你模式之间切换。
 
 <p align="center">
-  <img width="280" src="./screenshots/mini.png" alt="迷你模式"/>
-  <img width="280" src="./screenshots/night-mini.png" alt="夜间迷你模式"/>
+  <img width="200" src="./screenshots/mini-day-shadow.png" alt="日间迷你模式"/>
+  <img width="200" src="./screenshots/mini-night-shadow.png" alt="夜间迷你模式"/>
 </p>
 
 - **小屏模式**：用 `F11` 在完整界面与小屏模式之间切换。
 
 <p align="center">
-  <img height="300" src="./screenshots/small-screen.png" alt="小屏模式"/>
-  <img height="300" src="./screenshots/night-small.png" alt="夜间小屏模式"/>
+  <img height="300" src="./screenshots/compact-wallpaper-day-shadow.png" alt="日间小屏模式"/>
+  <img height="300" src="./screenshots/compact-wallpaper-night-shadow.png" alt="夜间小屏模式"/>
+</p>
 
-<a id="kanban-board"></a>
-
-- **夜间模式**：可以在白天和夜间模式之间切换。
+- **夜间模式 / 透明度 / 壁纸**：可以在白天和夜间模式之间切换；支持自由设置应用透明度和壁纸。
 
 <p align="center">
-  <img height="400" src="./screenshots/promotional-image.png" alt="夜间模式"/>
+  <img width="400" src="./screenshots/normal-day-night-shadow.png" alt="日间夜间模式切换"/>
+  <img width="400" src="./screenshots/setting-shadow.png" alt="设置页面"/>
+</p>
 
 <a id="kanban-board"></a>
 
@@ -102,9 +106,10 @@
 
 > 💡 提示：`In Progress` 中的卡片越少，统计越准确。
 
-|                                 拖拽卡片                                 |                                搜索卡片                                |
-| :----------------------------------------------------------------------: | :--------------------------------------------------------------------: |
-| <img height="260" src="./screenshots/moving-Around.gif" alt="拖拽卡片"/> | <img height="260" src="./screenshots/search-Card.gif" alt="搜索卡片"/> |
+<p align="center">
+  <img width="800" src="./screenshots/kanban-board-shadow.png" alt="看板 board 页面"/>
+  <img width="800" src="./screenshots/kanban-shadow.png" alt="看板页面"/>
+</p>
 
 ### 🃏 卡片
 
@@ -113,9 +118,9 @@
 - **创建 / 完成时间**：看板与卡片都会显示创建时间，卡片拖入 `Done` 后会显示完成时间。
 - **预估耗时**：卡片上可以填写预估耗时，实际投入由番茄钟自动累计。
 
-|                                     卡片编辑器与标签                                      |                              卡片预估耗时                               |
-| :---------------------------------------------------------------------------------------: | :---------------------------------------------------------------------: |
-| <img height="256" src="./screenshots/kanban-card-editor.png" alt="卡片编辑器与彩色标签"/> | <img height="256" src="./screenshots/todo.png" alt="卡片上的预估耗时"/> |
+<p align="center">
+  <img width="800" src="./screenshots/kanban-card-editor-shadow.png" alt="看板卡片编辑页面"/>
+</p>
 
 <a id="statistics"></a>
 
@@ -126,7 +131,7 @@
 按**项目 + 年份**统计总耗时与完成的番茄钟数量。
 
 <p align="center">
-  <img width="520" src="./screenshots/project-cost-time.png" alt="项目消耗时间"/>
+  <img width="480" src="./screenshots/project-cost-time.png" alt="项目消耗时间"/>
 </p>
 
 ### 🗓️ 日历热力图

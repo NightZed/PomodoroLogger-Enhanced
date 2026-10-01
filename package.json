@@ -201,7 +201,7 @@
         "lint-staged": "^17.5.1",
         "lodash-es": "^4.17.21",
         "marked": "^4.0.10",
-        "moment": "^2.29.4",
+        "moment": "^2.31.0",
         "nedb": "^1.8.0",
         "node-gyp": "^9.0.0",
         "prettier": "^2.0.2",

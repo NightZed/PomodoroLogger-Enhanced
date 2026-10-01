@@ -65,7 +65,7 @@ jobs:
 
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # Always release from the latest master, regardless of the branch
           # or tag selected in the "Use workflow from" dropdown.
@@ -130,7 +130,7 @@ jobs:
 
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # Pin to the tag's commit: freshly released or manually selected
           # for a rebuild.

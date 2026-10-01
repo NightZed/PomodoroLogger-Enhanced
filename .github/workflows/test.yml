@@ -1,0 +1,49 @@
+name: Test
+
+# CI workflow split out of build.yml (mirrors semantic-release's own layout:
+# a lightweight test workflow plus a separate release workflow).
+# Every push to master and every pull request runs lint + tests here;
+# pushes never release anything -- releases are manual via build.yml
+# (Actions -> Build/release -> Run workflow).
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types:
+      - opened
+      - synchronize
+
+# Read-only: checkout is all this workflow needs.
+permissions:
+  contents: read
+
+# A newer push/PR update supersedes an in-flight run of the same ref.
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js and Yarn
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn --frozen-lockfile
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Test
+        run: yarn test -- --ci --runInBand

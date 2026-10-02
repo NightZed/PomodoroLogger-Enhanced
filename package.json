@@ -182,7 +182,7 @@
         "deox": "^2.1.0",
         "echarts": "^4.5.0",
         "echarts-for-react": "^2.0.15-beta.1",
-        "electron": "^39.8.10",
+        "electron": "^41.10.6",
         "electron-builder": "^26.15.3",
         "enzyme": "^3.10.0",
         "enzyme-adapter-react-16": "^1.15.8",

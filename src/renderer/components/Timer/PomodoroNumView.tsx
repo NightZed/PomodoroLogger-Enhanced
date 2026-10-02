@@ -3,7 +3,7 @@ import { Col, Row } from 'antd';
 import { PomodoroRecord } from '../../monitor/type';
 import styled, { keyframes } from 'styled-components';
 import { to2digits } from '../../utils';
-import shortid from 'shortid';
+import { uid } from '../../../utils/uid';
 
 const SvgDot = styled.svg`
     transition: transform 0.1s cubic-bezier(0.17, 0.67, 0.96, 0.59);
@@ -128,7 +128,7 @@ export class PomodoroNumView extends React.PureComponent<Props> {
 
     constructor(props: Props) {
         super(props);
-        this.key = shortid.generate();
+        this.key = uid();
     }
 
     createDot = (

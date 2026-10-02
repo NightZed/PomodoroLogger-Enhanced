@@ -1,5 +1,5 @@
 import { actions, listReducer } from './action';
-import shortid from 'shortid';
+import { uid } from '../../../../utils/uid';
 import { AsyncDB } from '../../../../utils/dbHelper';
 import dbs from '../../../dbs';
 import { generateRandomName } from '../../../utils';
@@ -41,8 +41,8 @@ async function addCard(_id: string, cardId: string, dispatch = jest.fn()) {
 }
 
 async function moveCardSetup(dispatch: any = undefined) {
-    const _id0 = shortid.generate();
-    const _id1 = shortid.generate();
+    const _id0 = uid();
+    const _id1 = uid();
     await addList(_id0, dispatch);
     await addList(_id1, dispatch);
     await addCard(_id0, '0', dispatch);
@@ -57,7 +57,7 @@ async function moveCardSetup(dispatch: any = undefined) {
 
 describe('listActions', () => {
     it('add list', async () => {
-        const _id = shortid.generate();
+        const _id = uid();
         const dis = await addList(_id);
         expect(dis.mock.calls[0][0]).toStrictEqual({
             type: '[List]ADD',
@@ -238,9 +238,9 @@ describe('listReducer', () => {
     });
 
     it('stamps completedTime only when a card lands in the board done list', async () => {
-        const todoId = shortid.generate();
-        const plainId = shortid.generate();
-        const doneId = shortid.generate();
+        const todoId = uid();
+        const plainId = uid();
+        const doneId = uid();
 
         // setup must go through the reducer so the moveCard handlers can read
         // the lists from the state

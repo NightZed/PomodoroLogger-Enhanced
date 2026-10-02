@@ -2,7 +2,7 @@ import { PomodoroRecord } from './type';
 import { ActiveWinListener } from './activeWinMonitor';
 import type { BaseResult } from 'active-win';
 import { cloneDeep } from 'lodash';
-import shortid from 'shortid';
+import { uid } from '../../utils/uid';
 
 function removeAppSuffix(name: string) {
     return name.replace(/\.exe$/g, '');
@@ -22,7 +22,7 @@ export class UsageRecorder {
 
     constructor(monitorListener: Listener) {
         this.record = {
-            _id: shortid.generate(),
+            _id: uid(),
             switchActivities: [],
             stayTimeInSecond: [],
             apps: {},
@@ -45,7 +45,7 @@ export class UsageRecorder {
 
     clear = () => {
         this.record = {
-            _id: shortid.generate(),
+            _id: uid(),
             switchActivities: [],
             stayTimeInSecond: [],
             apps: {},

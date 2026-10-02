@@ -13,7 +13,7 @@ import { LabelButton } from '../../style/form';
 import backIcon from '../../../res/back.svg';
 import { Label } from './style/Form';
 import Hotkeys from 'react-hot-keys';
-import shortid from 'shortid';
+import { uid } from '../../../utils/uid';
 import { TimerActionTypes, TimerManager } from '../Timer/action';
 import { isShallowEqualByKeys } from '../../utils';
 import { thinScrollBar } from '../../style/scrollbar';
@@ -119,7 +119,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
         useEffect(() => () => search.cancel(), []);
         const valueHandler: (values: FormValue) => void = ({ name, description }: FormValue) => {
             if (editingBoardId === undefined) {
-                props.addBoard(shortid.generate(), name, description);
+                props.addBoard(uid(), name, description);
             } else {
                 // Edit board
                 props.editBoard(editingBoardId, name, description);

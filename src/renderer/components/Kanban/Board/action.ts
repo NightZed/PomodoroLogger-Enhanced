@@ -4,7 +4,7 @@ import { actions as listActions } from '../List/action';
 import { actions as cardActions } from '../Card/action';
 import { actions as kanbanActions } from '../action';
 import { actions as historyActions } from '../../History/action';
-import shortid from 'shortid';
+import { uid } from '../../../../utils/uid';
 import { lang } from '../../../../lang/en';
 import { actions as timerActions, DistractingRow } from '../../Timer/action';
 import { RootState } from '../../../reducers';
@@ -410,7 +410,7 @@ export const actions = {
         await db.update({ _id }, { $set: { name } });
     },
     addList: (_id: string, listTitle: string) => async (dispatch: Dispatch) => {
-        const listId = shortid.generate();
+        const listId = uid();
         dispatch(addList(_id, listId));
         await listActions.addList(listId, listTitle)(dispatch);
         await db.update({ _id }, { $push: { lists: listId } });
@@ -444,13 +444,13 @@ export const actions = {
             const createdTime = new Date().getTime();
             const lists = [];
             for (const name of ['Backlog', 'TODO', 'In Progress', 'Done']) {
-                const listId = shortid.generate();
+                const listId = uid();
                 await listActions.addList(listId, name)(dispatch);
                 lists.push(listId);
             }
             dispatch(addBoard(_id, name, description, lists, lists[2], lists[3], createdTime));
 
-            const cardId = shortid.generate();
+            const cardId = uid();
             await cardActions.addCard(
                 cardId,
                 lists[1],

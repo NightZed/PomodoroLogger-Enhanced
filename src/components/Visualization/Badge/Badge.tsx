@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { formatTime } from '../../../renderer/utils';
-import shortid from 'shortid';
+import { uid } from '../../../utils/uid';
 import styled from 'styled-components';
 import { throttle } from 'lodash';
 import { useThemeTokens } from '../../../renderer/theme/useThemeTokens';
@@ -105,7 +105,7 @@ export const TimeBadge = React.memo((props: TimeBadgeProps) => {
     const { collapsed = false } = props;
     const { tokens, isDark } = useThemeTokens();
     const [clipState, setClipState] = React.useState('default');
-    const id = React.useMemo(shortid.generate, []);
+    const id = React.useMemo(() => uid(), []);
     const id1 = id + '1';
     let exceeded = false;
     let { spentTime = 0, leftTime = 0 } = props;

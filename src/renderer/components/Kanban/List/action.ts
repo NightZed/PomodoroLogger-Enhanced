@@ -2,7 +2,7 @@ import { createActionCreator, createReducer } from 'deox';
 import { Dispatch } from 'redux';
 import { actions as cardAction } from '../Card/action';
 import { actions as boardActions } from '../Board/action';
-import shortid from 'shortid';
+import { uid } from '../../../../utils/uid';
 import { workers } from '../../../workers';
 import { List, ListsState } from '../type';
 
@@ -190,7 +190,7 @@ export const actions = {
     },
     addCard:
         (_id: string, cardTitle: string, cardContent?: string) => async (dispatch: Dispatch) => {
-            const cardId = shortid.generate();
+            const cardId = uid();
             dispatch(addCard(_id, cardId));
             await cardAction.addCard(cardId, _id, cardTitle, cardContent)(dispatch);
         },

@@ -4358,11 +4358,6 @@
     "@types/http-errors" "*"
     "@types/node" "*"
 
-"@types/shortid@^2.2.0":
-  version "2.2.0"
-  resolved "https://registry.npmmirror.com/@types/shortid/-/shortid-2.2.0.tgz#905990fc4275f77e60ab0cd9f791b91a3d4bff04"
-  integrity sha512-jBG2FgBxcaSf0h662YloTGA32M8UtNbnTPekUr/eCmWXq0JWQXgNEQ/P5Gf05Cv66QZtE1Ttr83I1AJBPdzCBg==
-
 "@types/sockjs@^0.3.36":
   version "0.3.36"
   resolved "https://registry.npmmirror.com/@types/sockjs/-/sockjs-0.3.36.tgz#ce322cf07bcc119d4cbf7f88954f3a3bd0f67535"
@@ -12950,7 +12945,7 @@ nan@^2.12.1:
   resolved "https://registry.npmjs.org/nan/-/nan-2.15.0.tgz#3f34a473ff18e15c1b5626b62903b5ad6e665fee"
   integrity sha512-8ZtvEnA2c5aYCZYd1cvgdnU6cqwixRoYg70xPLWUws5ORTa/lnw+u4amixRS/Ac5U5mQVgp9pnlSUnbNWFaWZQ==
 
-nanoid@^3.3.18, nanoid@^3.3.8:
+nanoid@^3.3.18, nanoid@^3.3.19:
   version "3.3.19"
   resolved "https://registry.npmmirror.com/nanoid/-/nanoid-3.3.19.tgz#336d4aa4bcd4fb24d2cddede7ffeae40bec03f0a"
   integrity sha512-Y2tUNy4ouw6tq5oDSKeQYGOyhkUBhNOcGV/02KC+6kd9eDGqdZd++mjMiIDilrBYvjEnCYvVtsuHCuP+okSfug==
@@ -16427,13 +16422,6 @@ shell-quote@^1.8.4:
   version "1.10.0"
   resolved "https://registry.npmmirror.com/shell-quote/-/shell-quote-1.10.0.tgz#482033e192e4f5c07151521ffa03400ec71b1b0f"
   integrity sha512-w1aiOKwKuRgtwAReIIj89puqg+I7GvX4IbLrvmhXbzQsj1+Zwi4VO3+fa6ZF91TWSjIxoEkKnMeHcLEODK5ZXA==
-
-shortid@^2.2.17:
-  version "2.2.17"
-  resolved "https://registry.npmmirror.com/shortid/-/shortid-2.2.17.tgz#ea87297a36b7edd10a57818fbac5be798e0994bb"
-  integrity sha512-GpbM3gLF1UUXZvQw6MCyulHkWbRseNO4cyBEZresZRorwl1+SLu1ZdqgVtuwqz8mB6RpwPkm541mYSqrKyJSaA==
-  dependencies:
-    nanoid "^3.3.8"
 
 side-channel-list@^1.0.1:
   version "1.0.1"

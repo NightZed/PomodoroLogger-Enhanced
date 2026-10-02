@@ -6,8 +6,8 @@ module.exports = {
     testEnvironment: 'jsdom',
     // jest-environment-jsdom resolves package "exports" with the "browser"
     // condition, so dual ESM/CJS packages are resolved to their ESM entry
-    // (nanoid -> index.browser.js, reached through shortid). Jest runs tests in a
-    // CommonJS/Node-like runtime, so it then fails with
+    // (nanoid -> index.browser.js, nanoid backs src/utils/uid.ts). Jest runs
+    // tests in a CommonJS/Node-like runtime, so it then fails with
     // "Must use import to load ES Module". Resolve like Node does instead, which
     // picks the "require" (index.cjs) entry of such packages.
     testEnvironmentOptions: {

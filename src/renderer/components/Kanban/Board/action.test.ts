@@ -5,7 +5,7 @@ import { reducer as kanbanReducer } from '../reducer';
 import { dbBaseDir, dbPaths } from '../../../../config';
 import { existsSync, unlink, mkdir } from 'fs';
 import { promisify } from 'util';
-import shortid from 'shortid';
+import { uid } from '../../../../utils/uid';
 import dbs from '../../../dbs';
 import { AsyncDB } from '../../../../utils/dbHelper';
 import { KanbanBoard } from '../type';
@@ -46,7 +46,7 @@ describe('boardReducer', () => {
 
 describe('board actions', () => {
     it('move list', async () => {
-        const _id = shortid.generate();
+        const _id = uid();
         let state: KanbanBoardState = {};
         // @ts-ignore
         const dispatch: Dispatch = (action: any) => {
@@ -76,7 +76,7 @@ describe('board actions', () => {
     });
 
     it('should update after editing, setLastVisit, onTimerFinished, remove', async () => {
-        const _id = shortid.generate();
+        const _id = uid();
         let state: KanbanBoardState = {};
         // @ts-ignore
         const dispatch: Dispatch = (action: any) => {
@@ -103,7 +103,7 @@ describe('board actions', () => {
     });
 
     it('creates a board with 4 default lists (Backlog on the left) and keeps the welcome card in TODO', async () => {
-        const _id = shortid.generate();
+        const _id = uid();
         // @ts-ignore
         const dispatch: Dispatch = jest.fn();
         await actions.addBoard(_id, 'B0')(dispatch);
@@ -129,7 +129,7 @@ describe('board actions', () => {
     });
 
     it('stores createdTime on the board so it can be sorted by creation time', async () => {
-        const _id = shortid.generate();
+        const _id = uid();
         let state: KanbanBoardState = {};
         // @ts-ignore
         const dispatch: Dispatch = (action: any) => {
@@ -146,10 +146,10 @@ describe('board actions', () => {
     });
 
     it('backfills createdTime for legacy boards from the earliest card createdTime', async () => {
-        const boardId = shortid.generate();
-        const listId = shortid.generate();
-        const cardId0 = shortid.generate();
-        const cardId1 = shortid.generate();
+        const boardId = uid();
+        const listId = uid();
+        const cardId0 = uid();
+        const cardId1 = uid();
         await listsDB.insert({ _id: listId, title: 'list', cards: [cardId0, cardId1] });
         const cards: [string, number][] = [
             [cardId0, 6000],
@@ -195,7 +195,7 @@ describe('board actions', () => {
     });
 
     it('backfills createdTime for legacy boards without card signals using the earliest session', async () => {
-        const boardId = shortid.generate();
+        const boardId = uid();
         const legacyBoard: KanbanBoard = {
             ...defaultBoard,
             _id: boardId,
@@ -209,7 +209,7 @@ describe('board actions', () => {
         await db.insert(legacyBoard);
         await sessionDB.insert({
             boardId,
-            _id: shortid.generate(),
+            _id: uid(),
             apps: {},
             spentTimeInHour: 1,
             switchTimes: 0,
@@ -217,7 +217,7 @@ describe('board actions', () => {
         });
         await sessionDB.insert({
             boardId,
-            _id: shortid.generate(),
+            _id: uid(),
             apps: {},
             spentTimeInHour: 1,
             switchTimes: 0,
@@ -240,7 +240,7 @@ describe('board actions', () => {
     });
 
     it('keeps createdTime missing when no signal is available', async () => {
-        const boardId = shortid.generate();
+        const boardId = uid();
         const legacyBoard: KanbanBoard = {
             ...defaultBoard,
             _id: boardId,
@@ -270,7 +270,7 @@ describe('board actions', () => {
     });
 
     it('should add list directly', async () => {
-        const _id = shortid.generate();
+        const _id = uid();
         let state: KanbanBoardState = {};
         let added = false;
         // @ts-ignore
@@ -303,10 +303,10 @@ describe('board actions', () => {
     });
 
     it('stamps completedTime when a card lands in the done list', async () => {
-        const boardId = shortid.generate();
-        const listId = shortid.generate();
-        const doneListId = shortid.generate();
-        const cardId = shortid.generate();
+        const boardId = uid();
+        const listId = uid();
+        const doneListId = uid();
+        const cardId = uid();
         await listsDB.insert({ _id: listId, title: 'TODO', cards: [cardId] });
         await listsDB.insert({ _id: doneListId, title: 'Done', cards: [] });
         await cardsDB.insert({
@@ -340,8 +340,8 @@ describe('board actions', () => {
     });
 
     it('does not stamp completedTime for lists outside any done list', async () => {
-        const listId = shortid.generate();
-        const cardId = shortid.generate();
+        const listId = uid();
+        const cardId = uid();
         await listsDB.insert({ _id: listId, title: 'TODO', cards: [cardId] });
         await cardsDB.insert({
             _id: cardId,
@@ -388,10 +388,10 @@ describe('board actions', () => {
 
     it('backfills completedTime from the latest move into the done list', async () => {
         const moveDB = new AsyncDB(dbs.moveDB);
-        const boardId = shortid.generate();
-        const todoId = shortid.generate();
-        const doneListId = shortid.generate();
-        const cardId = shortid.generate();
+        const boardId = uid();
+        const todoId = uid();
+        const doneListId = uid();
+        const cardId = uid();
         await listsDB.insert({ _id: todoId, title: 'TODO', cards: [] });
         await listsDB.insert({ _id: doneListId, title: 'Done', cards: [] });
         await cardsDB.insert({
@@ -428,9 +428,9 @@ describe('board actions', () => {
     });
 
     it('backfills completedTime with createdTime for cards born in the done list', async () => {
-        const boardId = shortid.generate();
-        const doneListId = shortid.generate();
-        const cardId = shortid.generate();
+        const boardId = uid();
+        const doneListId = uid();
+        const cardId = uid();
         await listsDB.insert({ _id: doneListId, title: 'Done', cards: [cardId] });
         await cardsDB.insert({
             _id: cardId,
@@ -460,9 +460,9 @@ describe('board actions', () => {
 
     it('keeps an existing completedTime when backfilling', async () => {
         const moveDB = new AsyncDB(dbs.moveDB);
-        const boardId = shortid.generate();
-        const doneListId = shortid.generate();
-        const cardId = shortid.generate();
+        const boardId = uid();
+        const doneListId = uid();
+        const cardId = uid();
         await listsDB.insert({ _id: doneListId, title: 'Done', cards: [] });
         await cardsDB.insert({
             _id: cardId,
@@ -484,7 +484,7 @@ describe('board actions', () => {
         // a later move into the done list must not overwrite an existing stamp
         await moveDB.insert({
             cardId,
-            fromListId: shortid.generate(),
+            fromListId: uid(),
             toListId: doneListId,
             time: 9999,
         });

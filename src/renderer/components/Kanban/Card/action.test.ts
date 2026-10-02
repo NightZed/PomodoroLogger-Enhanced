@@ -1,5 +1,5 @@
 import { actions, cardReducer, CardsState } from './action';
-import shortid from 'shortid';
+import { uid } from '../../../../utils/uid';
 import { AsyncDB } from '../../../../utils/dbHelper';
 import dbs from '../../../dbs';
 import { Dispatch } from 'redux';
@@ -22,7 +22,7 @@ describe("Cards' actions", () => {
     });
 
     it('add card', async () => {
-        const _id = shortid.generate();
+        const _id = uid();
         const dispatch = jest.fn();
         await actions.addCard(_id, '', 'abc')(dispatch);
         expectExcept(
@@ -41,7 +41,7 @@ describe("Cards' actions", () => {
     });
 
     it('remove card', async () => {
-        const _id = shortid.generate();
+        const _id = uid();
         const dispatch = jest.fn();
         await actions.addCard(_id, '', 'abc', '')(dispatch);
         await actions.deleteCard(_id, '')(dispatch);
@@ -57,7 +57,7 @@ describe("Cards' actions", () => {
     });
 
     it('rename card', async () => {
-        const _id = shortid.generate();
+        const _id = uid();
         const _d = jest.fn();
         const dispatch = jest.fn();
         await actions.addCard(_id, '', 'abc', '')(_d);
@@ -76,7 +76,7 @@ describe("Cards' actions", () => {
     });
 
     it('updates on timer finished', async () => {
-        const _id = shortid.generate();
+        const _id = uid();
         const _d = jest.fn();
         const dispatch = jest.fn();
         await actions.addCard(_id, '', 'abc', '')(_d);
@@ -161,7 +161,7 @@ describe("Cards' actions", () => {
     });
 
     it('set labels', async () => {
-        const _id = shortid.generate();
+        const _id = uid();
         const _d = jest.fn();
         const dispatch = jest.fn();
         await actions.addCard(_id, '', 'abc', '')(_d);
@@ -184,7 +184,7 @@ describe("Cards' actions", () => {
     });
 
     it('set labels to empty removes labels', async () => {
-        const _id = shortid.generate();
+        const _id = uid();
         const _d = jest.fn();
         const dispatch = jest.fn();
         await actions.addCard(_id, '', 'abc', '')(_d);
@@ -196,7 +196,7 @@ describe("Cards' actions", () => {
     });
 
     it('should update', async () => {
-        const _id = shortid.generate();
+        const _id = uid();
         let state: CardsState = {};
         // @ts-ignore
         const dispatch: Dispatch = (action: any) => {
@@ -224,7 +224,7 @@ describe("Cards' actions", () => {
     });
 
     it('sets completed time', async () => {
-        const _id = shortid.generate();
+        const _id = uid();
         const _d = jest.fn();
         const dispatch = jest.fn();
         await actions.addCard(_id, '', 'abc', '')(_d);
@@ -242,7 +242,7 @@ describe("Cards' actions", () => {
     });
 
     it('clears completed time', async () => {
-        const _id = shortid.generate();
+        const _id = uid();
         const _d = jest.fn();
         const dispatch = jest.fn();
         await actions.addCard(_id, '', 'abc', '')(_d);
@@ -254,7 +254,7 @@ describe("Cards' actions", () => {
     });
 
     it('drops completedTime from the state when cleared', async () => {
-        const _id = shortid.generate();
+        const _id = uid();
         let state: CardsState = {};
         // @ts-ignore
         const dispatch: Dispatch = (action: any) => {

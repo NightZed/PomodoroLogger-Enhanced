@@ -1,7 +1,7 @@
 /* istanbul ignore file */
 import { existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
-import shortid from 'shortid';
+import { uid } from './utils/uid';
 
 const appdataDir =
     process.env.APPDATA ||
@@ -43,7 +43,7 @@ export const dbPaths = {
 if (process.env.NODE_ENV === 'test') {
     for (const key in dbPaths) {
         // @ts-ignore
-        dbPaths[key] = `${dbPaths[key]}${shortid.generate()}`;
+        dbPaths[key] = `${dbPaths[key]}${uid()}`;
     }
 }
 

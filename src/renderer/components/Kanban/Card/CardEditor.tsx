@@ -9,7 +9,7 @@ import { Button, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Tabs, To
 import { ConfirmPopover } from '../../feedback';
 import { getPopupContainer } from '../../popupLayer';
 import TextArea from 'antd/es/input/TextArea';
-import shortid from 'shortid';
+import { uid } from '../../../../utils/uid';
 import moment from 'moment';
 import { Card, CardLabel } from '../type';
 import { Markdown } from '../style/Markdown';
@@ -276,7 +276,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
         // would force another full modal re-render into the closing animation
         if (!card) {
             // Creating
-            const _id = shortid.generate();
+            const _id = uid();
             // Await the insert before the follow-up updates: nedb `update`
             // without upsert is a no-op for a not-yet-inserted doc, so firing
             // setEstimatedTime/setLabels concurrently with addCard could lose

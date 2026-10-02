@@ -10,7 +10,7 @@ import { connect } from 'react-redux';
 import { RootState } from '../../reducers';
 import styled from 'styled-components';
 import { fatScrollBar } from '../../style/scrollbar';
-import ReactHotkeys from 'react-hot-keys';
+import Hotkeys from '../Hotkeys';
 import { formatTimeYmdHms } from './Timeline';
 import { EChartOption } from 'echarts';
 import { ThemeTokens } from '../../theme/tokens';
@@ -373,7 +373,7 @@ export const PomodoroSankey = (props: Props) => {
     };
     return (
         <FullscreenStyled onClick={props.cancel}>
-            <ReactHotkeys keyName={'esc,enter'} onKeyDown={onKeyDown} />
+            <Hotkeys keyName={'esc,enter'} onKeyDown={onKeyDown} />
             <InnerContainer>
                 <Header>
                     <h1>Sankey Diagram</h1>

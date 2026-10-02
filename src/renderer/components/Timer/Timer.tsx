@@ -2,7 +2,7 @@ import { Button, Divider, Icon, Tooltip } from 'antd';
 import * as remote from '@electron/remote';
 import { debounce } from 'lodash';
 import React, { Component } from 'react';
-import ReactHotkeys from 'react-hot-keys';
+import Hotkeys from '../Hotkeys';
 import styled from 'styled-components';
 import { MiniLogger } from '../../../components/common/Mini/MiniLogger';
 import { DEBUG_TIME_SCALE, __DEV__ } from '../../../config';
@@ -1191,7 +1191,7 @@ class Timer extends Component<Props, State> {
                 this.props.kanban.boards[this.state.stagedProjectId]?.name;
             return (
                 <Layout style={{ backgroundColor: 'transparent' }} ref={this.selfRef}>
-                    <ReactHotkeys keyName={'f5,f6,tab'} onKeyDown={this.onKeyDown} />
+                    <Hotkeys keyName={'f5,f6,tab'} onKeyDown={this.onKeyDown} />
                     <MiniLogger
                         stop={this.onStop}
                         finish={this.onFinishButtonClick}
@@ -1225,7 +1225,7 @@ class Timer extends Component<Props, State> {
 
         return (
             <Layout style={{ backgroundColor: 'transparent' }} ref={this.selfRef}>
-                <ReactHotkeys keyName={'f5,f6,tab'} onKeyDown={this.onKeyDown} />
+                <Hotkeys keyName={'f5,f6,tab'} onKeyDown={this.onKeyDown} />
                 <TimerMask
                     extendCurrentSession={this.extendCurrentSession}
                     newPomodoro={this.stagedSession}

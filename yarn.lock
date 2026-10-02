@@ -9909,10 +9909,10 @@ hosted-git-info@^9.0.0, hosted-git-info@^9.0.3:
   dependencies:
     lru-cache "^11.1.0"
 
-hotkeys-js@^3.8.1:
-  version "3.8.7"
-  resolved "https://registry.npmjs.org/hotkeys-js/-/hotkeys-js-3.8.7.tgz#c16cab978b53d7242f860ca3932e976b92399981"
-  integrity sha512-ckAx3EkUr5XjDwjEHDorHxRO2Kb7z6Z2Sxul4MbBkN8Nho7XDslQsgMJT+CiJ5Z4TgRxxvKHEpuLE3imzqy4Lg==
+hotkeys-js@^4.0.2:
+  version "4.0.8"
+  resolved "https://registry.npmmirror.com/hotkeys-js/-/hotkeys-js-4.0.8.tgz#beb864ec28c852320245d27bd2d47ae8f1605305"
+  integrity sha512-A0nu5ZU7cN8nEx3uGUHrv1WnJvjPFUw4Cfxj8pLyR5AIg14ACP4D0YZ+5JHAPjlvUbPbgok56+XTZWjscYCV4A==
 
 hpack.js@^2.1.6:
   version "2.1.6"
@@ -15147,13 +15147,12 @@ react-group@^3.0.2:
   dependencies:
     prop-types "^15.7.2"
 
-react-hot-keys@^2.4.4:
-  version "2.7.1"
-  resolved "https://registry.npmjs.org/react-hot-keys/-/react-hot-keys-2.7.1.tgz#a811445e66551c9f5b0e6b130d12096a59688539"
-  integrity sha512-h2LfJGs450z58/DvKuzal1LetoEGjXUbcxJyKFvWOJPy+IRpQsyxZv7FYDAJ7W0my3ySI3sVB3h5xcgvMdxS1g==
+react-hot-keys@^3.0.0:
+  version "3.0.0"
+  resolved "https://registry.npmmirror.com/react-hot-keys/-/react-hot-keys-3.0.0.tgz#7cb86cebc99784fec36279abdec3d90faf5b7c43"
+  integrity sha512-lcP0imYdnd8kLj9YE4TpgIoJp+wfJ+5WBoSZHryNCGzhavKmf5zf1rQsQ+z1tsbckc1x4dZNkaZLu2v3N+pShQ==
   dependencies:
-    hotkeys-js "^3.8.1"
-    prop-types "^15.7.2"
+    hotkeys-js "^4.0.2"
 
 react-hot-loader@*, react-hot-loader@^4.13.1:
   version "4.13.1"

@@ -98,7 +98,7 @@ const setPin = createActionCreator(
     (resolve) => (_id: string, pin: boolean) => resolve({ _id, pin })
 );
 
-const updateAggInfo = createActionCreator(
+const _updateAggInfo = createActionCreator(
     '[Board]UPDATE_AGG_INFO',
     (resolve) => (_id: string, aggInfo: AggInfo) => resolve({ _id, aggInfo })
 );
@@ -171,7 +171,7 @@ export const boardReducer = createReducer<KanbanBoardState, any>({}, (handle) =>
     })),
 
     handle(deleteBoard, (state, { payload: { _id } }) => {
-        const { [_id]: del, ...rest } = state;
+        const { [_id]: _del, ...rest } = state;
         return rest;
     }),
 

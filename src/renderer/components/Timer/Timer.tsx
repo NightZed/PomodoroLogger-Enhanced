@@ -1,4 +1,4 @@
-import { Button, Divider, Icon, message, Tooltip } from 'antd';
+import { Button, Divider, Icon, Tooltip } from 'antd';
 import * as remote from '@electron/remote';
 import { debounce } from 'lodash';
 import React, { Component } from 'react';
@@ -40,7 +40,8 @@ import {
 import { setTrayImageWithMadeIcon } from './iconMaker';
 import { PomodoroNumView } from './PomodoroNumView';
 import Progress from './Progress';
-import { Dialog } from '../UserGuide/Dialog';
+import { feedback, FEEDBACK_MESSAGES } from '../feedback';
+import { hasSession, namedSessionAction, trayMenuItems, TrayActionKey } from './sessionState';
 import { TimerMask } from './SessionEndingMask';
 import { waitUntil } from './wait';
 import { WorkRestIcon } from './WorkRestIcon';
@@ -98,8 +99,14 @@ const TimerLayout = styled.div<{ compact: boolean }>`
     padding: 0 24px 0 24px;
     overflow-y: ${({ compact }) => (compact ? 'hidden' : 'auto')};
     width: 100%;
-    height: calc(100vh - 45px);
-    ${({ compact }) => (compact ? 'padding: 0 8px;' : '')}
+    height: calc(100vh - 44px);
+    ${({ compact }) =>
+        compact
+            ? `
+                height: calc(100vh - 32px);
+                padding: 0 8px;
+            `
+            : ''}
     ${thinScrollBar}
 `;
 
@@ -108,6 +115,7 @@ const TimerInnerLayout = styled.div<{ compact: boolean }>`
     min-width: 350px;
     max-width: 850px;
     margin: 0 auto;
+    padding-top: ${({ compact }) => (compact ? '16px' : '32px')};
     ${({ compact }) =>
         compact
             ? `
@@ -141,7 +149,7 @@ const ProgressContainer = styled.div`
     margin: 0 auto;
     width: 100%;
     position: relative;
-    padding: 10px;
+    padding: 0px;
     display: flex;
     justify-content: center;
 `;
@@ -196,7 +204,7 @@ function to2digits(num: number) {
     return num;
 }
 
-function joinDict<T>(maps: { [key: string]: T }[]): { [key: string]: T } {
+function _joinDict<T>(maps: { [key: string]: T }[]): { [key: string]: T } {
     const dict: { [key: string]: T } = {};
     for (const d of maps) {
         for (const key in d) {
@@ -213,9 +221,10 @@ interface State {
     showSider: boolean;
     more: boolean;
     pomodorosToday: PomodoroRecord[];
-    showMask: boolean;
     pomodoroNum: number;
     focusStartWarning?: FocusStartWarning;
+    /** Board explicitly selected by the current start request, if any. */
+    focusStartWarningBoardId?: string;
     /** Reflects the "Don't remind me again" check box of the warning dialog. */
     focusStartWarningDontRemind: boolean;
     /**
@@ -250,6 +259,11 @@ class Timer extends Component<Props, State> {
     private projectInference?: Promise<string | undefined>;
     selfRef: React.RefObject<HTMLDivElement> = React.createRef();
     private componentGone = false;
+    /**
+     * The open "no project / no cards" confirmation, if any. A new start request
+     * destroys the previous dialog instead of stacking another one on top.
+     */
+    private focusStartWarningModal?: ReturnType<typeof feedback.confirm>;
 
     constructor(props: Props) {
         super(props);
@@ -258,7 +272,6 @@ class Timer extends Component<Props, State> {
             percent: 0,
             more: false,
             pomodorosToday: [],
-            showMask: false,
             pomodoroNum: 0,
             showSider: true,
             focusStartWarningDontRemind: false,
@@ -289,27 +302,35 @@ class Timer extends Component<Props, State> {
         this.selfRef.current!.addEventListener('resize', this.onResize);
         this.selfRef.current!.addEventListener('keydown', this.handleNativeKeydown);
         this.props.setTimerManager({
-            clear: this.onClear,
-            pause: this.onStop,
+            pause: this.onPause,
             start: this.startFocusing,
         });
-        getTodaySessions().then((finishedSessions) => {
-            // 组件可能已在查询完成前卸载，此时不再更新状态
-            if (this.componentGone) {
-                return;
-            }
+        getTodaySessions()
+            .then((finishedSessions) => {
+                // 组件可能已在查询完成前卸载，此时不再更新状态
+                if (this.componentGone) {
+                    return;
+                }
 
-            finishedSessions.sort((a, b) => a.startTime - b.startTime);
-            this.setState({
-                pomodorosToday: finishedSessions,
-                pomodoroNum: finishedSessions.length,
+                finishedSessions.sort((a, b) => a.startTime - b.startTime);
+                this.setState({
+                    pomodorosToday: finishedSessions,
+                    pomodoroNum: finishedSessions.length,
+                });
+            })
+            .catch((err) => {
+                // The timer page still works without the list, so a failed query
+                // is logged instead of surfacing as an unhandled rejection.
+                console.error('[Timer] failed to load today sessions', err);
             });
-        });
 
         this.addMenuItems();
-        workers.dbWorkers.sessionDB.count({}).then((size) => {
-            workers.knn.loadModel(size).catch(console.error);
-        });
+        workers.dbWorkers.sessionDB
+            .count({})
+            .then((size) => workers.knn.loadModel(size))
+            .catch((err) => {
+                console.error('[Timer] failed to load the knn model', err);
+            });
     }
 
     handleNativeKeydown = (event: KeyboardEvent) => {
@@ -321,7 +342,7 @@ class Timer extends Component<Props, State> {
     shouldComponentUpdate(
         nextProps: Readonly<Props>,
         nextState: Readonly<State>,
-        nextContext: any
+        _nextContext: any
     ): boolean {
         if (!isShallowEqual(this.state, nextState)) {
             return true;
@@ -332,72 +353,70 @@ class Timer extends Component<Props, State> {
         return !isShallowEqualByKeys(next, _this, uiStateNames);
     }
 
+    /**
+     * (Re)builds the tray menu for the current state.
+     *
+     * The menu is state dependent -- `Pause` becomes `Continue`, and the entries
+     * a session owns are greyed while it runs (the matrix lives in
+     * `sessionState.trayMenuItems`) -- so this runs again whenever that state
+     * changes, see `componentDidUpdate`. Every entry reuses the handler the
+     * window would use, so the tray cannot drift away from the page again.
+     */
     addMenuItems(): void {
-        setMenuItems([
-            {
-                label: 'Start Focusing',
-                type: 'normal',
-                click: () => {
-                    // While the ending mask is up, first dismiss the mask and
-                    // then start exactly what this label names — not the
-                    // cycle's next session. Starting (or resuming the expired
-                    // timer) before the mask is confirmed would corrupt the
-                    // staged session; see `confirmMaskAndStart`.
-                    if (this.state.showMask) {
-                        this.confirmMaskAndStart(true);
-                        return;
-                    }
+        const clickHandlers: { [key in TrayActionKey]: () => void } = {
+            startFocusing: () => {
+                // While the ending mask is up, first dismiss the mask and then
+                // start exactly what this label names — not the cycle's next
+                // session. Starting (or resuming the expired timer) before the
+                // mask is confirmed would corrupt the staged session; see
+                // `confirmMaskAndStart`.
+                if (this.props.timer.sessionEnding) {
+                    this.confirmMaskAndStart(true);
+                    return;
+                }
 
-                    if (!this.props.timer.isFocusing) {
-                        this.switchMode();
-                    }
+                // The label names the session, so the named session wins (or
+                // the request is refused out loud); see `startNamedSession` for
+                // the whole decision table.
+                this.startNamedSession(true);
+            },
+            startBreak: () => {
+                if (this.props.timer.sessionEnding) {
+                    this.confirmMaskAndStart(false);
+                    return;
+                }
 
-                    if (!this.props.timer.isRunning) {
-                        this.onStopResumeOrStart();
-                    }
-                },
+                this.startNamedSession(false);
             },
-            {
-                label: 'Start Break',
-                type: 'normal',
-                click: () => {
-                    // While the ending mask is up, first dismiss the mask and
-                    // then start exactly what this label names — not the
-                    // cycle's next session. Starting (or resuming the expired
-                    // timer) before the mask is confirmed would corrupt the
-                    // staged session; see `confirmMaskAndStart`.
-                    if (this.state.showMask) {
-                        this.confirmMaskAndStart(false);
-                        return;
-                    }
+            // One handler for both labels: it pauses while the session runs and
+            // resumes it while it is paused, exactly like the page's play button.
+            pauseOrContinue: this.onPauseResumeOrStart,
+            // The page's Finish button, as a menu entry: end the session now and
+            // keep what it recorded.
+            finish: () => this.onFinishButtonClick(),
+            stop: this.onStop,
+        };
 
-                    if (this.props.timer.isFocusing) {
-                        this.switchMode();
-                    }
-
-                    if (!this.props.timer.isRunning) {
-                        this.onStopResumeOrStart();
-                    }
-                },
-            },
-            {
-                label: 'Pause',
+        setMenuItems(
+            trayMenuItems(this.props.timer).map(({ key, label, enabled }) => ({
+                label,
                 type: 'normal',
-                click: () => {
-                    if (this.props.timer.isRunning) {
-                        this.onStopResumeOrStart();
-                    }
-                },
-            },
-            {
-                label: 'Stop',
-                type: 'normal',
-                click: this.onClear,
-            },
-        ]);
+                enabled,
+                click: clickHandlers[key],
+            }))
+        );
     }
 
-    componentDidUpdate(): void {
+    componentDidUpdate(prevProps: Props): void {
+        // The tray menu says which actions are available, so it has to be
+        // rebuilt when that changes. Only the fields `trayMenuItems` reads are
+        // compared: rebuilding on anything else would call into the main
+        // process twice a second for nothing.
+        const trayStateKeys = ['isRunning', 'isFocusing', 'targetTime', 'sessionEnding'];
+        if (!isShallowEqualByKeys(prevProps.timer, this.props.timer, trayStateKeys)) {
+            this.addMenuItems();
+        }
+
         // The focusing project (`timer.boardId`) can be deleted on the kanban
         // page while it is still selected here. Deleting a board only removes
         // it from `kanban.boards`, so the selection would keep pointing at a
@@ -459,39 +478,62 @@ class Timer extends Component<Props, State> {
         }
     };
 
-    onStopResumeOrStart = () => {
+    onPauseResumeOrStart = () => {
         if (this.props.timer.isRunning) {
-            this.onStop();
+            this.onPause();
         } else {
             this.startOrResume();
         }
     };
 
-    startFocusing = async () => {
+    startFocusing = async (boardId?: string) => {
+        // The ending mask owns this transition while it is up: it records the
+        // finished session and flips the mode itself, and a session started now
+        // would either be killed by `timerFinished` on confirmation or resume the
+        // expired timer (double prompt). Switching to the Kanban page is blocked
+        // while the mask is up (see `AppTitleBar`), so this is the second line of
+        // defence rather than a user facing refusal.
+        if (this.props.timer.sessionEnding) {
+            return;
+        }
+
+        if (boardId !== undefined && this.props.timer.boardId !== boardId) {
+            // Kanban dispatches SET_BOARD_ID before invoking this manager, but
+            // the connected Timer props can still contain the previous value
+            // until React processes the store update. Keep the request
+            // explicit and apply the selection here as a safeguard.
+            this.props.setBoardId(boardId);
+        }
+
         if (this.props.timer.isRunning) {
             if (this.props.timer.isFocusing) {
                 return;
             }
 
-            this.onClear();
+            this.onStop();
             await new Promise((r) => requestAnimationFrame(r));
         }
 
         if (!this.props.timer.isFocusing) {
-            this.switchMode();
+            // A board's own "Start Focusing" makes the session it names win,
+            // paused break included, and a switch drops whatever it replaces
+            // (the running case above was cleared already). Going through the
+            // guarded `switchMode` used to toast and then leave the `waitUntil`
+            // below to time out, so the board was never focused on at all.
+            this.performModeSwitch();
             await waitUntil(() => this.props.timer.isFocusing);
         }
 
-        this.startOrResume();
+        this.startOrResume(boardId);
     };
 
-    startOrResume = () => {
+    startOrResume = (boardId?: string) => {
         if (this.props.timer.isRunning) {
             return;
         }
 
         if (this.props.timer.targetTime == null) {
-            return this.onStart();
+            return this.onStart(boardId);
         }
 
         this.onResume();
@@ -513,8 +555,8 @@ class Timer extends Component<Props, State> {
         }
     }
 
-    onStop = () => {
-        this.props.stopTimer();
+    onPause = () => {
+        this.props.pauseTimer();
         setTrayImageWithMadeIcon(
             this.state.leftTime.slice(0, 2),
             this.state.percent / 100,
@@ -526,14 +568,14 @@ class Timer extends Component<Props, State> {
         }
     };
 
-    onStart = () => {
+    onStart = (boardId?: string) => {
         if (!this.props.timer.isFocusing) {
             return this.startResting();
         }
 
         // Warn once before a fresh focus session when there is no project to
         // link it to, or the selected project's "In Progress" list is empty.
-        return this.startFocusingSession(false);
+        return this.startFocusingSession(false, boardId);
     };
 
     private startResting = () => {
@@ -541,29 +583,39 @@ class Timer extends Component<Props, State> {
         requestAnimationFrame(this.updateLeftTime);
     };
 
-    private startFocusingSession = (acknowledged: boolean) => {
+    private startFocusingSession = (acknowledged: boolean, boardId?: string) => {
         if (this.props.timer.isRunning || this.props.timer.targetTime != null) {
             return;
         }
 
         if (!acknowledged) {
             // Warn only while the user still wants to be reminded.
+            // Prefer the board explicitly selected by a Kanban start
+            // request. The Redux-connected props may not have received
+            // SET_BOARD_ID yet when this method is called.
+            const focusBoardId = boardId !== undefined ? boardId : this.props.timer.boardId;
             const warning = getFocusStartWarningIfEnabled(
                 this.props.timer.warnBeforeFocusStart,
-                this.props.timer.boardId,
+                focusBoardId,
                 this.props.kanban.boards,
                 this.props.kanban.lists,
                 this.props.kanban.cards
             );
             if (warning) {
-                // Reuse the guide dialog style: it stays on screen until the
-                // user picks OK (start anyway) or Cancel (stay put).
-                this.setState({ focusStartWarning: warning, focusStartWarningDontRemind: false });
+                // Ask through the feedback layer's blocking dialog so the other
+                // decisions of the app look and behave the same way. Keep the
+                // request's board as well: the user may confirm before the
+                // connected Timer has rendered the SET_BOARD_ID update.
+                this.showFocusStartWarning(warning, focusBoardId);
                 return;
             }
         }
 
-        this.setState({ focusStartWarning: undefined, focusStartWarningDontRemind: false });
+        this.setState({
+            focusStartWarning: undefined,
+            focusStartWarningBoardId: undefined,
+            focusStartWarningDontRemind: false,
+        });
         this.monitor = new Monitor(() => {}, 1000, this.props.timer.screenShotInterval);
         this.monitor.start();
 
@@ -573,12 +625,53 @@ class Timer extends Component<Props, State> {
 
     private confirmFocusStart = () => {
         this.applyDontRemindSetting();
-        this.startFocusingSession(true);
+        this.startFocusingSession(true, this.state.focusStartWarningBoardId);
     };
 
     private cancelFocusStart = () => {
         this.applyDontRemindSetting();
-        this.setState({ focusStartWarning: undefined, focusStartWarningDontRemind: false });
+        this.setState({
+            focusStartWarning: undefined,
+            focusStartWarningBoardId: undefined,
+            focusStartWarningDontRemind: false,
+        });
+    };
+
+    /**
+     * Asks whether a fresh focus session should start although it cannot be
+     * linked to a project / to any In Progress card.
+     *
+     * The dialog comes from the feedback layer, so this decision looks and
+     * behaves like every other one in the app: centered, masked, Escape or the
+     * cross cancels. The "Don't remind me again" box is answered through
+     * `state`, which both `confirmFocusStart` and `cancelFocusStart` read.
+     */
+    private showFocusStartWarning = (warning: FocusStartWarning, boardId?: string) => {
+        if (this.focusStartWarningModal) {
+            // A newer request wins: replace the pending dialog instead of
+            // stacking a second one on top of it.
+            this.focusStartWarningModal.destroy();
+        }
+
+        this.setState({
+            focusStartWarning: warning,
+            focusStartWarningBoardId: boardId,
+            focusStartWarningDontRemind: false,
+        });
+        this.focusStartWarningModal = feedback.confirm({
+            kind: 'warning',
+            title: warning.title,
+            content: warning.content,
+            checkbox: {
+                label: DONT_REMIND_AGAIN_LABEL,
+                checked: false,
+                onChange: this.onToggleDontRemind,
+            },
+            okText: 'OK',
+            cancelText: 'Cancel',
+            onOk: this.confirmFocusStart,
+            onCancel: this.cancelFocusStart,
+        });
     };
 
     private onToggleDontRemind = (checked: boolean) => {
@@ -613,7 +706,11 @@ class Timer extends Component<Props, State> {
         return `${to2digits(this.getDuration(isFocusing) / 60)}:00`;
     };
 
-    private clearStat = () => {
+    /**
+     * Reset the display only: default left time, zero progress, tray icon. The
+     * session itself is untouched -- `onPause` keeps it, `onStop` discards it.
+     */
+    private resetStat = () => {
         setTrayImageWithMadeIcon(undefined).catch(console.error);
         this.setState((_, props) => ({
             leftTime: this.defaultLeftTime(props.timer.isFocusing),
@@ -621,14 +718,19 @@ class Timer extends Component<Props, State> {
         }));
     };
 
-    onClear = () => {
-        this.props.clearTimer();
+    /**
+     * Discard the current session: stop the timer, drop what the monitor
+     * collected for it and reset the display. This is what the "Stop" button,
+     * the tray entry and the mini window call; pausing is `onPause`.
+     */
+    onStop = () => {
+        this.props.stopTimer();
         if (this.monitor) {
             this.monitor.stop();
             this.monitor.clear();
         }
 
-        this.clearStat();
+        this.resetStat();
         this.extendedTimeInMinute = 0;
     };
 
@@ -643,12 +745,13 @@ class Timer extends Component<Props, State> {
             );
         }
 
-        this.setState({
-            showMask: true,
-        });
-        this.props.stopTimer();
+        // The mask is app-wide state (see `TimerState.sessionEnding`): while the
+        // finished session waits for its confirmation, the pages must not be
+        // switched either, so this cannot live in the component.
+        this.props.setSessionEnding(true);
+        this.props.pauseTimer();
         this.props.changeAppTab('timer');
-        this.clearStat();
+        this.resetStat();
         if (shouldRemind) {
             this.focusOnCurrentWindow();
             this.remindUserTimeout(0);
@@ -828,26 +931,58 @@ class Timer extends Component<Props, State> {
         });
     };
 
-    switchMode = () => {
-        if (this.props.timer.isRunning || this.state.percent !== 0) {
-            message.warn('Cannot switch mode when timer is running');
-            return;
-        }
-
-        if (this.state.showMask) {
-            return;
-        }
-
+    /**
+     * Flip focus/rest and drop what the previous session held -- the timer, the
+     * display stats, the monitor and the extension it was carrying. A mode
+     * switch never carries a session over.
+     *
+     * `switchMode` guards this for the user's gestures (Tab, the two swap
+     * buttons, the work/rest icon). The paths that start a *named* session call
+     * it directly (`startNamedSession`, `startFocusing`), because there the
+     * named session has to win over a paused one; see `startNamedSession`.
+     */
+    private performModeSwitch = () => {
         this.props.switchFocusRestMode();
-        this.clearStat();
+        this.resetStat();
+        // The extension only ever belonged to the session being dropped.
+        this.extendedTimeInMinute = 0;
         if (this.monitor) {
             this.monitor.stop();
             this.monitor.clear();
         }
     };
 
+    switchMode = () => {
+        if (this.props.timer.sessionEnding) {
+            // Checked first: the ending mask owns this transition -- it confirms
+            // the staged session and flips the mode itself -- and it keeps
+            // `targetTime` until then, so the guard below would answer "a
+            // session exists" and toast while the mask is already explaining
+            // what is going on. Switching (or complaining) here would be noise.
+            return;
+        }
+
+        // A session exists as soon as it started, not as soon as its first 2%
+        // elapsed: `state.percent` is committed in 2% steps, so the old
+        // `percent !== 0` guard let Tab (or the work/rest icon) silently drop a
+        // session that had just been paused. Same predicate as the buttons
+        // (see `sessionState.ts`), so the toast now matches what the user sees.
+        if (hasSession(this.props.timer)) {
+            feedback.toast({
+                kind: 'warning',
+                content: FEEDBACK_MESSAGES.timer.cannotSwitchMode(
+                    this.props.timer.isFocusing,
+                    this.props.timer.isRunning
+                ),
+            });
+            return;
+        }
+
+        this.performModeSwitch();
+    };
+
     private onMaskClick = () => {
-        this.setState({ showMask: false });
+        this.props.setSessionEnding(false);
         // Snapshot the focusing project: the session keeps the project it was
         // confirmed with, even if the selection changes right after (or if the
         // prediction arrives late).
@@ -855,7 +990,7 @@ class Timer extends Component<Props, State> {
     };
 
     private onMaskButtonClick = async () => {
-        this.setState({ showMask: false });
+        this.props.setSessionEnding(false);
         // The mask button starts the session it names: the cycle's next one.
         this.nextSessionStarter = () => this.onStart();
         this.onSessionConfirmed(this.props.timer.boardId);
@@ -869,32 +1004,62 @@ class Timer extends Component<Props, State> {
      * item's start for the moment the confirmation clears the expired timer.
      */
     private confirmMaskAndStart = (wantsFocusing: boolean) => {
-        this.nextSessionStarter = () => this.startRequestedSession(wantsFocusing);
+        this.nextSessionStarter = () => this.startNamedSession(wantsFocusing);
         this.onMaskClick();
     };
 
     /**
-     * Start the named session from a just-confirmed ending mask. The
-     * confirmation guarantees a stopped timer and a clean `targetTime`, so
-     * this cannot resume the expired session (the ghost-session bug).
+     * Start (or resume) the session the caller names: the two tray items, and
+     * the ending mask's own button once the confirmation is in.
+     *
+     * The decision itself lives in `namedSessionAction` (see `sessionState.ts`),
+     * so the menu, the mask and the guard cannot drift apart again. What is left
+     * here is the orchestration: a `start` for the other type has to switch
+     * first, and that switch drops a paused session of that other type -- which
+     * is why it cannot go through the guarded `switchMode` (that refusal used to
+     * leave the paused session running, so "Start Focusing" resumed a break).
+     *
+     * After a mask confirmation the timer is already stopped and clean, so this
+     * cannot resume the expired session (the ghost-session bug).
      */
-    private startRequestedSession = async (wantsFocusing: boolean) => {
+    private startNamedSession = async (wantsFocusing: boolean) => {
+        const action = namedSessionAction(this.props.timer, wantsFocusing);
+
+        if (action === 'nothing') {
+            return;
+        }
+
+        if (action === 'refuse') {
+            // Safety net: the tray greys the Start entries out while a session
+            // is live (see `trayMenuItems`), so this should not be reachable.
+            feedback.toast({
+                kind: 'warning',
+                content: FEEDBACK_MESSAGES.timer.cannotSwitchMode(
+                    this.props.timer.isFocusing,
+                    this.props.timer.isRunning
+                ),
+            });
+            return;
+        }
+
         if (this.props.timer.isFocusing !== wantsFocusing) {
-            this.switchMode();
-            if (this.props.timer.isFocusing !== wantsFocusing) {
-                try {
-                    // `switchMode` dispatches asynchronously; wait for the
-                    // flip to become visible before reading it again.
-                    await waitUntil(() => this.props.timer.isFocusing === wantsFocusing);
-                } catch (err) {
-                    console.error('[Timer] mode switch timed out; not starting', err);
-                    return;
-                }
+            this.performModeSwitch();
+            try {
+                // The switch dispatches asynchronously; wait for the flip to
+                // become visible before reading the mode again, so a `start`
+                // cannot pick up (or a `resume` cannot miss) the session the
+                // switch just discarded.
+                await waitUntil(() => this.props.timer.isFocusing === wantsFocusing);
+            } catch (err) {
+                console.error('[Timer] mode switch timed out; not starting', err);
+                return;
             }
         }
 
-        if (!this.props.timer.isRunning) {
-            this.onStopResumeOrStart();
+        if (action === 'resume') {
+            this.onResume();
+        } else {
+            this.onStart();
         }
     };
 
@@ -906,7 +1071,7 @@ class Timer extends Component<Props, State> {
 
     private remindUserTimeout = (timeout = 0, volume = 0.5) => {
         setTimeout(() => {
-            if (this.state.showMask) {
+            if (this.props.timer.sessionEnding) {
                 this.focusOnCurrentWindow();
                 if (this.sound.current) {
                     this.sound.current.volume = volume;
@@ -932,7 +1097,7 @@ class Timer extends Component<Props, State> {
 
         this.extendedTimeInMinute += minutes;
         this.props.extendCurrentSession(minutes * 60);
-        this.setState({ showMask: false });
+        this.props.setSessionEnding(false);
     };
 
     private onFinishButtonClick = async () => {
@@ -943,7 +1108,7 @@ class Timer extends Component<Props, State> {
 
         const eTime = this.getElapsedTimeInSecond();
         if (eTime < 600) {
-            message.warn('Focus at least for 10 minutes to finish');
+            feedback.toast({ kind: 'warning', content: FEEDBACK_MESSAGES.timer.finishTooEarly });
             return;
         }
 
@@ -963,7 +1128,7 @@ class Timer extends Component<Props, State> {
                 // until the confirmation has flipped the mode; starting
                 // earlier would resume the expired timer (ghost session,
                 // duplicate prompts).
-                if (this.state.showMask) {
+                if (this.props.timer.sessionEnding) {
                     this.onMaskButtonClick();
                     return;
                 }
@@ -976,7 +1141,7 @@ class Timer extends Component<Props, State> {
                 break;
 
             case 'f6':
-                this.onStop();
+                this.onPause();
                 break;
 
             case 'tab':
@@ -987,8 +1152,8 @@ class Timer extends Component<Props, State> {
         return;
     };
 
-    componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-        message.error(error.toString());
+    componentDidCatch(error: Error, _errorInfo: React.ErrorInfo): void {
+        feedback.toast({ kind: 'error', content: error.toString() });
     }
 
     minimize = () => {
@@ -1006,20 +1171,15 @@ class Timer extends Component<Props, State> {
     };
 
     render() {
-        const {
-            leftTime,
-            percent,
-            more,
-            pomodorosToday,
-            showMask,
-            focusStartWarning,
-            focusStartWarningDontRemind,
-        } = this.state;
-        const { isRunning, targetTime, minimize, compact, isFocusing } = this.props.timer;
+        const { leftTime, percent, more, pomodorosToday } = this.state;
+        const { isRunning, minimize, compact, isFocusing, sessionEnding } = this.props.timer;
+        // One predicate for "a session exists" (running, or paused with time
+        // left), shared with `switchMode` and the mini layout so the three
+        // views can never disagree; see `sessionState.ts`.
+        const hasActiveSession = hasSession(this.props.timer);
         const shownLeftTime =
-            (isRunning || targetTime) && leftTime.length ? leftTime : this.defaultLeftTime();
+            hasActiveSession && leftTime.length ? leftTime : this.defaultLeftTime();
         const boardId = this.props.timer.boardId;
-        const isNightTheme = this.props.timer.themeId === NIGHT_THEME_ID;
 
         if (minimize) {
             const name = boardId && this.props.kanban.boards[boardId]?.name;
@@ -1030,22 +1190,26 @@ class Timer extends Component<Props, State> {
                 this.state.stagedProjectId &&
                 this.props.kanban.boards[this.state.stagedProjectId]?.name;
             return (
-                <Layout style={{ backgroundColor: 'var(--pl-bg)' }} ref={this.selfRef}>
+                <Layout style={{ backgroundColor: 'transparent' }} ref={this.selfRef}>
                     <ReactHotkeys keyName={'f5,f6,tab'} onKeyDown={this.onKeyDown} />
                     <MiniLogger
-                        clear={this.onClear}
-                        done={this.onDone}
+                        stop={this.onStop}
+                        finish={this.onFinishButtonClick}
                         expand={this.minimize}
+                        /* One predicate for "a session exists", shared with the
+                           normal/compact pages and `switchMode`; see
+                           `sessionState.ts`. */
+                        hasSession={hasActiveSession}
                         isFocusing={isFocusing}
                         isRunning={isRunning}
-                        pause={this.onStop}
+                        pause={this.onPause}
                         percentage={percent}
-                        play={this.onStopResumeOrStart}
+                        play={this.onPauseResumeOrStart}
                         switch={this.switchMode}
                         task={name || stagedName || ''}
                         time={shownLeftTime.slice(0, 2)}
                         style={{ zIndex: 999, overflow: 'hidden' }}
-                        isConfirming={showMask}
+                        isConfirming={sessionEnding}
                         extendCurrentSession={this.extendCurrentSession}
                         stagedPomodoro={this.stagedSession}
                         confirm={this.onMaskClick}
@@ -1060,13 +1224,13 @@ class Timer extends Component<Props, State> {
             boardId !== undefined ? this.props.kanban.boards[boardId]?.focusedList : undefined;
 
         return (
-            <Layout style={{ backgroundColor: 'var(--pl-bg)' }} ref={this.selfRef}>
+            <Layout style={{ backgroundColor: 'transparent' }} ref={this.selfRef}>
                 <ReactHotkeys keyName={'f5,f6,tab'} onKeyDown={this.onKeyDown} />
                 <TimerMask
                     extendCurrentSession={this.extendCurrentSession}
                     newPomodoro={this.stagedSession}
                     stagedProjectId={this.state.stagedProjectId}
-                    showMask={showMask}
+                    showMask={sessionEnding}
                     onCancel={this.onMaskClick}
                     onStart={this.onMaskButtonClick}
                     pomodoros={pomodorosToday}
@@ -1137,6 +1301,7 @@ class Timer extends Component<Props, State> {
                     {!compact && (
                         <HelpIcon
                             storyName={'allStories'}
+                            resume={true}
                             style={{
                                 position: 'absolute',
                                 zIndex: 50,
@@ -1146,20 +1311,6 @@ class Timer extends Component<Props, State> {
                         />
                     )}
                     <TimerInnerLayout compact={compact}>
-                        {focusStartWarning ? (
-                            <Dialog
-                                centered={true}
-                                title={focusStartWarning.title}
-                                text={focusStartWarning.content}
-                                checkboxLabel={DONT_REMIND_AGAIN_LABEL}
-                                checkboxChecked={focusStartWarningDontRemind}
-                                onCheckboxChange={this.onToggleDontRemind}
-                                confirmText="OK"
-                                cancelText="Cancel"
-                                onConfirm={this.confirmFocusStart}
-                                onCancel={this.cancelFocusStart}
-                            />
-                        ) : undefined}
                         <ProgressContainer>
                             <Progress
                                 type="circle"
@@ -1168,7 +1319,7 @@ class Timer extends Component<Props, State> {
                                     '100%': '#87d068',
                                 }}
                                 percent={percent}
-                                width={compact ? 220 : 300}
+                                width={compact ? 240 : 300}
                                 style={{
                                     margin: '0 auto',
                                 }}
@@ -1193,13 +1344,7 @@ class Timer extends Component<Props, State> {
                         </ProgressContainer>
 
                         <ThemeToggleRow>
-                            <Tooltip
-                                title={
-                                    isNightTheme
-                                        ? 'Switch to the day theme'
-                                        : 'Switch to the night theme'
-                                }
-                            >
+                            <Tooltip title={'Switch Theme'}>
                                 <ThemeToggle type="bulb" onClick={this.toggleTheme} />
                             </Tooltip>
                         </ThemeToggleRow>
@@ -1219,7 +1364,7 @@ class Timer extends Component<Props, State> {
                                         <Button
                                             icon="pause"
                                             shape={'circle'}
-                                            onClick={this.onStopResumeOrStart}
+                                            onClick={this.onPauseResumeOrStart}
                                         />
                                     </Tooltip>
                                 ) : (
@@ -1227,12 +1372,12 @@ class Timer extends Component<Props, State> {
                                         <Button
                                             icon="caret-right"
                                             shape={'circle'}
-                                            onClick={this.onStopResumeOrStart}
+                                            onClick={this.onPauseResumeOrStart}
                                         />
                                     </Tooltip>
                                 )}
                             </div>
-                            {this.props.timer.isRunning || this.props.timer.targetTime ? (
+                            {hasActiveSession ? (
                                 <Tooltip title="Finish">
                                     <Button
                                         icon="check"
@@ -1250,9 +1395,9 @@ class Timer extends Component<Props, State> {
                                     />
                                 </Tooltip>
                             )}
-                            <div id="clear-timer-button" style={{ lineHeight: 0 }}>
-                                <Tooltip title="Clear">
-                                    <Button shape="circle" icon="close" onClick={this.onClear} />
+                            <div id="stop-timer-button" style={{ lineHeight: 0 }}>
+                                <Tooltip title="Stop">
+                                    <Button shape="circle" icon="close" onClick={this.onStop} />
                                 </Tooltip>
                             </div>
                             {this.state.pomodorosToday.length ? (
@@ -1273,6 +1418,7 @@ class Timer extends Component<Props, State> {
                                     pomodoros={this.state.pomodorosToday}
                                     showNum={false}
                                     animation={isRunning}
+                                    compact={compact}
                                     chooseRecord={this.props.setChosenRecord}
                                 />
                             </Tooltip>

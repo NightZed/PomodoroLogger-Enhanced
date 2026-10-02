@@ -296,7 +296,6 @@ describe('board actions', () => {
         const lists = state[_id].lists.concat();
         await actions.deleteList(_id, state[_id].lists[0])(dispatch);
         expect(state[_id].lists).toStrictEqual(lists.slice(1));
-        const oldState = Object.assign(state, {});
         state = {};
         await actions.fetchBoards()(dispatch);
         // TODO

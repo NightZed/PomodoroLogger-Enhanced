@@ -40,7 +40,7 @@ export const AutoComplete = ({ element, autoComplete, select }: Props) => {
     const items = React.useMemo(
         () =>
             element &&
-            options.map((x, i) => (
+            options.map((x) => (
                 <Menu.Item className="ant-dropdown-menu-item" key={x}>
                     {x}
                 </Menu.Item>

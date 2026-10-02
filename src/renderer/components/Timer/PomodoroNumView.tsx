@@ -14,19 +14,37 @@ const SvgDot = styled.svg`
 
 const Div = styled.div``;
 
+const CompactDots = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 100%;
+    font-size: 0.8em;
+    line-height: 1;
+`;
+
+const NormalDots = styled.div`
+    display: flex;
+    justify-content: center;
+    font-size: 1em;
+`;
+
+const CompactDotRow = styled.div`
+    display: flex;
+    justify-content: center;
+    max-width: 100%;
+`;
+
 const swayLeft = keyframes`
-    0% { transform: translateX(-18px); }
-    25% { transform: translateX(0px); } 
-    75% { transform: translateX(0px); } 
-    100% { transform: translateX(-18px); } 
+    0%, 20% { transform: translate3d(-18px, 0, 0); }
+    25%, 80% { transform: translate3d(0, 0, 0); }
+    85%, 100% { transform: translate3d(-18px, 0, 0); }
 `;
 
 const swayRight = keyframes`
-    0% { transform: translateX(0px); }
-    25% { transform: translateX(0px); }
-    50% { transform: translateX(18px); }
-    75% { transform: translateX(0px); }
-    100% { transform: translateX(0px); }
+    0%, 50% { transform: translate3d(0, 0, 0); }
+    55%, 75% { transform: translate3d(18px, 0, 0); }
+    80%, 100% { transform: translate3d(0, 0, 0); }
 `;
 
 const scale = keyframes`
@@ -72,11 +90,15 @@ const AnimeSvgDot = styled(SvgDot)`
 `;
 
 const SwayLeftDot = styled(SvgDot)`
-    animation: ${swayLeft} 1.2s linear infinite;
+    animation: ${swayLeft} 1s linear infinite;
+    will-change: transform;
+    transform: translate3d(-18px, 0, 0);
 `;
 
 const SwayRightDot = styled(SvgDot)`
-    animation: ${swayRight} 1.2s linear infinite;
+    animation: ${swayRight} 1s linear infinite;
+    will-change: transform;
+    transform: translate3d(0, 0, 0);
 `;
 
 interface Props {
@@ -87,6 +109,7 @@ interface Props {
     newPomodoro?: PomodoroRecord;
     chooseRecord?: (record: PomodoroRecord) => void;
     inline?: boolean;
+    compact?: boolean;
 }
 
 interface State {
@@ -183,6 +206,7 @@ export class PomodoroNumView extends React.PureComponent<Props> {
             newPomodoro,
             inline = false,
             animation = false,
+            compact = false,
         } = this.props;
         const dots = pomodoros.map((v, index) => this.createDot(v, index, false, animation));
         if (newPomodoro != null) {
@@ -205,6 +229,29 @@ export class PomodoroNumView extends React.PureComponent<Props> {
         if (inline) {
             return <div style={{ display: 'inline-block', verticalAlign: 'middle' }}>{dots}</div>;
         }
-        return <Div style={{ padding: 12, display: 'flex', justifyContent: 'center' }}>{dots}</Div>;
+        const compactRows = compact
+            ? Array.from({ length: Math.ceil(dots.length / 24) }, (_, rowIndex) => (
+                  <CompactDotRow key={rowIndex}>
+                      {dots.slice(rowIndex * 24, rowIndex * 24 + 24)}
+                  </CompactDotRow>
+              ))
+            : undefined;
+        return (
+            <Div
+                style={{
+                    padding: compact ? 4 : 12,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    maxWidth: '100%',
+                    boxSizing: 'border-box',
+                }}
+            >
+                {compact ? (
+                    <CompactDots>{compactRows}</CompactDots>
+                ) : (
+                    <NormalDots>{dots}</NormalDots>
+                )}
+            </Div>
+        );
     }
 }

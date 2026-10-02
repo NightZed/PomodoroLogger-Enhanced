@@ -1,14 +1,11 @@
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
-import { getElementAbsoluteOffsetBySelector } from './utils';
 import { Position } from './type';
 import { Button, Checkbox, Divider } from 'antd';
 
 const Container = styled.div`
     z-index: 2001;
-    user-select: none;
     position: fixed;
-    font-family: sans-serif, 'Lucida Sans', 'Microsoft YaHei';
 `;
 
 const CenteredContainer = styled(Container)`
@@ -19,21 +16,28 @@ const CenteredContainer = styled(Container)`
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: rgba(0, 0, 0, 0.6);
+    background-color: var(--pl-mask);
+    /* The backdrop must not start a text selection; the card below re-enables
+       it, which is why the value is not set on the plain Container. */
+    user-select: none;
 `;
 
 const Card = styled.div`
-    font-size: 1rem;
+    font-size: 14px;
     color: var(--pl-text);
     border-radius: 8px;
     background-color: var(--pl-bg-elevated);
-    padding: 8px 0.8rem;
-    max-width: 400px;
-    box-shadow: 0 0 4px 4px var(--pl-shadow);
+    border: 1px solid var(--pl-border);
+    padding: 12px 16px;
+    max-width: 420px;
+    box-shadow: 0 4px 12px var(--pl-shadow);
+    user-select: text;
 `;
 
 const Title = styled.h4`
-    margin: 0 0 4px 0;
+    margin: 0 0 6px 0;
+    font-size: 14px;
+    font-weight: 600;
 `;
 
 const ButtonRow = styled.div`
@@ -54,6 +58,10 @@ export interface DialogProps {
     hasConfirm?: boolean;
     confirmText?: string;
     cancelText?: string;
+    showBack?: boolean;
+    onBack?: () => void;
+    showExit?: boolean;
+    onExit?: () => void;
     /** When given, an opt-out check box is rendered above the buttons. */
     checkboxLabel?: string;
     checkboxChecked?: boolean;
@@ -72,6 +80,10 @@ export const Dialog: React.FC<DialogProps> = (props: DialogProps) => {
         hasConfirm = true,
         confirmText = 'OK',
         cancelText,
+        showBack = false,
+        onBack,
+        showExit = false,
+        onExit,
         checkboxLabel,
         checkboxChecked = false,
         onCheckboxChange,
@@ -109,18 +121,30 @@ export const Dialog: React.FC<DialogProps> = (props: DialogProps) => {
                         </Checkbox>
                     </CheckboxRow>
                 ) : undefined}
-                {hasConfirm ? (
+                {hasConfirm || showBack || showExit ? (
                     <>
                         <Divider style={{ margin: '6px 0' }} />
                         <ButtonRow>
+                            {showExit ? (
+                                <Button onClick={onExit} style={{ marginRight: 'auto' }}>
+                                    Exit tour
+                                </Button>
+                            ) : undefined}
+                            {showBack ? (
+                                <Button onClick={onBack} style={{ marginRight: 8 }}>
+                                    Back
+                                </Button>
+                            ) : undefined}
                             {cancelText !== undefined ? (
                                 <Button onClick={onCancel} style={{ marginRight: 8 }}>
                                     {cancelText}
                                 </Button>
                             ) : undefined}
-                            <Button type="primary" onClick={onConfirm}>
-                                {confirmText}
-                            </Button>
+                            {hasConfirm ? (
+                                <Button type="primary" onClick={onConfirm}>
+                                    {confirmText}
+                                </Button>
+                            ) : undefined}
                         </ButtonRow>
                     </>
                 ) : undefined}

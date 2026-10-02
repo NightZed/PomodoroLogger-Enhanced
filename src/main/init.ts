@@ -2,6 +2,7 @@ import {
     nativeImage,
     Tray,
     BrowserWindow,
+    protocol,
     Menu,
     ipcMain,
     MenuItem,
@@ -24,6 +25,18 @@ import * as remoteMain from '@electron/remote/main';
 import { initActiveWin } from './activeWin';
 remoteMain.initialize();
 
+protocol.registerSchemesAsPrivileged([
+    {
+        scheme: 'wallpaper',
+        privileges: {
+            standard: true,
+            secure: true,
+            supportFetchAPI: true,
+            corsEnabled: true,
+        },
+    },
+]);
+
 const { refreshDbs, loadDBs } = db;
 export let win: BrowserWindow | undefined;
 
@@ -42,12 +55,18 @@ function flushUpdateEvents() {
     }
 }
 
+// In development, isolate userData to prevent locking conflicts with installed / production app
+if (process.env.NODE_ENV !== 'production') {
+    const devUserData = path.join(app.getPath('appData'), `${build.productName}-Dev`);
+    app.setPath('userData', devUserData);
+}
+
 export const gotTheLock = process.env.NODE_ENV !== 'production' || app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
     app.quit();
 } else {
-    app.on('second-instance', (event, commandLine, workingDirectory) => {
+    app.on('second-instance', (_event, _commandLine, _workingDirectory) => {
         // Someone tried to run a second instance, we should focus our window.
         if (win) {
             if (win.isMinimized()) win.restore();
@@ -108,11 +127,18 @@ const createWindow = async () => {
     win = new BrowserWindow({
         width: 1440,
         height: 960,
-        minWidth: 380,
-        minHeight: 63,
-        frame: true,
-        useContentSize: false,
-        backgroundColor: nativeTheme.shouldUseDarkColors ? '#141414' : '#ffffff',
+        // Content-size minimums: the mini bar occupies exactly 200x90 of
+        // content (see ipc.ts setContentSize), so the window must never be
+        // resizable below that or the bar would be clipped.
+        minWidth: 200,
+        minHeight: 90,
+        // Frameless: the title bar is drawn by the renderer (WindowControls on
+        // the right of the tabs row; mini mode has none). thickFrame keeps its
+        // default (true), so Windows still has invisible resize borders.
+        frame: false,
+        transparent: true,
+        useContentSize: true,
+        backgroundColor: '#00000000',
         icon: nativeImage.createFromPath(path.join(__dirname, logo)),
         title: 'Pomodoro Logger',
         webPreferences: {
@@ -215,6 +241,19 @@ app.on('ready', async () => {
     if (!gotTheLock) {
         return;
     }
+    protocol.registerFileProtocol('wallpaper', (request, callback) => {
+        try {
+            const wallpaperPath = new URL(request.url).searchParams.get('path');
+            if (!wallpaperPath) {
+                callback({ error: -6 });
+                return;
+            }
+            callback({ path: wallpaperPath });
+        } catch (error) {
+            console.error('Failed to resolve wallpaper path:', error);
+            callback({ error: -2 });
+        }
+    });
 
     const img = nativeImage.createFromPath(path.join(__dirname, logo));
     img.resize({ width: 16, height: 16 });
@@ -343,7 +382,14 @@ function update() {
 
 // updater instance is created once so manual check works even when auto update is off
 const autoUpdaterCheck = update();
-function setMenuItems(items: { label: string; type: string; click: any }[]) {
+/**
+ * (Re)builds the tray context menu from the entries the renderer asks for (see
+ * `Timer.addMenuItems`). The separator and the Open/Quit entries belong to the
+ * window and are appended here, so a state dependent menu can neither grey them
+ * out nor reorder them. `enabled: false` renders an entry greyed out; it is how
+ * the renderer says "this action cannot run right now".
+ */
+function setMenuItems(items: { label: string; type: string; click: any; enabled?: boolean }[]) {
     if (!mGlobal.tray) {
         return;
     }

@@ -17,6 +17,7 @@ import { createGlobalStyle } from 'styled-components';
 export const GlobalStyle = createGlobalStyle`
     /* Fallback so the very first frame already matches the default (night) theme. */
     :root {
+        --pl-theme-bg-opacity: 100%;
         --pl-bg: #141414;
         --pl-bg-elevated: #1f1f1f;
         --pl-bg-sunken: #262626;
@@ -41,7 +42,7 @@ export const GlobalStyle = createGlobalStyle`
 
     html,
     body {
-        background-color: var(--pl-bg);
+        background-color: transparent;
         color: var(--pl-text);
     }
 
@@ -49,7 +50,7 @@ export const GlobalStyle = createGlobalStyle`
        #fff) and its stylesheet is injected after the styled-components one.
        !important makes the theme colors win regardless of stylesheet order. */
     html[data-theme] body {
-        background-color: var(--pl-bg) !important;
+        background-color: transparent !important;
         color: var(--pl-text) !important;
         transition: background-color 0.2s, color 0.2s;
     }
@@ -94,7 +95,11 @@ export const GlobalStyle = createGlobalStyle`
             color: var(--pl-text);
         }
         .ant-tabs-bar {
-            background-color: var(--pl-bg-elevated);
+            /* Transparent on purpose: the window background layer paints this
+               band (see Application.tsx and AppTitleBar.tsx), so painting it
+               here as well would apply the background opacity a second time on
+               top of the band. */
+            background-color: transparent;
             border-bottom-color: var(--pl-border);
         }
         .ant-tabs-nav .ant-tabs-tab {
@@ -676,6 +681,83 @@ export const GlobalStyle = createGlobalStyle`
         .ant-notification-notice-close:hover {
             color: var(--pl-text);
         }
+    }
+
+    /* ---------- feedback layer ---------- */
+    /* One visual language for toast / notice / dialog / popconfirm: same
+       surface color, 8px radius, shadow and selectable copy. The colors come
+       from the theme tokens, so these rules fit both themes -- the
+       html[data-theme] prefix only raises their specificity above antd.css.
+       Keep in sync with components/feedback/tokens.ts. */
+    html[data-theme] .pl-feedback-text {
+        /* Copy of a feedback surface can always be selected (the guide dialog
+           used to disable selection on its whole container). */
+        user-select: text;
+    }
+
+    /* toast (antd message) */
+    html[data-theme] .ant-message-notice-content {
+        background-color: var(--pl-bg-elevated);
+        border: 1px solid var(--pl-border);
+        border-radius: 8px;
+        box-shadow: 0 4px 12px var(--pl-shadow);
+        color: var(--pl-text);
+        user-select: text;
+        max-width: calc(100vw - 32px);
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    /* notice (antd notification) */
+    html[data-theme] .ant-notification {
+        max-width: calc(100vw - 24px);
+    }
+    html[data-theme] .ant-notification-notice {
+        background-color: var(--pl-bg-elevated);
+        border: 1px solid var(--pl-border);
+        border-radius: 8px;
+        box-shadow: 0 4px 12px var(--pl-shadow);
+        user-select: text;
+        width: auto;
+        min-width: 260px;
+        max-width: calc(100vw - 48px);
+    }
+    html[data-theme] .ant-notification-notice-message {
+        color: var(--pl-text);
+    }
+    html[data-theme] .ant-notification-notice-description {
+        color: var(--pl-text-secondary);
+    }
+
+    /* dialog (antd modal, including confirm / info) */
+    html[data-theme] .ant-modal {
+        max-width: calc(100vw - 32px);
+    }
+    html[data-theme] .ant-modal-content {
+        border-radius: 8px;
+        user-select: text;
+    }
+    /* antd 3 hard codes black confirm copy (rgba(0,0,0,.85) / rgba(0,0,0,.65))
+       that does not inherit from .ant-modal-content, so both lines need their own
+       override, or the night theme would show black on dark. */
+    html[data-theme] .ant-modal-confirm-title {
+        color: var(--pl-text);
+    }
+    html[data-theme] .ant-modal-confirm-content {
+        color: var(--pl-text);
+    }
+    html[data-theme] .ant-modal-confirm-body > .anticon {
+        font-size: 20px;
+    }
+
+    /* popconfirm / popover */
+    html[data-theme] .ant-popover-inner {
+        border-radius: 8px;
+        border: 1px solid var(--pl-border);
+    }
+    html[data-theme] .ant-popover-inner-content,
+    html[data-theme] .ant-popover-message-title {
+        user-select: text;
     }
 `;
 

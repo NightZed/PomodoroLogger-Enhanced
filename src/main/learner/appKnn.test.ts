@@ -14,7 +14,7 @@ describe('AppKNN TopManager', () => {
             ranker.push(Math.random() + 0.2);
         }
 
-        const v = ranker.vote(x => x.toString());
+        const v = ranker.vote((x) => x.toString());
         expect(v).toBe('0');
     });
 
@@ -32,7 +32,7 @@ describe('AppKNN TopManager', () => {
             ranker.push([Math.random(), 'c']);
         }
 
-        const v = ranker.vote(x => x[1]);
+        const v = ranker.vote((x) => x[1]);
         expect(v).toBe('t');
         for (const a of ranker.arr) {
             expect(a[0]).toBeLessThan(-1);
@@ -45,16 +45,13 @@ function generateRecord(
     appUsage: { [appName: string]: number }
 ): PomodoroRecord {
     const apps: { [appName: string]: ApplicationSpentTime } = {};
-    let index = 0;
     for (const app in appUsage) {
         apps[app] = {
             appName: app,
             spentTimeInHour: appUsage[app],
             screenStaticDuration: 10,
-            titleSpentTime: {}
+            titleSpentTime: {},
         };
-
-        index += 1;
     }
 
     return {
@@ -65,15 +62,13 @@ function generateRecord(
         screenStaticDuration: undefined,
         spentTimeInHour: 0.4,
         startTime: 0,
-        switchTimes: 9
+        switchTimes: 9,
     };
 }
 
 function createKnnTestCase(nProjects: number = 5, nCases: number = 50) {
     const records: PomodoroRecord[] = [];
-    const appNames = Array(50)
-        .fill(0)
-        .map(generateRandomName);
+    const appNames = Array(50).fill(0).map(generateRandomName);
     const inputs: PomodoroRecord[] = [];
     const ans: string[] = [];
     for (let i = 0; i < nProjects; i += 1) {
@@ -99,7 +94,7 @@ function createKnnTestCase(nProjects: number = 5, nCases: number = 50) {
     return {
         inputs,
         records,
-        ans
+        ans,
     } as {
         inputs: PomodoroRecord[];
         records: PomodoroRecord[];
@@ -122,13 +117,13 @@ describe('AppName NameEncoder', () => {
         const encoder = new NameEncoder({
             a: 0,
             b: 1,
-            c: 2
+            c: 2,
         });
 
         const encoding = encoder.encode([
             { appName: 'a', time: 1 },
             { appName: 'b', time: 2 },
-            { appName: 'c', time: 7 }
+            { appName: 'c', time: 7 },
         ]);
 
         expect(encoding).toStrictEqual([0.1, 0.2, 0.7]);

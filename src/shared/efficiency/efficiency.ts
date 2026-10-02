@@ -1,4 +1,4 @@
-import { PomodoroRecord, TitleSpentTimeDict } from '../../renderer/monitor/type';
+import { PomodoroRecord } from '../../renderer/monitor/type';
 import { DistractingRow } from '../../renderer/components/Timer/action';
 import { cloneDeep } from 'lodash';
 
@@ -129,7 +129,7 @@ export class EfficiencyAnalyser {
         for (const app in record.apps) {
             const _app = record.apps[app];
             for (const title in _app.titleSpentTime) {
-                if (!_app.titleSpentTime.hasOwnProperty(title)) {
+                if (!Object.prototype.hasOwnProperty.call(_app.titleSpentTime, title)) {
                     continue;
                 }
 

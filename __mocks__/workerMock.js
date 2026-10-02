@@ -12,10 +12,13 @@ Worker.prototype.postMessage = function(message){
         return;
     }
 
+    // A real Worker delivers a MessageEvent whose payload lives under `data`.
     this.listener({
-        type: 'JEST_MOCK',
-        code: message.code,
-        payload: {}
+        data: {
+            type: 'JEST_MOCK',
+            code: message.code,
+            payload: {}
+        }
     });
 };
 

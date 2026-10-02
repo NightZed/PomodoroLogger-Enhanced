@@ -2,6 +2,7 @@ import { BaseWorker, Message } from './BaseWorker';
 
 class MWorker {
     private userListeners: { [name: string]: any[] } = { message: [] };
+    terminated = false;
     constructor(private workerListeners: { [name: string]: any }) {}
 
     postMessage(msg: Message) {
@@ -20,7 +21,17 @@ class MWorker {
 
     removeEventListener(msg: string, listener: any) {
         const index = this.userListeners[msg].indexOf(listener);
-        this.userListeners[msg].splice(index, 1);
+        if (index >= 0) {
+            this.userListeners[msg].splice(index, 1);
+        }
+    }
+
+    listenerCount(msg: string) {
+        return this.userListeners[msg].length;
+    }
+
+    terminate() {
+        this.terminated = true;
     }
 }
 
@@ -30,7 +41,7 @@ describe('BaseWorker', () => {
         class TestWorker extends BaseWorker {
             // @ts-ignore
             protected worker = new MWorker({
-                start: (listen: Listen, msg: Message) => listen({ code: msg.code, type: 'start' })
+                start: (listen: Listen, msg: Message) => listen({ code: msg.code, type: 'start' }),
             });
         }
 
@@ -38,7 +49,7 @@ describe('BaseWorker', () => {
         await testWorker.createHandler(
             { type: 'start' },
             {
-                start: (acc, done) => done()
+                start: (acc, done) => done(),
             }
         );
     });
@@ -52,7 +63,7 @@ describe('BaseWorker', () => {
                         () => listen({ code: msg.code, type: 'start', payload: msg.payload }),
                         500
                     );
-                }
+                },
             });
         }
 
@@ -63,7 +74,7 @@ describe('BaseWorker', () => {
                 testWorker.createHandler(
                     { type: 'start', payload: i },
                     {
-                        start: (data, done) => done(data)
+                        start: (data, done) => done(data),
                     }
                 )
             );
@@ -80,13 +91,13 @@ describe('BaseWorker', () => {
             // @ts-ignore
             protected worker = new MWorker({
                 start: (listen: Listen, msg: Message) =>
-                    listen({ code: msg.code, type: 'error', payload: msg.payload })
+                    listen({ code: msg.code, type: 'error', payload: msg.payload }),
             });
         }
 
         const testWorker = new TestWorker();
         expect(
-            await testWorker.createHandler({ type: 'start' }, {}).catch(error => {
+            await testWorker.createHandler({ type: 'start' }, {}).catch((_error) => {
                 return 'error';
             })
         ).toBe('error');
@@ -101,15 +112,92 @@ describe('BaseWorker', () => {
                         () => listen({ code: msg.code, type: 'error', payload: msg.payload }),
                         1000
                     );
-                }
+                },
             });
         }
 
         const testWorker = new TestWorker();
         expect(
-            await testWorker.createHandler({ type: 'start' }, {}, 100).catch(error => {
+            await testWorker.createHandler({ type: 'start' }, {}, 100).catch((_error) => {
                 return 'error';
             })
         ).toBe('error');
+    });
+
+    it('should remove the listener and timer after a timeout', async () => {
+        let worker: MWorker;
+        class TestWorker extends BaseWorker {
+            // @ts-ignore
+            protected worker = (worker = new MWorker({
+                start: () => undefined,
+            }));
+        }
+
+        const testWorker = new TestWorker();
+        await expect(testWorker.createHandler({ type: 'start' }, {}, 10)).rejects.toThrow(
+            'Timeout 10 ms'
+        );
+        expect(worker!.listenerCount('message')).toBe(0);
+    });
+
+    it('should clean up when a response handler throws', async () => {
+        let worker: MWorker;
+        class TestWorker extends BaseWorker {
+            // @ts-ignore
+            protected worker = (worker = new MWorker({
+                start: (listen: Listen, msg: Message) => listen({ code: msg.code, type: 'start' }),
+            }));
+        }
+
+        const testWorker = new TestWorker();
+        await expect(
+            testWorker.createHandler(
+                { type: 'start' },
+                {
+                    start: () => {
+                        throw new Error('handler failed');
+                    },
+                }
+            )
+        ).rejects.toThrow('handler failed');
+        expect(worker!.listenerCount('message')).toBe(0);
+    });
+
+    it('should terminate an opted-in worker after it becomes idle', async () => {
+        let worker: MWorker;
+        class TestWorker extends BaseWorker {
+            protected idleTimeout = 10;
+            // @ts-ignore
+            protected worker = (worker = new MWorker({
+                start: (listen: Listen, msg: Message) => listen({ code: msg.code, type: 'start' }),
+            }));
+        }
+
+        const testWorker = new TestWorker();
+        await testWorker.createHandler(
+            { type: 'start' },
+            {
+                start: (payload, done) => done(payload),
+            }
+        );
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(worker!.terminated).toBe(true);
+    });
+
+    it('should reject and detach pending requests when destroyed', async () => {
+        let worker: MWorker;
+        class TestWorker extends BaseWorker {
+            // @ts-ignore
+            protected worker = (worker = new MWorker({
+                start: () => undefined,
+            }));
+        }
+
+        const testWorker = new TestWorker();
+        const request = testWorker.createHandler({ type: 'start' }, {}, 1000);
+        testWorker.destroy();
+        await expect(request).rejects.toThrow('Worker was destroyed');
+        expect(worker!.listenerCount('message')).toBe(0);
+        expect(worker!.terminated).toBe(true);
     });
 });

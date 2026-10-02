@@ -70,31 +70,45 @@ electron_mirror "https://npmmirror.com/mirrors/electron/"
 
 - Don't use independent CSS file, use [styled-component](https://www.styled-components.com) instead
 - Follow the linter
+- All in-app notifications go through the [feedback layer](../src/renderer/components/feedback)
+  (`feedback.toast` / `feedback.notice` / `feedback.confirm` / `feedback.alert`, plus the
+  `ConfirmPopover` variant for in-place confirmations). The layer fixes which channel a
+  situation uses, so position, lifetime, styling and selectable copy stay consistent:
+  receipts are toasts (top center), background status is a notice (top right, closable) and
+  decisions are centered dialogs. Don't import antd's `message` / `notification` directly
+  (enforced by `no-restricted-imports`); shared wording lives in `feedback/messages.ts`.
 - Commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/)
-  (enforced by commitlint). This drives automatic versioning and releases:
-  `feat:` triggers a minor release, `fix:`/`perf:` a patch release,
-  `BREAKING CHANGE:` in the body a major release; `docs:`/`chore:`/`test:`
-  etc. trigger no release.
+  (enforced by commitlint). This decides the version semantic-release
+  calculates when a release is run: `feat:` triggers a minor release,
+  `fix:`/`perf:` a patch release, `!` after the type/scope (for example,
+  `fix(electron)!: ...`) or a `BREAKING CHANGE:` body triggers a major
+  release; `docs:`/`chore:`/`test:` etc. trigger no release.
 
 ## Release
 
-Releases are fully automatic via [semantic-release](https://semantic-release.org/usage/getting-started/):
+Releases are cut manually via [semantic-release](https://semantic-release.org/usage/getting-started/)
+— pushing to `master` only runs the `Test` workflow (lint + tests), never a
+release:
 
-1. Just merge/push [Conventional Commits](https://www.conventionalcommits.org/)-style
+1. Merge/push [Conventional Commits](https://www.conventionalcommits.org/)-style
    commits to `master` — never bump `package.json` version or create tags by hand.
-2. The `Build/release` workflow's first job runs lint + tests, then semantic-release
+   Each push runs `test.yml` (lint + tests); release-worthy commits simply
+   accumulate until a release is requested.
+2. When ready, Actions → `Build/release` → **Run workflow** and leave `tag`
+   empty. The workflow's first job runs lint + tests, then semantic-release
    analyzes commits since the last release and creates the `vX.Y.Z` tag plus a GitHub
    Release. Versions live in git tags only — nothing is committed back to the
    repository (no `chore(release)` commit and no `CHANGELOG.md` update; release
    notes live in GitHub Releases). `package.json`'s `version` is a fixed placeholder
-   (`0.0.0-semantically-released`).
+   (`0.0.0-semantically-released`). If there is no release-worthy commit since
+   the last tag, semantic-release simply does nothing.
 3. The same workflow's second job (gated by `needs`, skipped when no release was
    cut) checks out the tag, stamps the released version into `package.json` in the
    CI working tree, builds the Windows/macOS/Linux installers and uploads them to
    that Release. Everything runs on the auto-provided `GITHUB_TOKEN` — no PAT.
 
 Rebuild an existing tag's installers without cutting a release: Actions →
-`Build/release` → **Run workflow** and enter the tag (e.g. `v0.15.0`) — only
+`Build/release` → **Run workflow** and fill in the tag (e.g. `v0.15.0`) — only
 the build job runs, and the artifacts are uploaded to that tag's existing
 release.
 

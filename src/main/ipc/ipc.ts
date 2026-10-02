@@ -1,5 +1,5 @@
 import { ipcMain, dialog, app, nativeImage, Notification, desktopCapturer, screen } from 'electron';
-import { DesktopSourceInfo, IpcEventName, WorkerMessageType } from './type';
+import { DesktopSourceInfo, IpcEventName, WorkerMessageType, WindowAction } from './type';
 import { sendWorkerMessage } from '../worker/fork';
 import { promisify } from 'util';
 import { readFile, writeFile } from 'fs';
@@ -74,23 +74,45 @@ export function initialize() {
         if (!win) return;
         win.webContents.openDevTools({ activate: true, mode: 'detach' });
     });
-    handle(IpcEventName.MinimizeWindow, (on, contentHeight) => {
+    handle(IpcEventName.MinimizeWindow, (on) => {
         if (!win) return;
         win.setAlwaysOnTop(on);
-        const { height } = win.getBounds();
+        win.setSkipTaskbar(on);
         if (on) {
-            win.setBounds({ height: height - contentHeight + 43, width: 366 });
+            // Mini bar: content must be exactly the two-row MiniLogger size
+            // (90px; Application.tsx hides the 1px .ant-tabs-bar border while
+            // minimized so no extra chrome remains). setContentSize keeps the
+            // semantics identical to `useContentSize: true` at construction --
+            // setBounds() would set the outer frame instead and shrink the
+            // content by the title bar and Windows invisible resize borders.
+            win.setContentSize(200, 90);
         } else {
-            win.setBounds({ height: 960, width: 1440 });
+            win.setContentSize(1440, 960);
         }
     });
     handle(IpcEventName.CompactWindow, (on, alwaysOnTop = true) => {
         if (!win) return;
         win.setAlwaysOnTop(on && alwaysOnTop);
         if (on) {
-            win.setBounds({ width: 400, height: 560 });
+            win.setContentSize(370, 490);
         } else {
-            win.setBounds({ width: 1440, height: 960 });
+            win.setContentSize(1440, 960);
+        }
+    });
+    // Caption buttons for the frameless window (drawn by WindowControls.tsx).
+    handle(IpcEventName.WindowAction, (action: WindowAction) => {
+        if (!win) return;
+        if (action === 'minimize') {
+            win.minimize();
+        } else if (action === 'maximize') {
+            if (win.isMaximized()) {
+                win.unmaximize();
+            } else {
+                win.maximize();
+            }
+        } else if (action === 'close') {
+            // init.ts installs a close handler that hides the window to tray.
+            win.close();
         }
     });
     handle(IpcEventName.OpenAtLogin, (on) => {
@@ -158,5 +180,21 @@ export function initialize() {
         // TODO: Show Warning
         await writeAllFile(merged.payload.merged);
         restart();
+    });
+    handle(IpcEventName.SelectWallpaper, async (): Promise<string | undefined> => {
+        const result = await dialog.showOpenDialog({
+            properties: ['openFile'],
+            filters: [
+                {
+                    name: 'Images',
+                    extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'],
+                },
+            ],
+        });
+        if (result.canceled || result.filePaths.length === 0) {
+            return undefined;
+        }
+        const filePath = result.filePaths[0];
+        return filePath;
     });
 }

@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from 'react';
-import { Button, Divider } from 'antd';
+import React from 'react';
+import { Button } from 'antd';
 import { ButtonProps } from 'antd/lib/button/button';
 
 interface Props extends ButtonProps {

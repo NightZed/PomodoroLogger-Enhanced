@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, useEffect, useRef, useState } from 'react';
 import { Table } from 'antd';
 import { RootState } from '../../../reducers';
 import { Dispatch } from 'redux';
@@ -146,12 +146,6 @@ const OverviewTable = connect((state: RootState) => ({
     cards: state.kanban.cards,
 }))(_OverviewTable);
 
-const BriefContainer = styled.div`
-    display: flex;
-    align-items: flex-start;
-    flex-wrap: wrap;
-`;
-
 const getPinScore = ({ pin: aPin }: KanbanBoard, { pin: bPin }: KanbanBoard) => {
     const a = aPin ? 1 : 0;
     const b = bPin ? 1 : 0;
@@ -226,8 +220,67 @@ interface OverviewCardsProps {
     setId: (_id: string) => void;
     lists: ListsState;
     cards: CardsState;
+    minimize: boolean;
     showConfigById?: (boardId: string) => void;
 }
+
+/**
+ * Guard for `react-stack-grid@0.7.1`: when its measured container width shrinks to 0, its
+ * `getColumnLengthAndWidth(0, 265, ...)` computes `maxColumn = 0`, leaving
+ * `columnHeights = []`, so `Math.max(...[]) - gutterHeight` becomes
+ * `-Infinity` and React warns `` `Infinity` is an invalid value for the
+ * `height` css style property `` on the TransitionGroup div.
+ *
+ * `width < 1` (rather than `width <= 0`) also covers sub-pixel rounding:
+ * anything below 1px still yields `maxColumn = 0` for a 265px column.
+ */
+const SafeStackGrid: FC<{ children: React.ReactNode; suspended?: boolean }> = ({
+    children,
+    suspended = false,
+}) => {
+    const ref = useRef<HTMLDivElement>(null);
+    // `null` = not measured yet: render the placeholder once so the first
+    // measurement never feeds `undefined` into StackGrid's layout.
+    const [width, setWidth] = useState<number | null>(null);
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) {
+            return;
+        }
+        const measure = () => {
+            const nextWidth = el.clientWidth;
+            setWidth((prev) => (prev === nextWidth ? prev : nextWidth));
+        };
+        measure();
+        if (typeof ResizeObserver !== 'undefined') {
+            const observer = new ResizeObserver(measure);
+            observer.observe(el);
+            return () => {
+                observer.disconnect();
+            };
+        }
+        window.addEventListener('resize', measure);
+        return () => {
+            window.removeEventListener('resize', measure);
+        };
+    }, []);
+
+    // The wrapper div (and its ref) stays mounted on both branches, so the
+    // ResizeObserver keeps measuring and can bring the grid back on resize.
+    // `suspended` unmounts the grid deterministically (e.g. mini mode hides
+    // the pane *and* shrinks the window, and the inner SizeMe listener could
+    // otherwise observe width 0 before our observer callback runs).
+    const showGrid = !suspended && width !== null && width >= 1;
+    return (
+        <div ref={ref}>
+            {showGrid ? (
+                <StackGrid columnWidth={265} gutterHeight={0}>
+                    {children}
+                </StackGrid>
+            ) : null}
+        </div>
+    );
+};
 
 const OverviewCards = connect(
     (state: RootState) => ({
@@ -236,6 +289,7 @@ const OverviewCards = connect(
         sortDirection: state.kanban.kanban.sortDirection,
         lists: state.kanban.lists,
         cards: state.kanban.cards,
+        minimize: state.timer.minimize,
     }),
     (dispatch: Dispatch) => ({
         setId: (_id: string) => actions.setChosenBoardId(_id)(dispatch),
@@ -244,7 +298,6 @@ const OverviewCards = connect(
     const { boards, setId } = props;
     const [ids, setIds] = useState<string[]>([]);
     useEffect(() => {
-        let alive = true;
         const desc = props.sortDirection === 'desc';
         if (
             props.sortedBy === 'due' ||
@@ -285,9 +338,6 @@ const OverviewCards = connect(
             });
         }
         setIds(boards.map((b) => b._id));
-        return () => {
-            alive = false;
-        };
     }, [
         props.sortedBy,
         props.sortDirection,
@@ -297,7 +347,7 @@ const OverviewCards = connect(
     ]);
 
     return (
-        <StackGrid columnWidth={265} gutterHeight={0}>
+        <SafeStackGrid suspended={props.minimize}>
             {ids.map((_id) => {
                 const onClick = () => setId(_id);
                 const onSettingClick = props.showConfigById
@@ -314,7 +364,7 @@ const OverviewCards = connect(
                     />
                 );
             })}
-        </StackGrid>
+        </SafeStackGrid>
     );
 }) as FC<OverviewCardsProps>);
 

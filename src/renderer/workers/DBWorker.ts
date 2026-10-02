@@ -46,7 +46,7 @@ class TrueDBWorker extends BaseWorker {
     update = this.genHandler('update');
     remove = this.genHandler('remove');
     count = this.genHandler('count');
-    aggHistory = (arg: { boardIds: string[]; recentQuery?: any; yearQuery: any }): Promise<any> =>
+    aggHistory = (arg: { recentQuery?: any; yearQuery: any }): Promise<any> =>
         this.createHandler(
             {
                 type: 'aggHistory',
@@ -72,7 +72,7 @@ class TrueDBWorker extends BaseWorker {
 class FakeDBWorker {
     private readonly db: nedb;
 
-    constructor(private dbType: string, worker?: undefined) {
+    constructor(private dbType: string, _worker?: undefined) {
         // @ts-ignore
         this.db = dbs[dbType];
     }
@@ -81,7 +81,7 @@ class FakeDBWorker {
         return undefined;
     }
 
-    setWorker(worker: Worker) {}
+    setWorker(_worker: Worker) {}
 
     genHandler =
         (op: string) =>
@@ -114,11 +114,7 @@ class FakeDBWorker {
 
     // For tests: run the same aggregation in-process, sharing the dbs
     // instances instead of going through a real web worker.
-    aggHistory = async (arg: {
-        boardIds: string[];
-        recentQuery?: any;
-        yearQuery: any;
-    }): Promise<any> => {
+    aggHistory = async (arg: { recentQuery?: any; yearQuery: any }): Promise<any> => {
         const findAsync = (query: any): Promise<any[]> =>
             new Promise((resolve, reject) => {
                 if (this.db === undefined) {
@@ -140,9 +136,9 @@ class FakeDBWorker {
         const { aggHistory: aggregate } = await import('../../utils/aggPomodoro');
         const { workers } = await import('./index');
         const boardNames: { [boardId: string]: string } = {};
-        for (const boardId of arg.boardIds) {
-            const board = await workers.dbWorkers.kanbanDB.findOne({ _id: boardId });
-            boardNames[boardId] = board ? board.name : 'Unknown';
+        const boards = await workers.dbWorkers.kanbanDB.find({}, { _id: 1, name: 1 });
+        for (const board of boards ?? []) {
+            boardNames[board._id] = board.name;
         }
 
         const [recentRecords, yearRecords] = await Promise.all([

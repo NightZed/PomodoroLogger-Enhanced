@@ -1,23 +1,61 @@
 import React, { useCallback, useState } from 'react';
 import { TimerActionTypes, TimerState } from '../Timer/action';
 import styled from 'styled-components';
-import { Button, Col, Icon, message, notification, Popconfirm, Row, Slider, Switch } from 'antd';
+import { Button, Icon, Slider, Switch } from 'antd';
 import { deleteAllUserData } from '../../monitor/sessionManager';
 import { shell, ipcRenderer } from 'electron';
+import { feedback, FEEDBACK_MESSAGES } from '../feedback';
 import { DistractingListModalButton } from './DistractingList';
 import { isShallowEqualByKeys } from '../../utils';
 import pkg from '../../../../package.json';
 import { IpcEventName, UpdateErrorPayload, UpdateEventName } from '../../../main/ipc/type';
 import { refreshDbs } from '../../../main/db';
 import { BUILTIN_THEMES, ThemeDefinition } from '../../theme/tokens';
+import SettingNav from './SettingNav';
+import { DEFAULT_SECTION, SectionId, SHORTCUTS, SHORTCUT_DISCLAIMER } from './sections';
 
+/**
+ * The settings page is split into the groups listed in `sections.ts` and driven
+ * by the secondary navigation on the left. Only the active group is mounted, so
+ * the page no longer scrolls through every option at once.
+ */
 const Container = styled.div`
-    padding: 12px 36px;
+    display: flex;
+    align-items: stretch;
+    height: calc(100vh - 44px);
     color: var(--pl-text);
+    -webkit-app-region: no-drag;
+`;
+
+const Pane = styled.div`
+    flex: 1 1 auto;
+    min-width: 0;
+    /* The bottom padding leaves room for the fixed footer, which spans the
+       whole settings page and would otherwise cover the last option. */
+    padding: 12px 36px 72px 12px;
+    overflow-y: auto;
+`;
+
+/**
+ * One option of the active section. The bottom border is the separator the
+ * page uses between options; it is dropped on the last one so the group does
+ * not end on a stray line.
+ */
+const Field = styled.div`
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--pl-border);
+
+    &:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+    }
 `;
 
 const SliderContainer = styled.div`
     padding: 4px 24px;
+    -webkit-app-region: no-drag;
+    pointer-events: auto;
 `;
 
 const ButtonWrapper = styled.div`
@@ -44,13 +82,64 @@ const ColorInput = styled.input`
     }
 `;
 
+/**
+ * Pinned to the bottom of the settings page, as it was before the page was
+ * split into sections: the version and the repository link are page chrome,
+ * not an option of any single section, so it shows on all of them.
+ */
 const Footer = styled.footer`
     border-top: 1px solid var(--pl-border);
     padding: 0.6rem 0;
-    position: relative;
-    margin: 0.8rem auto;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    margin: 0;
     width: 100%;
+    box-sizing: border-box;
+    padding-left: 180px;
     text-align: center;
+    color: var(--pl-text-secondary);
+`;
+
+/** Key combination badge of the read-only shortcut table. */
+const ShortcutKey = styled.kbd`
+    display: inline-block;
+    min-width: 20px;
+    padding: 1px 6px;
+    border: 1px solid var(--pl-border);
+    border-radius: 4px;
+    background-color: var(--pl-bg-elevated);
+    color: var(--pl-text);
+    font-family: inherit;
+    font-size: 12px;
+    text-align: center;
+    white-space: nowrap;
+`;
+
+const ShortcutGroup = styled.div`
+    margin-bottom: 16px;
+
+    h5 {
+        margin: 0 0 6px;
+        font-size: 13px;
+        color: var(--pl-text-secondary);
+    }
+`;
+
+const ShortcutRow = styled.div`
+    display: flex;
+    align-items: baseline;
+    padding: 4px 0;
+    font-size: 13px;
+`;
+
+const ShortcutKeys = styled.div`
+    flex: 0 0 190px;
+`;
+
+const Hint = styled.p`
+    margin: 0 0 16px;
+    font-size: 13px;
     color: var(--pl-text-secondary);
 `;
 
@@ -119,17 +208,39 @@ const marks = {
     45: '45min',
 };
 
+const wallpaperOpacityMarks = {
+    10: '10%',
+    40: '40%',
+    70: '70%',
+    100: '100%',
+};
+
 const DEFAULT_CALENDAR_BASE_COLOR = '#aceebb';
 
 const restMarks = {
     5: '5min',
     10: '10min',
+    15: '15min',
 };
 
 const longBreakMarks = {
-    10: '10min',
+    5: '5min',
     15: '15min',
-    20: '20min',
+    25: '25min',
+};
+
+const opacityMarks = {
+    10: '10%',
+    40: '40%',
+    70: '70%',
+    100: '100%',
+};
+
+const themeBackgroundOpacityMarks = {
+    10: '10%',
+    40: '40%',
+    70: '70%',
+    100: '100%',
 };
 
 const settingUiStates = [
@@ -142,6 +253,10 @@ const settingUiStates = [
     'warnBeforeFocusStart',
     'useHardwareAcceleration',
     'compactAlwaysOnTop',
+    'contentOpacity',
+    'themeBackgroundOpacity',
+    'wallpaperPath',
+    'wallpaperOpacity',
     'startOnBoot',
     'distractingList',
     'calendarBaseColor',
@@ -186,11 +301,10 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 props.setScreenShotInterval(undefined);
             }
 
-            notification.open({
-                message: 'Restart App to Apply Changes',
-                description: 'Screenshot setting change needs restart to be applied',
-                duration: 0,
-                icon: <Icon type="warning" />,
+            feedback.notice({
+                kind: 'warning',
+                title: FEEDBACK_MESSAGES.setting.restartToApply,
+                description: FEEDBACK_MESSAGES.setting.screenshotRestart,
             });
         }, []);
 
@@ -203,6 +317,10 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             setCheckingUpdate(true);
             // The main process answers with one of the three events below; the timeout
             // is only a safety net so the button never gets stuck in loading state.
+            // prefer-const is a false positive here: the value is assigned once, but
+            // only after the listeners below are registered (merging it into the
+            // declaration would read the binding before it is initialised).
+            // eslint-disable-next-line prefer-const
             let timeout: any;
             const onResult = () => {
                 clearTimeout(timeout);
@@ -213,11 +331,18 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             };
             const onAvailable = () => onResult();
             const onNotAvailable = (event: any, info: string) => {
-                message.info(info);
+                // Receipt of the check: a toast, not a dialog. "You are on the
+                // latest version" does not need an acknowledgement.
+                feedback.toast({ kind: 'info', content: info });
                 onResult();
             };
             const onError = (event: any, payload: UpdateErrorPayload) => {
-                message.error('Failed to check for update: ' + (payload?.message ?? payload));
+                feedback.toast({
+                    kind: 'error',
+                    content: FEEDBACK_MESSAGES.update.checkFailed(
+                        String(payload?.message ?? payload)
+                    ),
+                });
                 onResult();
             };
             ipcRenderer.on(UpdateEventName.Available, onAvailable);
@@ -234,11 +359,10 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
 
         const setUseHardwareAcceleration = useCallback((v: boolean) => {
             props.setUseHardwareAcceleration(v);
-            notification.open({
-                message: 'Restart App to Apply Changes',
-                description: 'Hardware acceleration setting change needs restart to be applied',
-                duration: 0,
-                icon: <Icon type="warning" />,
+            feedback.notice({
+                kind: 'warning',
+                title: FEEDBACK_MESSAGES.setting.restartToApply,
+                description: FEEDBACK_MESSAGES.setting.hardwareAccelerationRestart,
             });
         }, []);
 
@@ -274,9 +398,23 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             props.setFollowSystemTheme(follow);
         }, []);
 
+        const onSelectWallpaper = useCallback(async () => {
+            const path = await window.api.selectWallpaper();
+            if (path) {
+                props.setWallpaperPath(path);
+            }
+        }, []);
+
+        const onClearWallpaper = useCallback(() => {
+            props.setWallpaperPath(undefined);
+        }, []);
+
         const onDeleteData = useCallback(() => {
             deleteAllUserData().then(() => {
-                message.info('All user data is removed. Pomodoro needs to restart.');
+                feedback.toast({
+                    kind: 'info',
+                    content: FEEDBACK_MESSAGES.setting.dataRemoved,
+                });
                 setTimeout(() => {
                     ipcRenderer.send(IpcEventName.Restart);
                 }, 3000);
@@ -295,162 +433,360 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             setExporting(false);
         }, []);
 
+        // Both operations are destructive/irreversible enough to deserve the
+        // blocking dialog instead of an in place popover: the user gets the
+        // consequence spelled out in the title of the confirmation.
+        const onImportConfirm = useCallback(() => {
+            feedback.confirm({
+                kind: 'warning',
+                title: FEEDBACK_MESSAGES.setting.importConfirm,
+                okText: 'Import',
+                onOk: () => {
+                    onImportClick();
+                },
+            });
+        }, [onImportClick]);
+
+        const onDeleteConfirm = useCallback(() => {
+            feedback.confirm({
+                kind: 'error',
+                title: FEEDBACK_MESSAGES.setting.deleteAllConfirm,
+                okText: 'Delete',
+                onOk: onDeleteData,
+            });
+        }, [onDeleteData]);
+
+        const [section, setSection] = useState<SectionId>(DEFAULT_SECTION);
+
         return (
             <Container>
-                <h4>Appearance</h4>
-                <ThemeOptions>
-                    {themes.map((theme: ThemeDefinition) => (
-                        <ThemeButton
-                            key={theme.id}
-                            active={!props.followSystemTheme && props.themeId === theme.id}
-                            onClick={() => onSelectTheme(theme.id)}
-                            title={`Switch to the ${theme.name} theme`}
-                        >
-                            <Swatches>
-                                <i style={{ backgroundColor: theme.tokens.bg }} />
-                                <i style={{ backgroundColor: theme.tokens.bgElevated }} />
-                                <i style={{ backgroundColor: theme.tokens.primary }} />
-                            </Swatches>
-                            {theme.name}
-                        </ThemeButton>
-                    ))}
-                </ThemeOptions>
-                <SettingLabel>Follow System</SettingLabel>
-                <Switch
-                    onChange={onToggleFollowSystem}
-                    checked={props.followSystemTheme}
-                    style={{ margin: 8 }}
-                />
-                <br />
+                <SettingNav active={section} onChange={setSection} />
+                <Pane>
+                    {section === 'timer' && (
+                        <>
+                            <Field>
+                                <h4>Focus Duration</h4>
+                                <SliderContainer>
+                                    <Slider
+                                        marks={marks}
+                                        step={1}
+                                        min={process.env.NODE_ENV === 'production' ? 20 : 2}
+                                        max={60}
+                                        value={props.focusDuration / 60}
+                                        onChange={onChangeFocus}
+                                    />
+                                </SliderContainer>
+                            </Field>
 
-                <h4>Focus Duration</h4>
-                <SliderContainer>
-                    <Slider
-                        marks={marks}
-                        step={1}
-                        min={process.env.NODE_ENV === 'production' ? 20 : 2}
-                        max={60}
-                        value={props.focusDuration / 60}
-                        onChange={onChangeFocus}
-                    />
-                </SliderContainer>
+                            <Field>
+                                <h4>Short Break</h4>
+                                <SliderContainer>
+                                    <Slider
+                                        marks={restMarks}
+                                        step={1}
+                                        min={1}
+                                        max={20}
+                                        value={props.restDuration / 60}
+                                        onChange={onChangeRest}
+                                    />
+                                </SliderContainer>
+                            </Field>
 
-                <Row>
-                    <Col span={12}>
-                        <h4>Short Break</h4>
-                        <SliderContainer>
-                            <Slider
-                                marks={restMarks}
-                                step={1}
-                                min={process.env.NODE_ENV === 'production' ? 5 : 1}
-                                max={20}
-                                value={props.restDuration / 60}
-                                onChange={onChangeRest}
-                            />
-                        </SliderContainer>
-                    </Col>
-                    <Col span={12}>
-                        <h4>Long Break</h4>
-                        <SliderContainer>
-                            <Slider
-                                marks={longBreakMarks}
-                                step={1}
-                                min={10}
-                                max={40}
-                                value={props.longBreakDuration / 60}
-                                onChange={onChangeLongBreak}
-                            />
-                        </SliderContainer>
-                    </Col>
-                </Row>
-                <SettingLabel>Hardware Acceleration</SettingLabel>
-                <Switch
-                    onChange={setUseHardwareAcceleration}
-                    checked={props.useHardwareAcceleration}
-                    style={{ margin: 8 }}
-                />
-                <br />
+                            <Field>
+                                <h4>Long Break</h4>
+                                <SliderContainer>
+                                    <Slider
+                                        marks={longBreakMarks}
+                                        step={1}
+                                        min={1}
+                                        max={40}
+                                        value={props.longBreakDuration / 60}
+                                        onChange={onChangeLongBreak}
+                                    />
+                                </SliderContainer>
+                            </Field>
 
-                <SettingLabel>Start On Boot</SettingLabel>
-                <Switch
-                    onChange={setStartOnBoot}
-                    checked={props.startOnBoot}
-                    style={{ margin: 8 }}
-                />
-                <br />
-                <SettingLabel>Keep Small Window Always On Top</SettingLabel>
-                <Switch
-                    onChange={props.setCompactAlwaysOnTop}
-                    checked={props.compactAlwaysOnTop}
-                    style={{ margin: 8 }}
-                />
-                <br />
-                <SettingLabel>Auto Update</SettingLabel>
-                <Switch
-                    onChange={switchAutoUpdate}
-                    checked={props.autoUpdate}
-                    style={{ margin: 8 }}
-                />
-                <Button size="small" loading={checkingUpdate} onClick={onCheckUpdate}>
-                    Check Update
-                </Button>
-                <br />
+                            <Field>
+                                <h4>Distracting App Setting</h4>
+                                <ButtonWrapper>
+                                    <DistractingListModalButton />
+                                </ButtonWrapper>
+                            </Field>
+                        </>
+                    )}
 
-                <SettingLabel>Screenshot</SettingLabel>
-                <Switch
-                    onChange={switchScreenshot}
-                    checked={!!props.screenShotInterval}
-                    style={{ margin: 8 }}
-                />
-                <br />
+                    {section === 'appearance' && (
+                        <>
+                            <Field>
+                                <h4>Theme</h4>
+                                <ThemeOptions>
+                                    {themes.map((theme: ThemeDefinition) => (
+                                        <ThemeButton
+                                            key={theme.id}
+                                            active={
+                                                !props.followSystemTheme &&
+                                                props.themeId === theme.id
+                                            }
+                                            onClick={() => onSelectTheme(theme.id)}
+                                            title={`Switch to the ${theme.name} theme`}
+                                        >
+                                            <Swatches>
+                                                <i style={{ backgroundColor: theme.tokens.bg }} />
+                                                <i
+                                                    style={{
+                                                        backgroundColor: theme.tokens.bgElevated,
+                                                    }}
+                                                />
+                                                <i
+                                                    style={{
+                                                        backgroundColor: theme.tokens.primary,
+                                                    }}
+                                                />
+                                            </Swatches>
+                                            {theme.name}
+                                        </ThemeButton>
+                                    ))}
+                                </ThemeOptions>
+                                <SettingLabel>Follow System</SettingLabel>
+                                <Switch
+                                    onChange={onToggleFollowSystem}
+                                    checked={props.followSystemTheme}
+                                    style={{ margin: 8 }}
+                                />
+                            </Field>
 
-                <SettingLabel>Focus Start Warning</SettingLabel>
-                <Switch
-                    onChange={onToggleFocusStartWarning}
-                    checked={props.warnBeforeFocusStart}
-                    style={{ margin: 8 }}
-                />
-                <br />
+                            <Field>
+                                <h4>Content Opacity</h4>
+                                <Hint>
+                                    Fades the title bar and the page, text and icons included.
+                                    Dialogs and toasts fade with them; the window background has its
+                                    own slider below and is not affected.
+                                </Hint>
+                                <SliderContainer>
+                                    <Slider
+                                        marks={opacityMarks}
+                                        min={10}
+                                        max={100}
+                                        step={5}
+                                        value={Math.round(props.contentOpacity * 100)}
+                                        onChange={(value) => {
+                                            if (typeof value === 'number') {
+                                                props.setContentOpacity(value / 100);
+                                            }
+                                        }}
+                                    />
+                                </SliderContainer>
+                            </Field>
 
-                <SettingLabel>Calendar Base Color</SettingLabel>
-                <ColorInput
-                    type="color"
-                    value={props.calendarBaseColor}
-                    onChange={(e) => setCalendarColor(e.target.value)}
-                />
-                <Button size="small" onClick={resetCalendarColor}>
-                    Reset
-                </Button>
-                <br />
+                            <Field>
+                                <h4>Background Opacity</h4>
+                                <Hint>
+                                    How much of the desktop shows through the window background.
+                                    Floored above zero so the surface never disappears; the text
+                                    keeps its own opacity.
+                                </Hint>
+                                <SliderContainer>
+                                    <Slider
+                                        marks={themeBackgroundOpacityMarks}
+                                        min={10}
+                                        max={100}
+                                        step={5}
+                                        value={Math.round(props.themeBackgroundOpacity * 100)}
+                                        onChange={(value) => {
+                                            if (typeof value === 'number') {
+                                                props.setThemeBackgroundOpacity(value / 100);
+                                            }
+                                        }}
+                                    />
+                                </SliderContainer>
+                            </Field>
 
-                <h4>Data Management</h4>
-                <ButtonWrapper>
-                    <Button onClick={onExportClick} loading={exporting}>
-                        Export Data
-                    </Button>
-                </ButtonWrapper>
-                <ButtonWrapper>
-                    <Popconfirm
-                        title={'Pomodoro Logger will restart after importing. Continue?'}
-                        onConfirm={onImportClick}
-                    >
-                        <Button loading={importing}>Import Data</Button>
-                    </Popconfirm>
-                </ButtonWrapper>
-                <ButtonWrapper>
-                    <Popconfirm title={'Sure to delete?'} onConfirm={onDeleteData}>
-                        <Button type="danger">Delete All Data</Button>
-                    </Popconfirm>
-                </ButtonWrapper>
-                <h4>Misc</h4>
-                <ButtonWrapper>
-                    <Button onClick={openIssuePage}>Feedback</Button>
-                    <br />
-                </ButtonWrapper>
-                <ButtonWrapper>
-                    <DistractingListModalButton />
-                </ButtonWrapper>
-                <Footer style={{ position: 'fixed', bottom: 0, margin: 0, left: 0 }}>
+                            <Field>
+                                <h4>Background Wallpaper</h4>
+                                <Button
+                                    size="small"
+                                    onClick={onSelectWallpaper}
+                                    style={{ margin: 8 }}
+                                >
+                                    Choose
+                                </Button>
+                                {props.wallpaperPath && (
+                                    <Button size="small" onClick={onClearWallpaper}>
+                                        Clear
+                                    </Button>
+                                )}
+                            </Field>
+
+                            <Field>
+                                <h4>Wallpaper Opacity</h4>
+                                <SliderContainer>
+                                    <Slider
+                                        marks={wallpaperOpacityMarks}
+                                        min={10}
+                                        max={100}
+                                        step={5}
+                                        value={Math.round(props.wallpaperOpacity * 100)}
+                                        onChange={(value) => {
+                                            if (typeof value === 'number') {
+                                                props.setWallpaperOpacity(value / 100);
+                                            }
+                                        }}
+                                    />
+                                </SliderContainer>
+                            </Field>
+
+                            <Field>
+                                <h4>Calendar Base Color</h4>
+                                <ColorInput
+                                    type="color"
+                                    value={props.calendarBaseColor}
+                                    onChange={(e) => setCalendarColor(e.target.value)}
+                                />
+                                <Button size="small" onClick={resetCalendarColor}>
+                                    Reset
+                                </Button>
+                            </Field>
+                        </>
+                    )}
+
+                    {section === 'notification' && (
+                        <>
+                            <Field>
+                                <h4>Screenshot</h4>
+                                <Hint>
+                                    Takes a screenshot every 5 minutes while a session is running.
+                                </Hint>
+                                <Switch
+                                    onChange={switchScreenshot}
+                                    checked={!!props.screenShotInterval}
+                                    style={{ margin: 8 }}
+                                />
+                            </Field>
+
+                            <Field>
+                                <h4>Focus Start Warning</h4>
+                                <Hint>
+                                    Asks for a confirmation before starting a focus session without
+                                    a project.
+                                </Hint>
+                                <Switch
+                                    onChange={onToggleFocusStartWarning}
+                                    checked={props.warnBeforeFocusStart}
+                                    style={{ margin: 8 }}
+                                />
+                            </Field>
+
+                            <Field>
+                                <h4>Session End</h4>
+                                <Hint>
+                                    A chime plays when a session finishes. There is no desktop
+                                    notification: the ending screen takes over the window instead.
+                                </Hint>
+                            </Field>
+                        </>
+                    )}
+
+                    {section === 'shortcuts' && (
+                        <Field>
+                            <h4>Keyboard Shortcuts</h4>
+                            <Hint>{SHORTCUT_DISCLAIMER}</Hint>
+                            {SHORTCUTS.map((group) => (
+                                <ShortcutGroup key={group.group}>
+                                    <h5>{group.group}</h5>
+                                    {group.entries.map((entry) => (
+                                        <ShortcutRow key={entry.keys}>
+                                            <ShortcutKeys>
+                                                <ShortcutKey>{entry.keys}</ShortcutKey>
+                                            </ShortcutKeys>
+                                            <span>{entry.description}</span>
+                                        </ShortcutRow>
+                                    ))}
+                                </ShortcutGroup>
+                            ))}
+                        </Field>
+                    )}
+
+                    {section === 'system' && (
+                        <>
+                            <Field>
+                                <SettingLabel>Keep Small Window Always On Top</SettingLabel>
+                                <Switch
+                                    onChange={props.setCompactAlwaysOnTop}
+                                    checked={props.compactAlwaysOnTop}
+                                    style={{ margin: 8 }}
+                                />
+                            </Field>
+
+                            <Field>
+                                <h4>Startup</h4>
+                                <SettingLabel>Start On Boot</SettingLabel>
+                                <Switch
+                                    onChange={setStartOnBoot}
+                                    checked={props.startOnBoot}
+                                    style={{ margin: 8 }}
+                                />
+                            </Field>
+
+                            <Field>
+                                <SettingLabel>Hardware Acceleration</SettingLabel>
+                                <Switch
+                                    onChange={setUseHardwareAcceleration}
+                                    checked={props.useHardwareAcceleration}
+                                    style={{ margin: 8 }}
+                                />
+                            </Field>
+
+                            <Field>
+                                <h4>Update</h4>
+                                <SettingLabel>Auto Update</SettingLabel>
+                                <Switch
+                                    onChange={switchAutoUpdate}
+                                    checked={props.autoUpdate}
+                                    style={{ margin: 8 }}
+                                />
+                                <Button
+                                    size="small"
+                                    loading={checkingUpdate}
+                                    onClick={onCheckUpdate}
+                                >
+                                    Check Update
+                                </Button>
+                            </Field>
+
+                            <Field>
+                                <h4>Data Management</h4>
+                                <ButtonWrapper>
+                                    <Button onClick={onExportClick} loading={exporting}>
+                                        Export Data
+                                    </Button>
+                                </ButtonWrapper>
+                                <ButtonWrapper>
+                                    <Button loading={importing} onClick={onImportConfirm}>
+                                        Import Data
+                                    </Button>
+                                </ButtonWrapper>
+                                <ButtonWrapper>
+                                    <Button type="danger" onClick={onDeleteConfirm}>
+                                        Delete All Data
+                                    </Button>
+                                </ButtonWrapper>
+                            </Field>
+                        </>
+                    )}
+
+                    {section === 'about' && (
+                        <Field>
+                            <h4>Pomodoro Logger Enhanced</h4>
+                            <Hint>
+                                A time logger that meets the Pomodoro technique and a kanban board.
+                            </Hint>
+                            <ButtonWrapper>
+                                <Button onClick={openIssuePage}>Feedback</Button>
+                            </ButtonWrapper>
+                        </Field>
+                    )}
+                </Pane>
+                <Footer>
                     Open Source @GitHub
                     <StyledIcon
                         type="github"

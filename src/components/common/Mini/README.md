@@ -10,12 +10,12 @@ const Demo = () => {
     const [isFocusing, setIsFocusing] = React.useState(true);
     return (
         <MiniLogger
-            clear={() => {
+            stop={() => {
                 clearInterval(timer);
                 setIsRunning(false);
                 setTimePercentage(['5', 0]);
             }}
-            done={() => {
+            finish={() => {
                 clearInterval(timer);
                 setTimePercentage(['5', 0]);
                 setIsRunning(false);
@@ -48,6 +48,7 @@ const Demo = () => {
             percentage={timePercentage && timePercentage[1]}
             isRunning={isRunning}
             isFocusing={isFocusing}
+            hasSession={isRunning}
             task="完成 MiniLogger 功能"
             style={{ width: 360 }}
         />
@@ -72,12 +73,12 @@ const Demo = () => {
     return (
         <MiniLogger
             isConfirming
-            clear={() => {
+            stop={() => {
                 clearInterval(timer);
                 setIsRunning(false);
                 setTimePercentage(['5', 0]);
             }}
-            done={() => {
+            finish={() => {
                 clearInterval(timer);
                 setTimePercentage(['5', 0]);
                 setIsRunning(false);
@@ -116,6 +117,7 @@ const Demo = () => {
             percentage={timePercentage && timePercentage[1]}
             isRunning={isRunning}
             isFocusing={isFocusing}
+            hasSession={isRunning}
             task="完成 MiniLogger 功能"
             style={{ width: 360 }}
         />

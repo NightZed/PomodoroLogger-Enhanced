@@ -14,7 +14,9 @@ const handlers: { [T in WorkerMessageType]: (msg: WorkerMessage<T>) => void } = 
 
 process.on('message', async <T extends WorkerMessageType>(msg: WorkerMessage<T>) => {
     const callback = handlers[msg.type];
-    callback && callback(msg as any);
+    if (callback) {
+        callback(msg as any);
+    }
 });
 
 function send(msg: WorkerResponse) {

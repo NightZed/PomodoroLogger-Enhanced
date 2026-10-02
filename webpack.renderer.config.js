@@ -1,63 +1,24 @@
 const webpack = require('webpack');
-const merge = require('webpack-merge');
+const { merge } = require('webpack-merge');
 const path = require('path');
 const CopyPlugin = require('copy-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const { build } = require('./package');
 const baseConfig = require('./webpack.base.config');
+/**
+ * neDB's browser build would store the databases in localStorage instead of on
+ * disk, see `build/nedb-node-loader.js`.
+ */
 const fixNedbForElectronRenderer = {
-    apply(resolver) {
-        resolver
-            // Plug in after the description file (package.json) has been
-            // identified for the import, which makes sure we're not getting
-            // mixed up with a different package.
-            .getHook('beforeDescribed-relative')
-            .tapAsync(
-                'FixNedbForElectronRenderer',
-                (request, resolveContext, callback) => {
-                    // When a require/import matches the target files, we
-                    // short-circuit the Webpack resolution process by calling the
-                    // callback with the finalized request object -- meaning that
-                    // the `path` is pointing at the file that should be imported.
-                    const isNedbImport = request.descriptionFileData['name'] === 'nedb';
-
-                    if (isNedbImport && /storage(\.js)?/.test(request.path)) {
-                        const newRequest = Object.assign({}, request, {
-                            path: resolver.join(
-                                request.descriptionFileRoot,
-                                'lib/storage.js'
-                            )
-                        });
-                        callback(null, newRequest);
-                    } else if (
-                        isNedbImport &&
-                        /customUtils(\.js)?/.test(request.path)
-                    ) {
-                        const newRequest = Object.assign({}, request, {
-                            path: resolver.join(
-                                request.descriptionFileRoot,
-                                'lib/customUtils.js'
-                            )
-                        });
-                        callback(null, newRequest);
-                    } else {
-                        // Calling `callback` with no parameters proceeds with the
-                        // normal resolution process.
-                        return callback();
-                    }
-                }
-            );
-    }
+    test: /nedb[\\/]browser-version[\\/]browser-specific[\\/]lib[\\/](storage|customUtils)\.js$/,
+    use: { loader: path.resolve(__dirname, 'build/nedb-node-loader.js') }
 };
 
 
-module.exports = merge.smart(baseConfig, {
+module.exports = merge(baseConfig, {
     target: 'electron-renderer',
     entry: {
         app: ['./src/renderer/app.tsx']
-    },
-    output: {
-        globalObject: 'this'
     },
     module: {
         rules: [
@@ -86,11 +47,11 @@ module.exports = merge.smart(baseConfig, {
             },
             {
                 test: /\.scss$/,
-                loaders: ['style-loader', 'css-loader', 'sass-loader']
+                use: ['style-loader', 'css-loader', 'sass-loader']
             },
             {
                 test: /\.css$/,
-                loaders: ['style-loader', 'css-loader']
+                use: ['style-loader', 'css-loader']
             },
             {
                 test: /\.svg(\?v=\d+\.\d+\.\d+)?$/,
@@ -101,45 +62,46 @@ module.exports = merge.smart(baseConfig, {
                     {
                         loader: '@svgr/webpack',
                         options: {
-                            babel: true,
                             icon: true
                         }
                     }
                 ]
             },
             {
+                // url-loader with an 8kb inline limit -> webpack 5 asset module
                 test: /\.(gif|png|jpe?g)$/,
-                use: [
-                    {
-                        loader: 'url-loader',
-                        options: {
-                            limit: 8192
-                        }
-                    }
-                ]
+                type: 'asset',
+                parser: {
+                    dataUrlCondition: { maxSize: 8192 }
+                }
             },
             // All output '.js' files will have any sourcemaps re-processed by 'source-map-loader'.
             {
                 enforce: 'pre',
                 test: /\.js$/,
+                exclude: /node_modules/,
                 loader: 'source-map-loader'
             },
             {
                 test: /\.(dat|mp3)$/,
-                use: 'file-loader'
+                type: 'asset/resource'
             },
-            {
-                test: /\.worker\.js$/,
-                use: { loader: 'index-loader' }
-            }
+            fixNedbForElectronRenderer
         ]
         },
     plugins: [
         // Type checking is done by `yarn typecheck` (see webpack.main.config.js).
-        new CopyPlugin([
-            { from: path.resolve(__dirname, 'public'), to: path.resolve(__dirname, 'dist') },
-        ]),
-        new webpack.NamedModulesPlugin(),
+        new CopyPlugin({
+            patterns: [
+                {
+                    from: path.resolve(__dirname, 'public'),
+                    to: path.resolve(__dirname, 'dist'),
+                    // index.html is the HtmlWebpackPlugin template: copying it would
+                    // clash with the generated file (webpack 5 errors on that).
+                    globOptions: { ignore: ['**/index.html'] }
+                }
+            ]
+        }),
         new HtmlWebpackPlugin({
             title: build.productName,
             template: 'public/index.html',
@@ -152,12 +114,6 @@ module.exports = merge.smart(baseConfig, {
     resolve: {
         alias: {
             echarts$: 'echarts/lib/echarts.js',
-        },
-        plugins: [
-            // This plugin allow us to use nedb of node.js version directly
-            // in renderer process (and the web index)
-            // See https://stackoverflow.com/questions/55389659/persist-nedb-to-disk-in-electron-renderer-process-webpack-electron-nedb-configu
-            fixNedbForElectronRenderer
-        ]
+        }
     }
 });

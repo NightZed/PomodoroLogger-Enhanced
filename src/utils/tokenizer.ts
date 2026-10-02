@@ -20,7 +20,9 @@ export class Tokenizer {
                 for (const [_, reg] of this.rules) {
                     const match = str.match(reg);
                     if (match != null) {
-                        const matched = match.entries().next().value[1];
+                        // `match.entries().next().value[1]` stopped type checking
+                        // with TypeScript 5; index 0 is the matched text
+                        const matched = match[0];
                         ans.push(matched);
                         str = str.slice(matched.length);
                         found = true;

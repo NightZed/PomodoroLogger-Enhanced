@@ -13,7 +13,7 @@ export class ColorEncoder {
         return [
             this.decodeNum(rgb.substring(0, 2)),
             this.decodeNum(rgb.substring(2, 4)),
-            this.decodeNum(rgb.substring(4, 6))
+            this.decodeNum(rgb.substring(4, 6)),
         ];
     }
 
@@ -25,7 +25,7 @@ export class ColorEncoder {
         return [
             Math.floor(Math.random() * 256),
             Math.floor(Math.random() * 256),
-            Math.floor(Math.random() * 256)
+            Math.floor(Math.random() * 256),
         ];
     }
 
@@ -46,7 +46,7 @@ export class ColorScheme {
     constructor() {}
 
     get(name: string) {
-        if (!this.colorMap.hasOwnProperty(name)) {
+        if (!Object.prototype.hasOwnProperty.call(this.colorMap, name)) {
             this.colorMap[name] = this.encoder.getAColor();
         }
 

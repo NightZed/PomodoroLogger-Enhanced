@@ -13,7 +13,6 @@ import { Card as CardType } from '../type';
 import { matchParent } from '../../../utils';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../reducers';
-import { check } from 'prettier';
 import { formatTimeYmdHm } from '../../Visualization/Timeline';
 import { CreatedTime } from '../style/CreatedTime';
 import { CompletedTime } from './CompletedTime';

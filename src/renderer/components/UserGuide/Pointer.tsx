@@ -1,7 +1,7 @@
-import React, { FC, useEffect, useRef, useState } from 'react';
+import React, { FC, useCallback, useEffect, useState } from 'react';
 import PointerIcon from '../../../res/pointer-left.svg';
-import styled, { keyframes, css } from 'styled-components';
-import { getElementAbsoluteOffsetBySelector } from './utils';
+import styled, { keyframes } from 'styled-components';
+import { TargetRect, getTargetRectBySelector, waitForTargetBySelector } from './utils';
 
 const animation = keyframes`
   0% {
@@ -25,45 +25,89 @@ export interface PointerProps {
     show?: boolean;
     animate?: boolean;
     targetSelector: string;
+    /** Measure union of visible children (see SpotlightProps.unionChildren). */
+    unionChildren?: boolean;
+    /** How long to wait for the target to appear before hiding the pointer. */
+    waitForTargetMs?: number;
+    onTargetRect?: (rect: TargetRect | null) => void;
 }
 
 export const Pointer: FC<PointerProps> = (props: PointerProps) => {
-    const { direction = 0, show = true, animate = true, targetSelector } = props;
-    const [xy, setXy] = useState([0, 0]);
-    const [wh, setWh] = useState([0, 0]);
-    const ref = useRef<SVGElement>();
-    const updatePosition = () => {
-        try {
-            const [x, y, w, h] = getElementAbsoluteOffsetBySelector(targetSelector);
-            setWh([w, h]);
-            setXy([x + w / 2, y + h / 2]);
-        } catch (e) {
-            console.error('cannot find', targetSelector);
-            setXy([-1000, -1000]);
-        }
-    };
+    const {
+        direction = 0,
+        show = true,
+        animate = true,
+        targetSelector,
+        unionChildren = false,
+        waitForTargetMs = 8000,
+        onTargetRect,
+    } = props;
+    const [rect, setRect] = useState<TargetRect | null>(() =>
+        getTargetRectBySelector(targetSelector, unionChildren)
+    );
+
+    const refresh = useCallback(() => {
+        setRect(getTargetRectBySelector(targetSelector, unionChildren));
+    }, [targetSelector, unionChildren]);
 
     useEffect(() => {
-        updatePosition();
-        window.addEventListener('resize', updatePosition);
+        let cancelled = false;
+        setRect(getTargetRectBySelector(targetSelector, unionChildren));
+        // Target may mount late (tab switch animation, async board list, modal).
+        // Wait for it instead of pointing at a stale position (e.g. Pomodoro tab).
+        waitForTargetBySelector(targetSelector, waitForTargetMs, unionChildren)
+            .then((r) => {
+                if (!cancelled) {
+                    setRect(r);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setRect(null);
+                }
+            });
+        window.addEventListener('resize', refresh);
+        window.addEventListener('scroll', refresh, true);
+        const observer = new MutationObserver(refresh);
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+        });
+        // Tab switch / StackGrid layout settles a few frames later.
+        const raf = requestAnimationFrame(refresh);
         return () => {
-            window.removeEventListener('resize', updatePosition);
+            cancelled = true;
+            window.removeEventListener('resize', refresh);
+            window.removeEventListener('scroll', refresh, true);
+            observer.disconnect();
+            cancelAnimationFrame(raf);
         };
-    }, [targetSelector]);
+    }, [targetSelector, waitForTargetMs, unionChildren, refresh]);
+
+    useEffect(() => {
+        if (onTargetRect) {
+            onTargetRect(rect);
+        }
+    }, [rect, onTargetRect]);
 
     const Wrapper = animate ? Animation : Normal;
+    if (!rect) {
+        return <></>;
+    }
+    const x = rect.x + rect.w / 2;
+    const y = rect.y + rect.h / 2;
     return (
         <div
-            // @ts-ignore
-            ref={ref}
             style={{
                 position: 'fixed',
-                left: xy[0],
-                top: xy[1],
+                left: x,
+                top: y,
                 display: show ? undefined : 'none',
                 zIndex: 2003,
                 transform: `rotate(${direction}rad)`,
-                transition: 'transform 0.3s'
+                transition: 'transform 0.3s',
+                pointerEvents: 'none',
             }}
         >
             <Wrapper>
@@ -72,7 +116,7 @@ export const Pointer: FC<PointerProps> = (props: PointerProps) => {
                         fontSize: 48,
                         fill: 'white',
                         transform: `translate(16px, ${Math.cos(direction * 2) * -16}px)`,
-                        transition: 'transform 0.3s'
+                        transition: 'transform 0.3s',
                     }}
                 />
             </Wrapper>

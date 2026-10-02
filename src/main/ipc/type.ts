@@ -10,6 +10,7 @@ export enum IpcEventName {
     InstallUpdate = 'install-update',
     ExportData = 'exportData',
     ImportData = 'importData',
+    SelectWallpaper = 'selectWallpaper',
     ActiveWin = 'activeWin',
     OpenAtLogin = 'openAtLogin',
     MinimizeWindow = 'minimizeWindow',
@@ -18,6 +19,7 @@ export enum IpcEventName {
     Notify = 'notify',
     FocusOnWindow = 'focusOnWindow',
     DesktopSource = 'desktopSource',
+    WindowAction = 'windowAction',
 }
 
 /**
@@ -41,20 +43,34 @@ export type UpdatePhase = 'check' | 'download' | 'install';
 export type UpdateErrorPayload = {
     phase: UpdatePhase;
     message: string;
+    /**
+     * True when the check was skipped rather than failed (for example because
+     * the app is not packaged). The page that asked for the check reports it
+     * itself, so the app wide error notice stays quiet.
+     */
+    skipped?: boolean;
 };
 
 export type ExposedAPI = {
     [IpcEventName.ImportData](): Promise<void>;
+    [IpcEventName.SelectWallpaper](): Promise<string | undefined>;
     [IpcEventName.ExportData](): Promise<void>;
     [IpcEventName.ActiveWin](): Promise<BaseResult | undefined>;
     [IpcEventName.OpenAtLogin](on: boolean): void;
-    [IpcEventName.MinimizeWindow](on: boolean, contentHeight: number): void;
+    [IpcEventName.MinimizeWindow](on: boolean): void;
     [IpcEventName.CompactWindow](on: boolean, alwaysOnTop?: boolean): void;
     [IpcEventName.OpenDevTools](): void;
     [IpcEventName.Notify](title: string, body: string, iconPath: string): void;
     [IpcEventName.FocusOnWindow](): void;
     [IpcEventName.DesktopSource](x: number, y: number): Promise<DesktopSourceInfo | undefined>;
+    [IpcEventName.WindowAction](action: WindowAction): void;
 };
+
+/**
+ * Caption button actions for the frameless window, handled in ipc.ts.
+ * `close` goes through init.ts's close handler, which hides the window to tray.
+ */
+export type WindowAction = 'minimize' | 'maximize' | 'close';
 
 /**
  * Identifiers of the `desktopCapturer` source that belongs to the display which

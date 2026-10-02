@@ -5,19 +5,9 @@ import { actions, CardActionTypes } from './action';
 import { actions as kanbanActions } from '../action';
 import { RootState } from '../../../reducers';
 import { genMapDispatchToProp } from '../../../utils';
-import {
-    Button,
-    Col,
-    DatePicker,
-    Form,
-    Input,
-    InputNumber,
-    Modal,
-    Popconfirm,
-    Row,
-    Tabs,
-    Tooltip,
-} from 'antd';
+import { Button, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Tabs, Tooltip } from 'antd';
+import { ConfirmPopover } from '../../feedback';
+import { getPopupContainer } from '../../popupLayer';
 import TextArea from 'antd/es/input/TextArea';
 import shortid from 'shortid';
 import moment from 'moment';
@@ -525,6 +515,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             width={960}
             transitionName="card-editor-zoom"
             maskTransitionName="card-editor-fade"
+            getContainer={getPopupContainer}
         >
             <EditorAnimation />
             <EditorContainer>
@@ -676,11 +667,11 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                     </Form.Item>
                     {thisIsCreating ? undefined : (
                         <Row>
-                            <Popconfirm title={'Are you sure?'} onConfirm={onDelete}>
+                            <ConfirmPopover onConfirm={onDelete}>
                                 <Button type={'danger'} icon={'delete'}>
                                     Delete
                                 </Button>
-                            </Popconfirm>
+                            </ConfirmPopover>
                         </Row>
                     )}
                 </Form>
@@ -694,6 +685,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                 onOk={confirmLink}
                 onCancel={closeLinkModal}
                 destroyOnClose={true}
+                getContainer={getPopupContainer}
             >
                 <Input
                     autoFocus={true}

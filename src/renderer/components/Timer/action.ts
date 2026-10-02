@@ -15,6 +15,30 @@ import { DEFAULT_THEME_ID, ThemeDefinition } from '../../theme/tokens';
 
 export const LONG_BREAK_INTERVAL = 4;
 const settingDB = new AsyncDB(dbs.settingDB);
+
+/**
+ * Pending writes of the drag-driven settings, keyed by setting name.
+ *
+ * The opacity sliders dispatch on every `onChange`, i.e. dozens of times while
+ * a thumb is being dragged, and each dispatch would otherwise be its own NeDB
+ * write. Writes are debounced per key, so dragging one slider never cancels the
+ * pending write of another one.
+ */
+const pendingSettingWrites: { [name: string]: ReturnType<typeof setTimeout> } = {};
+
+/** Persists a slider-driven setting once the dragging has settled. */
+function persistSettingWithDebounce(name: string, value: number): void {
+    const pending = pendingSettingWrites[name];
+    if (pending) {
+        clearTimeout(pending);
+    }
+
+    pendingSettingWrites[name] = setTimeout(() => {
+        delete pendingSettingWrites[name];
+        settingDB.update({ name: 'setting' }, { $set: { [name]: value } }, { upsert: true });
+    }, 300);
+}
+
 export const TABS: tabType[] = ['timer', 'kanban', 'history', 'setting'];
 if (process.env.NODE_ENV !== 'production') {
     TABS.push('analyser');
@@ -37,6 +61,22 @@ export interface Setting {
     startOnBoot: boolean;
     useHardwareAcceleration: boolean;
     compactAlwaysOnTop: boolean;
+    /**
+     * Opacity of the content layer: the title bar and the active page, text and
+     * icons included. Dialogs and toasts belong to that layer as well (they are
+     * mounted inside it, see `popupLayer.ts`), while the window background and
+     * the wallpaper are separate settings below.
+     */
+    contentOpacity: number;
+    /**
+     * Opacity of the window background layer. Published to CSS as
+     * `--pl-theme-bg-opacity`, the single channel it travels through.
+     */
+    themeBackgroundOpacity: number;
+    wallpaperPath?: string;
+    wallpaperDataUrl?: string;
+    /** Opacity of the wallpaper image layer. */
+    wallpaperOpacity: number;
     distractingList: DistractingRow[];
     calendarBaseColor: string;
     /** Id of the active theme, see `theme/tokens.ts`. */
@@ -48,9 +88,18 @@ export interface Setting {
 }
 
 export interface TimerManager {
-    start: () => void;
+    /**
+     * Start a focus session. `boardId` identifies the project the caller
+     * intends to use for this request. It is optional because the Timer page
+     * can start a session using its current selection.
+     *
+     * The named session wins, so the caller does not have to worry about the
+     * mode: a paused session of either type is discarded (the switch drops it,
+     * exactly like `stop`), while a *running* rest session is stopped first. A
+     * running focus session is left as it is.
+     */
+    start: (boardId?: string) => void;
     pause: () => void;
-    clear: () => void;
 }
 
 export interface TimerState extends Setting {
@@ -60,6 +109,14 @@ export interface TimerState extends Setting {
     leftTime?: number;
     isFocusing: boolean;
     isRunning: boolean;
+    /**
+     * Whether the ending mask is up, i.e. a finished session is waiting to be
+     * confirmed. It lives here rather than in the Timer component because it
+     * blocks app-wide navigation: while it is up the pages must not be
+     * switched (see `AppTitleBar`), so the title bar and the global hotkeys
+     * have to read it too.
+     */
+    sessionEnding: boolean;
     boardId?: string;
     iBreak: number; // i-th break session, if i can be divided by 4, start longer break
     minimize: boolean;
@@ -89,9 +146,15 @@ export const defaultState: TimerState = {
     longBreakDuration: 15 * 60,
     isRunning: false,
     isFocusing: true,
+    sessionEnding: false,
     startOnBoot: false,
     useHardwareAcceleration: false,
     compactAlwaysOnTop: true,
+    contentOpacity: 1,
+    themeBackgroundOpacity: 1,
+    wallpaperPath: undefined,
+    wallpaperDataUrl: undefined,
+    wallpaperOpacity: 1,
     minimize: false,
     compact: false,
 
@@ -117,20 +180,37 @@ export const uiStateNames = [
     'leftTime',
     'isFocusing',
     'isRunning',
+    'sessionEnding',
     'boardId',
     'iBreak',
     'minimize',
     'compact',
 ];
 
+// A session lives across start / pause / continue: pausing keeps `targetTime`
+// so the very same session can be resumed. `stopTimer` is the only one that
+// discards a session (and everything collected with it) -- what the "Stop"
+// button, the tray entry and the mini window call.
 export const startTimer = createActionCreator('[Timer]START_TIMER');
-export const stopTimer = createActionCreator('[Timer]STOP_TIMER');
+export const pauseTimer = createActionCreator('[Timer]PAUSE_TIMER');
 export const continueTimer = createActionCreator('[Timer]CONTINUE_TIMER');
-export const clearTimer = createActionCreator('[Timer]CLEAR_TIMER');
+export const stopTimer = createActionCreator('[Timer]STOP_TIMER');
 export const timerFinished = createActionCreator('[Timer]TIMER_FINISHED');
 export const setMinimize = createActionCreator(
     '[Timer]SET_MINIMIZE',
     (resolve) => (value: boolean) => resolve(value)
+);
+/**
+ * Raise or lower the ending mask: a finished session is waiting to be
+ * confirmed. See `TimerState.sessionEnding` for why this is app-wide state.
+ */
+export const setSessionEnding = createActionCreator(
+    '[Timer]SET_SESSION_ENDING',
+    (resolve) => (value: boolean) => resolve(value)
+);
+export const setWallpaperDataUrl = createActionCreator(
+    '[Setting]SET_WALLPAPER_DATA_URL',
+    (resolve) => (value?: string) => resolve(value)
 );
 export const setCompact = createActionCreator(
     '[Timer]SET_COMPACT',
@@ -139,6 +219,22 @@ export const setCompact = createActionCreator(
 export const setCompactAlwaysOnTop = createActionCreator(
     '[Timer]SET_COMPACT_ALWAYS_ON_TOP',
     (resolve) => (value: boolean) => resolve(value)
+);
+export const setContentOpacity = createActionCreator(
+    '[Setting]SET_CONTENT_OPACITY',
+    (resolve) => (value: number) => resolve(value)
+);
+export const setThemeBackgroundOpacity = createActionCreator(
+    '[Setting]SET_THEME_BACKGROUND_OPACITY',
+    (resolve) => (value: number) => resolve(value)
+);
+export const setWallpaperPath = createActionCreator(
+    '[Setting]SET_WALLPAPER_PATH',
+    (resolve) => (value?: string) => resolve(value)
+);
+export const setWallpaperOpacity = createActionCreator(
+    '[Setting]SET_WALLPAPER_OPACITY',
+    (resolve) => (value: number) => resolve(value)
 );
 export const setAutoUpdate = createActionCreator(
     '[Timer]SET_AUTO_UPDATE',
@@ -278,14 +374,15 @@ const throwError = (err: Error | null) => {
     }
 };
 export const actions = {
-    stopTimer,
+    pauseTimer,
     continueTimer,
-    clearTimer,
+    stopTimer,
     startTimer,
     setBoardId,
     changeAppTab,
     extendCurrentSession,
     setChosenRecord,
+    setSessionEnding,
     setTimerManager,
     switchFocusRestMode,
     switchTab: throttle((direction: 1 | -1) => switchTab(direction), 100),
@@ -306,6 +403,10 @@ export const actions = {
             ['startOnBoot', setStartOnBoot],
             ['useHardwareAcceleration', setUseHardwareAcceleration],
             ['compactAlwaysOnTop', setCompactAlwaysOnTop],
+            ['contentOpacity', setContentOpacity],
+            ['themeBackgroundOpacity', setThemeBackgroundOpacity],
+            ['wallpaperPath', setWallpaperPath],
+            ['wallpaperOpacity', setWallpaperOpacity],
             ['longBreakDuration', setLongBreakDuration],
             ['distractingList', setDistractingList],
             ['autoUpdate', setAutoUpdate],
@@ -320,6 +421,15 @@ export const actions = {
                 const action = key[1](settings[key[0]]);
                 dispatch(action);
             }
+        }
+        if (settings.wallpaperPath) {
+            dispatch(
+                setWallpaperDataUrl(
+                    settings.wallpaperPath.startsWith('data:')
+                        ? settings.wallpaperPath
+                        : `wallpaper://local?path=${encodeURIComponent(settings.wallpaperPath)}`
+                )
+            );
         }
     },
     setAutoUpdate: (value: boolean) => async (dispatch: Dispatch) => {
@@ -342,8 +452,7 @@ export const actions = {
     },
     setMinimize: (mini: boolean) => async (dispatch: Dispatch) => {
         dispatch(setMinimize(mini));
-        const contentHeight = document.documentElement.offsetHeight;
-        window.api.minimizeWindow(mini, contentHeight);
+        window.api.minimizeWindow(mini);
     },
     setCompact: (compact: boolean) => async (dispatch: Dispatch, getState: any) => {
         dispatch(setCompact(compact));
@@ -359,6 +468,36 @@ export const actions = {
         if (getState().timer.compact) {
             window.api.compactWindow(true, value);
         }
+    },
+    setContentOpacity: (value: number) => (dispatch: Dispatch) => {
+        dispatch(setContentOpacity(value));
+        persistSettingWithDebounce('contentOpacity', value);
+    },
+    setThemeBackgroundOpacity: (value: number) => (dispatch: Dispatch) => {
+        dispatch(setThemeBackgroundOpacity(value));
+        persistSettingWithDebounce('themeBackgroundOpacity', value);
+    },
+    setWallpaperPath: (value?: string) => async (dispatch: Dispatch) => {
+        dispatch(setWallpaperPath(value));
+        dispatch(setWallpaperDataUrl(undefined));
+        await settingDB.update(
+            { name: 'setting' },
+            value ? { $set: { wallpaperPath: value } } : { $unset: { wallpaperPath: true } },
+            { upsert: true }
+        );
+        if (value) {
+            dispatch(
+                setWallpaperDataUrl(
+                    value.startsWith('data:')
+                        ? value
+                        : `wallpaper://local?path=${encodeURIComponent(value)}`
+                )
+            );
+        }
+    },
+    setWallpaperOpacity: (value: number) => (dispatch: Dispatch) => {
+        dispatch(setWallpaperOpacity(value));
+        persistSettingWithDebounce('wallpaperOpacity', value);
     },
     setDistractingList: (distractingList: DistractingRow[]) => async (dispatch: Dispatch) => {
         dispatch(setDistractingList(distractingList));
@@ -510,7 +649,7 @@ export const reducer = createReducer<TimerState, any>(defaultState, (handle) => 
         return { ...state, isRunning: true, targetTime: now + duration * 1000 };
     }),
 
-    handle(stopTimer, (state) => ({
+    handle(pauseTimer, (state) => ({
         ...state,
         isRunning: false,
         leftTime: state.targetTime ? state.targetTime - new Date().getTime() : undefined,
@@ -521,7 +660,7 @@ export const reducer = createReducer<TimerState, any>(defaultState, (handle) => 
         isRunning: true,
         targetTime: state.leftTime ? new Date().getTime() + state.leftTime : state.targetTime,
     })),
-    handle(clearTimer, (state) => ({
+    handle(stopTimer, (state) => ({
         ...state,
         leftTime: undefined,
         isRunning: false,
@@ -626,6 +765,10 @@ export const reducer = createReducer<TimerState, any>(defaultState, (handle) => 
         ...state,
         timerManager: manager,
     })),
+    handle(setSessionEnding, (state, { payload }) => ({
+        ...state,
+        sessionEnding: payload,
+    })),
     handle(setMinimize, (state, { payload }) => ({
         ...state,
         minimize: payload,
@@ -641,5 +784,25 @@ export const reducer = createReducer<TimerState, any>(defaultState, (handle) => 
     handle(setCompactAlwaysOnTop, (state, { payload }) => ({
         ...state,
         compactAlwaysOnTop: payload,
+    })),
+    handle(setContentOpacity, (state, { payload }) => ({
+        ...state,
+        contentOpacity: payload,
+    })),
+    handle(setThemeBackgroundOpacity, (state, { payload }) => ({
+        ...state,
+        themeBackgroundOpacity: payload,
+    })),
+    handle(setWallpaperPath, (state, { payload }) => ({
+        ...state,
+        wallpaperPath: payload,
+    })),
+    handle(setWallpaperDataUrl, (state, { payload }) => ({
+        ...state,
+        wallpaperDataUrl: payload,
+    })),
+    handle(setWallpaperOpacity, (state, { payload }) => ({
+        ...state,
+        wallpaperOpacity: payload,
     })),
 ]);

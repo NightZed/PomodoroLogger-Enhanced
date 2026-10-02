@@ -1,6 +1,6 @@
 import * as React from 'react';
 import ReactEcharts from 'echarts-for-react';
-import { message } from 'antd';
+import { feedback, FEEDBACK_MESSAGES } from '../feedback';
 import { actions } from '../Timer/action';
 import { PomodoroRecord } from '../../monitor/type';
 import { EfficiencyAnalyser } from '../../../shared/efficiency/efficiency';
@@ -11,7 +11,7 @@ import { RootState } from '../../reducers';
 import styled from 'styled-components';
 import { fatScrollBar } from '../../style/scrollbar';
 import ReactHotkeys from 'react-hot-keys';
-import { formatTimeHMS, formatTimeYmdHms } from './Timeline';
+import { formatTimeYmdHms } from './Timeline';
 import { EChartOption } from 'echarts';
 import { ThemeTokens } from '../../theme/tokens';
 import { useThemeTokens } from '../../theme/useThemeTokens';
@@ -143,7 +143,7 @@ const getLinkAndNode = (
             if (key.length > 48) {
                 key = key.slice(0, 45) + '...';
             }
-            if (!_app.titleSpentTime.hasOwnProperty(title)) {
+            if (!Object.prototype.hasOwnProperty.call(_app.titleSpentTime, title)) {
                 continue;
             }
 
@@ -161,8 +161,9 @@ const getLinkAndNode = (
                 },
                 tooltip: {
                     formatter: (params: any) => {
-                        // tslint:disable-next-line:prefer-const
-                        let { source, target, value: dataValue, name } = params.data;
+                        // `source` and `target` are rewritten below, the rest is read-only
+                        let { source, target } = params.data;
+                        const { value: dataValue, name } = params.data;
                         if (name) {
                             return `${breakWord(new_title, '<br/>')}: ${value}`;
                         }
@@ -346,10 +347,12 @@ export const PomodoroSankey = (props: Props) => {
         props.record.stayTimeInSecond == null ||
         props.record.switchActivities.length !== props.record.stayTimeInSecond.length;
     if (isOutdated) {
-        message.info(
-            'Cannot plot Sankey Diagram. ' +
-                'Chosen pomodoro was recorded in a version that lacks of required data'
-        );
+        // A fixed key keeps re-renders from stacking identical toasts.
+        feedback.toast({
+            kind: 'info',
+            key: 'sankey-outdated',
+            content: FEEDBACK_MESSAGES.statistics.sankeyOutdated,
+        });
         return <></>;
     }
     if (option == null) {

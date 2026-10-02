@@ -1,11 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import styled from 'styled-components';
-import { Button, Card, Col, Progress, Row, Statistic } from 'antd';
 import { RootState } from '../../reducers';
 import { HistoryActionCreatorTypes } from '../History/action';
-import { workers } from '../../workers';
 import { fatScrollBar, tabMaxHeight } from '../../style/scrollbar';
-import { PomodoroRecord } from '../../monitor/type';
 import { SearchBar } from '../Kanban/SearchBar';
 
 const Container = styled.div`
@@ -20,7 +17,7 @@ const Container = styled.div`
 `;
 
 interface Props extends RootState, HistoryActionCreatorTypes {}
-export const Analyser: React.FC<Props> = React.memo((props: Props) => {
+export const Analyser: React.FC<Props> = React.memo(() => {
     return (
         <Container>
             <SearchBar />

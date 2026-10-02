@@ -137,7 +137,7 @@ export const listReducer = createReducer<ListsState, any>({}, (handle) => [
     })),
 
     handle(deleteList, (state, { payload: { _id } }) => {
-        const { [_id]: del, ...rest } = state;
+        const { [_id]: _del, ...rest } = state;
         return rest;
     }),
 

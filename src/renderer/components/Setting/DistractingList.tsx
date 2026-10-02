@@ -5,6 +5,7 @@ import { connect } from 'react-redux';
 import { RootState } from '../../reducers';
 import { Dispatch } from 'redux';
 import { Form, Input, Icon, Button, Modal } from 'antd';
+import { getPopupContainer } from '../popupLayer';
 import { FormComponentProps } from 'antd/es/form/Form';
 import styled from 'styled-components';
 
@@ -42,7 +43,7 @@ class DynamicFieldSet extends React.Component<
 
         // can use data-binding to set
         form.setFieldsValue({
-            keys: keys.filter((key: number) => key !== k)
+            keys: keys.filter((key: number) => key !== k),
         });
     };
 
@@ -55,7 +56,7 @@ class DynamicFieldSet extends React.Component<
         // can use data-binding to set
         // important! notify form to detect changes
         form.setFieldsValue({
-            keys: nextKeys
+            keys: nextKeys,
         });
     };
 
@@ -68,7 +69,7 @@ class DynamicFieldSet extends React.Component<
         this.id = Math.max(...keys) + 1;
         this.props.form.setFieldsValue(
             {
-                keys
+                keys,
             },
             console.error
         );
@@ -76,7 +77,7 @@ class DynamicFieldSet extends React.Component<
         this.props.form.setFieldsValue(
             {
                 apps,
-                titles
+                titles,
             },
             console.error
         );
@@ -89,12 +90,16 @@ class DynamicFieldSet extends React.Component<
 
         this.props.form.validateFields((err: Error, values: any) => {
             if (!err) {
-                // tslint:disable-next-line:prefer-const
-                let { keys, apps, titles } = values;
-                keys = keys.filter((v: any, i: any) => apps[i] || titles[i]);
+                // `keys` is filtered below, the other two are only read
+                const { apps, titles } = values;
+                let { keys } = values;
+                // `keys` holds the row ids, which are the indexes into the (sparse)
+                // `apps` / `titles` arrays. Filtering by position would drop every
+                // row that comes after a removed one.
+                keys = keys.filter((key: any) => apps[key] || titles[key]);
                 this.props.form.setFieldsValue(
                     {
-                        keys
+                        keys,
                     },
                     console.error
                 );
@@ -103,7 +108,7 @@ class DynamicFieldSet extends React.Component<
                 for (const key of keys) {
                     ans.push({
                         app: apps[key],
-                        title: titles[key]
+                        title: titles[key],
                     });
                 }
 
@@ -117,59 +122,66 @@ class DynamicFieldSet extends React.Component<
         const formItemLayout = {
             labelCol: {
                 xs: { span: 24 },
-                sm: { span: 4 }
+                sm: { span: 4 },
             },
             wrapperCol: {
                 xs: { span: 24 },
-                sm: { span: 20 }
-            }
+                sm: { span: 20 },
+            },
         };
         const formItemLayoutWithOutLabel = {
             wrapperCol: {
                 xs: { span: 24, offset: 0 },
-                sm: { span: 20, offset: 4 }
-            }
+                sm: { span: 20, offset: 4 },
+            },
         };
 
         getFieldDecorator('keys', { initialValue: [] });
         const keys = getFieldValue('keys');
         const formItems = keys.map((k: number, index: number) => (
-            <Form.Item
-                {...(index === 0 ? formItemLayout : formItemLayoutWithOutLabel)}
-                label={index === 0 ? 'RegExp' : ''}
-                required={false}
-                key={k}
-            >
-                {getFieldDecorator(
-                    `apps[${k}]`,
-                    {}
-                )(
-                    <Input
-                        placeholder="App RegExp"
-                        style={{ width: '85%', marginRight: 8 }}
-                        addonBefore={'App'}
-                    />
-                )}
-                {getFieldDecorator(
-                    `titles[${k}]`,
-                    {}
-                )(
-                    <Input
-                        placeholder="Title RegExp"
-                        style={{ width: '85%', marginRight: 8 }}
-                        addonBefore={'Title'}
-                    />
-                )}
+            // One control per `Form.Item`: antd can only derive `validateStatus`
+            // and `help` from a single decorated field, and warns when a row holds
+            // more (its error message would never show up once rules are added).
+            <React.Fragment key={k}>
+                <Form.Item
+                    {...(index === 0 ? formItemLayout : formItemLayoutWithOutLabel)}
+                    label={index === 0 ? 'RegExp' : ''}
+                    required={false}
+                    style={{ marginBottom: 4 }}
+                >
+                    {getFieldDecorator(
+                        `apps[${k}]`,
+                        {}
+                    )(
+                        <Input
+                            placeholder="App RegExp"
+                            style={{ width: '85%', marginRight: 8 }}
+                            addonBefore={'App'}
+                        />
+                    )}
+                </Form.Item>
+                <Form.Item {...formItemLayoutWithOutLabel}>
+                    {getFieldDecorator(
+                        `titles[${k}]`,
+                        {}
+                    )(
+                        <Input
+                            placeholder="Title RegExp"
+                            style={{ width: '85%', marginRight: 8 }}
+                            addonBefore={'Title'}
+                        />
+                    )}
 
-                {keys.length > 1 ? (
-                    <Icon
-                        className="dynamic-delete-button"
-                        type="minus-circle-o"
-                        /* tslint:disable-next-line:jsx-no-lambda */
-                        onClick={() => this.remove(k)}
-                    />
-                ) : null}
-            </Form.Item>
+                    {keys.length > 1 ? (
+                        <Icon
+                            className="dynamic-delete-button"
+                            type="minus-circle-o"
+                            /* tslint:disable-next-line:jsx-no-lambda */
+                            onClick={() => this.remove(k)}
+                        />
+                    ) : null}
+                </Form.Item>
+            </React.Fragment>
         ));
         return (
             <Form onSubmit={this.handleSubmit}>
@@ -207,8 +219,8 @@ class PrivateDistractingList extends React.Component<Props> {
         }
 
         this.ref.current.setValues(
-            this.props.distractingList.map(v => v.app),
-            this.props.distractingList.map(v => v.title)
+            this.props.distractingList.map((v) => v.app),
+            this.props.distractingList.map((v) => v.title)
         );
     }
 
@@ -235,25 +247,25 @@ export const DistractingList = connect(
     (state: RootState, props: InputProps) => {
         if (props.boardId == null) {
             return {
-                distractingList: state.timer.distractingList
+                distractingList: state.timer.distractingList,
             };
         }
 
         return {
-            distractingList: state.kanban.boards[props.boardId].distractionList || []
+            distractingList: state.kanban.boards[props.boardId].distractionList || [],
         };
     },
     (dispatch: Dispatch, props: InputProps) => {
         if (props.boardId == null) {
             return {
                 setDistractingList: (rows: DistractingRow[]) =>
-                    actions.setDistractingList(rows)(dispatch)
+                    actions.setDistractingList(rows)(dispatch),
             };
         }
 
         return {
             setDistractingList: (rows?: DistractingRow[]) =>
-                boardActions.setDistractionList(props.boardId!, rows)(dispatch)
+                boardActions.setDistractionList(props.boardId!, rows)(dispatch),
         };
     },
     null,
@@ -284,6 +296,7 @@ export const DistractingListModalButton = (props: InputProps) => {
                 onOk={onOk}
                 destroyOnClose={true}
                 okText={'Save'}
+                getContainer={getPopupContainer}
             >
                 {
                     // @ts-ignore

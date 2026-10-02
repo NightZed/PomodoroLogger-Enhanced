@@ -67,7 +67,7 @@ describe('renderer.utils', () => {
                     resolve();
                 }) as any;
 
-                expect(dispatchDict.hasOwnProperty(key)).toBeTruthy();
+                expect(Object.prototype.hasOwnProperty.call(dispatchDict, key)).toBeTruthy();
                 dispatchDict[key](...args);
             });
         }

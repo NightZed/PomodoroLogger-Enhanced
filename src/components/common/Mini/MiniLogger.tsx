@@ -19,36 +19,6 @@ const fadeIn = keyframes`
     }
 `;
 
-const emphasize = keyframes`
-    0% {
-        transform: scale(1);
-    }
-
-    70% {
-        transform: scale(1);
-    }
-
-    75% {
-        transform: scale(1.1) rotate(-15deg);
-    }
-
-    80% {
-        transform: scale(1.05) rotate(15deg);
-    }
-
-    85% {
-        transform: scale(1.1) rotate(-15deg);
-    }
-
-    90% {
-        transform: scale(1.05) rotate(15deg);
-    }
-
-    95% {
-        transform: scale(1.1);
-    }
-`;
-
 interface LineProps {
     anime: boolean;
 }
@@ -62,58 +32,158 @@ const Line = styled.line<LineProps>`
             : ''}
 `;
 
-const StateDiv = styled.div<LineProps>`
-    ${({ anime }) =>
-        anime
-            ? css`
-                  animation: ${emphasize} 1600ms linear infinite;
-              `
-            : ''}
-
-    font-weight: 700;
-    margin: 0 2px 0 4px;
-    color: var(--pl-text-secondary);
-    flex-shrink: 0;
-    text-align: right;
-`;
-
 const StyledLogger = styled.div`
-    height: 42px;
-    padding: 0 8px;
+    /* Must match the mini window content size set in src/main/ipc/ipc.ts
+       (setContentSize(200, 90)); Application.tsx hides the 1px tabs-bar border
+       while minimized so the rows fill the strip exactly (45px + 45px).
+       The explicit width keeps the control cluster fixed and lets the task
+       name truncate instead of stretching the content region. */
+    width: 200px;
+    height: 90px;
+    box-sizing: border-box;
+    /* No surface of its own: mini mode has no title bar, so it wants the same
+       page surface as the normal and compact content areas -- and that surface
+       is already painted by the window background layer (see Application.tsx)
+       behind this component. Painting it a second time here would stack the two
+       alphas and make mini mode denser than the normal window. */
+    background-color: transparent;
     display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-start;
+    flex-direction: column;
+    /* Frameless window: dragging anywhere except the buttons moves the strip. */
+    -webkit-app-region: drag;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 0 auto;
 
     * {
         user-select: none;
     }
 
-    & > svg {
+    .task-row {
+        position: relative;
+        box-sizing: border-box;
+        height: 45px;
         flex-shrink: 0;
-        flex-grow: 0;
-        margin: 0 4px;
-        filter: grayscale(0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 8px;
+        overflow: hidden;
     }
 
-    button {
-        margin: 0 4px;
-        flex-shrink: 0;
+    /* Divider between the rows -- inset so it never touches the left/right
+       window edges. Drawn as an overlay so both rows stay exactly equal. */
+    .task-row::after {
+        content: '';
+        position: absolute;
+        left: 8px;
+        right: 8px;
+        bottom: 0;
+        height: 1px;
+        background: var(--pl-border);
     }
 
-    & > div.task {
-        color: var(--pl-text-tertiary);
+    .task {
+        color: var(--pl-text);
+        font-size: 12px;
         white-space: nowrap;
         text-overflow: ellipsis;
         overflow: hidden;
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .control-row {
+        box-sizing: border-box;
+        height: 45px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        padding: 0 8px;
+    }
+
+    /* Fixed width: exactly two 24px buttons + one 8px gap. The cluster keeps
+       the same size whether or not a project is selected; an empty side still
+       reserves its width so the timer stays centered. */
+    .btn-side {
+        width: 56px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        -webkit-app-region: no-drag;
+    }
+
+    .btn-side.left {
+        justify-content: flex-end;
+    }
+
+    .btn-side.right {
+        justify-content: flex-start;
+    }
+
+    /* Minimal icon-only buttons: no border/background until hovered */
+    .btn-side button {
+        box-sizing: border-box;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        border: none;
+        background: transparent;
+        box-shadow: none;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--pl-text-secondary);
+        flex-shrink: 0;
+    }
+
+    .btn-side button:hover,
+    .btn-side button:focus {
+        background-color: var(--pl-bg-hover);
+        color: var(--pl-text);
+    }
+
+    /* Disabled (e.g. Stop while waiting for confirmation after a rest):
+       dimmed and not clickable, and the hover highlight must not show. */
+    .btn-side button:disabled,
+    .btn-side button:disabled:hover,
+    .btn-side button:disabled:focus {
+        background-color: transparent;
+        color: var(--pl-text-secondary);
+        opacity: 0.35;
+        cursor: not-allowed;
+    }
+
+    .btn-side button .anticon {
+        font-size: 14px;
+    }
+
+    .btn-side button.btn-extend {
+        width: 24px;
+        padding: 0;
+        font-size: 11px;
+        border-radius: 12px;
+    }
+
+    .timer-svg {
+        flex-shrink: 0;
+        margin: 0 8px;
+        /* Let Chromium process SVG hover metadata instead of treating the
+           timer as part of the window drag region. */
+        -webkit-app-region: no-drag;
     }
 `;
 
 interface Props {
     play: () => void;
     pause: () => void;
-    done: () => void;
-    clear: () => void;
+    finish: () => void;
+    /** Discards the current session (what the "Stop" button calls), unlike `pause`. */
+    stop: () => void;
     switch: () => void;
     expand: () => void;
     confirm: () => void;
@@ -127,17 +197,24 @@ interface Props {
     task: string;
     style?: React.CSSProperties;
     stagedPomodoro?: PomodoroRecord;
+    /**
+     * Whether a session exists -- running, or paused with time left. It decides
+     * between "Finish" and "Switch Mode" (see `getControlRow`).
+     *
+     * Never derive this from `percentage`: the owner throttles that value to 2%
+     * steps (`Timer.updateLeftTime`), so it stays 0 for the first 2% of a
+     * session -- up to 30s on a 25 minute focus session -- and the "Switch
+     * Mode" button would stay on screen after the session had already started.
+     * The owner passes `sessionState.hasSession`, the same predicate the
+     * normal/compact pages and the mode-switch guard use.
+     */
+    hasSession: boolean;
 }
 
 export class MiniLogger extends React.Component<Props> {
     constructor(props: Props) {
         super(props);
     }
-
-    clear = () => {
-        this.setState({ percentage: 0 });
-        this.props.clear();
-    };
 
     extend5Minutes = () => {
         this.props.extendCurrentSession(5);
@@ -147,113 +224,162 @@ export class MiniLogger extends React.Component<Props> {
         this.props.extendCurrentSession(10);
     };
 
-    private getButtonRow(): React.ReactNode {
+    private getControlRow(): React.ReactNode {
         const {
-            style,
             isRunning,
             play,
             pause,
-            time,
-            percentage,
+            hasSession,
             isFocusing,
             isConfirming,
             confirmAndStartNextSession,
         } = this.props;
-        return isConfirming ? (
+
+        const left = isConfirming ? (
             <>
                 <Button
+                    size="small"
                     icon="caret-right"
                     onClick={confirmAndStartNextSession}
-                    title={'Start Next Session'}
+                    title="Start Next Session"
                 />
-                <Button icon="check" title="Done" onClick={this.props.confirm} />
-                {isFocusing && (
-                    <>
-                        <Button
-                            onClick={this.extend5Minutes}
-                            style={{ padding: '0 8px' }}
-                            title={'Extend 5 minutes'}
-                        >
-                            +5
-                        </Button>
-                        <Button
-                            onClick={this.extend10Minutes}
-                            style={{ padding: '0 8px' }}
-                            title={'Extend 10 minutes'}
-                        >
-                            +10
-                        </Button>
-                    </>
-                )}
+                <Button size="small" icon="check" title="Finish" onClick={this.props.confirm} />
             </>
         ) : (
             <>
                 {isRunning ? (
-                    <Button icon="pause" title="Pause (F6)" onClick={pause} />
+                    <Button size="small" icon="pause" title="Pause (F6)" onClick={pause} />
                 ) : (
-                    <Button icon="caret-right" title="Start (F5)" onClick={play} />
+                    <Button size="small" icon="caret-right" title="Start (F5)" onClick={play} />
                 )}
-                {percentage === 0 ? (
-                    <Button icon="swap" title="Switch Mode (Tab)" onClick={this.props.switch} />
+                {/* `hasSession`, not `percentage`: see its documentation -- the
+                    percentage is throttled, so it cannot tell "no session" from
+                    "a session that has not reached 2% yet". */}
+                {hasSession ? (
+                    <Button size="small" icon="check" title="Finish" onClick={this.props.finish} />
                 ) : (
-                    <Button icon="check" title="Done" onClick={this.props.done} />
+                    <Button
+                        size="small"
+                        icon="swap"
+                        title="Switch Mode (Tab)"
+                        onClick={this.props.switch}
+                    />
                 )}
-                <Button icon="close" title="Clear" onClick={this.clear} />
-                <Button icon="fullscreen" title="Expand (F12)" onClick={this.props.expand} />
             </>
+        );
+
+        const right =
+            isConfirming && isFocusing ? (
+                // A focus session just ended: offer the extend options.
+                <>
+                    <Button
+                        size="small"
+                        className="btn-extend"
+                        onClick={this.extend5Minutes}
+                        title="Extend 5 minutes"
+                    >
+                        +5
+                    </Button>
+                    <Button
+                        size="small"
+                        className="btn-extend"
+                        onClick={this.extend10Minutes}
+                        title="Extend 10 minutes"
+                    >
+                        +10
+                    </Button>
+                </>
+            ) : (
+                // Normal mode, or a rest session just ended: the right side
+                // always stays filled. Stopping is not allowed while waiting
+                // for confirmation, but leaving mini mode still works.
+                <>
+                    <Button
+                        size="small"
+                        icon="close"
+                        title="Stop"
+                        onClick={this.props.stop}
+                        disabled={isConfirming}
+                    />
+                    <Button
+                        size="small"
+                        icon="fullscreen"
+                        title="Expand (F12)"
+                        onClick={this.props.expand}
+                    />
+                </>
+            );
+
+        return (
+            <div className="control-row">
+                <div className="btn-side left">{left}</div>
+                {this.renderTimer()}
+                <div className="btn-side right">{right}</div>
+            </div>
+        );
+    }
+
+    /** Hover label for the countdown: which state the current session is in. */
+    private getTimerStateLabel(): string {
+        const { isConfirming, isFocusing } = this.props;
+        if (isConfirming) return 'Finish';
+        return isFocusing ? 'Working' : 'Breaking';
+    }
+
+    private renderTimer(): React.ReactNode {
+        const { time, percentage, isFocusing, isConfirming } = this.props;
+        // The disc inside the ring is the state indicator: red while focusing,
+        // deep navy while resting. Confirmation keeps the color of the session
+        // that just finished -- there is no dedicated "finish" color.
+        const stateColor = isFocusing ? '#e84545' : '#2b2e4a';
+        return (
+            <svg className="timer-svg" viewBox="0 0 100 100" width="30" height="30">
+                {/* Native SVG <title>: the same browser tooltip mechanism the
+                    buttons in this row get from their title attributes. */}
+                <title>{this.getTimerStateLabel()}</title>
+                <circle cx="50" cy="50" r="36" fill={stateColor} />
+                {Array(18)
+                    .fill(0)
+                    .map((_, i) => (
+                        <g
+                            key={i}
+                            transform={`translate(50 50) rotate(${20 * i}) translate(-50 -50)`}
+                        >
+                            <Line
+                                anime={isConfirming}
+                                y1="0"
+                                y2="12"
+                                x1="50"
+                                x2="50"
+                                style={{
+                                    stroke: isConfirming
+                                        ? 'rgb(99, 99, 99)'
+                                        : (i / 18) * 100 < percentage
+                                        ? 'rgb(200, 200, 200)'
+                                        : 'rgb(99,99,99)',
+                                    strokeWidth: 12,
+                                    animationDelay: i * (800 / 18) + 'ms',
+                                }}
+                            />
+                        </g>
+                    ))}
+                <text x="50" y="64" textAnchor="middle" fontSize="40" style={{ fill: '#fff' }}>
+                    {isConfirming ? (isFocusing ? '🍅' : '') : time}
+                </text>
+            </svg>
         );
     }
 
     render() {
-        const { style, time, percentage, isFocusing, isConfirming } = this.props;
+        const { style, task } = this.props;
         return (
             <StyledLogger style={style}>
-                <svg viewBox="0 0 100 100" width="28px" height="28px">
-                    {Array(18)
-                        .fill(0)
-                        .map((_, i) => (
-                            <g
-                                key={i}
-                                transform={`translate(50 50) rotate(${20 * i}) translate(-50 -50)`}
-                            >
-                                <Line
-                                    anime={isConfirming}
-                                    y1="0"
-                                    y2="12"
-                                    x1="50"
-                                    x2="50"
-                                    style={{
-                                        stroke: isConfirming
-                                            ? 'rgb(99, 99, 99)'
-                                            : (i / 18) * 100 < percentage
-                                            ? 'rgb(200, 200, 200)'
-                                            : 'rgb(99,99,99)',
-                                        strokeWidth: 12,
-                                        animationDelay: i * (800 / 18) + 'ms',
-                                    }}
-                                />
-                            </g>
-                        ))}
-                    <text
-                        x="50"
-                        y="64"
-                        textAnchor="middle"
-                        fontSize="40"
-                        style={{ fill: 'rgb(99,99,99)' }}
-                    >
-                        {isConfirming ? (isFocusing ? '🍅' : '') : time}
-                    </text>
-                </svg>
-                {this.getButtonRow()}
-                <div className="task" style={{ margin: 4 }} title={this.props.task}>
-                    {this.props.task}
+                <div className="task-row">
+                    <div className="task" title={task || undefined}>
+                        {task || 'No Focusing Project'}
+                    </div>
                 </div>
-                <StateDiv
-                    anime={isConfirming}
-                    onClick={() => (this.props.isConfirming ? this.props.confirm() : undefined)}
-                >
-                    {isConfirming ? 'Done!' : isFocusing ? 'Working' : 'Break'}
-                </StateDiv>
+                {this.getControlRow()}
             </StyledLogger>
         );
     }

@@ -211,7 +211,7 @@
         "react-docgen-typescript": "^1.16.5",
         "react-docgen-typescript-loader": "^3.7.2",
         "react-dom": "^16.8.6",
-        "react-hot-keys": "^2.4.4",
+        "react-hot-keys": "^3.0.0",
         "react-hot-loader": "^4.13.1",
         "react-redux": "^7.0.3",
         "react-stack-grid": "^0.7.1",

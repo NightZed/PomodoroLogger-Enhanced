@@ -226,7 +226,7 @@
         "semantic-release": "^25.0.9",
         "source-map-loader": "^5.0.0",
         "style-loader": "^4.0.0",
-        "styled-components": "^5.3.3",
+        "styled-components": "^6.5.3",
         "ts-jest": "^29.4.14",
         "ts-loader": "^9.6.2",
         "typescript": "^5.9.3",

@@ -1,7 +1,7 @@
 import 'antd/dist/antd.css';
 import { ipcRenderer } from 'electron';
 import * as React from 'react';
-import ReactHotkeys from 'react-hot-keys';
+import Hotkeys from './Hotkeys';
 import { hot } from 'react-hot-loader/root';
 import { connect } from 'react-redux';
 import styled from 'styled-components';
@@ -307,7 +307,7 @@ class Application extends React.Component<Props> {
                             <ConnectedPomodoroSankey />
                         </>
                     )}
-                    <ReactHotkeys
+                    <Hotkeys
                         keyName={'ctrl+tab,ctrl+shift+tab,ctrl+f12,ctrl+q,f11,f12'}
                         onKeyDown={this.onKeyDown}
                     />

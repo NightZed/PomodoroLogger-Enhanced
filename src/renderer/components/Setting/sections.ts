@@ -36,11 +36,12 @@ export interface ShortcutEntry {
 /**
  * The complete list of the app's shortcuts, read-only.
  *
- * Every binding is hard coded in the component that owns it (see the
- * `ReactHotkeys` / `Hotkeys` usages in Application.tsx, Timer.tsx and
- * Kanban.tsx), so this table is documentation only -- changing a key here would
- * not change the behaviour. It exists so the settings page can tell the user
- * what the keys do instead of leaving them to guess.
+ * Every binding is hard coded in the component that owns it (see the `Hotkeys`
+ * usages in Application.tsx, Timer.tsx and Kanban.tsx, which all go through the
+ * shared wrapper in src/renderer/components/Hotkeys.tsx), so this table is
+ * documentation only -- changing a key here would not change the behaviour. It
+ * exists so the settings page can tell the user what the keys do instead of
+ * leaving them to guess.
  */
 export const SHORTCUTS: { group: string; entries: ShortcutEntry[] }[] = [
     {

@@ -12,7 +12,7 @@ import { CreatedTime } from './style/CreatedTime';
 import { LabelButton } from '../../style/form';
 import backIcon from '../../../res/back.svg';
 import { Label } from './style/Form';
-import Hotkeys from 'react-hot-keys';
+import Hotkeys from '../Hotkeys';
 import { uid } from '../../../utils/uid';
 import { TimerActionTypes, TimerManager } from '../Timer/action';
 import { isShallowEqualByKeys } from '../../utils';

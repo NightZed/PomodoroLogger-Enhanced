@@ -1,6 +1,8 @@
 import { Icon, Tabs } from 'antd';
 import * as React from 'react';
 import styled from 'styled-components';
+import { tabType } from '../Timer/action';
+import { APP_TABS } from '../appTabs';
 import WindowControls from '../WindowControls';
 import { COMPACT_TITLE_BAR_HEIGHT, TITLE_BAR_HEIGHT } from './tokens';
 
@@ -10,7 +12,7 @@ interface Props {
     compact: boolean;
     /** The ending mask is up: the pages must not be switched away from it. */
     sessionEnding: boolean;
-    onTabChange: (tab: string) => void;
+    onTabChange: (tab: tabType) => void;
     timer: React.ReactNode;
     kanban: React.ReactNode;
     history: React.ReactNode;
@@ -222,6 +224,16 @@ const AppTitleBar: React.FC<Props> = ({
         </span>
     );
 
+    /**
+     * The page rendered inside each pane. The nodes arrive as props (the Timer
+     * page has to stay mounted, see `APP_TABS.forceRender`), and this map makes
+     * the pairing exhaustive: `tabType` is exactly the set of keys of
+     * `APP_TABS`, so adding a page to the list fails the type check here until
+     * the page is supplied too. That is the other half of the "blank tab" bug --
+     * a tab the hotkeys can reach but the bar cannot fill.
+     */
+    const pages: { [key in tabType]: React.ReactNode } = { timer, kanban, history, setting };
+
     return (
         <TitleBar compact={compact} sessionEnding={sessionEnding}>
             <Tabs
@@ -232,7 +244,7 @@ const AppTitleBar: React.FC<Props> = ({
                     // every other path into `activeKey` honest as well. See
                     // `TimerState.sessionEnding` for why.
                     if (!sessionEnding) {
-                        onTabChange(tabKey);
+                        onTabChange(tabKey as tabType);
                     }
                 }}
                 tabBarExtraContent={
@@ -245,33 +257,16 @@ const AppTitleBar: React.FC<Props> = ({
                     )
                 }
             >
-                <TabPane
-                    tab={tab('Pomodoro', 'clock-circle', 'pomodoro-tab')}
-                    forceRender={true}
-                    key="timer"
-                    disabled={sessionEnding}
-                >
-                    {timer}
-                </TabPane>
-                <TabPane
-                    tab={tab('Kanban', 'project', 'kanban-tab')}
-                    forceRender={false}
-                    key="kanban"
-                    disabled={sessionEnding}
-                >
-                    {kanban}
-                </TabPane>
-                <TabPane
-                    tab={tab('History', 'history')}
-                    forceRender={false}
-                    key="history"
-                    disabled={sessionEnding}
-                >
-                    {history}
-                </TabPane>
-                <TabPane tab={tab('Setting', 'setting')} key="setting" disabled={sessionEnding}>
-                    {setting}
-                </TabPane>
+                {APP_TABS.map(({ key, title, icon, tourKey, forceRender }) => (
+                    <TabPane
+                        key={key}
+                        tab={tab(title, icon, tourKey)}
+                        forceRender={forceRender}
+                        disabled={sessionEnding}
+                    >
+                        {pages[key]}
+                    </TabPane>
+                ))}
             </Tabs>
         </TitleBar>
     );

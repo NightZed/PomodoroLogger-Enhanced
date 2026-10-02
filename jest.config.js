@@ -4,6 +4,15 @@ module.exports = {
     setupFiles: ['<rootDir>/test/util-legacy-shim.js'],
     // jest 27+ defaults to the node environment, but the component tests need a DOM.
     testEnvironment: 'jsdom',
+    // jest-environment-jsdom resolves package "exports" with the "browser"
+    // condition, so dual ESM/CJS packages are resolved to their ESM entry
+    // (nanoid -> index.browser.js, reached through shortid). Jest runs tests in a
+    // CommonJS/Node-like runtime, so it then fails with
+    // "Must use import to load ES Module". Resolve like Node does instead, which
+    // picks the "require" (index.cjs) entry of such packages.
+    testEnvironmentOptions: {
+        customExportConditions: ['node']
+    },
     testMatch: ['**/*.(spec|test).[jt]s?(x)'],
     transform: {
         '^.+\\.tsx?$': ['ts-jest', { diagnostics: false }]

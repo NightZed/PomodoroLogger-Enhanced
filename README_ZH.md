@@ -35,28 +35,33 @@
 
 > **轻松投资你的时间**
 
-番茄日志🕢——[番茄钟工作法](https://zh.wikipedia.org/wiki/番茄工作法) + [看板任务管理](https://en.wikipedia.org/wiki/Kanban_board) + 桌面活动追踪 + 数据可视化分析。
+番茄日志🕢 [^1] ——[番茄钟工作法](https://zh.wikipedia.org/wiki/番茄工作法) [^2] + [看板任务管理](https://en.wikipedia.org/wiki/Kanban_board) [^3] + 桌面活动追踪 + 数据可视化分析。
 
-本仓库是[原版 Pomodoro Logger](https://github.com/zxch3n/PomodoroLogger) 的增强版，主要加强了**卡片编辑**与**历史视图回顾**，并优化了**内存占用与 CPU 占用**。
+[^1]: 本仓库是[原版 Pomodoro Logger](https://github.com/zxch3n/PomodoroLogger) 的增强版，主要加强了**主题**、**卡片编辑**与**历史视图回顾**，并优化了**内存占用与 CPU 占用**。
 
-> 🧭 导读：[概览](#overview) · [功能特性](#features) · [番茄钟](#pomodoro) · [看板](#kanban-board) · [统计与分析](#statistics) · [快速开始](#quick-start)
+[^2]: 番茄工作法（英语：Pomodoro Technique）是一种时间管理方法，在1980年代由Francesco Cirillo创立。 该方法使用一个定时器来分割出一个一般为25分钟的工作时间和5分钟的休息时间，而那些时间段被称为pomodoros（或者 tomatos），为意大利语单词pomodoro（番茄）。
+
+[^3]: 看板是一种精益制造工艺，为了管理生产过程和提高工作效率，由1940年代的丰田汽车公司发明。名称源自日文“看板”。在软件开发过程，可以使用“看板卡”（经常用即时贴）来执行看板。
+
+> 🧭 导读：[概览](#overview) · [番茄钟](#pomodoro) · [看板](#kanban-board) · [统计与分析](#statistics) · [功能特性](#features) · [快速开始](#quick-start)
 
 <a id="overview"></a>
 
 ## 📖 概览 Overview
 
+> 下图：看板（图1）与历史视图（图2）——从任务规划到历史回顾。
+
 <p align="center">
-  <img width="800" src="./screenshots/kanban.png" alt="看板主界面"/>
+  <img width="800" src="./screenshots/kanban.png" alt="看板页面"/>
   <img width="800" src="./screenshots/history-main-view.png" alt="历史视图主界面"/>
 </p>
-
-> 上图：看板（图1）与历史视图（图2）——从规划任务到回看时间。
 
 <a id="pomodoro"></a>
 
 ## ⏱️ 番茄钟 Pomodoro
 
 一个工作循环 = **专注 + 休息**：默认 25 分钟专注、5 分钟短休，长休更长一些，三者时长都可以在设置页调整。
+
 看板创建任务后，在计时器页选中来进行任务追踪。
 
 <p align="center">

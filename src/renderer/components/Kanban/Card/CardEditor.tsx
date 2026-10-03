@@ -108,6 +108,8 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
 
     const [linkModalVisible, setLinkModalVisible] = useState(false);
     const [linkUrl, setLinkUrl] = useState('');
+    const [linkText, setLinkText] = useState('');
+    const linkUrlInputRef = useRef<any>(null);
     const pendingLinkRef = useRef<{ start: number; end: number; text: string } | null>(null);
 
     const getTextarea = () => contentRef.current?.resizableTextArea?.textArea ?? contentRef.current;
@@ -217,11 +219,15 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             const textarea = getTextarea();
             const start = textarea?.selectionStart ?? current.length;
             const end = textarea?.selectionEnd ?? start;
+            const selected = current.slice(start, end);
             pendingLinkRef.current = {
                 start,
                 end,
-                text: current.slice(start, end) || 'link text',
+                text: selected || 'title',
             };
+            // prefill the title input with the selected text so the quick
+            // action lets the user edit it before inserting
+            setLinkText(selected);
             setLinkUrl('');
             setLinkModalVisible(true);
         });
@@ -239,7 +245,10 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             return;
         }
 
-        const text = `[${pending.text}](${url})`;
+        // an empty title input falls back to the selected text (or the
+        // default 'title' stored when the modal was opened)
+        const title = linkText.trim() || pending.text;
+        const text = `[${title}](${url})`;
         validateFields((err: Error, values: FormData) => {
             if (err) {
                 return;
@@ -256,7 +265,18 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             }
         });
         closeLinkModal();
-    }, [linkUrl, validateFields, setFieldsValue, closeLinkModal, insertViaExecCommand]);
+    }, [linkUrl, linkText, validateFields, setFieldsValue, closeLinkModal, insertViaExecCommand]);
+
+    // Enter in the title input moves on to the URL input, unless the URL is
+    // already filled in - then it inserts right away
+    const onLinkTextPressEnter = React.useCallback(() => {
+        if (linkUrl.trim()) {
+            confirmLink();
+            return;
+        }
+
+        linkUrlInputRef.current?.focus();
+    }, [linkUrl, confirmLink]);
 
     const onSwitchIsEditing = () => {
         setIsEditingActualTime(!isEditingActualTime);
@@ -689,6 +709,14 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             >
                 <Input
                     autoFocus={true}
+                    placeholder={'Title'}
+                    value={linkText}
+                    onChange={(e) => setLinkText(e.target.value)}
+                    onPressEnter={onLinkTextPressEnter}
+                    style={{ marginBottom: 8 }}
+                />
+                <Input
+                    ref={linkUrlInputRef}
                     placeholder={'https://example.com'}
                     value={linkUrl}
                     onChange={(e) => setLinkUrl(e.target.value)}

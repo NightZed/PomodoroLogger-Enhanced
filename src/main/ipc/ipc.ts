@@ -1,6 +1,8 @@
 import { ipcMain, dialog, app, nativeImage, Notification, desktopCapturer, screen } from 'electron';
 import {
     DesktopSourceInfo,
+    ExportResult,
+    ImportResult,
     IpcEventName,
     WindowDragPhase,
     WorkerMessageType,
@@ -10,10 +12,16 @@ import { sendWorkerMessage } from '../worker/fork';
 import { promisify } from 'util';
 import { readFile, writeFile } from 'fs';
 import { writeAllFile } from '../io/write';
-import { restart, win } from '../init';
+import { win } from '../init';
 import { readAllData } from '../io/read';
 import { activeWin } from '../activeWin';
 import { startWindowDrag, stopWindowDrag } from './windowDrag';
+import {
+    buildExportFileName,
+    buildExportPayload,
+    unwrapImportPayload,
+} from '../../shared/dataTransfer/payload';
+import { validateSourceData } from '../../shared/dataTransfer/validate';
 
 /**
  * token is used to identify the sender of the message
@@ -153,9 +161,14 @@ export function initialize() {
             });
         }
     });
-    handle(IpcEventName.ExportData, async () => {
+    handle(IpcEventName.ExportData, async (): Promise<ExportResult> => {
+        const now = new Date();
         const path = await dialog.showSaveDialog({
-            defaultPath: 'pomodoro-logger-exported-data.json',
+            // The stamp is in the file name, not only in the file: two exports
+            // an hour apart are then two files instead of one being silently
+            // overwritten, and a user can tell which backup is current without
+            // opening anything.
+            defaultPath: buildExportFileName(now),
             filters: [
                 {
                     name: 'Json',
@@ -168,14 +181,22 @@ export function initialize() {
             ],
         });
         if (path.canceled || !path.filePath) {
-            return;
+            return { status: 'cancelled' };
         }
 
         const data = await readAllData();
-        await promisify(writeFile)(path.filePath, JSON.stringify(data), { encoding: 'utf-8' });
+        const payload = buildExportPayload(data, now);
+        await promisify(writeFile)(path.filePath, JSON.stringify(payload, null, 2), {
+            encoding: 'utf-8',
+        });
+        return {
+            status: 'written',
+            filePath: path.filePath,
+            meta: { exportedAt: payload.exportedAt, exportedAtText: payload.exportedAtText },
+        };
     });
 
-    handle(IpcEventName.ImportData, async () => {
+    handle(IpcEventName.ImportData, async (): Promise<ImportResult> => {
         const path = await dialog.showOpenDialog({
             filters: [
                 {
@@ -190,22 +211,63 @@ export function initialize() {
             properties: ['openFile'],
         });
         if (path.canceled || path.filePaths.length === 0) {
-            return;
+            return { status: 'cancelled' };
         }
 
         const dataPath = path.filePaths[0];
-        const data = JSON.parse(await promisify(readFile)(dataPath, { encoding: 'utf-8' }));
+        const content = await promisify(readFile)(dataPath, { encoding: 'utf-8' });
+
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(content);
+        } catch (e) {
+            // Not being JSON at all is the most common way to pick the wrong
+            // file, and it deserves the same "here is what is wrong" dialog as
+            // a file that is JSON but not a data file.
+            return {
+                status: 'invalid',
+                issues: [
+                    {
+                        path: '',
+                        message:
+                            'the file is not valid JSON: ' +
+                            (e as Error).message +
+                            ' (check that the file was not renamed from .json)',
+                    },
+                ],
+            };
+        }
+
+        const { data: raw, meta } = unwrapImportPayload(parsed);
+        const validation = validateSourceData(raw);
+        if (!validation.ok) {
+            // Nothing has been touched at this point -- not the databases, not
+            // the backup -- so refusing the file costs the user nothing but a
+            // chance to fix it.
+            return { status: 'invalid', issues: validation.issues };
+        }
+
         const merged = await sendWorkerMessage({
             type: WorkerMessageType.MergeData,
             payload: {
-                external: data,
+                external: validation.data,
                 source: await readAllData(),
             },
         });
 
-        // TODO: Show Warning
         await writeAllFile(merged.payload.merged);
-        restart();
+
+        // The merger's own notes (dropped cards, ...) used to be discarded
+        // here; they are the user's only warning that the merge was lossy, so
+        // they travel with the result and the renderer restarts afterwards.
+        const warnings = validation.warnings.concat(
+            splitWarnings(merged.payload.warning).map((message) => ({
+                path: 'merge',
+                message,
+            }))
+        );
+
+        return { status: 'imported', warnings, meta };
     });
     handle(IpcEventName.SelectWallpaper, async (): Promise<string | undefined> => {
         const result = await dialog.showOpenDialog({
@@ -223,4 +285,21 @@ export function initialize() {
         const filePath = result.filePaths[0];
         return filePath;
     });
+}
+
+/**
+ * The merger collects its warnings into one newline separated string
+ * (`dataHandlers.ts` concatenates what `DataMerger` reports). They are split
+ * back into one entry per line here so the renderer can list them, and the
+ * trailing empty line of a report ending in '\n' is dropped.
+ */
+function splitWarnings(warning?: string): string[] {
+    if (!warning) {
+        return [];
+    }
+
+    return warning
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
 }

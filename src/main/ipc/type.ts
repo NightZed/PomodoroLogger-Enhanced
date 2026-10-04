@@ -1,5 +1,7 @@
 import type { BaseResult } from 'active-win';
 import { SourceData } from '../../shared/dataMerger/dataMerger';
+import type { ExportMeta } from '../../shared/dataTransfer/payload';
+import type { ValidationIssue, ValidationWarning } from '../../shared/dataTransfer/validate';
 
 export enum IpcEventName {
     Quit = 'quit',
@@ -72,10 +74,37 @@ export type UpdateErrorPayload = {
     skipped?: boolean;
 };
 
+/**
+ * What an export actually did.
+ *
+ * The dialog is cancellable, so "wrote a file" is only one of the possible
+ * outcomes and the renderer has to be able to tell them apart before it says
+ * anything.
+ */
+export type ExportResult =
+    | { status: 'cancelled' }
+    | { status: 'written'; filePath: string; meta: ExportMeta };
+
+/**
+ * What an import actually did.
+ *
+ * `invalid` is the case this exists for: nothing was written, the file was
+ * left alone, and `issues` says exactly what in it is wrong. It is reported as
+ * a value rather than thrown so the renderer can show the findings in a dialog
+ * instead of a rejected promise nobody handles.
+ *
+ * The restart is the renderer's decision (`warnings` has to be seen first),
+ * so it is not done here.
+ */
+export type ImportResult =
+    | { status: 'cancelled' }
+    | { status: 'invalid'; issues: ValidationIssue[] }
+    | { status: 'imported'; warnings: ValidationWarning[]; meta: ExportMeta };
+
 export type ExposedAPI = {
-    [IpcEventName.ImportData](): Promise<void>;
+    [IpcEventName.ImportData](): Promise<ImportResult>;
     [IpcEventName.SelectWallpaper](): Promise<string | undefined>;
-    [IpcEventName.ExportData](): Promise<void>;
+    [IpcEventName.ExportData](): Promise<ExportResult>;
     [IpcEventName.ActiveWin](): Promise<BaseResult | undefined>;
     [IpcEventName.OpenAtLogin](on: boolean): void;
     [IpcEventName.MinimizeWindow](on: boolean): void;

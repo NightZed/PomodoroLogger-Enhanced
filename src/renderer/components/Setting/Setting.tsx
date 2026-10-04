@@ -9,6 +9,7 @@ import { DistractingListModalButton } from './DistractingList';
 import { isShallowEqualByKeys } from '../../utils';
 import pkg from '../../../../package.json';
 import { IpcEventName, UpdateErrorPayload, UpdateEventName } from '../../../main/ipc/type';
+import type { ExportResult, ImportResult } from '../../../main/ipc/type';
 import { refreshDbs } from '../../../main/db';
 import { BUILTIN_THEMES, ThemeDefinition } from '../../theme/tokens';
 import SettingNav from './SettingNav';
@@ -195,6 +196,74 @@ const Swatches = styled.span`
         height: 14px;
     }
 `;
+
+/**
+ * The body of the import report dialogs: a one line explanation of what
+ * happened, then every finding as `path: message`.
+ *
+ * The path is rendered in a monospace face on its own line, because it is the
+ * part the user has to match against their file -- it is a JSON path, so it is
+ * copyable, and it is what makes a long list scannable instead of a wall of
+ * prose.
+ */
+const IssueList = styled.ul`
+    max-height: 220px;
+    margin: 8px 0 0;
+    padding: 0 4px 0 0;
+    overflow-y: auto;
+    list-style: none;
+    font-size: 12px;
+    text-align: left;
+`;
+
+const Issue = styled.li`
+    margin-bottom: 8px;
+    word-break: break-word;
+
+    &:last-child {
+        margin-bottom: 0;
+    }
+`;
+
+const IssuePath = styled.code`
+    display: block;
+    margin-bottom: 2px;
+    color: var(--pl-primary);
+    font-size: 12px;
+`;
+
+const IssueFooter = styled.div`
+    margin-top: 12px;
+    color: var(--pl-text-secondary);
+    font-size: 13px;
+`;
+
+interface IssueReportProps {
+    intro: string;
+    items: { path: string; message: string }[];
+    /** Closing line, e.g. what happens next (the restart). */
+    footer?: string;
+}
+
+/**
+ * Renders one list of findings for both the "this file is wrong" and the
+ * "this file was adjusted" dialogs: the two differ only in their wording and
+ * severity, which the copy around them carries.
+ */
+const IssueReport: React.FunctionComponent<IssueReportProps> = ({ intro, items, footer }) => (
+    <div>
+        <div>{intro}</div>
+        <IssueList>
+            {items.map((item, i) => (
+                <Issue key={`${item.path}-${i}`}>
+                    {item.path && <IssuePath>{item.path}</IssuePath>}
+                    <span>{item.message}</span>
+                </Issue>
+            ))}
+        </IssueList>
+        {footer && <IssueFooter>{footer}</IssueFooter>}
+    </div>
+);
 
 const SettingLabel = styled.span`
     font-weight: 500;
@@ -421,15 +490,110 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             });
         }, [deleteAllUserData]);
 
+        /**
+         * Reports a refused file: every problem the validator found, each with
+         * the path it sits at, so the user can open the file and fix exactly
+         * those spots.
+         *
+         * A dialog rather than a toast, because a list of problems is too long
+         * to read in three seconds and the import did not happen -- the user
+         * has to acknowledge that before trying again.
+         */
+        const showImportIssues = useCallback((issues: { path: string; message: string }[]) => {
+            feedback.alert({
+                kind: 'error',
+                title: FEEDBACK_MESSAGES.setting.importInvalidTitle,
+                content: (
+                    <IssueReport
+                        intro={FEEDBACK_MESSAGES.setting.importInvalidIntro}
+                        items={issues}
+                    />
+                ),
+                okText: 'OK',
+            });
+        }, []);
+
+        /**
+         * The import either succeeded or was refused; both end in a message,
+         * and the success case ends in a restart the renderer asks for -- the
+         * main process used to restart on its own, which meant a warning could
+         * never be shown before the window went away.
+         */
         const onImportClick = useCallback(async () => {
             setImporting(true);
-            await onImportData();
+            let result: ImportResult;
+            try {
+                result = await onImportData();
+            } catch (e) {
+                // A rejection here is an unexpected failure (the main process
+                // could not read the file, the merge worker died, the write
+                // failed); the validator's own refusals come back as a result.
+                setImporting(false);
+                feedback.alert({
+                    kind: 'error',
+                    title: FEEDBACK_MESSAGES.setting.importFailed,
+                    content: FEEDBACK_MESSAGES.setting.importFailedDetail(errorText(e)),
+                });
+                return;
+            }
+
             setImporting(false);
-        }, []);
+
+            if (result.status === 'cancelled') {
+                return;
+            }
+
+            if (result.status === 'invalid') {
+                showImportIssues(result.issues);
+                return;
+            }
+
+            if (result.warnings.length > 0) {
+                // Worth stopping for: the import happened, but something in it
+                // was adjusted or dropped on the way in.
+                feedback.alert({
+                    kind: 'warning',
+                    title: FEEDBACK_MESSAGES.setting.importWarningTitle,
+                    content: (
+                        <IssueReport
+                            intro={FEEDBACK_MESSAGES.setting.importWarningIntro}
+                            items={result.warnings}
+                            footer={FEEDBACK_MESSAGES.setting.importDone}
+                        />
+                    ),
+                    okText: 'OK',
+                    onOk: restartApp,
+                });
+                return;
+            }
+
+            feedback.toast({
+                kind: 'success',
+                content: FEEDBACK_MESSAGES.setting.importDone,
+            });
+            restartApp();
+        }, [showImportIssues]);
 
         const onExportClick = useCallback(async () => {
             setExporting(true);
-            await onExportData();
+            try {
+                const result = await onExportData();
+                if (result.status === 'written') {
+                    feedback.toast({
+                        kind: 'success',
+                        // The file name carries the export time, so naming it is
+                        // also the receipt of *when* the data was taken.
+                        content: FEEDBACK_MESSAGES.setting.exportDone(fileNameOf(result.filePath)),
+                    });
+                }
+            } catch (e) {
+                feedback.alert({
+                    kind: 'error',
+                    title: FEEDBACK_MESSAGES.setting.exportFailed,
+                    content: FEEDBACK_MESSAGES.setting.exportFailedDetail(errorText(e)),
+                });
+            }
+
             setExporting(false);
         }, []);
 
@@ -803,14 +967,37 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
     }
 );
 
-async function onExportData() {
+async function onExportData(): Promise<ExportResult> {
+    // The databases live in the main process; refreshing first makes sure the
+    // export sees what the app just wrote instead of a cached copy.
     await refreshDbs();
-    await window.api.exportData();
+    return await window.api.exportData();
 }
 
-async function onImportData() {
+async function onImportData(): Promise<ImportResult> {
     await refreshDbs();
-    await window.api.importData();
+    return await window.api.importData();
+}
+
+/**
+ * Restarts the app so the imported data is what the UI reads from now on.
+ * Deliberately a plain event: in development the main process only logs it,
+ * which is what makes the whole import flow testable without killing the
+ * window mid-assertion.
+ */
+function restartApp() {
+    ipcRenderer.send(IpcEventName.Restart);
+}
+
+/** The rejection of an IPC call is whatever the main process threw: a string. */
+function errorText(e: any): string {
+    return typeof e === 'string' ? e : e?.message ?? String(e);
+}
+
+/** `C:\Users\me\Downloads\pomodoro-logger-data-...json` -> the file name. */
+function fileNameOf(filePath: string): string {
+    const parts = filePath.split(/[\\/]/);
+    return parts[parts.length - 1] || filePath;
 }
 
 function openIssuePage() {

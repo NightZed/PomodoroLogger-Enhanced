@@ -33,4 +33,30 @@ describe('WindowControls (frameless caption buttons)', () => {
         expect(windowAction).toHaveBeenNthCalledWith(2, 'maximize');
         expect(windowAction).toHaveBeenNthCalledWith(3, 'close');
     });
+
+    it('offers to restore the window while it is maximized', () => {
+        // The state is reported by the main process (the renderer cannot read it:
+        // a maximized transparent window is emulated by resizing), and antd 3
+        // draws the restore glyph with `switcher`, where `border` is maximize.
+        const windowAction = jest.fn();
+        (window as any).api = { windowAction };
+
+        const tree = TestRenderer.create(
+            <WindowControls maximized />
+        ).toJSON() as ReactTestRendererJSON;
+
+        const buttons = findAll(tree, (n) => n.type === 'button');
+        expect(buttons.map((b) => b.props.title)).toEqual(['Minimize', 'Restore Down', 'Close']);
+
+        const iconClasses = findAll(tree, (n) => n.type === 'i').map((n) =>
+            String(n.props.className)
+        );
+        expect(iconClasses.some((className) => className.includes('anticon-switcher'))).toBe(true);
+        expect(iconClasses.some((className) => className.includes('anticon-border'))).toBe(false);
+
+        // The button keeps toggling the same window action: the window is
+        // maximized, so the main process unmaximizes it.
+        buttons[1].props.onClick();
+        expect(windowAction).toHaveBeenCalledWith('maximize');
+    });
 });

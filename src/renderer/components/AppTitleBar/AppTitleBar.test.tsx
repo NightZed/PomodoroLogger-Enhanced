@@ -17,8 +17,9 @@ import { APP_TABS, nextTabKey } from '../appTabs';
 import { tabType } from '../Timer/action';
 import AppTitleBar from './AppTitleBar';
 
-// The window buttons talk to the main process through `window.api`.
-(window as any).api = { windowAction: jest.fn() };
+// The window buttons and the maximized-title-bar drag talk to the main process
+// through `window.api`.
+(window as any).api = { windowAction: jest.fn(), windowDrag: jest.fn() };
 
 /**
  * Fake DOM node for antd 3's tab bar.
@@ -52,12 +53,18 @@ const fakeNode = {
     scrollTop: 0,
 };
 
-const build = (currentTab: tabType, onTabChange: (tab: tabType) => void, sessionEnding = false) =>
+const build = (
+    currentTab: tabType,
+    onTabChange: (tab: tabType) => void,
+    sessionEnding = false,
+    maximized = false
+) =>
     TestRenderer.create(
         <AppTitleBar
             currentTab={currentTab}
             minimize={false}
             compact={false}
+            maximized={maximized}
             sessionEnding={sessionEnding}
             onTabChange={onTabChange}
             timer={<div>timer page</div>}
@@ -69,6 +76,30 @@ const build = (currentTab: tabType, onTabChange: (tab: tabType) => void, session
         />,
         { createNodeMock: () => fakeNode }
     );
+
+/**
+ * The host element the bar's pointer handlers live on. `styled-components`
+ * forwards them to the `div`, which `react-test-renderer` exposes with a string
+ * type; that is the element a press on the title bar reaches first.
+ */
+const dragSurface = (renderer: TestRenderer.ReactTestRenderer) => {
+    const bars = renderer.root.findAll(
+        (node) => typeof node.type === 'string' && typeof node.props.onPointerDown === 'function'
+    );
+    expect(bars).toHaveLength(1);
+    return bars[0];
+};
+
+/** A `pointerdown` on the empty part of the bar (not on a tab or a button). */
+const pointerDownEvent = () => ({
+    button: 0,
+    pointerId: 7,
+    // `isDragSurface` walks up with `closest`: inside the bar, outside the
+    // entries. See dragRegion.test.ts for the real element structure.
+    target: { closest: (selector: string) => (selector.includes('tabs-bar') ? {} : null) },
+    currentTarget: { setPointerCapture: jest.fn() },
+    preventDefault: jest.fn(),
+});
 
 /**
  * The panes the bar declares, in order.
@@ -191,6 +222,56 @@ describe('AppTitleBar', () => {
             .findAll((node) => typeof node.type === 'string')
             .flatMap((node) => node.children.filter((child) => typeof child === 'string'));
         expect(texts).toContain('timer page');
+
+        unmount(renderer);
+    });
+
+    it('turns a press on the maximized bar into a window drag', () => {
+        // On Windows a maximized *transparent* window is not a really maximized
+        // one: Electron emulates the state by resizing to the work area, so the
+        // OS never runs its "dragging a maximized window restores it" move and
+        // the window would be carried away at full size. The bar therefore keeps
+        // the press and reports the gesture to the main process, which restores
+        // and moves the window (see src/main/ipc/windowDrag.ts).
+        const windowDrag = jest.fn();
+        (window as any).api = { windowAction: jest.fn(), windowDrag };
+
+        const renderer = build('timer', () => undefined, false, true);
+        const event = pointerDownEvent();
+
+        act(() => {
+            dragSurface(renderer).props.onPointerDown(event);
+        });
+
+        expect(windowDrag).toHaveBeenCalledWith('start');
+        // The release is only guaranteed to arrive through the capture: the
+        // window shrinks out from under the cursor while the button is held.
+        expect(event.currentTarget.setPointerCapture).toHaveBeenCalledWith(7);
+
+        act(() => {
+            dragSurface(renderer).props.onPointerUp();
+        });
+        expect(windowDrag).toHaveBeenLastCalledWith('end');
+
+        unmount(renderer);
+    });
+
+    it('leaves a press on a normal window to the native drag region', () => {
+        // Not maximized: Chromium's drag region moves the window itself -- and
+        // keeps Aero Snap working -- so the renderer must not start a second,
+        // competing drag.
+        const windowDrag = jest.fn();
+        (window as any).api = { windowAction: jest.fn(), windowDrag };
+
+        const renderer = build('timer', () => undefined);
+        const event = pointerDownEvent();
+
+        act(() => {
+            dragSurface(renderer).props.onPointerDown(event);
+        });
+
+        expect(windowDrag).not.toHaveBeenCalled();
+        expect(event.currentTarget.setPointerCapture).not.toHaveBeenCalled();
 
         unmount(renderer);
     });

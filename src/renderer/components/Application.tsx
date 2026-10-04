@@ -6,7 +6,7 @@ import Hotkeys from './Hotkeys';
 import { hot } from 'react-hot-loader/root';
 import { connect } from 'react-redux';
 import styled from 'styled-components';
-import { IpcEventName } from '../../main/ipc/type';
+import { IpcEventName, WindowEventName } from '../../main/ipc/type';
 import { loadDBs } from '../dbs';
 import { RootState } from '../reducers';
 import { genMapDispatchToProp } from '../utils';
@@ -162,7 +162,18 @@ interface Props extends TimerActionTypes, HistoryActionCreatorTypes {
     fetchKanban: () => void;
 }
 
-class Application extends React.Component<Props> {
+interface State {
+    /**
+     * Whether the window is maximized, for the caption buttons (see
+     * `WindowControls`). The renderer cannot read it on its own: on Windows a
+     * transparent window is not a real maximized window -- Electron emulates the
+     * state by resizing to the display work area -- so the main process is the
+     * only side that knows, and it reports the state on every change.
+     */
+    maximized: boolean;
+}
+
+class Application extends React.Component<Props, State> {
     private timer = (<Timer />);
     /**
      * The user left this window in compact mode for another page, so coming back
@@ -171,6 +182,16 @@ class Application extends React.Component<Props> {
      * `componentDidUpdate` and by the F11 hotkey.
      */
     private returnToCompact = false;
+
+    state: State = { maximized: false };
+
+    /**
+     * The window state is pushed by the main process (see `State.maximized`);
+     * kept as a field so the very same function can be removed again.
+     */
+    private onWindowMaximizedChanged = (_event: unknown, maximized: boolean) => {
+        this.setState({ maximized });
+    };
 
     componentDidUpdate(prevProps: Props): void {
         if (!prevProps.compact && this.props.compact) {
@@ -188,6 +209,12 @@ class Application extends React.Component<Props> {
 
         setTrayImageWithMadeIcon(undefined).then();
         window.addEventListener('error', this.onError);
+
+        ipcRenderer.addListener(WindowEventName.MaximizedChanged, this.onWindowMaximizedChanged);
+        // Pushed events only report changes, and the window keeps its state
+        // across a renderer reload: read it once for the first paint, otherwise
+        // a reloaded page would show "maximize" over a maximized window.
+        window.api.windowState().then(({ maximized }) => this.setState({ maximized }));
     }
 
     /**
@@ -274,6 +301,7 @@ class Application extends React.Component<Props> {
 
     componentWillUnmount() {
         window.removeEventListener('error', this.onError);
+        ipcRenderer.removeListener(WindowEventName.MaximizedChanged, this.onWindowMaximizedChanged);
     }
 
     onError = (event: ErrorEvent) => this.handleError(event.error);
@@ -317,6 +345,7 @@ class Application extends React.Component<Props> {
                         currentTab={currentTab}
                         minimize={minimize}
                         compact={compact}
+                        maximized={this.state.maximized}
                         sessionEnding={sessionEnding}
                         alwaysOnTop={compactAlwaysOnTop}
                         onToggleAlwaysOnTop={() => setCompactAlwaysOnTop(!compactAlwaysOnTop)}

@@ -37,21 +37,40 @@ jest.mock('./Visualization/PomodoroSankey', () => ({
 jest.mock('./Timer/iconMaker', () => ({
     setTrayImageWithMadeIcon: jest.fn().mockResolvedValue(undefined),
 }));
-jest.mock('electron', () => ({ ipcRenderer: { send: jest.fn() } }));
+jest.mock('electron', () => ({
+    ipcRenderer: { send: jest.fn(), addListener: jest.fn(), removeListener: jest.fn() },
+}));
 jest.mock('@electron/remote', () => ({ getGlobal: () => undefined }));
 jest.mock('react-hot-loader/root', () => ({ hot: (component: unknown) => component }));
 
+import { ipcRenderer } from 'electron';
+import { WindowEventName } from '../../main/ipc/type';
 import { rootReducer, RootState } from '../reducers';
 import { setCompact } from './Timer/action';
 import ConnectedApplication from './Application';
 
-// The compact thunk resizes the real window through the preload bridge.
+// The compact thunk resizes the real window through the preload bridge, and the
+// title bar asks for the window state on mount.
 (window as any).api = {
     compactWindow: jest.fn(),
     minimizeWindow: jest.fn(),
     openDevTools: jest.fn(),
     notify: jest.fn(),
     windowAction: jest.fn(),
+    windowDrag: jest.fn(),
+    windowState: jest.fn().mockResolvedValue({ maximized: false }),
+};
+
+/**
+ * The listener `Application` registered for a window event. The mock records the
+ * (name, listener) pairs, so the test can fire the event exactly like the main
+ * process does.
+ */
+const windowEventListener = (event: string) => {
+    const calls = (ipcRenderer.addListener as jest.Mock).mock.calls.filter(
+        ([name]) => name === event
+    );
+    return calls[calls.length - 1]?.[1] as (e: unknown, maximized: boolean) => void;
 };
 
 // React asks every update to be wrapped in `act`. Wrapping the *keydown*
@@ -189,5 +208,31 @@ describe('Application page switching', () => {
         await clickTab(0);
         expect(state().currentTab).toBe('timer');
         expect(state().compact).toBe(false);
+    });
+
+    it('swaps the caption button to restore while the window is maximized', async () => {
+        // Nothing in the renderer can read the state: a maximized *transparent*
+        // window is not a real OS maximized window (Electron emulates it by
+        // resizing to the work area), so the main process pushes the state and
+        // the title bar mirrors it.
+        const captionButtons = () =>
+            document.querySelectorAll<HTMLButtonElement>('.ant-tabs-extra-content button');
+        // Picked by caption instead of by position: the cluster also carries the
+        // always-on-top pin in compact mode, and the window mode leaks in from
+        // the persisted settings (the suite stores them in the DB).
+        const captionButton = () =>
+            Array.from(captionButtons()).find((b) => /^(Maximize|Restore Down)$/.test(b.title));
+
+        expect(captionButton()?.title).toBe('Maximize');
+
+        act(() => {
+            windowEventListener(WindowEventName.MaximizedChanged)(null, true);
+        });
+        expect(captionButton()?.title).toBe('Restore Down');
+
+        act(() => {
+            windowEventListener(WindowEventName.MaximizedChanged)(null, false);
+        });
+        expect(captionButton()?.title).toBe('Maximize');
     });
 });

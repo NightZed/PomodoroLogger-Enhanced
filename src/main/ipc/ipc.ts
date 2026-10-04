@@ -1,5 +1,11 @@
 import { ipcMain, dialog, app, nativeImage, Notification, desktopCapturer, screen } from 'electron';
-import { DesktopSourceInfo, IpcEventName, WorkerMessageType, WindowAction } from './type';
+import {
+    DesktopSourceInfo,
+    IpcEventName,
+    WindowDragPhase,
+    WorkerMessageType,
+    WindowAction,
+} from './type';
 import { sendWorkerMessage } from '../worker/fork';
 import { promisify } from 'util';
 import { readFile, writeFile } from 'fs';
@@ -7,6 +13,7 @@ import { writeAllFile } from '../io/write';
 import { restart, win } from '../init';
 import { readAllData } from '../io/read';
 import { activeWin } from '../activeWin';
+import { startWindowDrag, stopWindowDrag } from './windowDrag';
 
 /**
  * token is used to identify the sender of the message
@@ -115,6 +122,25 @@ export function initialize() {
             win.close();
         }
     });
+    /**
+     * The maximized title bar drives its own gesture and reports only its two
+     * ends here; see `WindowDragPhase` for why the native drag region cannot
+     * cover that case. The move runs in the main process (`windowDrag.ts`),
+     * where the cursor can be read and the window moved without a round trip
+     * per frame.
+     */
+    handle(IpcEventName.WindowDrag, (phase: WindowDragPhase) => {
+        if (!win) return;
+        if (phase === 'end') {
+            stopWindowDrag();
+        } else {
+            startWindowDrag(win);
+        }
+    });
+    // Asked once by the renderer when it mounts: the pushed
+    // `WindowEventName.MaximizedChanged` events only report changes, and a
+    // reload would otherwise have to wait for the next one to match the icon.
+    handle(IpcEventName.WindowState, () => ({ maximized: win ? win.isMaximized() : false }));
     handle(IpcEventName.OpenAtLogin, (on) => {
         if (on) {
             app.setLoginItemSettings({

@@ -20,7 +20,8 @@ import { DAY_THEME_ID } from '../renderer/theme/tokens';
 import { build } from '../../package.json';
 import { AutoUpdater } from './AutoUpdater';
 import { initialize } from './ipc/ipc';
-import { IpcEventName, UpdateEventName } from './ipc/type';
+import { IpcEventName, UpdateEventName, WindowEventName } from './ipc/type';
+import { stopWindowDrag } from './ipc/windowDrag';
 import * as remoteMain from '@electron/remote/main';
 import { initActiveWin } from './activeWin';
 remoteMain.initialize();
@@ -53,6 +54,36 @@ function flushUpdateEvents() {
         const { type, info } = pendingUpdateEvents.shift()!;
         win.webContents.send(type, info);
     }
+}
+
+/**
+ * Tells the renderer whether the window is maximized, so its caption buttons can
+ * show maximize or restore (see `WindowEventName.MaximizedChanged`).
+ *
+ * On Windows a transparent window is not a real maximized window: Electron
+ * emulates the state by resizing the window to the display work area (see
+ * `NativeWindowViews::Maximize`), which is why the window's `resize` event
+ * reports the state as well -- the explicit toggles emit `maximize` and
+ * `unmaximize` on top of that. Only changes travel: `resize` fires on every
+ * frame of a manual edge resize.
+ *
+ * `undefined` means "send unconditionally", which is also what a new window (or
+ * a reload) needs: the pushed events only report changes.
+ */
+let lastNotifiedMaximized: boolean | undefined;
+
+function notifyWindowState(): void {
+    if (!win) {
+        return;
+    }
+
+    const maximized = win.isMaximized();
+    if (maximized === lastNotifiedMaximized) {
+        return;
+    }
+
+    lastNotifiedMaximized = maximized;
+    win.webContents.send(WindowEventName.MaximizedChanged, maximized);
 }
 
 // In development, isolate userData to prevent locking conflicts with installed / production app
@@ -169,7 +200,14 @@ const createWindow = async () => {
     }
 
     rendererReady = false;
-    win.webContents.once('did-finish-load', flushUpdateEvents);
+    // Re-sent unconditionally once the page is loaded: the pushed events only
+    // report changes, and the renderer registers its listener before this fires
+    // (the bundle runs before `onload`).
+    win.webContents.once('did-finish-load', () => {
+        lastNotifiedMaximized = undefined;
+        flushUpdateEvents();
+        notifyWindowState();
+    });
 
     const handleRedirect = (e: any, url: string) => {
         if (url !== win?.webContents.getURL()) {
@@ -188,6 +226,20 @@ const createWindow = async () => {
 
         return { action: 'deny' };
     });
+
+    // Caption button state; see notifyWindowState. The `resize` event is the one
+    // that reports the emulated maximize state of a transparent window, the
+    // other three the explicit toggles.
+    win.on('maximize', notifyWindowState);
+    win.on('unmaximize', notifyWindowState);
+    win.on('restore', notifyWindowState);
+    win.on('resize', notifyWindowState);
+
+    // A drag that outlives the window's focus (alt+tab in the middle of the
+    // gesture) must not keep the window glued to the cursor. The renderer
+    // reports the end of its gesture; these cover the case where it cannot.
+    win.on('blur', stopWindowDrag);
+    win.on('hide', stopWindowDrag);
 
     // No `Event` annotation: since Electron 39 the handler receives Electron's
     // own structural `Event` type, which is not the DOM `Event` from `lib.dom`.

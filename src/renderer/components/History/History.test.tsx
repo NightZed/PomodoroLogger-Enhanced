@@ -1,5 +1,6 @@
 import React from 'react';
 import TestRenderer, { ReactTestRendererJSON, act } from 'react-test-renderer';
+import { Select } from 'antd';
 
 jest.mock('../../workers', () => ({
     workers: {
@@ -14,10 +15,23 @@ jest.mock('../../workers', () => ({
 }));
 
 // The charts draw into canvases / echarts, none of which exist under jsdom.
+// DualPieChart lives under src/components, not src/renderer/components: this
+// path used to miss it, and the real chart then mounted and blew up as soon as
+// the calendar section became visible.
 jest.mock('../Visualization/WordCloud', () => ({ WordCloud: () => null }));
-jest.mock('../Visualization/DualPieChart', () => ({ DualPieChart: () => null }));
+jest.mock('../../../components/Visualization/DualPieChart', () => ({
+    DualPieChart: () => null,
+}));
+// The heat map lays out an SVG grid that is of no use under jsdom, so the
+// component is stubbed. `monthList` stays real: the month picker renders from it.
+// The stub records its props so the tests can assert what the calendar is told.
+let calendarProps: any = null;
 jest.mock('../../../components/Visualization/GridCalendar/GridCalendar', () => ({
-    GridCalendar: () => null,
+    ...jest.requireActual('../../../components/Visualization/GridCalendar/GridCalendar'),
+    GridCalendar: (props: any) => {
+        calendarProps = props;
+        return null;
+    },
 }));
 
 import { History } from './History';
@@ -160,6 +174,153 @@ describe('History (aggregation load lifecycle)', () => {
         expect(aggHistory()).toHaveBeenCalledTimes(1);
         expect(spinnerCount(renderer.toJSON())).toBe(0);
         expect(texts(renderer.toJSON()).join('')).not.toContain('Failed to load history data');
+        renderer.unmount();
+    });
+});
+
+describe('History (month filter)', () => {
+    beforeEach(() => {
+        aggHistory().mockReset();
+        aggHistory().mockResolvedValue(AGG);
+        calendarProps = null;
+        // jsdom reports a zero-width body, which would leave `calendarWidth`
+        // under the `> 670` cutoff and keep the heat map from rendering at all.
+        Object.defineProperty(document.body, 'clientWidth', {
+            value: 1200,
+            configurable: true,
+        });
+    });
+
+    const renderHistory = async () => {
+        let renderer!: TestRenderer.ReactTestRenderer;
+        await act(async () => {
+            renderer = TestRenderer.create(<History {...props()} />);
+        });
+        await flush();
+        return renderer;
+    };
+
+    // The filter row holds exactly three pickers: project, year, month.
+    const pickers = (renderer: TestRenderer.ReactTestRenderer) =>
+        renderer.root.findAllByType(Select);
+    const lastCall = () => aggHistory().mock.calls[aggHistory().mock.calls.length - 1][0];
+
+    it('opens on the current year and month', async () => {
+        const renderer = await renderHistory();
+        const now = new Date();
+        const year = now.getFullYear();
+
+        // The badge/charts ask for the current month...
+        expect(lastCall().periodRange).toEqual({
+            from: new Date(year, now.getMonth(), 1).getTime(),
+            to: new Date(year, now.getMonth() + 1, 1).getTime(),
+        });
+        // ...while the calendar still gets the whole year.
+        expect(lastCall().yearQuery.startTime).toEqual({
+            $gte: new Date(year, 0, 1).getTime(),
+            $lt: new Date(year + 1, 0, 1).getTime(),
+        });
+
+        const [, yearPicker, monthPicker] = pickers(renderer);
+        expect(yearPicker.props.value).toBe(year);
+        expect(monthPicker.props.value).toBe(now.getMonth() + 1);
+        // The heat map still covers the whole year, and points at that month.
+        expect(calendarProps.till).toBe(new Date(year, 11, 31).getTime());
+        expect(calendarProps.shownWeeks).toBeUndefined();
+        expect(calendarProps.highlightMonth).toBe(now.getMonth() + 1);
+        renderer.unmount();
+    });
+
+    it('re-aggregates for the month that gets picked', async () => {
+        const renderer = await renderHistory();
+        const year = new Date().getFullYear();
+        await act(async () => {
+            pickers(renderer)[2].props.onChange(3);
+        });
+        await flush();
+
+        expect(aggHistory()).toHaveBeenCalledTimes(2);
+        expect(lastCall().periodRange).toEqual({
+            from: new Date(year, 2, 1).getTime(),
+            to: new Date(year, 3, 1).getTime(),
+        });
+        // The calendar is unaffected by the month choice.
+        expect(lastCall().yearQuery.startTime).toEqual({
+            $gte: new Date(year, 0, 1).getTime(),
+            $lt: new Date(year + 1, 0, 1).getTime(),
+        });
+        renderer.unmount();
+    });
+
+    it('handles December rolling over into the next year', async () => {
+        const renderer = await renderHistory();
+        const year = new Date().getFullYear();
+        await act(async () => {
+            pickers(renderer)[2].props.onChange(12);
+        });
+        await flush();
+
+        expect(lastCall().periodRange).toEqual({
+            from: new Date(year, 11, 1).getTime(),
+            to: new Date(year + 1, 0, 1).getTime(),
+        });
+        renderer.unmount();
+    });
+
+    it('drops the month filter and greys the picker out under All time', async () => {
+        const renderer = await renderHistory();
+        await act(async () => {
+            pickers(renderer)[1].props.onChange('all');
+        });
+        await flush();
+
+        expect(lastCall().periodRange).toBeUndefined();
+        expect(lastCall().yearQuery.startTime).toBeUndefined();
+        expect(pickers(renderer)[2].props.disabled).toBe(true);
+        expect(calendarProps.highlightMonth).toBeUndefined();
+        renderer.unmount();
+    });
+
+    it('goes back to the whole year when the month picker is set to All', async () => {
+        const renderer = await renderHistory();
+        const year = new Date().getFullYear();
+        await act(async () => {
+            pickers(renderer)[2].props.onChange('all');
+        });
+        await flush();
+
+        // No range at all: the worker falls back to the year records, which is
+        // exactly the pre-month-filter behaviour.
+        expect(lastCall().periodRange).toBeUndefined();
+        expect(lastCall().yearQuery.startTime).toEqual({
+            $gte: new Date(year, 0, 1).getTime(),
+            $lt: new Date(year + 1, 0, 1).getTime(),
+        });
+        // Nothing is singled out, and the picker stays enabled for a real year.
+        expect(pickers(renderer)[2].props.disabled).toBe(false);
+        expect(pickers(renderer)[2].props.value).toBe('all');
+        expect(calendarProps.highlightMonth).toBeUndefined();
+        expect(calendarProps.till).toBe(new Date(year, 11, 31).getTime());
+        renderer.unmount();
+    });
+
+    it('turns a month number back into a number after All', async () => {
+        const renderer = await renderHistory();
+        await act(async () => {
+            pickers(renderer)[2].props.onChange('all');
+        });
+        await flush();
+        await act(async () => {
+            pickers(renderer)[2].props.onChange(7);
+        });
+        await flush();
+
+        const year = new Date().getFullYear();
+        expect(lastCall().periodRange).toEqual({
+            from: new Date(year, 6, 1).getTime(),
+            to: new Date(year, 7, 1).getTime(),
+        });
+        expect(calendarProps.highlightMonth).toBe(7);
         renderer.unmount();
     });
 });

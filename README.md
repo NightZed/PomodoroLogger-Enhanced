@@ -39,7 +39,7 @@ Pomodoro Logger 🕢 [^1] —— [Pomodoro Technique](https://en.wikipedia.org/w
 
 [^1]: This repository is an enhanced edition of the [original Pomodoro Logger](https://github.com/zxch3n/PomodoroLogger), with a focus on **theme**, **card editing** and **history view review**, plus optimizations to **memory usage and CPU usage**.
 
-[^2]: The Pomodoro Technique is a time management method developed by Francesco Cirillo in the late 1980s.It uses a kitchen timer to break work into intervals, typically 25 minutes in length, separated by short breaks. Each interval is known as a pomodoro, from the Italian word for tomato.
+[^2]: The Pomodoro Technique is a time management method developed by Francesco Cirillo in the late 1980s. It uses a kitchen timer to break work into intervals, typically 25 minutes in length, separated by short breaks. Each interval is known as a pomodoro, from the Italian word for tomato.
 
 [^3]: Kanban (Japanese: 看板, meaning signboard or billboard), origin in Toyota automotive company in the 1940s, is a lean method to manage and improve work across human systems. This approach aims to manage work by balancing demands with available capacity, and by improving the handling of system-level bottlenecks.
 
@@ -163,7 +163,7 @@ The **Sankey diagram** connects distracting apps with where your time went.
 
 ### 🥧 Time Proportion Pie Chart · Word Cloud
 
-The **pie chart** shows the share of time per project / app, and the **word cloud** shows the keywords that appear most often in window titles. Click a day on the heat map, or switch the project and year, and the charts update accordingly.
+The **pie chart** shows the share of time per project / app, and the **word cloud** shows the keywords that appear most often in window titles. Click a day on the heat map, or switch the project and year/month, and the charts update accordingly.
 
 <p align="center">
   <img height="270" src="./screenshots/time-proportion-pie-chart.png" alt="Time proportion pie chart"/>

@@ -1,7 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Button, Card, Col, Row, Select, Statistic } from 'antd';
 import { HistoryActionCreatorTypes, HistoryState } from './action';
-import { GridCalendar } from '../../../components/Visualization/GridCalendar/GridCalendar';
+import {
+    GridCalendar,
+    monthList,
+} from '../../../components/Visualization/GridCalendar/GridCalendar';
 import styled from 'styled-components';
 import { AggPomodoroInfo, getTimeSpentDataFromRecords, TimeSpentData } from './op';
 import { WordCloud } from '../Visualization/WordCloud';
@@ -22,8 +25,12 @@ import { DualPieChart } from '../../../components/Visualization/DualPieChart';
 const { Option } = Select;
 
 type YearChoice = number | 'all';
+/** For the month picker: every month of the chosen year. */
+type MonthChoice = number | 'all';
 const ALL_TIME = 'all' as const;
-const MAX_AGG_CACHE_ENTRIES = 4;
+const ALL_MONTHS = 'all' as const;
+/** One entry per (project, year, month); 4 was too few once months came along. */
+const MAX_AGG_CACHE_ENTRIES = 16;
 /**
  * `loading` is the only state that shows spinners. A failed aggregation has to
  * end in `error`: the request can fail or time out (the db worker only has so
@@ -99,6 +106,10 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         undefined | [string, number][]
     >(undefined);
     const [chosenYear, setChosenYear] = useState<YearChoice>(new Date().getFullYear());
+    // Opens on the current month, so the page lands on the period the user just
+    // worked in. `All` covers the whole chosen year again; every month is always
+    // selectable, one without records simply aggregates to nothing.
+    const [chosenMonth, setChosenMonth] = useState<MonthChoice>(ALL_MONTHS);
     const [aggInfo, setAggInfo] = useState<AggPomodoroInfo>(EMPTY_AGG_INFO);
     const [status, setStatus] = useState<LoadStatus>('loading');
     const [errorMsg, setErrorMsg] = useState<string | undefined>(undefined);
@@ -125,8 +136,8 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
     };
 
     useEffect(resizeEffect, []);
-    // Cache aggregated results per (project, year) so switching back and forth
-    // is instant. Cleared whenever expiringKey changes (a new pomodoro record
+    // Cache aggregated results per (project, year, month) so switching back and
+    // forth is instant. Cleared whenever expiringKey changes (a new pomodoro record
     // landed, so cached aggregates may be stale).
     const aggCache = useRef(new Map<string, AggPomodoroInfo>());
     const lastExpiringKey = useRef(props.expiringKey);
@@ -157,7 +168,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
             aggCache.current.clear();
         }
 
-        const cacheKey = `${props.chosenId ?? 'all'}|${chosenYear}`;
+        const cacheKey = `${props.chosenId ?? 'all'}|${chosenYear}|${chosenMonth}`;
         const cached = aggCache.current.get(cacheKey);
         if (cached) {
             aggCache.current.delete(cacheKey);
@@ -185,9 +196,14 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         // Avoid using outdated cache; And use worker to avoid db blocking the process
         // Load on demand to avoid pulling the whole session DB into the renderer:
         //  - records since the week/month boundary feed the Today/Week/Month stats;
-        //  - records of the chosen year (or All time) feed the calendar/pie/word cloud
-        //    and the total count/time badge, so the badge follows project + year;
-        //  - with All time a single query covers both the recent stats and the full view.
+        //  - records of the chosen year (or All time) feed the calendar, which keeps
+        //    its full-year window whatever month is picked;
+        //  - `periodRange` narrows the same year records down to the chosen month for
+        //    the badge / pie chart / word cloud, so the badge follows project + month
+        //    without the calendar losing the rest of the year; picking `All` months drops
+        //    the range so those views cover the whole year again;
+        //  - with All time no range is sent and a single query covers both the recent
+        //    stats and the full view.
         // The whole aggregation runs inside the db worker (aggHistory op), so raw
         // records never cross to the main thread and only the small aggregated
         // result is transferred back. The worker also resolves the project names
@@ -203,6 +219,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         const searchArg = props.chosenId === undefined ? {} : { boardId: props.chosenId };
         const recentArg = { ...searchArg, startTime: { $gte: recentStart } };
         let yearArg: any = searchArg;
+        let periodRange: { from: number; to: number } | undefined = undefined;
         if (chosenYear !== ALL_TIME) {
             yearArg = {
                 ...searchArg,
@@ -211,11 +228,22 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                     $lt: new Date(chosenYear + 1, 0, 1).getTime(),
                 },
             };
+            // `All` months means "no narrowing": the worker then falls back to the
+            // year records, which restores the previous whole-year badge/charts.
+            // `new Date(year, 12, 1)` rolls over to January on its own, so December
+            // needs no special case.
+            if (chosenMonth !== ALL_MONTHS) {
+                periodRange = {
+                    from: new Date(chosenYear, chosenMonth - 1, 1).getTime(),
+                    to: new Date(chosenYear, chosenMonth, 1).getTime(),
+                };
+            }
         }
 
         db.aggHistory({
             recentQuery: chosenYear === ALL_TIME ? undefined : recentArg,
             yearQuery: yearArg,
+            periodRange,
         })
             .then((ans: AggPomodoroInfo) => {
                 if (cancelled) {
@@ -243,7 +271,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         return () => {
             cancelled = true;
         };
-    }, [props.chosenId, props.expiringKey, chosenYear, reloadToken]);
+    }, [props.chosenId, props.expiringKey, chosenYear, chosenMonth, reloadToken]);
 
     const retry = () => {
         setReloadToken((token) => token + 1);
@@ -325,6 +353,8 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
     }, [aggInfo.calendarCount, chosenYear]);
 
     // All time shows the full current-year calendar, so anchor the window to the year end.
+    // Picking a month never moves this window: the heat map stays on the whole year,
+    // the charts below it just describe the selected month.
     const calendarTill = new Date(
         chosenYear === ALL_TIME ? new Date().getFullYear() : chosenYear,
         11,
@@ -381,10 +411,12 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                             );
                         })}
                     </Select>
+                    {/* Short enough that the month picker fits beside it without
+                        pushing the badges around. */}
                     <Select
                         onChange={(v: any) => setChosenYear(v as YearChoice)}
                         value={chosenYear}
-                        style={{ width: 120, marginLeft: 10 }}
+                        style={{ width: 90, marginLeft: 10 }}
                     >
                         <Option value={ALL_TIME} key="all-time">
                             All time
@@ -399,6 +431,25 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                                     {y}
                                 </Option>
                             ))}
+                    </Select>
+                    {/* All time has no month dimension to narrow, so the picker
+                        greys out instead of pretending to filter something. */}
+                    <Select
+                        onChange={(v: any) =>
+                            setChosenMonth(v === ALL_MONTHS ? ALL_MONTHS : Number(v))
+                        }
+                        value={chosenMonth}
+                        disabled={chosenYear === ALL_TIME}
+                        style={{ width: 60, marginLeft: 10 }}
+                    >
+                        <Option value={ALL_MONTHS} key="all-months">
+                            All
+                        </Option>
+                        {monthList.map((label, i) => (
+                            <Option value={i + 1} key={label}>
+                                {label}
+                            </Option>
+                        ))}
                     </Select>
                     <BadgeHolder style={{ marginLeft: 10 }}>
                         {aggInfo.total.count != null ? (
@@ -459,6 +510,12 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                                 clickDate={clickDate}
                                 till={calendarTill}
                                 baseColor={props.calendarBaseColor}
+                                // With `All` months nothing is singled out, so no label is bolded.
+                                highlightMonth={
+                                    chosenYear === ALL_TIME || chosenMonth === ALL_MONTHS
+                                        ? undefined
+                                        : chosenMonth
+                                }
                             />
                             <div
                                 className={

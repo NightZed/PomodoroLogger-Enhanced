@@ -115,11 +115,13 @@ addWorkerListeners(ctx, {
             kanbanPath,
             recentQuery,
             yearQuery,
+            periodRange,
         }: {
             path: string;
             kanbanPath: string;
             recentQuery?: any;
             yearQuery: any;
+            periodRange?: { from: number; to: number };
         },
         done: DoneType
     ) => {
@@ -151,13 +153,16 @@ addWorkerListeners(ctx, {
 
         // Errors propagate to addWorkerListeners, which reports them back with
         // the request code so the main-thread promise rejects promptly.
+        // A single year query serves both halves: the calendar keeps the whole
+        // year, and `aggHistory` slices the chosen month out of the same records
+        // for the badge/charts instead of paying for a second find.
         const [recentRecords, yearRecords] = await Promise.all([
             recentQuery ? findAsync(db, recentQuery, projection) : Promise.resolve(undefined),
             findAsync(db, yearQuery, projection),
         ]);
         done({
             type: 'done',
-            payload: aggHistory(recentRecords ?? yearRecords, yearRecords, boardNames),
+            payload: aggHistory(recentRecords ?? yearRecords, yearRecords, boardNames, periodRange),
         });
     },
 });

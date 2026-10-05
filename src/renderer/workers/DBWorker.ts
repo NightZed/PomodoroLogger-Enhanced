@@ -46,7 +46,17 @@ class TrueDBWorker extends BaseWorker {
     update = this.genHandler('update');
     remove = this.genHandler('remove');
     count = this.genHandler('count');
-    aggHistory = (arg: { recentQuery?: any; yearQuery: any }): Promise<any> =>
+    /**
+     * `yearQuery` covers the whole chosen year: it always feeds the calendar,
+     * which stays on its full-year window. `periodRange` optionally narrows the
+     * badge / pie chart / word cloud to a single month; the worker slices it out
+     * of the same records, so no extra query is issued.
+     */
+    aggHistory = (arg: {
+        recentQuery?: any;
+        yearQuery: any;
+        periodRange?: { from: number; to: number };
+    }): Promise<any> =>
         this.createHandler(
             {
                 type: 'aggHistory',
@@ -114,7 +124,11 @@ class FakeDBWorker {
 
     // For tests: run the same aggregation in-process, sharing the dbs
     // instances instead of going through a real web worker.
-    aggHistory = async (arg: { recentQuery?: any; yearQuery: any }): Promise<any> => {
+    aggHistory = async (arg: {
+        recentQuery?: any;
+        yearQuery: any;
+        periodRange?: { from: number; to: number };
+    }): Promise<any> => {
         const findAsync = (query: any): Promise<any[]> =>
             new Promise((resolve, reject) => {
                 if (this.db === undefined) {
@@ -145,7 +159,7 @@ class FakeDBWorker {
             arg.recentQuery ? findAsync(arg.recentQuery) : Promise.resolve(undefined),
             findAsync(arg.yearQuery),
         ]);
-        return aggregate(recentRecords ?? yearRecords, yearRecords, boardNames);
+        return aggregate(recentRecords ?? yearRecords, yearRecords, boardNames, arg.periodRange);
     };
 }
 

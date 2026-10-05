@@ -116,12 +116,27 @@ export function getTokenWeights(records: PomodoroRecord[]): [string, number][] {
 /**
  * Everything the History view needs, computed from already-queried records.
  * Runs inside the db worker so raw records never cross to the main thread.
+ *
+ * `yearRecords` covers the whole chosen year and always feeds the calendar: the
+ * heat map stays on its full-year window regardless of the month filter, so the
+ * user can still see (and compare) the whole year while only one month is
+ * highlighted.
+ *
+ * `periodRange`, when given, slices those same records down to the chosen month
+ * and feeds the badge / pie chart / word cloud. Filtering here rather than with a
+ * second query keeps this a single find: the month records are a subset of what
+ * the year query already read. Omitted (All time) everything falls back to the
+ * year records.
  */
 export function aggHistory(
     recentRecords: PomodoroRecord[],
     yearRecords: PomodoroRecord[],
-    boardNames: { [boardId: string]: string }
+    boardNames: { [boardId: string]: string },
+    periodRange?: { from: number; to: number }
 ) {
+    const periodRecords = periodRange
+        ? yearRecords.filter((v) => v.startTime >= periodRange.from && v.startTime < periodRange.to)
+        : yearRecords;
     return {
         agg: {
             day: getPomodoroAgg(0, recentRecords),
@@ -129,11 +144,11 @@ export function aggHistory(
             month: getPomodoroAgg(new Date().getDate() - 1, recentRecords),
         },
         total: {
-            count: yearRecords.length,
-            usedTime: yearRecords.reduce((a, b) => a + b.spentTimeInHour, 0),
+            count: periodRecords.length,
+            usedTime: periodRecords.reduce((a, b) => a + b.spentTimeInHour, 0),
         },
-        wordWeights: getTokenWeights(yearRecords),
-        pieChart: getTimeSpentDataFromRecordsSync(yearRecords, boardNames),
+        wordWeights: getTokenWeights(periodRecords),
+        pieChart: getTimeSpentDataFromRecordsSync(periodRecords, boardNames),
         calendarCount: getPomodoroCalendarData(yearRecords),
     };
 }

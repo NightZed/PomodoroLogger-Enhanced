@@ -71,4 +71,40 @@ describe('aggPomodoro shared core', () => {
         expect(ans.wordWeights).toEqual([]);
         expect(Object.keys(ans.calendarCount).length).toBe(1);
     });
+
+    it('narrows the badge and charts to the month while the calendar keeps the year', () => {
+        const rec = (startTime: number) =>
+            ({ startTime, spentTimeInHour: 1, apps: {}, boardId: 'b1' } as any);
+        const yearRecords = [
+            rec(new Date(2020, 2, 15, 10).getTime()),
+            rec(new Date(2020, 5, 15, 10).getTime()),
+        ];
+        const ans = aggHistory(
+            [],
+            yearRecords,
+            { b1: 'Work' },
+            {
+                from: new Date(2020, 2, 1).getTime(),
+                to: new Date(2020, 3, 1).getTime(),
+            }
+        );
+
+        // Badge / pie chart describe March only...
+        expect(ans.total).toEqual({ count: 1, usedTime: 1 });
+        expect(ans.pieChart.projectData).toEqual([{ name: 'Work', value: 1 }]);
+        // ...while the heat map still has both days.
+        expect(Object.keys(ans.calendarCount).length).toBe(2);
+    });
+
+    it('keeps the whole year when no period range is given (All time)', () => {
+        const rec = (startTime: number) =>
+            ({ startTime, spentTimeInHour: 1, apps: {}, boardId: 'b1' } as any);
+        const yearRecords = [
+            rec(new Date(2020, 2, 15, 10).getTime()),
+            rec(new Date(2020, 5, 15, 10).getTime()),
+        ];
+        const ans = aggHistory([], yearRecords, { b1: 'Work' }, undefined);
+        expect(ans.total).toEqual({ count: 2, usedTime: 2 });
+        expect(Object.keys(ans.calendarCount).length).toBe(2);
+    });
 });

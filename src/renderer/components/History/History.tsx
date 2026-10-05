@@ -106,8 +106,8 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         undefined | [string, number][]
     >(undefined);
     const [chosenYear, setChosenYear] = useState<YearChoice>(new Date().getFullYear());
-    // Opens on the current month, so the page lands on the period the user just
-    // worked in. `All` covers the whole chosen year again; every month is always
+    // Opens on the whole chosen year, matching what the view showed before the
+    // month picker existed; picking a month narrows it. Every month is always
     // selectable, one without records simply aggregates to nothing.
     const [chosenMonth, setChosenMonth] = useState<MonthChoice>(ALL_MONTHS);
     const [aggInfo, setAggInfo] = useState<AggPomodoroInfo>(EMPTY_AGG_INFO);

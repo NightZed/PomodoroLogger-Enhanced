@@ -179,9 +179,24 @@ describe('History (aggregation load lifecycle)', () => {
 });
 
 describe('History (month filter)', () => {
+    // The badge count echoes what the worker was asked for, so the rendered
+    // badge tells month-narrowed (1) and whole-year (99) apart. Asserting on the
+    // UI matters here: revisiting an already-seen period is served from the
+    // aggregation cache, so no new worker call happens and the call log would
+    // keep reporting the previous period.
+    const WHOLE_YEAR_COUNT = 99;
+    const MONTH_COUNT = 1;
     beforeEach(() => {
         aggHistory().mockReset();
-        aggHistory().mockResolvedValue(AGG);
+        aggHistory().mockImplementation((arg: any) =>
+            Promise.resolve({
+                ...AGG,
+                total: {
+                    count: arg.periodRange ? MONTH_COUNT : WHOLE_YEAR_COUNT,
+                    usedTime: arg.periodRange ? MONTH_COUNT : WHOLE_YEAR_COUNT,
+                },
+            })
+        );
         calendarProps = null;
         // jsdom reports a zero-width body, which would leave `calendarWidth`
         // under the `> 670` cutoff and keep the heat map from rendering at all.
@@ -200,34 +215,35 @@ describe('History (month filter)', () => {
         return renderer;
     };
 
+    /** The count inside PomodoroDot's <title>, e.g. "99 Pomodoros". */
+    const badge = (renderer: TestRenderer.ReactTestRenderer) =>
+        texts(renderer.toJSON()).find((t) => /^\d+ Pomodoros$/.test(t));
+
     // The filter row holds exactly three pickers: project, year, month.
     const pickers = (renderer: TestRenderer.ReactTestRenderer) =>
         renderer.root.findAllByType(Select);
     const lastCall = () => aggHistory().mock.calls[aggHistory().mock.calls.length - 1][0];
 
-    it('opens on the current year and month', async () => {
+    it('opens on the whole chosen year', async () => {
         const renderer = await renderHistory();
-        const now = new Date();
-        const year = now.getFullYear();
+        const year = new Date().getFullYear();
 
-        // The badge/charts ask for the current month...
-        expect(lastCall().periodRange).toEqual({
-            from: new Date(year, now.getMonth(), 1).getTime(),
-            to: new Date(year, now.getMonth() + 1, 1).getTime(),
-        });
-        // ...while the calendar still gets the whole year.
+        // No month range at all: the badge and the charts cover the year, which
+        // is what the view did before the month picker existed.
+        expect(lastCall().periodRange).toBeUndefined();
         expect(lastCall().yearQuery.startTime).toEqual({
             $gte: new Date(year, 0, 1).getTime(),
             $lt: new Date(year + 1, 0, 1).getTime(),
         });
+        expect(badge(renderer)).toBe(`${WHOLE_YEAR_COUNT} Pomodoros`);
 
         const [, yearPicker, monthPicker] = pickers(renderer);
         expect(yearPicker.props.value).toBe(year);
-        expect(monthPicker.props.value).toBe(now.getMonth() + 1);
-        // The heat map still covers the whole year, and points at that month.
+        expect(monthPicker.props.value).toBe('all');
+        // Nothing is singled out on the heat map, which still spans the year.
         expect(calendarProps.till).toBe(new Date(year, 11, 31).getTime());
         expect(calendarProps.shownWeeks).toBeUndefined();
-        expect(calendarProps.highlightMonth).toBe(now.getMonth() + 1);
+        expect(calendarProps.highlightMonth).toBeUndefined();
         renderer.unmount();
     });
 
@@ -284,18 +300,28 @@ describe('History (month filter)', () => {
     it('goes back to the whole year when the month picker is set to All', async () => {
         const renderer = await renderHistory();
         const year = new Date().getFullYear();
+        expect(badge(renderer)).toBe(`${WHOLE_YEAR_COUNT} Pomodoros`);
+
+        await act(async () => {
+            pickers(renderer)[2].props.onChange(4);
+        });
+        await flush();
+        expect(lastCall().periodRange).toEqual({
+            from: new Date(year, 3, 1).getTime(),
+            to: new Date(year, 4, 1).getTime(),
+        });
+        expect(badge(renderer)).toBe(`${MONTH_COUNT} Pomodoros`);
+
         await act(async () => {
             pickers(renderer)[2].props.onChange('all');
         });
         await flush();
 
-        // No range at all: the worker falls back to the year records, which is
-        // exactly the pre-month-filter behaviour.
-        expect(lastCall().periodRange).toBeUndefined();
-        expect(lastCall().yearQuery.startTime).toEqual({
-            $gte: new Date(year, 0, 1).getTime(),
-            $lt: new Date(year + 1, 0, 1).getTime(),
-        });
+        // The badge and the charts cover the year again, which is what the view
+        // did before the month picker existed. This period was already seen, so
+        // it comes straight from the cache rather than a fresh query.
+        expect(badge(renderer)).toBe(`${WHOLE_YEAR_COUNT} Pomodoros`);
+        expect(aggHistory()).toHaveBeenCalledTimes(2);
         // Nothing is singled out, and the picker stays enabled for a real year.
         expect(pickers(renderer)[2].props.disabled).toBe(false);
         expect(pickers(renderer)[2].props.value).toBe('all');
@@ -304,22 +330,30 @@ describe('History (month filter)', () => {
         renderer.unmount();
     });
 
-    it('turns a month number back into a number after All', async () => {
+    it('round-trips All -> month -> All -> month without losing the number', async () => {
         const renderer = await renderHistory();
-        await act(async () => {
-            pickers(renderer)[2].props.onChange('all');
-        });
-        await flush();
-        await act(async () => {
-            pickers(renderer)[2].props.onChange(7);
-        });
-        await flush();
-
         const year = new Date().getFullYear();
-        expect(lastCall().periodRange).toEqual({
+        const july = {
             from: new Date(year, 6, 1).getTime(),
             to: new Date(year, 7, 1).getTime(),
-        });
+        };
+        const choose = async (v: any) => {
+            await act(async () => {
+                pickers(renderer)[2].props.onChange(v);
+            });
+            await flush();
+        };
+
+        await choose(7);
+        expect(lastCall().periodRange).toEqual(july);
+        expect(badge(renderer)).toBe(`${MONTH_COUNT} Pomodoros`);
+        await choose('all');
+        expect(badge(renderer)).toBe(`${WHOLE_YEAR_COUNT} Pomodoros`);
+        // Guards the `Number('all') === NaN` trap: the picker hands the raw
+        // option value back, so a month after `All` has to parse as a number.
+        await choose(7);
+        expect(lastCall().periodRange).toEqual(july);
+        expect(badge(renderer)).toBe(`${MONTH_COUNT} Pomodoros`);
         expect(calendarProps.highlightMonth).toBe(7);
         renderer.unmount();
     });

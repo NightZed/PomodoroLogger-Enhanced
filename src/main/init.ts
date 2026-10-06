@@ -42,6 +42,86 @@ const { refreshDbs, loadDBs } = db;
 export let win: BrowserWindow | undefined;
 
 /**
+ * What the taskbar entry should be while the window is open. The mini bar
+ * asks for `setSkipTaskbar(true)` through IpcEventName.MinimizeWindow (see
+ * `setSkipTaskbar`); `closeToTray` forces it on the way down and hands this
+ * record back on the way up, because `BrowserWindow` has no `isSkipTaskbar`
+ * getter to ask the window what it currently has.
+ */
+let skipTaskbarWanted = false;
+/**
+ * Whether `closeToTray` turned the taskbar entry off itself (i.e. the window
+ * was not already skipped by mini mode) and therefore owes the window a
+ * `setSkipTaskbar(skipTaskbarWanted)` on the way back up.
+ */
+let forcedSkipTaskbar = false;
+
+/**
+ * The single place the window's taskbar entry is controlled from, so
+ * close-to-tray can restore exactly the state the window was closed with
+ * (see `forcedSkipTaskbar`).
+ */
+export function setSkipTaskbar(on: boolean): void {
+    skipTaskbarWanted = on;
+    win?.setSkipTaskbar(on);
+}
+
+/**
+ * Windows close-to-tray: minimize instead of hide.
+ *
+ * Hiding a `transparent: true` window and showing it again makes Windows
+ * rebuild the window's compositor surface: the window appears for ~100ms,
+ * vanishes and appears again (electron/electron#35044, #22691, #10069 --
+ * Windows-only, closed as stale upstream, so there is no fix to wait for).
+ * `transparent: false` windows are unaffected, but this app needs the
+ * transparency, so the way out is to never hide the window: `minimize()`
+ * keeps the surface alive and does not flicker (verified side by side
+ * against `hide()` in the experiment that produced this).
+ *
+ * `setSkipTaskbar(true)` hides the taskbar entry that `hide()` used to drop
+ * on its own; mini mode is left alone since it already asked for it.
+ * `revealWindow` puts back whatever the window had.
+ */
+function closeToTray(): void {
+    if (!win) {
+        return;
+    }
+
+    if (!skipTaskbarWanted) {
+        win.setSkipTaskbar(true);
+        forcedSkipTaskbar = true;
+    }
+
+    win.minimize();
+}
+
+/**
+ * Bring the window back from the tray: a tray left click, the tray's Open
+ * entry, a second instance, the session-reminder notification. `show()` alone
+ * does not un-minimize a window that `closeToTray` put away, so restore
+ * first, hand back the taskbar entry, then show + focus. On macOS/Linux the
+ * window was hidden (not minimized), so the restore is skipped and this is
+ * show + focus.
+ */
+export function revealWindow(): void {
+    if (!win) {
+        return;
+    }
+
+    if (win.isMinimized()) {
+        win.restore();
+    }
+
+    if (forcedSkipTaskbar) {
+        win.setSkipTaskbar(skipTaskbarWanted);
+        forcedSkipTaskbar = false;
+    }
+
+    win.show();
+    win.focus();
+}
+
+/**
  * Update events can be emitted before the renderer registered its listeners
  * (`win.loadURL` is asynchronous), so they are queued until the page is loaded.
  */
@@ -98,11 +178,9 @@ if (!gotTheLock) {
     app.quit();
 } else {
     app.on('second-instance', (_event, _commandLine, _workingDirectory) => {
-        // Someone tried to run a second instance, we should focus our window.
-        if (win) {
-            if (win.isMinimized()) win.restore();
-            win.focus();
-        }
+        // Someone tried to run a second instance, we should show and focus
+        // our window (un-minimize it first if it is away in the tray).
+        revealWindow();
     });
 }
 
@@ -243,10 +321,17 @@ const createWindow = async () => {
 
     // No `Event` annotation: since Electron 39 the handler receives Electron's
     // own structural `Event` type, which is not the DOM `Event` from `lib.dom`.
+    // Closing hides the window to the tray instead of destroying it. On
+    // Windows that is `closeToTray()` (minimize, not hide -- see why there);
+    // other platforms keep plain hide/show, which never flickered.
     win.on('close', (event) => {
         if (win) {
-            win.hide();
             event.preventDefault();
+            if (process.platform === 'win32') {
+                closeToTray();
+            } else {
+                win.hide();
+            }
         }
     });
 
@@ -328,18 +413,27 @@ app.on('ready', async () => {
             if (!win) {
                 await createWindow();
             } else {
-                win.show();
+                revealWindow();
             }
         });
     } else {
         mGlobal.tray.setContextMenu(contextMenu);
-        mGlobal.tray.on('double-click', async () => {
-            if (!win) {
-                await createWindow();
-            } else {
-                win.show();
-            }
-        });
+        if (process.platform === 'win32') {
+            // Windows: a single left click opens the window; the right button
+            // keeps opening the menu (`setContextMenu`). Electron emits
+            // `click` from WM_LBUTTONDOWN on this platform (see
+            // NotifyIconHost::WndProc), so the window appears on press. A
+            // double-click needs no handler of its own: the first press
+            // already opens the window and the second press is a harmless
+            // repeat (`revealWindow` is idempotent).
+            mGlobal.tray.on('click', async () => {
+                if (!win) {
+                    await createWindow();
+                } else {
+                    revealWindow();
+                }
+            });
+        }
     }
 
     await db.loadDBs(['settingDB']);
@@ -454,9 +548,7 @@ function setMenuItems(items: { label: string; type: string; click: any; enabled?
             label: 'Open',
             type: 'normal',
             click: () => {
-                if (win) {
-                    win.show();
-                }
+                revealWindow();
             },
         },
         {
@@ -482,7 +574,7 @@ app.on('activate', () => {
         app.setName(build.productName);
         createWindow();
     } else {
-        win.show();
+        revealWindow();
     }
 });
 initialize();

@@ -12,7 +12,7 @@ import { sendWorkerMessage } from '../worker/fork';
 import { promisify } from 'util';
 import { readFile, writeFile } from 'fs';
 import { writeAllFile } from '../io/write';
-import { win } from '../init';
+import { revealWindow, setSkipTaskbar, win } from '../init';
 import { readAllData } from '../io/read';
 import { activeWin } from '../activeWin';
 import { startWindowDrag, stopWindowDrag } from './windowDrag';
@@ -43,9 +43,9 @@ function handle(name: string, callback: (...args: any[]) => Promise<void> | any)
 export function initialize() {
     handle(IpcEventName.ActiveWin, activeWin);
     handle(IpcEventName.FocusOnWindow, () => {
-        if (!win) return;
-        win.show();
-        win.focus();
+        // Works while the window sits minimized in the tray as well: reveal
+        // restores it first (see init.ts `revealWindow`).
+        revealWindow();
     });
     /**
      * `desktopCapturer` and `screen` are main-process only since Electron 17,
@@ -92,7 +92,9 @@ export function initialize() {
     handle(IpcEventName.MinimizeWindow, (on) => {
         if (!win) return;
         win.setAlwaysOnTop(on);
-        win.setSkipTaskbar(on);
+        // Through init.ts' wrapper so close-to-tray can restore the state the
+        // window was closed with (see `forcedSkipTaskbar`).
+        setSkipTaskbar(on);
         if (on) {
             // Mini bar: content must be exactly the two-row MiniLogger size
             // (90px; Application.tsx hides the 1px .ant-tabs-bar border while
@@ -126,7 +128,8 @@ export function initialize() {
                 win.maximize();
             }
         } else if (action === 'close') {
-            // init.ts installs a close handler that hides the window to tray.
+            // init.ts installs a close handler that sends the window to the
+            // tray (minimized on Windows, see `closeToTray`).
             win.close();
         }
     });

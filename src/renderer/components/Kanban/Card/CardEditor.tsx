@@ -4,7 +4,7 @@ import { unstable_batchedUpdates } from 'react-dom';
 import { actions, CardActionTypes } from './action';
 import { actions as kanbanActions } from '../action';
 import { RootState } from '../../../reducers';
-import { genMapDispatchToProp } from '../../../utils';
+import { genMapDispatchToProp, matchParent } from '../../../utils';
 import { Button, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Tabs, Tooltip } from 'antd';
 import { ConfirmPopover } from '../../feedback';
 import { getPopupContainer } from '../../popupLayer';
@@ -14,6 +14,7 @@ import moment from 'moment';
 import { Card, CardLabel } from '../type';
 import { Markdown } from '../style/Markdown';
 import formatMarkdown from './formatMarkdown';
+import { getCheckboxIndex, toggleNthCheckbox } from './toggleCheckbox';
 import { findFormatBlock } from './selectionFormat';
 import { EditorContainer, EditorAnimation } from '../style/editorStyle';
 import { CreatedTime } from '../style/CreatedTime';
@@ -511,6 +512,33 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
         }
     }, []);
 
+    // Toggling a task box in the preview flips the markdown source exactly
+    // like the card view does (the Nth rendered checkbox maps to the Nth
+    // `[ ]`/`[x]` occurrence). The change is written to BOTH the preview
+    // state (which the preview HTML renders from) and the antd form value
+    // (which saveValues/insert helpers read), so the toggle survives
+    // switching back to the Edit tab and is persisted on save.
+    const previewRef = useRef<HTMLDivElement>(null);
+    const onPreviewClick = React.useCallback(
+        (e: React.MouseEvent<HTMLDivElement>) => {
+            const target = e.nativeEvent.target as HTMLElement;
+            const checkbox = matchParent(target, '[type="checkbox"]');
+            if (!checkbox || !previewRef.current) {
+                return;
+            }
+
+            const checkboxIndex = getCheckboxIndex(previewRef.current, checkbox);
+            const nextContent = toggleNthCheckbox(cardContent, checkboxIndex);
+            if (nextContent === undefined) {
+                return;
+            }
+
+            setCardContent(nextContent);
+            setFieldsValue({ content: nextContent });
+        },
+        [cardContent, setFieldsValue]
+    );
+
     return (
         <Modal
             visible={visible}
@@ -611,6 +639,8 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                         </TabPane>
                         <TabPane tab="Preview" key="preview">
                             <Markdown
+                                ref={previewRef}
+                                onClick={onPreviewClick}
                                 style={{
                                     padding: '0px 10px',
                                     border: '1px solid rgb(220, 220, 220)',

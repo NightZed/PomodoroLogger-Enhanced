@@ -5,6 +5,7 @@ import { KanbanActionTypes } from '../action';
 import styled from 'styled-components';
 import { Divider } from 'antd';
 import formatMarkdown from './formatMarkdown';
+import { getCheckboxIndex, toggleNthCheckbox } from './toggleCheckbox';
 import { TimeBadge } from '../../../../components/Visualization/Badge/Badge';
 import { BadgeHolder } from '../style/Badge';
 import { Markdown } from '../style/Markdown';
@@ -133,32 +134,10 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                     return;
                 }
 
-                const checkboxes = markdownRef.current.querySelectorAll('[type="checkbox"]');
-                let checkboxIndex = -1;
-                let index = 0;
-                for (const x of Array.from(checkboxes)) {
-                    if (x === checkbox) {
-                        checkboxIndex = index;
-                        break;
-                    }
-
-                    index += 1;
-                }
-
-                const reg = /\[(x| )\]/g;
-                let match: null | undefined | RegExpExecArray;
-                for (let i = 0; i < checkboxIndex + 1; i += 1) {
-                    match = reg.exec(props.content);
-                }
-
-                if (match && match.length > 1) {
-                    const char = match[1] === 'x' ? ' ' : 'x';
-                    props.setContent(
-                        _id,
-                        `${props.content.slice(0, match.index)}[${char}]${props.content.slice(
-                            match.index + 3
-                        )}`
-                    );
+                const checkboxIndex = getCheckboxIndex(markdownRef.current, checkbox);
+                const nextContent = toggleNthCheckbox(props.content, checkboxIndex);
+                if (nextContent !== undefined) {
+                    props.setContent(_id, nextContent);
                 }
             } else {
                 props.setEditCard(true, props.listId, props._id);

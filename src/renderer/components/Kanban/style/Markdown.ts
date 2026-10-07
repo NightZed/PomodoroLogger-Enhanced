@@ -101,4 +101,8 @@ export const Markdown = styled.div`
     input {
         vertical-align: middle;
     }
+
+    input[type='checkbox'] {
+        cursor: pointer;
+    }
 `;

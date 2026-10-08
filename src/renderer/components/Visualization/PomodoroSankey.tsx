@@ -37,6 +37,17 @@ const InnerContainer = styled.div`
     align-items: center;
 `;
 
+/**
+ * Clicks inside the chart stay in the chart: the tooltip is hover-only, and
+ * node clicks drive the focus-highlight, so the background's click-to-close
+ * must not see them. Catches the React synthetic clicks before they reach
+ * `FullscreenStyled`; the canvas listeners ECharts attaches itself are
+ * unaffected (they run on the way down, inside this container).
+ */
+const ChartArea = styled.div`
+    width: 100%;
+`;
+
 const Header = styled.div`
     margin-top: 20px;
     h1,
@@ -373,9 +384,12 @@ export const PomodoroSankey = (props: Props) => {
         return <></>;
     }
     const { width = '100%' } = props;
+    // Esc closes the overlay. There is deliberately no Enter binding: Enter is
+    // not a dismissal key, and a global one would close the overlay from
+    // behind any confirmation the user answers with the keyboard.
+    // (Click-to-close lives on the background, see the render below.)
     const onKeyDown = (keyname: string) => {
         switch (keyname) {
-            case 'enter':
             case 'esc':
                 if (props.cancel) {
                     props.cancel();
@@ -383,24 +397,28 @@ export const PomodoroSankey = (props: Props) => {
                 break;
         }
     };
+    // The background (and the header above the chart) closes the overlay; the
+    // chart itself keeps its clicks, see `ChartArea`.
     return (
         <FullscreenStyled onClick={props.cancel}>
-            <Hotkeys keyName={'esc,enter'} onKeyDown={onKeyDown} />
+            <Hotkeys keyName={'esc'} onKeyDown={onKeyDown} />
             <InnerContainer>
                 <Header>
                     <h1>Sankey Diagram</h1>
                     <h2>{props.boardName}</h2>
                     <h4>{formatTimeYmdHms(props.record!.startTime)}</h4>
-                    <h5>(Click Anywhere to Exit)</h5>
+                    <h5>(Click the background or press Esc to exit)</h5>
                 </Header>
-                <ReactEcharts
-                    option={option}
-                    style={{
-                        width,
-                        height: 'calc(100vh - 140px)',
-                        minHeight: '640px',
-                    }}
-                />
+                <ChartArea onClick={(event) => event.stopPropagation()}>
+                    <ReactEcharts
+                        option={option}
+                        style={{
+                            width,
+                            height: 'calc(100vh - 140px)',
+                            minHeight: '640px',
+                        }}
+                    />
+                </ChartArea>
             </InnerContainer>
         </FullscreenStyled>
     );

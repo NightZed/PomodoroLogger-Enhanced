@@ -37,8 +37,9 @@ export interface ShortcutEntry {
  * The complete list of the app's shortcuts, read-only.
  *
  * Every binding is hard coded in the component that owns it (see the `Hotkeys`
- * usages in Application.tsx, Timer.tsx and Kanban.tsx, which all go through the
- * shared wrapper in src/renderer/components/Hotkeys.tsx), so this table is
+ * usages in Application.tsx, Timer.tsx, Kanban.tsx and PomodoroSankey.tsx,
+ * which all go through the shared wrapper in
+ * src/renderer/components/Hotkeys.tsx), so this table is
  * documentation only -- changing a key here would not change the behaviour. It
  * exists so the settings page can tell the user what the keys do instead of
  * leaving them to guess.
@@ -63,7 +64,7 @@ export const SHORTCUTS: { group: string; entries: ShortcutEntry[] }[] = [
         group: 'Timer',
         entries: [
             { keys: 'F5', description: 'Start or resume the current session' },
-            { keys: 'F6', description: 'Stop the current session' },
+            { keys: 'F6', description: 'Pause the current session' },
             { keys: 'Tab', description: 'Switch between focus and break' },
         ],
     },
@@ -71,7 +72,8 @@ export const SHORTCUTS: { group: string; entries: ShortcutEntry[] }[] = [
         group: 'Kanban',
         entries: [
             { keys: 'Ctrl + N', description: 'Create a new board' },
-            { keys: 'Esc', description: 'Go back to the board list' },
+            { keys: 'Esc', description: 'Go back to the board list or the Timer page' },
+            { keys: 'Ctrl + F', description: 'Search cards in the board view' },
         ],
     },
     {
@@ -83,6 +85,10 @@ export const SHORTCUTS: { group: string; entries: ShortcutEntry[] }[] = [
             },
             { keys: 'Ctrl + F12', description: 'Open the developer tools' },
         ],
+    },
+    {
+        group: 'Statistics',
+        entries: [{ keys: 'Esc', description: 'Close the fullscreen diagram' }],
     },
 ];
 

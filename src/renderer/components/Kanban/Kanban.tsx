@@ -20,6 +20,7 @@ import { thinScrollBar } from '../../style/scrollbar';
 import { EditKanbanForm } from './BoardEditor';
 import { PlayPauseButton } from './Board/PlayPauseButton';
 import { Search } from '../../../components/common/Search/Search';
+import { PomodoroRecord } from '../../monitor/type';
 import { debounce } from 'lodash';
 
 const { Option } = Select;
@@ -80,6 +81,12 @@ interface Props extends KanbanState, KanbanActionTypes, BoardActionTypes, TimerA
     timerManager?: TimerManager;
     isFocusingOnChosenBoard: boolean;
     isTimerRunning: boolean;
+    /**
+     * The record shown in the fullscreen Sankey overlay, if any. The overlay
+     * is app-level (it stays up across tabs) and owns its own Esc, so this
+     * page's Esc handler stands down while it is open -- see `onKeyDown`.
+     */
+    chosenRecord?: PomodoroRecord;
     /**
      * The active page. This component outlives its page (the 10-minute grace
      * of `DestroyOnTimeoutWrapper`) while its pane is only hidden -- and
@@ -240,6 +247,16 @@ export const Kanban: FunctionComponent<Props> = React.memo(
             (name: string) => {
                 switch (name) {
                     case 'esc':
+                        // The fullscreen Sankey overlay (opened from the Timer
+                        // or History page) stays up across tabs and owns its
+                        // own Esc -- handling it here too would close the
+                        // overlay AND navigate on one press. While a dialog is
+                        // open the shared wrapper blocks this binding, and
+                        // while typing the target filter blocks it.
+                        if (props.chosenRecord) {
+                            break;
+                        }
+
                         if (props.kanban.chosenBoardId) {
                             goBack();
                         } else {
@@ -253,7 +270,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                         break;
                 }
             },
-            [props.kanban.chosenBoardId, addBoard, goBack]
+            [props.kanban.chosenBoardId, props.chosenRecord, addBoard, goBack]
         );
 
         const onCollapsedChange = React.useCallback(
@@ -279,11 +296,13 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                 <Header>
                     {/* Bound only while this pane is the active page; see
                         `Props.currentTab`. The 10-minute grace keeps this
-                        component mounted after a tab switch, and a "new
-                        board" dialog popping up over another page would be
-                        both surprising and a focus trap. */}
+                        component mounted after a tab switch, and bindings
+                        firing over another page would be both surprising and
+                        a focus trap. Esc is the documented "go back" shortcut;
+                        it stands down while the fullscreen Sankey overlay is
+                        open (see the handler). */}
                     {props.currentTab === 'kanban' && (
-                        <Hotkeys keyName={'ctrl+n'} onKeyDown={onKeyDown} />
+                        <Hotkeys keyName={'ctrl+n,esc'} onKeyDown={onKeyDown} />
                     )}
                     {props.kanban.chosenBoardId ? (
                         <>
@@ -441,7 +460,12 @@ export const Kanban: FunctionComponent<Props> = React.memo(
         return isShallowEqualByKeys(
             prevProps,
             nextProps,
-            uiStateNames.concat(['isFocusingOnChosenBoard', 'isTimerRunning', 'currentTab'])
+            uiStateNames.concat([
+                'isFocusingOnChosenBoard',
+                'isTimerRunning',
+                'currentTab',
+                'chosenRecord',
+            ])
         );
     }
 );

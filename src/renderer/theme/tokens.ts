@@ -64,7 +64,7 @@ export const DEFAULT_THEME_ID = NIGHT_THEME_ID;
  */
 export const dayTokens: ThemeTokens = {
     base: 'light',
-    bg: '#ffffff',
+    bg: '#f5f5f5',
     bgElevated: '#ffffff',
     bgSunken: '#eaeaea',
     bgHover: 'rgba(0, 0, 0, 0.04)',

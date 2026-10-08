@@ -10,7 +10,7 @@ import { connect } from 'react-redux';
 import { RootState } from '../../reducers';
 import styled from 'styled-components';
 import { fatScrollBar } from '../../style/scrollbar';
-import ReactHotkeys from 'react-hot-keys';
+import Hotkeys from '../Hotkeys';
 import { formatTimeYmdHms } from './Timeline';
 import { EChartOption } from 'echarts';
 import { ThemeTokens } from '../../theme/tokens';
@@ -262,6 +262,18 @@ const getOption = (props: Props, tokens: ThemeTokens): EChartOption => {
         series: [
             {
                 type: 'sankey',
+                // ECharts defaults to left 5% / right 20% (the extra right
+                // room is reserved for right-hand labels). With nodeAlign
+                // 'justify' the graph then fills 5%..80% of the canvas, so
+                // the drawing sits left of center even though the container
+                // div itself is centered. Equal left/right padding centers
+                // the diagram horizontally; percentages keep it proportional
+                // at any window size. 15% still leaves ~90px on a ~600px
+                // canvas, enough for the rightmost "Focused" / "Distracted"
+                // labels (~86px: 20px node + 5px gap + 14px bold text) so
+                // they are not clipped by the canvas edge.
+                left: '10%',
+                right: '10%',
                 data: data.nodes,
                 links: data.links,
                 focusNodeAdjacency: true,
@@ -373,7 +385,7 @@ export const PomodoroSankey = (props: Props) => {
     };
     return (
         <FullscreenStyled onClick={props.cancel}>
-            <ReactHotkeys keyName={'esc,enter'} onKeyDown={onKeyDown} />
+            <Hotkeys keyName={'esc,enter'} onKeyDown={onKeyDown} />
             <InnerContainer>
                 <Header>
                     <h1>Sankey Diagram</h1>

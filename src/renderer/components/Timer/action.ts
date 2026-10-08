@@ -4,7 +4,6 @@ import { addSession } from '../../monitor/sessionManager';
 import { actions as boardActions } from '../Kanban/Board/action';
 import { actions as kanbanActions } from '../Kanban/action';
 import { actions as historyActions } from '../History/action';
-import { throttle } from 'lodash';
 import { promisify } from 'util';
 import dbs from '../../dbs';
 import { PomodoroRecord } from '../../monitor/type';
@@ -39,11 +38,14 @@ function persistSettingWithDebounce(name: string, value: number): void {
     }, 300);
 }
 
-export const TABS: tabType[] = ['timer', 'kanban', 'history', 'setting'];
-if (process.env.NODE_ENV !== 'production') {
-    TABS.push('analyser');
-}
-export type tabType = 'timer' | 'kanban' | 'history' | 'setting' | 'analyser';
+/**
+ * The app's pages. The order, the title bar entries and the Ctrl+Tab rotation
+ * all live in ONE list, `APP_TABS` (see `../appTabs.ts`) -- this type only names
+ * the values the state can hold. It used to be a second list here, which a
+ * removed dev-only page ('analyser') had left one entry longer than the bar:
+ * Ctrl+Tab then walked into a page no pane rendered.
+ */
+export type tabType = 'timer' | 'kanban' | 'history' | 'setting';
 export type DistractingRow = { app?: string; title?: string };
 export interface Setting {
     autoUpdate: boolean;
@@ -313,10 +315,6 @@ export const changeAppTab = createActionCreator(
     '[App]CHANGE_APP_TAB',
     (resolve) => (tab: tabType) => resolve(tab)
 );
-export const switchTab = createActionCreator(
-    '[App]SWITCH_TAB',
-    (resolve) => (direction: 1 | -1) => resolve(direction)
-);
 
 /**
  * Predict the project a finished session belongs to, so a session the user did
@@ -385,7 +383,6 @@ export const actions = {
     setSessionEnding,
     setTimerManager,
     switchFocusRestMode,
-    switchTab: throttle((direction: 1 | -1) => switchTab(direction), 100),
     fetchSettings: () => async (dispatch: Dispatch) => {
         const settings: Partial<Setting> = await promisify(
             dbs.settingDB.findOne.bind(dbs.settingDB)
@@ -750,13 +747,6 @@ export const reducer = createReducer<TimerState, any>(defaultState, (handle) => 
         ...state,
         distractingList: payload,
     })),
-    handle(switchTab, (state, { payload }) => {
-        const index = (TABS.indexOf(state.currentTab) + payload + TABS.length) % TABS.length;
-        return {
-            ...state,
-            currentTab: TABS[index],
-        };
-    }),
     handle(setChosenRecord, (state, { payload: { record } }) => ({
         ...state,
         chosenRecord: record,

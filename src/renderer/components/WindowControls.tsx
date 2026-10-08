@@ -51,12 +51,20 @@ const Controls = styled.div<{ compact: boolean }>`
 
 interface Props {
     compact?: boolean;
+    /**
+     * The window is maximized, so the button offers to restore it. The state
+     * arrives from the main process (see `WindowEventName.MaximizedChanged` in
+     * `src/main/ipc/type.ts`): on Windows a transparent window is not a real
+     * maximized window, so nothing in the renderer can read it locally.
+     */
+    maximized?: boolean;
     alwaysOnTop?: boolean;
     onToggleAlwaysOnTop?: () => void;
 }
 
 const WindowControls: FC<Props> = ({
     compact = false,
+    maximized = false,
     alwaysOnTop = true,
     onToggleAlwaysOnTop,
 }) => {
@@ -77,8 +85,15 @@ const WindowControls: FC<Props> = ({
             <button type="button" title="Minimize" onClick={call('minimize')}>
                 <Icon type="minus" />
             </button>
-            <button type="button" title="Maximize" onClick={call('maximize')}>
-                <Icon type="border" />
+            {/* antd 3 has no `restore` icon type: `switcher` draws the standard
+                restore-down glyph (a window with another window's corner behind
+                it), `border` the single empty frame of maximize. */}
+            <button
+                type="button"
+                title={maximized ? 'Restore Down' : 'Maximize'}
+                onClick={call('maximize')}
+            >
+                <Icon type={maximized ? 'switcher' : 'border'} />
             </button>
             <button type="button" className="win-close" title="Close" onClick={call('close')}>
                 <Icon type="close" />

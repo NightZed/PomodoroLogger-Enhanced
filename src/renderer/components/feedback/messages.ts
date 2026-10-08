@@ -47,6 +47,19 @@ export const FEEDBACK_MESSAGES = {
         dataRemoved: 'All user data is removed. Pomodoro needs to restart.',
         importConfirm: 'Pomodoro Logger will restart after importing. Continue?',
         deleteAllConfirm: 'Sure to delete?',
+        /** Export / import results, and the report of a refused file. */
+        exportDone: (fileName: string) => `Data exported to ${fileName}`,
+        exportFailed: 'Export Failed',
+        exportFailedDetail: (reason: string) => `The data could not be exported: ${reason}`,
+        importInvalidTitle: 'This file cannot be imported',
+        importInvalidIntro:
+            'Nothing was imported and your current data was left untouched. ' +
+            'Fix the problems below in the file, then import it again:',
+        importWarningTitle: 'Imported with warnings',
+        importWarningIntro: 'The data was imported, but some entries had to be adjusted:',
+        importDone: 'Data imported. Restarting…',
+        importFailed: 'Import Failed',
+        importFailedDetail: (reason: string) => `The data could not be imported: ${reason}`,
     },
     /**
      * The update pipeline: check -> download -> install. Every step reports

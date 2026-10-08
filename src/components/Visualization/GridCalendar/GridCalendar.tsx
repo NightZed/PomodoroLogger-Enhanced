@@ -30,7 +30,7 @@ type Data = {
     };
 };
 
-const monthList = [
+export const monthList = [
     'Jan',
     'Feb',
     'Mar',
@@ -62,6 +62,12 @@ interface Props {
     shownWeeks?: number;
     clickDate?: (year: number, month: number, day: number) => void;
     baseColor?: string;
+    /**
+     * 1-12. When set, that month's column header is bolded, so the caller can
+     * point at the month its badges/charts are filtered by while the calendar
+     * itself keeps showing the whole year. Undefined leaves every label alike.
+     */
+    highlightMonth?: number;
 }
 
 function hexToHsl(hex: string): [number, number, number] {
@@ -154,7 +160,14 @@ function getHoverInfo(data: GridData) {
 export const GridCalendar = React.memo((props: Props) => {
     const [chosenIndex, setChosenIndex] = React.useState<undefined | number>(undefined);
     const { isDark } = useThemeTokens();
-    const { till = new Date(), width = 800, data, shownWeeks = 53, baseColor = '#aceebb' } = props;
+    const {
+        till = new Date(),
+        width = 800,
+        data,
+        shownWeeks = 53,
+        baseColor = '#aceebb',
+        highlightMonth,
+    } = props;
     const maxIntensity = hexToHsl(baseColor);
     const tillTimestamp = getLastDayTimestamp(till);
     const day = (new Date(till).getDay() + 1) % 7;
@@ -305,7 +318,7 @@ export const GridCalendar = React.memo((props: Props) => {
                 y={axisMargin - gridMargin * 2}
                 key={v[1]}
                 textAnchor="start"
-                style={{ fontSize: gridWidth }}
+                style={{ fontSize: gridWidth, ...highlight(v[0]) }}
             >
                 {monthList[v[0] - 1]}
             </SvgText>
@@ -313,6 +326,11 @@ export const GridCalendar = React.memo((props: Props) => {
     }
 
     const onMouseLeave = React.useCallback(() => setChosenIndex(undefined), []);
+    // Bold is the whole highlight: it needs no extra geometry, so switching the
+    // month never disturbs the calendar's layout. Declared above the
+    // `getMonthText()` call because that call evaluates the label styles.
+    const highlight = (month: number) =>
+        month === highlightMonth ? { fontWeight: 700 } : undefined;
     const monthText = getMonthText();
     maxWidth = weekMonthMap.length * (gridWidth + gridMargin) + axisMargin;
     const maxHeight = 7 * (gridMargin + gridHeight) + axisMargin;

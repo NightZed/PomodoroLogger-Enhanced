@@ -2,7 +2,8 @@ import { Button, Divider, Icon, Tooltip } from 'antd';
 import * as remote from '@electron/remote';
 import { debounce } from 'lodash';
 import React, { Component } from 'react';
-import ReactHotkeys from 'react-hot-keys';
+import Hotkeys, { shouldPreventTabDefault } from '../Hotkeys';
+import { isModalOpen } from '../popupLayer';
 import styled from 'styled-components';
 import { MiniLogger } from '../../../components/common/Mini/MiniLogger';
 import { DEBUG_TIME_SCALE, __DEV__ } from '../../../config';
@@ -333,8 +334,32 @@ class Timer extends Component<Props, State> {
             });
     }
 
+    /**
+     * The Timer page owns the bare Tab (it switches focus/rest, see
+     * `onKeyDown`), so its default -- moving focus -- has to be suppressed
+     * where the binding fires: otherwise one press would both switch the mode
+     * and jump focus. `shouldPreventTabDefault` (a predicate shared with the
+     * hotkey filter, see Hotkeys.tsx) narrows that to unmodified Tab on
+     * non-editable targets; everywhere else Tab keeps its native navigation:
+     *
+     * - editable targets (this page's inputs): the filter refuses the binding
+     *   there anyway, so a blanket preventDefault only left a dead key --
+     *   pressing Tab in an input moved neither focus nor mode;
+     * - Shift+Tab: not bound at all (hotkeys-js matches modifiers exactly).
+     *
+     * It only calls `preventDefault`, never `stopPropagation`: the event keeps
+     * bubbling to the document-level hotkeys-js listener, so the mode still
+     * switches. Note this Layout only sees keydowns from elements INSIDE it --
+     * after a click on a blank spot the activeElement is `<body>` and the
+     * event goes body -> document straight past this listener, so the 'tab'
+     * branch of `onKeyDown` swallows the default as well; between the two,
+     * the mode switch and the suppressed focus jump cannot come apart.
+     * Modal editors are portaled outside this Layout (see popupLayer.ts), so
+     * this listener never covered them -- their Tab is handled by the shared
+     * filter alone (keydown-only + editable-target + focus-grace guards).
+     */
     handleNativeKeydown = (event: KeyboardEvent) => {
-        if (event.key === 'Tab' || event.which === 9 || event.keyCode === 9) {
+        if (shouldPreventTabDefault(event)) {
             event.preventDefault();
         }
     };
@@ -1119,7 +1144,7 @@ class Timer extends Component<Props, State> {
         this.setState((state) => ({ showSider: !state.showSider }));
     };
 
-    onKeyDown = (keyName: string) => {
+    onKeyDown = (keyName: string, event?: KeyboardEvent) => {
         switch (keyName) {
             case 'f5':
                 // While the ending mask is up, F5 follows the mask button: it
@@ -1145,6 +1170,47 @@ class Timer extends Component<Props, State> {
                 break;
 
             case 'tab':
+                // A modal dialog (card/board editor, feedback confirms)
+                // outranks the mode switch: the binding is document-level (the
+                // Timer page stays mounted on every tab), so without this gate
+                // it claims Tab inside the dialog too -- first as "mode switch
+                // + focus ring", and with the preventDefault below as "focus
+                // stuck in the editor". Return WITHOUT consuming the key: the
+                // dialog owns Tab (rc-dialog runs its own focus-sentinel loop
+                // for it, see Dialog.js `onKeyDown`), keeping the browser's
+                // sequential navigation.
+                //
+                // The check is VISIBILITY-based (see `isModalOpen`) and does
+                // not look at the event target, because focus inside an editor
+                // often sits outside any field: on the wrap div (tabIndex=-1,
+                // so clicking a blank spot focuses it) or even on <body> after
+                // the label editor's Add button drops focus. An existence
+                // check would not do: antd 3 leaves a closed dialog's root in
+                // the DOM, which is what made Tab go dead on this page after
+                // the first open/close cycle of the card editor.
+                //
+                // Typing needs no gate (an editable target never reaches this
+                // callback), and the ending mask is a plain div, not an antd
+                // modal, so its F5/Tab handling is unaffected here (switchMode
+                // keeps refusing while it is up, see TimerState.sessionEnding).
+                if (isModalOpen()) {
+                    return;
+                }
+
+                // Everywhere else the binding consumes Tab, so its default
+                // (moving focus) has to go with it -- wherever the event came
+                // from. The native listener on this page's Layout only sees
+                // keydowns from elements inside it; after a click on a blank
+                // spot the activeElement is <body>, whose events bubble straight
+                // to `document` and bypass the Layout entirely. There the
+                // default used to slip through and dropped a focus ring on the
+                // first focusable element (Start button in mini mode,
+                // FocusSelector or the swap button otherwise) right after the
+                // mode switched. hotkeys-js hands us the very event it
+                // dispatches, so swallowing it here covers every target the
+                // binding can fire on, and the mode switch and the suppressed
+                // focus jump can no longer come apart.
+                event?.preventDefault();
                 this.switchMode();
                 break;
         }
@@ -1191,7 +1257,7 @@ class Timer extends Component<Props, State> {
                 this.props.kanban.boards[this.state.stagedProjectId]?.name;
             return (
                 <Layout style={{ backgroundColor: 'transparent' }} ref={this.selfRef}>
-                    <ReactHotkeys keyName={'f5,f6,tab'} onKeyDown={this.onKeyDown} />
+                    <Hotkeys keyName={'f5,f6,tab'} onKeyDown={this.onKeyDown} />
                     <MiniLogger
                         stop={this.onStop}
                         finish={this.onFinishButtonClick}
@@ -1225,7 +1291,7 @@ class Timer extends Component<Props, State> {
 
         return (
             <Layout style={{ backgroundColor: 'transparent' }} ref={this.selfRef}>
-                <ReactHotkeys keyName={'f5,f6,tab'} onKeyDown={this.onKeyDown} />
+                <Hotkeys keyName={'f5,f6,tab'} onKeyDown={this.onKeyDown} />
                 <TimerMask
                     extendCurrentSession={this.extendCurrentSession}
                     newPomodoro={this.stagedSession}

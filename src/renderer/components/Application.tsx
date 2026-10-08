@@ -1,11 +1,12 @@
 import 'antd/dist/antd.css';
 import { ipcRenderer } from 'electron';
 import * as React from 'react';
-import ReactHotkeys from 'react-hot-keys';
+import { batch } from 'react-redux';
+import Hotkeys from './Hotkeys';
 import { hot } from 'react-hot-loader/root';
 import { connect } from 'react-redux';
 import styled from 'styled-components';
-import { IpcEventName } from '../../main/ipc/type';
+import { IpcEventName, WindowEventName } from '../../main/ipc/type';
 import { loadDBs } from '../dbs';
 import { RootState } from '../reducers';
 import { genMapDispatchToProp } from '../utils';
@@ -17,13 +18,14 @@ import { CardInDetail } from './Kanban/Card/CardEditor';
 import { kanbanActions } from './Kanban/reducer';
 import Setting from './Setting';
 import Timer from './Timer';
-import { actions as timerActions, TimerActionTypes } from './Timer/action';
+import { actions as timerActions, tabType, TimerActionTypes } from './Timer/action';
 import { setTrayImageWithMadeIcon } from './Timer/iconMaker';
 import { UpdateController } from './UpdateController';
 import { UserGuide } from './UserGuide/UserGuide';
 import { ConnectedPomodoroSankey } from './Visualization/PomodoroSankey';
 import AppTitleBar from './AppTitleBar/AppTitleBar';
 import { titleBarBandHeight } from './AppTitleBar/tokens';
+import { nextTabKey, planTabChange } from './appTabs';
 import { POPUP_CONTAINER_ID } from './popupLayer';
 
 /**
@@ -160,9 +162,36 @@ interface Props extends TimerActionTypes, HistoryActionCreatorTypes {
     fetchKanban: () => void;
 }
 
-class Application extends React.Component<Props> {
+interface State {
+    /**
+     * Whether the window is maximized, for the caption buttons (see
+     * `WindowControls`). The renderer cannot read it on its own: on Windows a
+     * transparent window is not a real maximized window -- Electron emulates the
+     * state by resizing to the display work area -- so the main process is the
+     * only side that knows, and it reports the state on every change.
+     */
+    maximized: boolean;
+}
+
+class Application extends React.Component<Props, State> {
     private timer = (<Timer />);
+    /**
+     * The user left this window in compact mode for another page, so coming back
+     * to the Timer page restores it. Owned together with `planTabChange` (see
+     * `appTabs.ts`), which is where the rule itself lives, and refreshed by
+     * `componentDidUpdate` and by the F11 hotkey.
+     */
     private returnToCompact = false;
+
+    state: State = { maximized: false };
+
+    /**
+     * The window state is pushed by the main process (see `State.maximized`);
+     * kept as a field so the very same function can be removed again.
+     */
+    private onWindowMaximizedChanged = (_event: unknown, maximized: boolean) => {
+        this.setState({ maximized });
+    };
 
     componentDidUpdate(prevProps: Props): void {
         if (!prevProps.compact && this.props.compact) {
@@ -180,7 +209,59 @@ class Application extends React.Component<Props> {
 
         setTrayImageWithMadeIcon(undefined).then();
         window.addEventListener('error', this.onError);
+
+        ipcRenderer.addListener(WindowEventName.MaximizedChanged, this.onWindowMaximizedChanged);
+        // Pushed events only report changes, and the window keeps its state
+        // across a renderer reload: read it once for the first paint, otherwise
+        // a reloaded page would show "maximize" over a maximized window.
+        window.api.windowState().then(({ maximized }) => this.setState({ maximized }));
     }
+
+    /**
+     * The one tab-switching routine: the title bar (its clicks and its
+     * arrow-key navigation) and the Ctrl+Tab / Ctrl+Shift+Tab hotkeys all come
+     * through here, so the three cannot disagree about what switching a page
+     * does. The compact-window bookkeeping is `planTabChange`, see `appTabs.ts`
+     * -- the hotkeys used to only rotate the tab id, which left the small
+     * window showing a page it is not sized for.
+     *
+     * Both writes below are ONE transition and have to be observed as such. The
+     * hotkeys run from a native `document` keydown listener, i.e. outside
+     * React's event batching, so two plain dispatches there render one after the
+     * other and `componentDidUpdate` sees the half-written state in between.
+     * Writing the compact flag before the tab (what this method used to do)
+     * produced exactly the state its clearing rule reads as "the user left
+     * compact mode on the timer page" (`compact` already off, `currentTab`
+     * still 'timer'), which dropped the `returnToCompact` memory -- so Ctrl+Tab
+     * out of compact mode never brought the small window back, while a click on
+     * the same tab (React batches the event) did.
+     */
+    changeTab = (tab: tabType) => {
+        const plan = planTabChange(tab, {
+            compact: this.props.compact,
+            returnToCompact: this.returnToCompact,
+        });
+
+        if (plan.returnToCompact !== undefined) {
+            this.returnToCompact = plan.returnToCompact;
+        }
+
+        batch(() => {
+            // Page first, window mode second -- belt and braces:
+            // * the `batch` makes the two writes render as one, so the
+            //   half-written state never reaches `componentDidUpdate` (the
+            //   native keydown listener would otherwise leave them unbatched);
+            // * and even unbatched, the intermediate render would already carry
+            //   the destination tab, so the clearing rule in `componentDidUpdate`
+            //   (which only fires while `currentTab` is still 'timer') cannot
+            //   reach the memory.
+            this.props.changeAppTab(plan.tab);
+
+            if (plan.compact !== undefined) {
+                this.props.setCompact(plan.compact);
+            }
+        });
+    };
 
     onKeyDown = (keyname: string) => {
         switch (keyname) {
@@ -193,14 +274,14 @@ class Application extends React.Component<Props> {
                     break;
                 }
 
-                this.props.switchTab(1);
+                this.changeTab(nextTabKey(this.props.currentTab, 1));
                 break;
             case 'ctrl+shift+tab':
                 if (this.props.sessionEnding) {
                     break;
                 }
 
-                this.props.switchTab(-1);
+                this.changeTab(nextTabKey(this.props.currentTab, -1));
                 break;
             case 'ctrl+f12':
                 window.api.openDevTools();
@@ -220,6 +301,7 @@ class Application extends React.Component<Props> {
 
     componentWillUnmount() {
         window.removeEventListener('error', this.onError);
+        ipcRenderer.removeListener(WindowEventName.MaximizedChanged, this.onWindowMaximizedChanged);
     }
 
     onError = (event: ErrorEvent) => this.handleError(event.error);
@@ -241,7 +323,6 @@ class Application extends React.Component<Props> {
     render() {
         const {
             currentTab,
-            changeAppTab,
             minimize,
             compact,
             compactAlwaysOnTop,
@@ -249,20 +330,8 @@ class Application extends React.Component<Props> {
             wallpaperDataUrl,
             wallpaperOpacity,
             sessionEnding,
-            setCompact,
             setCompactAlwaysOnTop,
         } = this.props;
-        const handleTabChange = (tab: string) => {
-            if (tab === 'timer') {
-                if (this.returnToCompact && !compact) {
-                    setCompact(true);
-                }
-            } else if (compact) {
-                this.returnToCompact = true;
-                setCompact(false);
-            }
-            changeAppTab(tab as any);
-        };
         return (
             <Main minimize={minimize} compact={compact}>
                 <Wallpaper path={wallpaperDataUrl} opacity={wallpaperOpacity} />
@@ -276,10 +345,11 @@ class Application extends React.Component<Props> {
                         currentTab={currentTab}
                         minimize={minimize}
                         compact={compact}
+                        maximized={this.state.maximized}
                         sessionEnding={sessionEnding}
                         alwaysOnTop={compactAlwaysOnTop}
                         onToggleAlwaysOnTop={() => setCompactAlwaysOnTop(!compactAlwaysOnTop)}
-                        onTabChange={handleTabChange}
+                        onTabChange={this.changeTab}
                         timer={this.timer}
                         kanban={
                             <DestroyOnTimeoutWrapper
@@ -307,7 +377,7 @@ class Application extends React.Component<Props> {
                             <ConnectedPomodoroSankey />
                         </>
                     )}
-                    <ReactHotkeys
+                    <Hotkeys
                         keyName={'ctrl+tab,ctrl+shift+tab,ctrl+f12,ctrl+q,f11,f12'}
                         onKeyDown={this.onKeyDown}
                     />

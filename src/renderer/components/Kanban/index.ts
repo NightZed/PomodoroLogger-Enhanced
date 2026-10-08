@@ -13,6 +13,7 @@ const mapStateToProps = (state: RootState) => {
         timerManager: state.timer.timerManager,
         isFocusingOnChosenBoard: state.timer.boardId === state.kanban.kanban.chosenBoardId,
         isTimerRunning: state.timer.isRunning && state.timer.isFocusing,
+        currentTab: state.timer.currentTab,
     };
 };
 

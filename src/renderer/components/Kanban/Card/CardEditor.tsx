@@ -4,7 +4,7 @@ import { unstable_batchedUpdates } from 'react-dom';
 import { actions, CardActionTypes } from './action';
 import { actions as kanbanActions } from '../action';
 import { RootState } from '../../../reducers';
-import { genMapDispatchToProp } from '../../../utils';
+import { genMapDispatchToProp, matchParent } from '../../../utils';
 import { Button, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Tabs, Tooltip } from 'antd';
 import { ConfirmPopover } from '../../feedback';
 import { getPopupContainer } from '../../popupLayer';
@@ -14,12 +14,25 @@ import moment from 'moment';
 import { Card, CardLabel } from '../type';
 import { Markdown } from '../style/Markdown';
 import formatMarkdown from './formatMarkdown';
+import { getCheckboxIndex, toggleNthCheckbox } from './toggleCheckbox';
 import { findFormatBlock } from './selectionFormat';
 import { EditorContainer, EditorAnimation } from '../style/editorStyle';
 import { CreatedTime } from '../style/CreatedTime';
 import { formatTimeYmdHm } from '../../Visualization/Timeline';
 import { LabelEditor } from './LabelEditor';
 const { TabPane } = Tabs;
+
+/**
+ * The class antd puts on the editor's dialog wrap (the Modal's wrapClassName
+ * below). The document-level Ctrl+Enter/Esc listener uses it to tell THIS
+ * dialog apart from any other antd dialog stacked above it: matching any
+ * `.ant-modal-root` would let Esc inside a top dialog (the focus-start
+ * warning, a confirm) cancel the editor behind it and drop the unsaved
+ * fields. The class is on the WRAP on purpose: rc-dialog's wrap div
+ * (tabIndex={-1}) is where focus lands when a blank spot of the dialog is
+ * clicked, and the wrap is not part of `.ant-modal-content`.
+ */
+const CARD_EDITOR_WRAP_CLASS = 'card-editor-dialog';
 
 interface Props extends CardActionTypes {
     visible: boolean;
@@ -108,6 +121,8 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
 
     const [linkModalVisible, setLinkModalVisible] = useState(false);
     const [linkUrl, setLinkUrl] = useState('');
+    const [linkText, setLinkText] = useState('');
+    const linkUrlInputRef = useRef<any>(null);
     const pendingLinkRef = useRef<{ start: number; end: number; text: string } | null>(null);
 
     const getTextarea = () => contentRef.current?.resizableTextArea?.textArea ?? contentRef.current;
@@ -217,11 +232,15 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             const textarea = getTextarea();
             const start = textarea?.selectionStart ?? current.length;
             const end = textarea?.selectionEnd ?? start;
+            const selected = current.slice(start, end);
             pendingLinkRef.current = {
                 start,
                 end,
-                text: current.slice(start, end) || 'link text',
+                text: selected || 'title',
             };
+            // prefill the title input with the selected text so the quick
+            // action lets the user edit it before inserting
+            setLinkText(selected);
             setLinkUrl('');
             setLinkModalVisible(true);
         });
@@ -239,7 +258,10 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             return;
         }
 
-        const text = `[${pending.text}](${url})`;
+        // an empty title input falls back to the selected text (or the
+        // default 'title' stored when the modal was opened)
+        const title = linkText.trim() || pending.text;
+        const text = `[${title}](${url})`;
         validateFields((err: Error, values: FormData) => {
             if (err) {
                 return;
@@ -256,7 +278,18 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             }
         });
         closeLinkModal();
-    }, [linkUrl, validateFields, setFieldsValue, closeLinkModal, insertViaExecCommand]);
+    }, [linkUrl, linkText, validateFields, setFieldsValue, closeLinkModal, insertViaExecCommand]);
+
+    // Enter in the title input moves on to the URL input, unless the URL is
+    // already filled in - then it inserts right away
+    const onLinkTextPressEnter = React.useCallback(() => {
+        if (linkUrl.trim()) {
+            confirmLink();
+            return;
+        }
+
+        linkUrlInputRef.current?.focus();
+    }, [linkUrl, confirmLink]);
 
     const onSwitchIsEditing = () => {
         setIsEditingActualTime(!isEditingActualTime);
@@ -415,17 +448,20 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                 return;
             }
 
-            // react to keys of this editor only: target inside the editor
-            // modal, or focus dropped to <body> (no element focused).
-            // NOTE: check .ant-modal-root, NOT .ant-modal-content - antd's
-            // rc-dialog wrap div carries tabIndex={-1}, so clicking any
-            // non-focusable spot of the modal (blank areas, the title bar,
-            // label chips...) leaves focus ON the wrap div, which sits
-            // outside .ant-modal-content
+            // React to keys of this editor only: the press happened inside
+            // THIS editor's dialog (it carries CARD_EDITOR_WRAP_CLASS), or
+            // focus dropped to <body> (no element focused). Matching ANY
+            // `.ant-modal-root` was too wide: another dialog stacked on top
+            // (the focus-start warning from the tray, an antd confirm) is a
+            // modal root too, so Esc inside it cancelled the editor behind it
+            // and threw the unsaved fields away. The class is checked on the
+            // wrap, not on .ant-modal-content: rc-dialog's wrap div
+            // (tabIndex={-1}) is where focus lands when a blank spot of the
+            // dialog is clicked.
             const insideEditor =
                 target !== null &&
                 typeof target.closest === 'function' &&
-                target.closest('.ant-modal-root') !== null;
+                target.closest('.' + CARD_EDITOR_WRAP_CLASS) !== null;
             const focusOnBody =
                 target === null || target === document.body || target === document.documentElement;
             if (!insideEditor && !focusOnBody) {
@@ -491,6 +527,33 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
         }
     }, []);
 
+    // Toggling a task box in the preview flips the markdown source exactly
+    // like the card view does (the Nth rendered checkbox maps to the Nth
+    // `[ ]`/`[x]` occurrence). The change is written to BOTH the preview
+    // state (which the preview HTML renders from) and the antd form value
+    // (which saveValues/insert helpers read), so the toggle survives
+    // switching back to the Edit tab and is persisted on save.
+    const previewRef = useRef<HTMLDivElement>(null);
+    const onPreviewClick = React.useCallback(
+        (e: React.MouseEvent<HTMLDivElement>) => {
+            const target = e.nativeEvent.target as HTMLElement;
+            const checkbox = matchParent(target, '[type="checkbox"]');
+            if (!checkbox || !previewRef.current) {
+                return;
+            }
+
+            const checkboxIndex = getCheckboxIndex(previewRef.current, checkbox);
+            const nextContent = toggleNthCheckbox(cardContent, checkboxIndex);
+            if (nextContent === undefined) {
+                return;
+            }
+
+            setCardContent(nextContent);
+            setFieldsValue({ content: nextContent });
+        },
+        [cardContent, setFieldsValue]
+    );
+
     return (
         <Modal
             visible={visible}
@@ -516,6 +579,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             transitionName="card-editor-zoom"
             maskTransitionName="card-editor-fade"
             getContainer={getPopupContainer}
+            wrapClassName={CARD_EDITOR_WRAP_CLASS}
         >
             <EditorAnimation />
             <EditorContainer>
@@ -591,6 +655,8 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                         </TabPane>
                         <TabPane tab="Preview" key="preview">
                             <Markdown
+                                ref={previewRef}
+                                onClick={onPreviewClick}
                                 style={{
                                     padding: '0px 10px',
                                     border: '1px solid rgb(220, 220, 220)',
@@ -689,6 +755,14 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             >
                 <Input
                     autoFocus={true}
+                    placeholder={'Title'}
+                    value={linkText}
+                    onChange={(e) => setLinkText(e.target.value)}
+                    onPressEnter={onLinkTextPressEnter}
+                    style={{ marginBottom: 8 }}
+                />
+                <Input
+                    ref={linkUrlInputRef}
                     placeholder={'https://example.com'}
                     value={linkUrl}
                     onChange={(e) => setLinkUrl(e.target.value)}

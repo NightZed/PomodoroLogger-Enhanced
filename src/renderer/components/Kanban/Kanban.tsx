@@ -12,9 +12,9 @@ import { CreatedTime } from './style/CreatedTime';
 import { LabelButton } from '../../style/form';
 import backIcon from '../../../res/back.svg';
 import { Label } from './style/Form';
-import Hotkeys from 'react-hot-keys';
+import Hotkeys from '../Hotkeys';
 import { uid } from '../../../utils/uid';
-import { TimerActionTypes, TimerManager } from '../Timer/action';
+import { TimerActionTypes, TimerManager, tabType } from '../Timer/action';
 import { isShallowEqualByKeys } from '../../utils';
 import { thinScrollBar } from '../../style/scrollbar';
 import { EditKanbanForm } from './BoardEditor';
@@ -80,6 +80,14 @@ interface Props extends KanbanState, KanbanActionTypes, BoardActionTypes, TimerA
     timerManager?: TimerManager;
     isFocusingOnChosenBoard: boolean;
     isTimerRunning: boolean;
+    /**
+     * The active page. This component outlives its page (the 10-minute grace
+     * of `DestroyOnTimeoutWrapper`) while its pane is only hidden -- and
+     * hidden DOM does not stop document-level hotkeys -- so its bindings and
+     * the search bar register/unregister with the tab instead of living as
+     * long as the component.
+     */
+    currentTab: tabType;
 }
 
 export const Kanban: FunctionComponent<Props> = React.memo(
@@ -269,7 +277,14 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                 }}
             >
                 <Header>
-                    <Hotkeys keyName={'ctrl+n'} onKeyDown={onKeyDown} />
+                    {/* Bound only while this pane is the active page; see
+                        `Props.currentTab`. The 10-minute grace keeps this
+                        component mounted after a tab switch, and a "new
+                        board" dialog popping up over another page would be
+                        both surprising and a focus trap. */}
+                    {props.currentTab === 'kanban' && (
+                        <Hotkeys keyName={'ctrl+n'} onKeyDown={onKeyDown} />
+                    )}
                     {props.kanban.chosenBoardId ? (
                         <>
                             <Title>{props.boards[props.kanban.chosenBoardId]?.name}</Title>
@@ -348,6 +363,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                             <>
                                 <LabelButton>
                                     <Search
+                                        enabled={props.currentTab === 'kanban'}
                                         setSearchStr={search}
                                         searchStr={props.kanban.searchReg}
                                         tags={getSuggestions}
@@ -425,7 +441,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
         return isShallowEqualByKeys(
             prevProps,
             nextProps,
-            uiStateNames.concat(['isFocusingOnChosenBoard', 'isTimerRunning'])
+            uiStateNames.concat(['isFocusingOnChosenBoard', 'isTimerRunning', 'currentTab'])
         );
     }
 );

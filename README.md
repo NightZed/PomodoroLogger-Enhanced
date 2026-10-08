@@ -35,28 +35,33 @@
 
 > **Invest your time easily**
 
-Pomodoro Logger 🕢 —— [Pomodoro Technique](https://en.wikipedia.org/wiki/Pomodoro_Technique) + [Kanban task management](https://en.wikipedia.org/wiki/Kanban_board) + desktop activity tracking + data visualization.
+Pomodoro Logger 🕢 [^1] —— [Pomodoro Technique](https://en.wikipedia.org/wiki/Pomodoro_Technique) [^2] + [Kanban task management](https://en.wikipedia.org/wiki/Kanban_board) [^3] + desktop activity tracking + data visualization.
 
-This repository is an enhanced edition of the [original Pomodoro Logger](https://github.com/zxch3n/PomodoroLogger), with a focus on **card editing** and **history view review**, plus optimizations to **memory usage and CPU usage**.
+[^1]: This repository is an enhanced edition of the [original Pomodoro Logger](https://github.com/zxch3n/PomodoroLogger), with a focus on **theme**, **card editing** and **history view review**, plus optimizations to **memory usage and CPU usage**.
 
-> 🧭 Contents: [Overview](#overview) · [Features](#features) · [Pomodoro](#pomodoro) · [Kanban](#kanban-board) · [Statistics](#statistics) · [Quick Start](#quick-start)
+[^2]: The Pomodoro Technique is a time management method developed by Francesco Cirillo in the late 1980s. It uses a kitchen timer to break work into intervals, typically 25 minutes in length, separated by short breaks. Each interval is known as a pomodoro, from the Italian word for tomato.
+
+[^3]: Kanban (Japanese: 看板, meaning signboard or billboard), origin in Toyota automotive company in the 1940s, is a lean method to manage and improve work across human systems. This approach aims to manage work by balancing demands with available capacity, and by improving the handling of system-level bottlenecks.
+
+> 🧭 Contents: [Overview](#overview) · [Pomodoro](#pomodoro) · [Kanban](#kanban-board) · [Statistics](#statistics) · [Features](#features) · [Quick Start](#quick-start)
 
 <a id="overview"></a>
 
 ## 📖 Overview
 
+> Below: the Kanban (p1) and the History view (p2) — from planning tasks to reviewing your time.
+
 <p align="center">
-  <img width="800" src="./screenshots/kanban.png" alt="Kanban board"/>
+  <img width="800" src="./screenshots/kanban.png" alt="Kanban"/>
   <img width="800" src="./screenshots/history-main-view.png" alt="History view"/>
 </p>
-
-> Above: the Kanban board (p1) and the History view (p2) — from planning tasks to reviewing your time.
 
 <a id="pomodoro"></a>
 
 ## ⏱️ Pomodoro
 
 A work cycle = **focus + rest**: 25 minutes of focus and a 5-minute short break by default, plus a longer long break. All three durations can be adjusted in the settings.
+
 After creating a task on the Kanban board, select it on the timer page to track the task.
 
 <p align="center">
@@ -158,7 +163,7 @@ The **Sankey diagram** connects distracting apps with where your time went.
 
 ### 🥧 Time Proportion Pie Chart · Word Cloud
 
-The **pie chart** shows the share of time per project / app, and the **word cloud** shows the keywords that appear most often in window titles. Click a day on the heat map, or switch the project and year, and the charts update accordingly.
+The **pie chart** shows the share of time per project / app, and the **word cloud** shows the keywords that appear most often in window titles. Click a day on the heat map, or switch the project and year/month, and the charts update accordingly.
 
 <p align="center">
   <img height="270" src="./screenshots/time-proportion-pie-chart.png" alt="Time proportion pie chart"/>

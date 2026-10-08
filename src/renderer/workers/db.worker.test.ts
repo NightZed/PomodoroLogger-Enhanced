@@ -96,4 +96,61 @@ describe('db worker', () => {
         expect(ans.total).toEqual({ count: 1, usedTime: 1.5 });
         expect(ans.pieChart.projectData).toEqual([{ name: 'Board One', value: 1.5 }]);
     });
+
+    it('slices the month for the badge while the calendar keeps the whole year', async () => {
+        const year = new Date().getFullYear();
+        const march = new Date(year, 2, 15, 10).getTime();
+        const june = new Date(year, 5, 15, 10).getTime();
+        await rpc(
+            'insert',
+            withPath(dbPaths.sessionDB, [
+                [
+                    {
+                        _id: 'session-march',
+                        startTime: march,
+                        spentTimeInHour: 1,
+                        boardId: 'board-1',
+                        apps: {},
+                    },
+                    {
+                        _id: 'session-june',
+                        startTime: june,
+                        spentTimeInHour: 2,
+                        boardId: 'board-1',
+                        apps: {},
+                    },
+                ],
+            ]),
+            14
+        );
+
+        const ans = await rpc(
+            'aggHistory',
+            {
+                path: dbPaths.sessionDB,
+                kanbanPath: dbPaths.kanbanDB,
+                yearQuery: {
+                    startTime: {
+                        $gte: new Date(year, 0, 1).getTime(),
+                        $lt: new Date(year + 1, 0, 1).getTime(),
+                    },
+                },
+                periodRange: {
+                    from: new Date(year, 2, 1).getTime(),
+                    to: new Date(year, 3, 1).getTime(),
+                },
+            },
+            15
+        );
+
+        // March only for the badge...
+        expect(ans.total).toEqual({ count: 1, usedTime: 1 });
+        // ...but both days stay on the heat map.
+        expect(Object.keys(ans.calendarCount).map(Number)).toEqual(
+            expect.arrayContaining([
+                new Date(year, 2, 15).getTime(),
+                new Date(year, 5, 15).getTime(),
+            ])
+        );
+    });
 });

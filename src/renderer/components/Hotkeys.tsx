@@ -1,8 +1,8 @@
 import * as React from 'react';
-import ReactHotkeys, { IReactHotkeysProps } from 'react-hot-keys';
+import ReactHotkeys, { IReactHotkeysProps, OnKeyFun } from 'react-hot-keys';
 
 /**
- * The app's one entry point to `react-hot-keys`, so the workaround below lives
+ * The app's one entry point to `react-hot-keys`, so the workarounds below live
  * in a single place: every `ReactHotkeys` usage (Application, Timer, Kanban,
  * PomodoroSankey) imports this component instead.
  *
@@ -32,11 +32,158 @@ import ReactHotkeys, { IReactHotkeysProps } from 'react-hot-keys';
  * The one visible behaviour this preserves is the 2.x one: a binding fires once
  * while the combination stays held (auto-repeat is swallowed) and fires again
  * on the next press, every time.
+ *
+ * --- Input / window-focus guards (see `guardFilter`) ------------------------
+ *
+ * hotkeys-js binds on `document` and its stock filter only inspects the
+ * *current* `event.target`, which leaks in two ways. Both were reported
+ * against the Timer's bare `tab` binding (switch focus/rest):
+ *
+ * 1. keyup after a focus move. Pressing Tab inside an editable element is
+ *    filtered on keydown -- no binding, no preventDefault -- so the browser's
+ *    default moves focus; the keyup then arrives at the NEW target (a button,
+ *    the modal wrap div, `<body>`), passes the filter, and -- because the
+ *    keydown never made it into the library's "already down" set -- fires the
+ *    binding. That is how typing in the card editor (CardEditor is portaled
+ *    outside the Timer page, so nothing else guarded it) switched modes.
+ * 2. Alt+Tab residue. Switching INTO this window delivers the Tab keydown/keyup
+ *    the OS could not consume, again typically with `<body>` as the target, so
+ *    the binding fired for a keystroke the user aimed at the task switcher.
+ *
+ * Three guards, all here so every call site inherits them:
+ *
+ *  - keydown-only: reject `event.type === 'keyup'` in the hotkeys-js filter.
+ *    Safe for the release path described above: hotkeys-js runs
+ *    `clearModifier()` for every keyup OUTSIDE `dispatch()`, so `_downKeys` /
+ *    `_mods` still drain when the filter rejects, and this wrapper's own keyup
+ *    listener is a plain `document` listener that never goes through the
+ *    filter. The library's "already down" bookkeeping still works exactly as
+ *    the first paragraph describes.
+ *  - editable target: the stock predicate (INPUT / SELECT / TEXTAREA /
+ *    contentEditable), re-expressed once as `isEditableTarget` so that
+ *    `Timer.handleNativeKeydown` can share it and the two sides agree on what
+ *    "the user is typing" means (it now prevents Tab's default only there).
+ *  - window-focus grace: for `WINDOW_FOCUS_GRACE_MS` after the window (re)gains
+ *    focus, no binding fires. A human cannot follow an Alt+Tab with a keypress
+ *    that fast, but OS residue arrives within milliseconds; the window `focus`
+ *    event always precedes it.
+ *
+ * The `onKeyDown` wrapper is defence in depth: `hotkeys.filter` is a global
+ * mutable on the hotkeys-js singleton, so the callback re-checks the event
+ * type instead of trusting that the filter installed here is still in place.
  */
 const releaseHotkeyState = () => undefined;
 
-export const Hotkeys = (props: IReactHotkeysProps) => (
-    <ReactHotkeys {...props} onKeyUp={props.onKeyUp || releaseHotkeyState} />
-);
+/**
+ * How long after the window (re)gains focus the bindings stay silent. 300ms is
+ * far beyond the milliseconds Alt+Tab residue needs to arrive, and far below
+ * any deliberate follow-up press a human can produce.
+ */
+export const WINDOW_FOCUS_GRACE_MS = 300;
+
+/**
+ * Timestamp of the last window `focus`, `-Infinity` until the first one so the
+ * bindings work normally right after the renderer starts. Module-level on
+ * purpose: this is a window property, not a component one, and every mounted
+ * `Hotkeys` must observe the same value.
+ */
+let windowFocusedAt = -Infinity;
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('focus', () => {
+        windowFocusedAt = Date.now();
+    });
+}
+
+/**
+ * Is the event targeted at something the user types into?
+ *
+ * Shared with `Timer.handleNativeKeydown` so the hotkey filter and the native
+ * Tab preventDefault cannot drift apart (see the guard list above). Same
+ * predicate as react-hot-keys' stock `defaultFilter`: `document` and plain
+ * elements pass, editable ones do not.
+ */
+export function isEditableTarget(target: EventTarget | null): boolean {
+    if (!target) {
+        return false;
+    }
+
+    const element = target as { tagName?: string; isContentEditable?: boolean };
+    return (
+        element.isContentEditable === true ||
+        element.tagName === 'INPUT' ||
+        element.tagName === 'SELECT' ||
+        element.tagName === 'TEXTAREA'
+    );
+}
+
+/**
+ * The one filter handed to hotkeys-js -- it is a global on the library's
+ * singleton, so every instance installs this same module-level function.
+ * `true` lets the event through to the bindings: same polarity as the stock
+ * filter it replaces.
+ */
+const guardFilter = (event: KeyboardEvent): boolean => {
+    // keydown-only: see guard #1. The keyup cases this blocks (focus moved away
+    // from the editable element; Alt+Tab residue) are exactly the ones the
+    // stock filter let through.
+    if (event.type === 'keyup') {
+        return false;
+    }
+
+    // Stock behaviour: never treat typing as a shortcut press.
+    const target = event.target || event.srcElement;
+    if (isEditableTarget(target)) {
+        return false;
+    }
+
+    // Window-focus grace: see guard #3.
+    if (Date.now() - windowFocusedAt < WINDOW_FOCUS_GRACE_MS) {
+        return false;
+    }
+
+    return true;
+};
+
+export const Hotkeys = (props: IReactHotkeysProps) => {
+    // Memoised: react-hot-keys rebinds the shortcut whenever the `filter` or
+    // `handleKeyDown` identity changes, so a fresh arrow per render would
+    // unbind/rebind on every render (guardFilter itself is module-level and
+    // already stable).
+    const siteFilter = props.filter;
+    const filter = React.useMemo(
+        () =>
+            siteFilter
+                ? (event: KeyboardEvent) => guardFilter(event) && siteFilter(event)
+                : guardFilter,
+        [siteFilter]
+    );
+
+    const siteOnKeyDown = props.onKeyDown;
+    const onKeyDown = React.useMemo<OnKeyFun | undefined>(
+        () =>
+            siteOnKeyDown
+                ? (shortcut, event, handle) => {
+                      // Defence in depth: never act on a keyup, even if the
+                      // shared filter was replaced behind our back.
+                      if (event.type !== 'keydown') {
+                          return;
+                      }
+
+                      siteOnKeyDown(shortcut, event, handle);
+                  }
+                : undefined,
+        [siteOnKeyDown]
+    );
+
+    return (
+        <ReactHotkeys
+            {...props}
+            filter={filter}
+            onKeyDown={onKeyDown}
+            onKeyUp={props.onKeyUp || releaseHotkeyState}
+        />
+    );
+};
 
 export default Hotkeys;

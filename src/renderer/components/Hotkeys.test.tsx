@@ -9,7 +9,7 @@
  */
 import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
-import { Hotkeys } from './Hotkeys';
+import { Hotkeys, WINDOW_FOCUS_GRACE_MS } from './Hotkeys';
 
 const dispatch = (type: 'keydown' | 'keyup', key: string, init: KeyboardEventInit = {}) => {
     document.dispatchEvent(
@@ -141,5 +141,85 @@ describe('Hotkeys wrapper (react-hot-keys 3.0.0 release tracking)', () => {
             'ctrl+shift+tab',
             'ctrl+shift+tab',
         ]);
+    });
+});
+
+/**
+ * The input / window-focus guards added to the wrapper (see the file comment
+ * in Hotkeys.tsx): the two reported misfires of the Timer's bare `tab`
+ * binding -- mode switching while typing in the card editor, and Alt+Tab
+ * residue firing on the way into the window.
+ */
+describe('Hotkeys wrapper (input / window-focus guards)', () => {
+    it('never fires from a keyup alone (focus moved between keydown and keyup)', async () => {
+        const onKeyDown = jest.fn();
+        const renderer = mount('tab', onKeyDown);
+
+        // keydown inside a textarea is filtered out, so no "already down"
+        // state is recorded -- and the browser's default moves focus.
+        const textarea = document.createElement('textarea');
+        document.body.appendChild(textarea);
+        await act(async () => {
+            textarea.dispatchEvent(
+                new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+            );
+        });
+        expect(onKeyDown).not.toHaveBeenCalled();
+
+        // The keyup arrives at document (focus has already moved). The stock
+        // filter only inspects this event's target, so this used to fire the
+        // binding -- the card-editor mode switch.
+        await act(async () => {
+            dispatch('keyup', 'Tab', {});
+        });
+        await flushRelease();
+        expect(onKeyDown).not.toHaveBeenCalled();
+
+        await unmount(renderer);
+        textarea.remove();
+    });
+
+    it('ignores keys typed into editable elements but still fires outside them', async () => {
+        const onKeyDown = jest.fn();
+        const renderer = mount('tab', onKeyDown);
+
+        const textarea = document.createElement('textarea');
+        document.body.appendChild(textarea);
+        await act(async () => {
+            textarea.dispatchEvent(
+                new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+            );
+        });
+        expect(onKeyDown).not.toHaveBeenCalled();
+
+        await press('Tab', {});
+        expect(onKeyDown).toHaveBeenCalledTimes(1);
+
+        await unmount(renderer);
+        textarea.remove();
+    });
+
+    it('stays silent during the window-focus grace period, then fires again', async () => {
+        const onKeyDown = jest.fn();
+        const renderer = mount('tab', onKeyDown);
+
+        // Alt+Tab residue arrives right after the window regains focus...
+        await act(async () => {
+            window.dispatchEvent(new Event('focus'));
+        });
+        await act(async () => {
+            dispatch('keydown', 'Tab', {});
+        });
+        expect(onKeyDown).not.toHaveBeenCalled();
+
+        // ...while a deliberate press once the grace period has passed works.
+        // Waiting it out here also restores the clock for any later test.
+        await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, WINDOW_FOCUS_GRACE_MS + 50));
+        });
+        await press('Tab', {});
+        expect(onKeyDown).toHaveBeenCalledTimes(1);
+
+        await unmount(renderer);
     });
 });

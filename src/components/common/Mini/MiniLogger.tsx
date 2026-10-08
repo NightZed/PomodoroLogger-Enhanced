@@ -180,6 +180,11 @@ const StyledLogger = styled.div`
 
 interface Props {
     play: () => void;
+    /**
+     * Toggles run/pause -- the owner wires the same toggle handler here as on
+     * its play button, so the pause control doubles as resume while paused (it
+     * is the only handler that must work in both states).
+     */
     pause: () => void;
     finish: () => void;
     /** Discards the current session (what the "Stop" button calls), unlike `pause`. */

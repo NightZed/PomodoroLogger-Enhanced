@@ -1268,7 +1268,10 @@ class Timer extends Component<Props, State> {
                         hasSession={hasActiveSession}
                         isFocusing={isFocusing}
                         isRunning={isRunning}
-                        pause={this.onPause}
+                        /* One handler for both states, exactly like the
+                           normal/compact page's play button: pauses while the
+                           session runs, resumes it while it is paused. */
+                        pause={this.onPauseResumeOrStart}
                         percentage={percent}
                         play={this.onPauseResumeOrStart}
                         switch={this.switchMode}

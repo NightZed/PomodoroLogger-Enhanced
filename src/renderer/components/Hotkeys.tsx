@@ -118,6 +118,37 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 }
 
 /**
+ * Should the native keydown listener behind the Timer page's layout swallow
+ * Tab's default action (moving focus)?
+ *
+ * The page's bare `tab` binding owns Tab only when the press is unmodified and
+ * the user is not typing -- exactly the cases where the binding can fire (see
+ * `guardFilter`), so the preventDefault and the hotkey can never disagree.
+ * Everywhere else Tab keeps its native navigation; a blanket preventDefault
+ * (what this used to be) turned every input on the page into a dead key.
+ *
+ * Exported as a pure predicate so `Timer.handleNativeKeydown` stays a
+ * one-liner and `Hotkeys.test.tsx` can pin the rule down without importing
+ * Timer.tsx (which pulls in the monitor, the worker threads and
+ * `@electron/remote` at module level).
+ */
+export function shouldPreventTabDefault(event: KeyboardEvent): boolean {
+    if (event.key !== 'Tab' && event.which !== 9 && event.keyCode !== 9) {
+        return false;
+    }
+
+    // Shift+Tab is not bound (hotkeys-js matches modifiers exactly), so it
+    // keeps the browser's reverse focus navigation -- swallowing it would only
+    // leave a dead key. The modified forms belong to other bindings (Ctrl+Tab
+    // switches pages) or to no one.
+    if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
+        return false;
+    }
+
+    return !isEditableTarget(event.target || event.srcElement);
+}
+
+/**
  * The one filter handed to hotkeys-js -- it is a global on the library's
  * singleton, so every instance installs this same module-level function.
  * `true` lets the event through to the bindings: same polarity as the stock

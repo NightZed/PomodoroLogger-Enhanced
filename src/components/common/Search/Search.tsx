@@ -3,12 +3,22 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled, { keyframes } from 'styled-components';
 
 import { SearchPanel } from './SearchPanel';
+import { isEditableTarget } from '../../../shared/keyboard';
 
 export interface SearchProps {
     searchStr?: string;
     tags?: () => string[];
     searchHistory?: () => string[];
     setSearchStr(str: string): void;
+    /**
+     * Whether the page this bar belongs to is the active one. The Kanban page
+     * stays mounted for `DestroyOnTimeoutWrapper`'s 10-minute grace after a
+     * tab switch (its pane merely hidden -- and hidden DOM does not stop
+     * document-level listeners), so without this the Ctrl+F below would keep
+     * hijacking the keystroke on every other page. Defaults to true for
+     * callers that render it unconditionally.
+     */
+    enabled?: boolean;
 }
 
 interface StyledProps {
@@ -103,7 +113,13 @@ const StyledSearch = styled.div<StyledProps>`
     }
 `;
 
-export const Search = ({ setSearchStr, searchHistory, searchStr, tags }: SearchProps) => {
+export const Search = ({
+    setSearchStr,
+    searchHistory,
+    searchStr,
+    tags,
+    enabled = true,
+}: SearchProps) => {
     const [isSearching, setIsSearching] = useState(false);
     const [text, setText] = useState('');
     const [showPanel, setShowPanel] = useState(false);
@@ -165,6 +181,14 @@ export const Search = ({ setSearchStr, searchHistory, searchStr, tags }: SearchP
     }, []);
 
     useEffect(() => {
+        if (!enabled) {
+            // The page this bar belongs to is not the active one (it stays
+            // mounted for the wrapper's grace after a tab switch, and hidden
+            // DOM does not stop window-level listeners): register nothing.
+            // The state is kept, so returning to the page restores the bar.
+            return undefined;
+        }
+
         const handler = (e: MouseEvent) => {
             if (!selfRef.current) {
                 return;
@@ -182,6 +206,14 @@ export const Search = ({ setSearchStr, searchHistory, searchStr, tags }: SearchP
         };
 
         const onKeydown = (e: KeyboardEvent) => {
+            // Never hijack typing: with the caret in a text field (the card
+            // editor's title/description a.o.) Ctrl+F belongs to the field,
+            // not to this bar -- stealing the focus there would silently
+            // redirect the user's next keystrokes into the search box.
+            if (isEditableTarget(e.target)) {
+                return;
+            }
+
             if ((e.key === 'f' || e.keyCode === 70) && e.ctrlKey) {
                 e.preventDefault();
                 setIsSearching(true);
@@ -195,7 +227,7 @@ export const Search = ({ setSearchStr, searchHistory, searchStr, tags }: SearchP
             window.removeEventListener('mousedown', handler);
             window.removeEventListener('keydown', onKeydown);
         };
-    }, []);
+    }, [enabled]);
 
     const togglePanel = useCallback(() => {
         setShowPanel((v) => !v);

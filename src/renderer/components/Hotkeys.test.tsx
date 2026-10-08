@@ -304,3 +304,74 @@ describe('shouldPreventTabDefault (the Timer page owns bare Tab only)', () => {
         div.remove();
     });
 });
+
+/**
+ * Guard #4 of the wrapper: while an antd dialog is open, bindings stand down
+ * (the dialog owns the keyboard) -- and a CLOSED dialog must not keep them
+ * silent. antd 3 keeps the `.ant-modal-root` in the DOM after closing (no
+ * destroyOnClose; rc-dialog only hides the wrap), which is exactly what made
+ * the Timer's Tab binding go dead after the first open/close of the card
+ * editor until a mini-window roundtrip cleaned the DOM.
+ */
+describe('Hotkeys wrapper (modal gate)', () => {
+    const addOpenDialog = () => {
+        const root = document.createElement('div');
+        root.className = 'ant-modal-root';
+        const wrap = document.createElement('div');
+        wrap.className = 'ant-modal-wrap';
+        root.appendChild(wrap);
+        document.body.appendChild(root);
+    };
+
+    /** What rc-dialog leaves behind after its close animation. */
+    const closeDialog = () => {
+        const wrap = document.querySelector('.ant-modal-wrap') as HTMLElement;
+        wrap.style.display = 'none';
+    };
+
+    const removeDialogs = () => {
+        document.querySelectorAll('.ant-modal-root').forEach((el) => el.remove());
+    };
+
+    afterEach(() => {
+        removeDialogs();
+    });
+
+    it('does not fire a binding while a dialog is open', async () => {
+        const onKeyDown = jest.fn();
+        const renderer = mount('ctrl+tab', onKeyDown);
+        addOpenDialog();
+
+        await press('Tab', { ctrlKey: true });
+        expect(onKeyDown).not.toHaveBeenCalled();
+
+        removeDialogs();
+        await press('Tab', { ctrlKey: true });
+        expect(onKeyDown).toHaveBeenCalledTimes(1);
+
+        await unmount(renderer);
+    });
+
+    it('keeps Ctrl+F12 (dev tools) alive while a dialog is open', async () => {
+        const onKeyDown = jest.fn();
+        const renderer = mount('ctrl+f12', onKeyDown);
+        addOpenDialog();
+
+        await press('F12', { ctrlKey: true });
+        expect(onKeyDown).toHaveBeenCalledTimes(1);
+
+        await unmount(renderer);
+    });
+
+    it('fires again when the closed dialog is only its hidden root', async () => {
+        const onKeyDown = jest.fn();
+        const renderer = mount('ctrl+tab', onKeyDown);
+        addOpenDialog();
+        closeDialog();
+
+        await press('Tab', { ctrlKey: true });
+        expect(onKeyDown).toHaveBeenCalledTimes(1);
+
+        await unmount(renderer);
+    });
+});

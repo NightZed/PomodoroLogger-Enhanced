@@ -1,5 +1,7 @@
 import * as React from 'react';
 import ReactHotkeys, { IReactHotkeysProps, OnKeyFun } from 'react-hot-keys';
+import { isEditableTarget } from '../../shared/keyboard';
+import { isModalOpen } from './popupLayer';
 
 /**
  * The app's one entry point to `react-hot-keys`, so the workarounds below live
@@ -50,7 +52,7 @@ import ReactHotkeys, { IReactHotkeysProps, OnKeyFun } from 'react-hot-keys';
  *    the OS could not consume, again typically with `<body>` as the target, so
  *    the binding fired for a keystroke the user aimed at the task switcher.
  *
- * Three guards, all here so every call site inherits them:
+ * Four guards, all here so every call site inherits them:
  *
  *  - keydown-only: reject `event.type === 'keyup'` in the hotkeys-js filter.
  *    Safe for the release path described above: hotkeys-js runs
@@ -60,13 +62,24 @@ import ReactHotkeys, { IReactHotkeysProps, OnKeyFun } from 'react-hot-keys';
  *    filter. The library's "already down" bookkeeping still works exactly as
  *    the first paragraph describes.
  *  - editable target: the stock predicate (INPUT / SELECT / TEXTAREA /
- *    contentEditable), re-expressed once as `isEditableTarget` so that
- *    `Timer.handleNativeKeydown` can share it and the two sides agree on what
- *    "the user is typing" means (it now prevents Tab's default only there).
+ *    contentEditable), now `isEditableTarget` from src/shared/keyboard.ts so
+ *    `Timer.handleNativeKeydown` and the shared Search bar's Ctrl+F listener
+ *    share one wording for "the user is typing" (it now prevents Tab's
+ *    default only there).
  *  - window-focus grace: for `WINDOW_FOCUS_GRACE_MS` after the window (re)gains
  *    focus, no binding fires. A human cannot follow an Alt+Tab with a keypress
  *    that fast, but OS residue arrives within milliseconds; the window `focus`
  *    event always precedes it.
+ *  - modal gate: while an antd dialog is open (`isModalOpen` in popupLayer.ts)
+ *    no binding fires except Ctrl+F12 (dev tools -- a separate window, and
+ *    documented in the shortcut table). A dialog owns the keyboard: F12 would
+ *    minimise the window and unmount the card editor with its unsaved fields,
+ *    Ctrl+Q would quit, Ctrl+Tab would turn the page underneath -- all from a
+ *    press aimed at the dialog. Nothing needed while an overlay is up is lost:
+ *    rc-dialog handles Esc/Enter itself (it stops propagation), the ending
+ *    mask and the Sankey fullscreen are plain divs rather than modals, and the
+ *    Search bar / card editor keep their own document listeners, which this
+ *    filter never touched.
  *
  * The `onKeyDown` wrapper is defence in depth: `hotkeys.filter` is a global
  * mutable on the hotkeys-js singleton, so the callback re-checks the event
@@ -96,26 +109,10 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * Is the event targeted at something the user types into?
- *
- * Shared with `Timer.handleNativeKeydown` so the hotkey filter and the native
- * Tab preventDefault cannot drift apart (see the guard list above). Same
- * predicate as react-hot-keys' stock `defaultFilter`: `document` and plain
- * elements pass, editable ones do not.
+ * `isEditableTarget` moved to src/shared/keyboard.ts: the shared Search bar
+ * needs the same wording of "the user is typing" for its Ctrl+F listener,
+ * and a common module is the one place both layers can import.
  */
-export function isEditableTarget(target: EventTarget | null): boolean {
-    if (!target) {
-        return false;
-    }
-
-    const element = target as { tagName?: string; isContentEditable?: boolean };
-    return (
-        element.isContentEditable === true ||
-        element.tagName === 'INPUT' ||
-        element.tagName === 'SELECT' ||
-        element.tagName === 'TEXTAREA'
-    );
-}
 
 /**
  * Should the native keydown listener behind the Timer page's layout swallow
@@ -149,6 +146,14 @@ export function shouldPreventTabDefault(event: KeyboardEvent): boolean {
 }
 
 /**
+ * Ctrl+F12 / Cmd+F12 (open the developer tools): the one press the modal
+ * gate lets through -- documented in the settings shortcut table, opens a
+ * separate window and touches no page state, so a dialog need not swallow it.
+ */
+const isDevToolsToggle = (event: KeyboardEvent): boolean =>
+    (event.ctrlKey || event.metaKey) && (event.key === 'F12' || event.keyCode === 123);
+
+/**
  * The one filter handed to hotkeys-js -- it is a global on the library's
  * singleton, so every instance installs this same module-level function.
  * `true` lets the event through to the bindings: same polarity as the stock
@@ -170,6 +175,13 @@ const guardFilter = (event: KeyboardEvent): boolean => {
 
     // Window-focus grace: see guard #3.
     if (Date.now() - windowFocusedAt < WINDOW_FOCUS_GRACE_MS) {
+        return false;
+    }
+
+    // Modal gate: see guard #4. A blocked key never reaches a handler, and
+    // hotkeys-js only preventDefaults when a handler returns false -- so the
+    // dialog keeps the browser's default Tab navigation for free.
+    if (isModalOpen() && !isDevToolsToggle(event)) {
         return false;
     }
 

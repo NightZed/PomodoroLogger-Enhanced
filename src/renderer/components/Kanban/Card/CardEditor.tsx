@@ -22,6 +22,18 @@ import { formatTimeYmdHm } from '../../Visualization/Timeline';
 import { LabelEditor } from './LabelEditor';
 const { TabPane } = Tabs;
 
+/**
+ * The class antd puts on the editor's dialog wrap (the Modal's wrapClassName
+ * below). The document-level Ctrl+Enter/Esc listener uses it to tell THIS
+ * dialog apart from any other antd dialog stacked above it: matching any
+ * `.ant-modal-root` would let Esc inside a top dialog (the focus-start
+ * warning, a confirm) cancel the editor behind it and drop the unsaved
+ * fields. The class is on the WRAP on purpose: rc-dialog's wrap div
+ * (tabIndex={-1}) is where focus lands when a blank spot of the dialog is
+ * clicked, and the wrap is not part of `.ant-modal-content`.
+ */
+const CARD_EDITOR_WRAP_CLASS = 'card-editor-dialog';
+
 interface Props extends CardActionTypes {
     visible: boolean;
     onCancel: () => void;
@@ -436,17 +448,20 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                 return;
             }
 
-            // react to keys of this editor only: target inside the editor
-            // modal, or focus dropped to <body> (no element focused).
-            // NOTE: check .ant-modal-root, NOT .ant-modal-content - antd's
-            // rc-dialog wrap div carries tabIndex={-1}, so clicking any
-            // non-focusable spot of the modal (blank areas, the title bar,
-            // label chips...) leaves focus ON the wrap div, which sits
-            // outside .ant-modal-content
+            // React to keys of this editor only: the press happened inside
+            // THIS editor's dialog (it carries CARD_EDITOR_WRAP_CLASS), or
+            // focus dropped to <body> (no element focused). Matching ANY
+            // `.ant-modal-root` was too wide: another dialog stacked on top
+            // (the focus-start warning from the tray, an antd confirm) is a
+            // modal root too, so Esc inside it cancelled the editor behind it
+            // and threw the unsaved fields away. The class is checked on the
+            // wrap, not on .ant-modal-content: rc-dialog's wrap div
+            // (tabIndex={-1}) is where focus lands when a blank spot of the
+            // dialog is clicked.
             const insideEditor =
                 target !== null &&
                 typeof target.closest === 'function' &&
-                target.closest('.ant-modal-root') !== null;
+                target.closest('.' + CARD_EDITOR_WRAP_CLASS) !== null;
             const focusOnBody =
                 target === null || target === document.body || target === document.documentElement;
             if (!insideEditor && !focusOnBody) {
@@ -564,6 +579,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             transitionName="card-editor-zoom"
             maskTransitionName="card-editor-fade"
             getContainer={getPopupContainer}
+            wrapClassName={CARD_EDITOR_WRAP_CLASS}
         >
             <EditorAnimation />
             <EditorContainer>

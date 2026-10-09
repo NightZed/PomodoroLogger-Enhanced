@@ -1,8 +1,9 @@
 import React, { FC, useState } from 'react';
-import styled from 'styled-components';
+import styled, { createGlobalStyle } from 'styled-components';
 import { AutoComplete, Button, Icon, Input } from 'antd';
 import { feedback, FEEDBACK_MESSAGES } from '../../feedback';
 import { CardLabel } from '../type';
+import { getLabelSuggestions } from './labelSuggestion';
 
 const { Option } = AutoComplete;
 
@@ -78,6 +79,61 @@ const SuggestionChip = styled.span<{ color: string }>`
     max-width: 110px;
     overflow: hidden;
     text-overflow: ellipsis;
+`;
+
+/**
+ * The suggestion dropdown is portaled outside this component's subtree, so a
+ * scoped styled-component cannot reach it -- restyle it through the
+ * `dropdownClassName` with these global rules instead.
+ *
+ * Layout goal: the same wrapping chip cloud the search panel uses
+ * (SearchPanel's Group), instead of antd's vertical list. antd.css is injected
+ * by style-loader in an order we cannot rely on (see theme/globalStyle.ts), so
+ * the rules that fight antd's own `:not(.…-disabled)` hover/active selectors
+ * carry the `html` prefix to stay specific enough to win.
+ */
+const LabelSuggestDropdownStyle = createGlobalStyle`
+    html .pl-label-suggest-dropdown .ant-select-dropdown-menu {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 2px;
+        padding: 6px;
+        max-height: 240px;
+    }
+
+    html .pl-label-suggest-dropdown .ant-select-dropdown-menu-item {
+        display: inline-flex;
+        align-items: center;
+        padding: 0;
+        overflow: visible;
+        height: auto;
+        line-height: 1.6;
+        background-color: transparent;
+    }
+
+    /* antd's hover/active/selected highlights would paint blue/grey blocks
+       behind the chips; keep the list background clean and mark the focused
+       item on the chip itself instead. */
+    html .pl-label-suggest-dropdown
+        .ant-select-dropdown-menu-item:hover:not(.ant-select-dropdown-menu-item-disabled),
+    html .pl-label-suggest-dropdown
+        .ant-select-dropdown-menu-item-active:not(.ant-select-dropdown-menu-item-disabled),
+    html .pl-label-suggest-dropdown .ant-select-dropdown-menu-item-selected {
+        background-color: transparent;
+    }
+
+    html .pl-label-suggest-dropdown
+        .ant-select-dropdown-menu-item-active:not(.ant-select-dropdown-menu-item-disabled)
+        .pl-suggest-chip {
+        outline: 2px solid var(--pl-primary);
+        outline-offset: 1px;
+    }
+
+    html .pl-label-suggest-dropdown
+        .ant-select-dropdown-menu-item:hover:not(.ant-select-dropdown-menu-item-disabled)
+        .pl-suggest-chip {
+        filter: brightness(1.1);
+    }
 `;
 
 interface Props {
@@ -196,28 +252,44 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
         setEditColorTouched(false);
     };
 
-    const suggestionOptions = (exclude: string) =>
-        Array.from(nameColorMap.entries())
-            .filter(
-                ([name]) => name !== exclude && name.toLowerCase().includes(exclude.toLowerCase())
-            )
-            .slice(0, 8)
-            .map(([name, color]) => (
-                <Option key={name} value={name}>
-                    <SuggestionChip color={color}>{name}</SuggestionChip>
-                </Option>
-            ));
+    // All board labels not yet on this card, filtered by the typed text and
+    // ordered alphabetically (see labelSuggestion.ts). No 8-item cap: an empty
+    // input lists the whole board palette, rendered as a wrapping chip cloud
+    // (LabelSuggestDropdownStyle) like the search panel's #TAGS group.
+    const suggestionOptions = (input: string, excludeLabels: CardLabel[]) =>
+        getLabelSuggestions(suggestions ?? [], excludeLabels, input).map(({ name, color }) => (
+            <Option key={name} value={name}>
+                <SuggestionChip className="pl-suggest-chip" color={color}>
+                    {name}
+                </SuggestionChip>
+            </Option>
+        ));
 
     return (
         <div>
+            <LabelSuggestDropdownStyle />
             {labels.map((label, index) =>
                 editingIndex === index ? (
                     <LabelRow key={index}>
                         <AutoComplete
                             size="small"
-                            style={{ width: 160, marginRight: 8 }}
+                            style={{ width: 280, marginRight: 8 }}
                             value={editName}
-                            dataSource={suggestionOptions(editName)}
+                            dataSource={suggestionOptions(
+                                editName,
+                                labels.filter((_, i) => i !== editingIndex)
+                            )}
+                            dropdownClassName="pl-label-suggest-dropdown"
+                            notFoundContent="No matching labels"
+                            // AutoComplete's default `optionLabelProp` is
+                            // 'children', but our Option children are colored
+                            // <SuggestionChip> elements. rc-select then uses
+                            // that element as the combobox's inputValue,
+                            // rendering "[object Object]" in the input and
+                            // warning that inputValue must be a string. The
+                            // plain label lives in `value` (the name), so
+                            // read it from there.
+                            optionLabelProp="value"
                             onSelect={onEditNameSelect}
                             onChange={(value: any) => setEditName(value)}
                             filterOption={false}
@@ -262,9 +334,15 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
             )}
             <LabelRow>
                 <AutoComplete
-                    style={{ width: 160 }}
+                    style={{ width: 280 }}
                     value={newName}
-                    dataSource={suggestionOptions(newName)}
+                    dataSource={suggestionOptions(newName, labels)}
+                    dropdownClassName="pl-label-suggest-dropdown"
+                    notFoundContent="No matching labels"
+                    // See the edit row above: optionLabelProp must be 'value'
+                    // or the chip element leaks into inputValue as
+                    // "[object Object]".
+                    optionLabelProp="value"
                     onSelect={onNewNameSelect}
                     onChange={(value: any) => setNewName(value)}
                     filterOption={false}

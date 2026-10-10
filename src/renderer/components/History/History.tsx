@@ -332,6 +332,16 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         setTargetDate([year, month, day]);
     }, []);
 
+    // Sort boards by creation time in descending order so the newest project
+    // is rendered first in the dropdown, i.e. closest to the select box —
+    // the same order the timer's FocusSelector uses. Legacy boards without
+    // createdTime are treated as the oldest.
+    const sortedBoards = React.useMemo(
+        () =>
+            Object.values(props.boards).sort((a, b) => (b.createdTime ?? 0) - (a.createdTime ?? 0)),
+        [props.boards]
+    );
+
     // Feed the calendar only with data of the currently selected year, so a stale
     // aggregation from the previous selection never meets the new calendar window
     // while the new query is still in flight.
@@ -403,7 +413,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                         <Option value="" key="all-projects">
                             All Projects
                         </Option>
-                        {Object.values(props.boards).map((v) => {
+                        {sortedBoards.map((v) => {
                             return (
                                 <Option value={v._id} key={v._id}>
                                     {v.name}
@@ -440,7 +450,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                         }
                         value={chosenMonth}
                         disabled={chosenYear === ALL_TIME}
-                        style={{ width: 60, marginLeft: 10 }}
+                        style={{ width: 70, marginLeft: 10 }}
                     >
                         <Option value={ALL_MONTHS} key="all-months">
                             All

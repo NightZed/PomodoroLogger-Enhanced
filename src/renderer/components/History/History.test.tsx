@@ -358,3 +358,44 @@ describe('History (month filter)', () => {
         renderer.unmount();
     });
 });
+
+describe('History (project filter order)', () => {
+    beforeEach(() => {
+        aggHistory().mockReset();
+        aggHistory().mockResolvedValue(AGG);
+    });
+
+    it('lists projects newest-created first with legacy boards last', async () => {
+        // Boards arrive from the DB in insertion order; the dropdown has to
+        // re-order them by creation time. `createdTime` is optional, so a
+        // legacy board without one sorts as the oldest.
+        const board = (name: string, createdTime?: number): any => ({
+            _id: `id-${name}`,
+            name,
+            createdTime,
+        });
+        const p = props();
+        p.boards = {
+            older: board('Older', 1000),
+            newest: board('Newest', 3000),
+            middle: board('Middle', 2000),
+            legacy: board('Legacy'),
+        };
+        let renderer!: TestRenderer.ReactTestRenderer;
+        await act(async () => {
+            renderer = TestRenderer.create(<History {...p} />);
+        });
+        await flush();
+
+        // The project picker is the first Select in the filter row. Its JSX
+        // children are `[AllProjectsOption, [option, ...]]`, so flatten a level.
+        const projectPicker = renderer.root.findAllByType(Select)[0];
+        const labels = ([] as any[])
+            .concat(...(projectPicker.props.children as any[]))
+            .map((child: any) => String(child.props.children));
+        // "All Projects" stays pinned on top; the rest follow newest-created
+        // first, matching the timer's FocusSelector.
+        expect(labels).toEqual(['All Projects', 'Newest', 'Middle', 'Older', 'Legacy']);
+        renderer.unmount();
+    });
+});

@@ -225,15 +225,27 @@ interface OverviewCardsProps {
 }
 
 /**
- * Guard for `react-stack-grid@0.7.1`: when its measured container width shrinks to 0, its
- * `getColumnLengthAndWidth(0, 265, ...)` computes `maxColumn = 0`, leaving
- * `columnHeights = []`, so `Math.max(...[]) - gutterHeight` becomes
- * `-Infinity` and React warns `` `Infinity` is an invalid value for the
- * `height` css style property `` on the TransitionGroup div.
+ * Guard for `react-stack-grid@0.7.1`: when its measured container width cannot
+ * fit a single column, its `getColumnLengthAndWidth(width, 265, 5)` computes
+ * `maxColumn = 0`, leaving `columnHeights = []`, so `Math.max(...[]) -
+ * gutterHeight` becomes `-Infinity` and React warns `` `Infinity` is an
+ * invalid value for the `height` css style property `` on the TransitionGroup
+ * div.
  *
- * `width < 1` (rather than `width <= 0`) also covers sub-pixel rounding:
- * anything below 1px still yields `maxColumn = 0` for a 265px column.
+ * `maxColumn >= 1` requires `width >= 265` (columnWidth), not just `width >=
+ * 1`: anything in `[1, 265)` still yields `maxColumn = 0` and reproduces the
+ * warning. This happens when restoring from mini mode: `suspended` flips
+ * synchronously while the window is still at mini size, so the grid would
+ * briefly mount at ~200px before the resize settles.
  */
+const STACK_GRID_COLUMN_WIDTH = 265;
+
+/**
+ * Minimum container width that fits one column. Below this
+ * `getColumnLengthAndWidth` yields `maxColumn = 0` (see above).
+ */
+const STACK_GRID_MIN_WIDTH = STACK_GRID_COLUMN_WIDTH;
+
 const SafeStackGrid: FC<{ children: React.ReactNode; suspended?: boolean }> = ({
     children,
     suspended = false,
@@ -270,11 +282,11 @@ const SafeStackGrid: FC<{ children: React.ReactNode; suspended?: boolean }> = ({
     // `suspended` unmounts the grid deterministically (e.g. mini mode hides
     // the pane *and* shrinks the window, and the inner SizeMe listener could
     // otherwise observe width 0 before our observer callback runs).
-    const showGrid = !suspended && width !== null && width >= 1;
+    const showGrid = !suspended && width !== null && width >= STACK_GRID_MIN_WIDTH;
     return (
         <div ref={ref}>
             {showGrid ? (
-                <StackGrid columnWidth={265} gutterHeight={0}>
+                <StackGrid columnWidth={STACK_GRID_COLUMN_WIDTH} gutterHeight={0}>
                     {children}
                 </StackGrid>
             ) : null}

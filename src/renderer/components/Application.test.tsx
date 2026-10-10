@@ -235,4 +235,54 @@ describe('Application page switching', () => {
         });
         expect(captionButton()?.title).toBe('Maximize');
     });
+
+    // The popup layer lives inside the Content div (opacity: contentOpacity),
+    // while antd portals overlays to <body> by default -- which sits outside
+    // the opacity, so a Select dropdown / Tooltip / DatePicker calendar would
+    // stay fully opaque while the page fades. Application wraps the whole tree
+    // in a ConfigProvider whose getPopupContainer resolves to popupLayer.ts,
+    // and every context-driven overlay (Tooltip, Dropdown, Select, DatePicker,
+    // AutoComplete, Modal) falls back to it.
+    //
+    // Asserted through the live fiber tree rather than a purpose-built
+    // overlay: a second ReactDOM tree cannot inherit React context anyway,
+    // and every heavy page is stubbed here. Drop the provider and
+    // `ConfigProvider` stops appearing above Main (the LabelEditor.test.tsx
+    // dropdown-placement test is the live-overlay proof for one such
+    // component).
+    it('keeps the antd overlay default inside the shared popup layer', async () => {
+        // The tree is already mounted above inside act(); walk the live
+        // fibers from the host root (`_reactRootContainer` is how React 16
+        // links a container to its root -- this suite pins react 16.14). The
+        // suite imports no ConfigProvider of its own, so every match below
+        // is the one Application renders.
+        const { ConfigProvider: ExpectedProvider } = require('antd') as typeof import('antd');
+        const root = (container as any)._reactRootContainer?._internalRoot?.current;
+        expect(root).toBeDefined();
+
+        const providers: any[] = [];
+        const walk = (fiber: any): void => {
+            if (fiber == null) {
+                return;
+            }
+
+            if (fiber.elementType === ExpectedProvider) {
+                providers.push(fiber);
+            }
+
+            let child = fiber.child;
+            while (child != null) {
+                walk(child);
+                child = child.sibling;
+            }
+        };
+        walk(root);
+
+        expect(providers).toHaveLength(1);
+        // The context carries the resolver through, not a snapshot of the
+        // node: invoke it the way an opening overlay would.
+        expect(providers[0].pendingProps.getPopupContainer()).toBe(
+            document.getElementById('pl-popup-container')
+        );
+    });
 });

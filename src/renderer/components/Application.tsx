@@ -26,7 +26,8 @@ import { ConnectedPomodoroSankey } from './Visualization/PomodoroSankey';
 import AppTitleBar from './AppTitleBar/AppTitleBar';
 import { titleBarBandHeight } from './AppTitleBar/tokens';
 import { nextTabKey, planTabChange } from './appTabs';
-import { POPUP_CONTAINER_ID } from './popupLayer';
+import { getPopupContainer, POPUP_CONTAINER_ID } from './popupLayer';
+import { ConfigProvider } from 'antd';
 
 /**
  * Window layer stack, bottom to top, and the setting that sizes each layer:
@@ -333,56 +334,64 @@ class Application extends React.Component<Props, State> {
             setCompactAlwaysOnTop,
         } = this.props;
         return (
-            <Main minimize={minimize} compact={compact}>
-                <Wallpaper path={wallpaperDataUrl} opacity={wallpaperOpacity} />
-                <Content contentOpacity={contentOpacity}>
-                    {/* Mount point of every antd overlay (dialogs, toasts,
+            // Every antd overlay mounts into the shared popup layer by default:
+            // the context makes Select, AutoComplete, Tooltip, DatePicker,
+            // Dropdown and friends resolve to getPopupContainer, so they fade
+            // with the page instead of escaping to <body> (popupLayer.ts).
+            // An explicit container/getContainer prop on any of them still
+            // wins over this default.
+            <ConfigProvider getPopupContainer={getPopupContainer}>
+                <Main minimize={minimize} compact={compact}>
+                    <Wallpaper path={wallpaperDataUrl} opacity={wallpaperOpacity} />
+                    <Content contentOpacity={contentOpacity}>
+                        {/* Mount point of every antd overlay (dialogs, toasts,
                         notifications, popovers). It lives inside the content
                         layer so those surfaces fade with the page instead of
                         escaping to <body>, see popupLayer.ts. */}
-                    <div id={POPUP_CONTAINER_ID} />
-                    <AppTitleBar
-                        currentTab={currentTab}
-                        minimize={minimize}
-                        compact={compact}
-                        maximized={this.state.maximized}
-                        sessionEnding={sessionEnding}
-                        alwaysOnTop={compactAlwaysOnTop}
-                        onToggleAlwaysOnTop={() => setCompactAlwaysOnTop(!compactAlwaysOnTop)}
-                        onTabChange={this.changeTab}
-                        timer={this.timer}
-                        kanban={
-                            <DestroyOnTimeoutWrapper
-                                isVisible={currentTab === 'kanban'}
-                                timeout={600000}
-                            >
-                                <Kanban />
-                            </DestroyOnTimeoutWrapper>
-                        }
-                        history={
-                            <DestroyOnTimeoutWrapper
-                                isVisible={currentTab === 'history'}
-                                timeout={600000}
-                            >
-                                <History />
-                            </DestroyOnTimeoutWrapper>
-                        }
-                        setting={<Setting />}
-                    />
-                    {!minimize && (
-                        <>
-                            <UserGuide />
-                            <UpdateController />
-                            <CardInDetail />
-                            <ConnectedPomodoroSankey />
-                        </>
-                    )}
-                    <Hotkeys
-                        keyName={'ctrl+tab,ctrl+shift+tab,ctrl+f12,ctrl+q,f11,f12'}
-                        onKeyDown={this.onKeyDown}
-                    />
-                </Content>
-            </Main>
+                        <div id={POPUP_CONTAINER_ID} />
+                        <AppTitleBar
+                            currentTab={currentTab}
+                            minimize={minimize}
+                            compact={compact}
+                            maximized={this.state.maximized}
+                            sessionEnding={sessionEnding}
+                            alwaysOnTop={compactAlwaysOnTop}
+                            onToggleAlwaysOnTop={() => setCompactAlwaysOnTop(!compactAlwaysOnTop)}
+                            onTabChange={this.changeTab}
+                            timer={this.timer}
+                            kanban={
+                                <DestroyOnTimeoutWrapper
+                                    isVisible={currentTab === 'kanban'}
+                                    timeout={600000}
+                                >
+                                    <Kanban />
+                                </DestroyOnTimeoutWrapper>
+                            }
+                            history={
+                                <DestroyOnTimeoutWrapper
+                                    isVisible={currentTab === 'history'}
+                                    timeout={600000}
+                                >
+                                    <History />
+                                </DestroyOnTimeoutWrapper>
+                            }
+                            setting={<Setting />}
+                        />
+                        {!minimize && (
+                            <>
+                                <UserGuide />
+                                <UpdateController />
+                                <CardInDetail />
+                                <ConnectedPomodoroSankey />
+                            </>
+                        )}
+                        <Hotkeys
+                            keyName={'ctrl+tab,ctrl+shift+tab,ctrl+f12,ctrl+q,f11,f12'}
+                            onKeyDown={this.onKeyDown}
+                        />
+                    </Content>
+                </Main>
+            </ConfigProvider>
         );
     }
 }

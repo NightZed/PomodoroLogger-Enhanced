@@ -19,6 +19,7 @@ import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 import { act, Simulate } from 'react-dom/test-utils';
 
+import { POPUP_CONTAINER_ID } from '../../popupLayer';
 import { LabelEditor } from './LabelEditor';
 
 describe('LabelEditor suggestion input value', () => {
@@ -34,6 +35,13 @@ describe('LabelEditor suggestion input value', () => {
     beforeEach(() => {
         container = document.createElement('div');
         document.body.appendChild(container);
+        // Application renders this layer inside the Content div (opacity:
+        // contentOpacity); every overlay that should fade with the page mounts
+        // here (popupLayer.ts). LabelEditor must resolve it too.
+        const popupLayer = document.createElement('div');
+        popupLayer.id = POPUP_CONTAINER_ID;
+        document.body.appendChild(popupLayer);
+
         errors = [];
         jest.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
             errors.push(args.map(String).join(' '));
@@ -94,5 +102,15 @@ describe('LabelEditor suggestion input value', () => {
         expect(nameInput().value).toBe('bug');
         expect(inputValueWarnings()).toEqual([]);
         expect(nameInput().value).not.toContain('[object Object]');
+    });
+
+    it('mounts the dropdown in the shared popup layer, not on <body>', () => {
+        // rc-trigger's default container is document.body, which sits outside
+        // the Content layer's opacity -- the dropdown would stay fully opaque
+        // while the page fades.
+        type('bu');
+        const dropdown = document.querySelector('.ant-select-dropdown');
+        expect(dropdown).not.toBeNull();
+        expect(document.getElementById(POPUP_CONTAINER_ID)!.contains(dropdown)).toBe(true);
     });
 });

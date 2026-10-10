@@ -2,6 +2,7 @@ import React, { FC, useState } from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
 import { AutoComplete, Button, Icon, Input } from 'antd';
 import { feedback, FEEDBACK_MESSAGES } from '../../feedback';
+import { getPopupContainer } from '../../popupLayer';
 import { CardLabel } from '../type';
 import { getLabelSuggestions } from './labelSuggestion';
 
@@ -281,6 +282,12 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                             )}
                             dropdownClassName="pl-label-suggest-dropdown"
                             notFoundContent="No matching labels"
+                            // Without this the dropdown portals to <body> and
+                            // escapes Application's Content layer (opacity:
+                            // contentOpacity), staying fully opaque while the
+                            // page fades. Mount it in the shared popup layer
+                            // like every other overlay (popupLayer.ts).
+                            getPopupContainer={getPopupContainer}
                             // AutoComplete's default `optionLabelProp` is
                             // 'children', but our Option children are colored
                             // <SuggestionChip> elements. rc-select then uses
@@ -339,6 +346,8 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                     dataSource={suggestionOptions(newName, labels)}
                     dropdownClassName="pl-label-suggest-dropdown"
                     notFoundContent="No matching labels"
+                    // Portals into the opacity layer, see the edit row above.
+                    getPopupContainer={getPopupContainer}
                     // See the edit row above: optionLabelProp must be 'value'
                     // or the chip element leaks into inputValue as
                     // "[object Object]".

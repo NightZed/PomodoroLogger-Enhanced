@@ -7729,13 +7729,13 @@ easy-stack@^1.0.0:
   resolved "https://registry.npmmirror.com/easy-stack/-/easy-stack-1.0.1.tgz#8afe4264626988cabb11f3c704ccd0c835411066"
   integrity sha512-wK2sCs4feiiJeFXn3zvY0p41mdU5VUgbgs1rNsc/y5ngFUijdWd+iIN8eoyuZHKB8xN6BL4PdWmzqFmxNg6V2w==
 
-echarts-for-react@^2.0.15-beta.1:
-  version "2.0.16"
-  resolved "https://registry.npmjs.org/echarts-for-react/-/echarts-for-react-2.0.16.tgz#8134a53dff90882c1e6a95c45ceab21e00f6c9f5"
-  integrity sha512-VmHCktay2qKt/+wpL/C7thbvIa7dYBEey0/U4Zaqo+qeA4wx+uiCd5NeCsPIhD/0Pv+2qqNswqiNiUCtcgccOw==
+echarts-for-react@^3.0.6:
+  version "3.0.6"
+  resolved "https://registry.npmmirror.com/echarts-for-react/-/echarts-for-react-3.0.6.tgz#267908f53854856833dc39088d2a97ab4bbfad86"
+  integrity sha512-4zqLgTGWS3JvkQDXjzkR1k1CHRdpd6by0988TWMJgnvDytegWLbeP/VNZmMa+0VJx2eD7Y632bi2JquXDgiGJg==
   dependencies:
-    fast-deep-equal "^2.0.1"
-    size-sensor "^1.0.0"
+    fast-deep-equal "^3.1.3"
+    size-sensor "^1.0.1"
 
 echarts@^4.5.0:
   version "4.9.0"
@@ -8757,11 +8757,6 @@ extract-zip@^2.0.1:
     yauzl "^2.10.0"
   optionalDependencies:
     "@types/yauzl" "^2.9.1"
-
-fast-deep-equal@^2.0.1:
-  version "2.0.1"
-  resolved "https://registry.npmjs.org/fast-deep-equal/-/fast-deep-equal-2.0.1.tgz#7b05218ddf9667bf7f370bf7fdb2cb15fdd0aa49"
-  integrity sha1-ewUhjd+WZ79/Nwv3/bLLFf3Qqkk=
 
 fast-deep-equal@^3.1.1, fast-deep-equal@^3.1.3:
   version "3.1.3"
@@ -16448,10 +16443,10 @@ sisteransi@^1.0.5:
   resolved "https://registry.npmjs.org/sisteransi/-/sisteransi-1.0.5.tgz#134d681297756437cc05ca01370d3a7a571075ed"
   integrity sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg==
 
-size-sensor@^1.0.0:
-  version "1.0.1"
-  resolved "https://registry.npmjs.org/size-sensor/-/size-sensor-1.0.1.tgz#f84e46206d3e259faff1d548e4b3beca93219dbb"
-  integrity sha512-QTy7MnuugCFXIedXRpUSk9gUnyNiaxIdxGfUjr8xxXOqIB3QvBUYP9+b51oCg2C4dnhaeNk/h57TxjbvoJrJUA==
+size-sensor@^1.0.1:
+  version "1.0.3"
+  resolved "https://registry.npmmirror.com/size-sensor/-/size-sensor-1.0.3.tgz#4ce525cbc5a098da09852e38b6f851ebb9b5116a"
+  integrity sha512-+k9mJ2/rQMiRmQUcjn+qznch260leIXY8r4FyYKKyRBO/s5UoeMAHGkCJyE1R/4wrIhTJONfyloY55SkE7ve3A==
 
 skin-tone@^2.0.0:
   version "2.0.0"

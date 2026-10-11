@@ -32,6 +32,57 @@ export function hasSession(timer: SessionState): boolean {
 }
 
 /**
+ * Whether a focus session is still too young for the Finish button.
+ *
+ * The limit comes from `Setting.minFinishDuration` (set on the settings page,
+ * default 10 minutes) and only guards focus sessions -- breaks are finished
+ * without asking, see `Timer.onFinishButtonClick`. `0` turns it off, which
+ * this comparison answers anyway: a non-negative elapsed time is never below
+ * zero, so "no minimum" needs no special case at the call site.
+ *
+ * `>=` passes, i.e. a session that has run exactly the configured minimum can
+ * be finished; that is the boundary the old hard coded `eTime < 600` had.
+ */
+export function isFinishTooEarly(elapsedSeconds: number, minFinishSeconds: number): boolean {
+    return elapsedSeconds < minFinishSeconds;
+}
+
+/**
+ * The minimum that actually applies to a session: never longer than the focus
+ * session it guards (`Setting.focusDuration`).
+ *
+ * A longer minimum cannot be reached -- the session ends by itself before it
+ * (and only the paused-clock quirk of `getElapsedTimeInSecond` would ever get
+ * past the focus duration), so the focus duration wins. The stored setting is
+ * deliberately NOT rewritten when that happens: it is the user's intention,
+ * which applies again once the focus duration allows it. Both the Finish guard
+ * and the settings page therefore clamp on read, through this one function.
+ */
+export function effectiveMinFinishDuration(
+    minFinishSeconds: number,
+    focusDurationSeconds: number
+): number {
+    return Math.min(minFinishSeconds, focusDurationSeconds);
+}
+
+/**
+ * The focused time a session has actually produced -- the value the Finish
+ * guard compares with the minimum.
+ *
+ * `Timer.getElapsedTimeInSecond()` is `focusDuration - remaining`, which
+ * rewinds by the minutes the ending mask's +5/+10 extension added: an
+ * extension only grows `remaining`, never the duration. The finished record
+ * counts those minutes though (`Timer.onSessionConfirmed` adds
+ * `extendedTimeInMinute` back into `spentTimeInHour`), so this undoes the
+ * rewind and puts the guard on the same footing as the statistics -- without
+ * it, Finish would be refused right after extending although the session has
+ * already focused longer than the minimum.
+ */
+export function focusedSeconds(elapsedSeconds: number, extendedMinutes: number): number {
+    return elapsedSeconds + extendedMinutes * 60;
+}
+
+/**
  * What a "start the session I name" request must do to the current timer. The
  * callers are the two tray items (and the ending mask's own button), which name
  * the session they want in `wantsFocusing`.

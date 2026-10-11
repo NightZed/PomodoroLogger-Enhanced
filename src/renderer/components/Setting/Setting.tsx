@@ -298,6 +298,23 @@ const longBreakMarks = {
     25: '25min',
 };
 
+/**
+ * Marks of the "minimum focus time before Finish" slider, built for the
+ * maximum of the current range -- the focus duration in minutes (see the
+ * option below). `0` is the stop giving the guard any weight at all (finish
+ * at any time), which the hint of the option spells out -- the mark itself
+ * stays short.
+ */
+function minFinishMarks(maxMinutes: number) {
+    const marks: { [minutes: number]: string } = { 0: 'Any' };
+    for (let minutes = 10; minutes < maxMinutes; minutes += 10) {
+        marks[minutes] = `${minutes}min`;
+    }
+
+    marks[maxMinutes] = `${maxMinutes}min`;
+    return marks;
+}
+
 const opacityMarks = {
     10: '10%',
     40: '40%',
@@ -317,6 +334,7 @@ const settingUiStates = [
     'restDuration',
     'autoUpdate',
     'longBreakDuration',
+    'minFinishDuration',
     'monitorInterval',
     'screenShotInterval',
     'warnBeforeFocusStart',
@@ -362,6 +380,25 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
 
             props.setLongBreakDuration(v * 60);
         }, []);
+
+        const onChangeMinFinish = React.useCallback((v: number | [number, number]) => {
+            if (v instanceof Array) {
+                return;
+            }
+
+            // The slider works in minutes, the setting is kept in seconds like
+            // every other duration of the timer.
+            props.setMinFinishDuration(v * 60);
+        }, []);
+
+        // The minimum can never be longer than the focus session it guards:
+        // a longer one could not be reached before the session ends by itself.
+        // The slider therefore follows the focus duration above it, and shows
+        // the effective value (`effectiveMinFinishDuration` in
+        // Timer/sessionState.ts clamps the same way on read) -- the stored
+        // setting is left alone, so a longer one applies again once the focus
+        // duration allows it.
+        const minFinishMaxMinutes = Math.max(1, Math.floor(props.focusDuration / 60));
 
         const switchScreenshot = React.useCallback((v: boolean) => {
             if (v) {
@@ -666,6 +703,32 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                         max={40}
                                         value={props.longBreakDuration / 60}
                                         onChange={onChangeLongBreak}
+                                    />
+                                </SliderContainer>
+                            </Field>
+
+                            <Field>
+                                <h4>Minimum Focus Time before Finish</h4>
+                                <Hint>
+                                    The Finish button only accepts a focus session once it has run
+                                    for at least this long, so a session that just started cannot be
+                                    finished by accident. The range follows the focus duration
+                                    above: a longer minimum that was saved earlier stays stored and
+                                    applies again once the focus duration allows it. Set it to
+                                    &quot;Any&quot; (0) to allow finishing at any time. Breaks are
+                                    always allowed.
+                                </Hint>
+                                <SliderContainer>
+                                    <Slider
+                                        marks={minFinishMarks(minFinishMaxMinutes)}
+                                        step={1}
+                                        min={0}
+                                        max={minFinishMaxMinutes}
+                                        value={
+                                            Math.min(props.minFinishDuration, props.focusDuration) /
+                                            60
+                                        }
+                                        onChange={onChangeMinFinish}
                                     />
                                 </SliderContainer>
                             </Field>

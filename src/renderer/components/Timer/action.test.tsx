@@ -6,6 +6,7 @@ import {
     resolveSessionProjectId,
     setFocusDuration,
     setLongBreakDuration,
+    setMinFinishDuration,
     setRestDuration,
     setSessionEnding,
     pauseTimer,
@@ -63,6 +64,15 @@ describe('Reducer', () => {
         expect(state.restDuration).toBe(123);
     });
 
+    it('guards the Finish button with a configurable minimum of 10 minutes', () => {
+        const state = reducer(undefined, pauseTimer());
+        // The value the app shipped with before it became a setting.
+        expect(state.minFinishDuration).toBe(10 * 60);
+        expect(reducer(state, setMinFinishDuration(5 * 60)).minFinishDuration).toBe(5 * 60);
+        // 0 is the settings page's "finish at any time" option.
+        expect(reducer(state, setMinFinishDuration(0)).minFinishDuration).toBe(0);
+    });
+
     it('reminds before a focus session by default and can be turned off', () => {
         const state = reducer(undefined, pauseTimer());
         expect(state.warnBeforeFocusStart).toBe(true);
@@ -111,6 +121,8 @@ describe('Reducer', () => {
         expect(state.restDuration).toBe(9991);
         await actions.setLongBreakDuration(99991)(dispatch);
         expect(state.longBreakDuration).toBe(99991);
+        await actions.setMinFinishDuration(4321)(dispatch);
+        expect(state.minFinishDuration).toBe(4321);
         await actions.setScreenShotInterval(91111)(dispatch);
         expect(state.screenShotInterval).toBe(91111);
         await actions.setWarnBeforeFocusStart(false)(dispatch);
@@ -140,6 +152,7 @@ describe('Reducer', () => {
             'screenShotInterval',
             'startOnBoot',
             'longBreakDuration',
+            'minFinishDuration',
             'warnBeforeFocusStart',
         ];
         for (const setting of settings) {

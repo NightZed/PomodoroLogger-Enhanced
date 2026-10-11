@@ -37,4 +37,15 @@ describe('feedback messages', () => {
             'connection reset'
         );
     });
+
+    it('names the configured minimum when a focus session is finished too early', () => {
+        // The number comes from `Setting.minFinishDuration`, so the copy has to
+        // travel with it instead of hard coding the old 10 minutes.
+        expect(FEEDBACK_MESSAGES.timer.finishTooEarly(10)).toBe(
+            'Focus at least for 10 minutes to finish'
+        );
+        expect(FEEDBACK_MESSAGES.timer.finishTooEarly(1)).toBe(
+            'Focus at least for 1 minute to finish'
+        );
+    });
 });

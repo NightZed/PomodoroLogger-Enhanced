@@ -26,7 +26,14 @@ export const FEEDBACK_MESSAGES = {
             `Cannot switch mode while a ${isFocusing ? 'focus session' : 'break'} is ` +
             `${isRunning ? 'running' : 'paused'} — ${isRunning ? 'pause' : 'continue'} or ` +
             'stop it first.',
-        finishTooEarly: 'Focus at least for 10 minutes to finish',
+        /**
+         * A focus session was finished before the configured minimum
+         * (`Setting.minFinishDuration`, adjustable on the settings page) had
+         * passed. The number travels with the toast so the wording can never
+         * promise a different time than the guard enforces.
+         */
+        finishTooEarly: (minMinutes: number) =>
+            `Focus at least for ${minMinutes} minute${minMinutes === 1 ? '' : 's'} to finish`,
     },
     /** Statistic views. */
     statistics: {

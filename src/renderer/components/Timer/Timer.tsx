@@ -42,7 +42,15 @@ import { setTrayImageWithMadeIcon } from './iconMaker';
 import { PomodoroNumView } from './PomodoroNumView';
 import Progress from './Progress';
 import { feedback, FEEDBACK_MESSAGES } from '../feedback';
-import { hasSession, namedSessionAction, trayMenuItems, TrayActionKey } from './sessionState';
+import {
+    effectiveMinFinishDuration,
+    focusedSeconds,
+    hasSession,
+    isFinishTooEarly,
+    namedSessionAction,
+    trayMenuItems,
+    TrayActionKey,
+} from './sessionState';
 import { TimerMask } from './SessionEndingMask';
 import { waitUntil } from './wait';
 import { WorkRestIcon } from './WorkRestIcon';
@@ -1126,14 +1134,30 @@ class Timer extends Component<Props, State> {
     };
 
     private onFinishButtonClick = async () => {
-        const { isFocusing } = this.props.timer;
+        const { isFocusing, minFinishDuration, focusDuration } = this.props.timer;
         if (!isFocusing) {
             return this.onDone(false);
         }
 
-        const eTime = this.getElapsedTimeInSecond();
-        if (eTime < 600) {
-            feedback.toast({ kind: 'warning', content: FEEDBACK_MESSAGES.timer.finishTooEarly });
+        // The minimum is a setting (settings page -> Timer section), not a
+        // constant: a session that is still below it cannot be finished. The
+        // effective value is the one the settings page shows as well -- a
+        // stored minimum longer than the focus session could never be reached
+        // (the session ends by itself), so the focus duration caps it. `0`
+        // disables the guard, and then this branch is unreachable.
+        //
+        // The extension minutes of the ending mask's +5/+10 buttons count as
+        // focused time (`focusedSeconds` undoes the rewind of
+        // `getElapsedTimeInSecond` and matches what `onSessionConfirmed` later
+        // writes into `spentTimeInHour`), so extending can never make Finish
+        // unavailable again.
+        const minFinish = effectiveMinFinishDuration(minFinishDuration, focusDuration);
+        const eTime = focusedSeconds(this.getElapsedTimeInSecond(), this.extendedTimeInMinute);
+        if (isFinishTooEarly(eTime, minFinish)) {
+            feedback.toast({
+                kind: 'warning',
+                content: FEEDBACK_MESSAGES.timer.finishTooEarly(Math.ceil(minFinish / 60)),
+            });
             return;
         }
 

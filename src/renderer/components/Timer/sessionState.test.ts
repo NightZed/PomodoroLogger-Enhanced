@@ -1,5 +1,8 @@
 import {
+    effectiveMinFinishDuration,
+    focusedSeconds,
     hasSession,
+    isFinishTooEarly,
     namedSessionAction,
     trayMenuItems,
     TrayActionKey,
@@ -30,6 +33,65 @@ describe('hasSession', () => {
     it('is false only once the session was cleared or finished', () => {
         expect(hasSession(state())).toBe(false);
         expect(hasSession(state({ targetTime: 0 }))).toBe(false);
+    });
+});
+
+describe('isFinishTooEarly', () => {
+    it('blocks a focus session that is younger than the configured minimum', () => {
+        // The guard the settings page configures (`minFinishDuration`), which
+        // used to be a hard coded 10 minutes in `Timer.onFinishButtonClick`.
+        expect(isFinishTooEarly(0, 600)).toBe(true);
+        expect(isFinishTooEarly(599, 600)).toBe(true);
+    });
+
+    it('lets a session finish once it reached the minimum, boundary included', () => {
+        expect(isFinishTooEarly(600, 600)).toBe(false);
+        expect(isFinishTooEarly(601, 600)).toBe(false);
+    });
+
+    it('never blocks when the minimum is 0', () => {
+        // "Finish at any time" is the settings page's off switch; it must not
+        // need a special case at the call site.
+        expect(isFinishTooEarly(0, 0)).toBe(false);
+        expect(isFinishTooEarly(1, 0)).toBe(false);
+    });
+});
+
+describe('effectiveMinFinishDuration', () => {
+    it('keeps a minimum that fits the focus session it guards', () => {
+        expect(effectiveMinFinishDuration(5 * 60, 25 * 60)).toBe(5 * 60);
+        // The focus session itself is a legal minimum: only the natural end of
+        // the session can finish it then.
+        expect(effectiveMinFinishDuration(25 * 60, 25 * 60)).toBe(25 * 60);
+    });
+
+    it('caps a minimum that is longer than the focus session', () => {
+        // 30 minutes can never be reached before a 25 minute session ends by
+        // itself, so the focus duration is what applies -- the stored setting
+        // is not rewritten, it applies again once the focus duration allows it.
+        expect(effectiveMinFinishDuration(30 * 60, 25 * 60)).toBe(25 * 60);
+        // A 50 minute focus session allows a 40 minute minimum after all.
+        expect(effectiveMinFinishDuration(40 * 60, 50 * 60)).toBe(40 * 60);
+    });
+});
+
+describe('focusedSeconds', () => {
+    it('is the plain elapsed time while the session was never extended', () => {
+        expect(focusedSeconds(0, 0)).toBe(0);
+        expect(focusedSeconds(5 * 60, 0)).toBe(5 * 60);
+    });
+
+    it('adds back the minutes the +5/+10 extension rewound the clock by', () => {
+        // A 25 minute session extended by 5 on the ending mask: the elapsed
+        // formula reports 25 - 5 = 20 minutes (the extension only grows
+        // `remaining`), while the session really focused 25 -- the very value
+        // `onSessionConfirmed` writes into `spentTimeInHour`.
+        expect(focusedSeconds(20 * 60, 5)).toBe(25 * 60);
+        // Extensions accumulate over several rounds of the ending mask: once
+        // the second extension (+10 after the +5) runs out, the elapsed
+        // formula is back at the full 25 minutes and the session has focused
+        // 40 in total.
+        expect(focusedSeconds(25 * 60, 5 + 10)).toBe(40 * 60);
     });
 });
 

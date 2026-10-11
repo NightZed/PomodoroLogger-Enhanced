@@ -52,6 +52,19 @@ export interface Setting {
     focusDuration: number;
     restDuration: number;
     longBreakDuration: number;
+    /**
+     * How long a focus session must have run before the Finish button accepts
+     * it, in seconds. `0` allows finishing at any time. Breaks are never
+     * gated. It used to be a hard coded 10 minutes (see `isFinishTooEarly` in
+     * `sessionState.ts`) until the settings page grew this option.
+     *
+     * The settings page only offers up to the current `focusDuration`, but the
+     * stored value may still exceed it (the focus duration was shortened
+     * afterwards, or the settings came from elsewhere). What applies is
+     * `effectiveMinFinishDuration` -- the smaller of the two -- and the stored
+     * value is kept, so the intention is not lost.
+     */
+    minFinishDuration: number;
     monitorInterval: number;
     screenShotInterval?: number;
     /**
@@ -146,6 +159,7 @@ export const defaultState: TimerState = {
     restDuration: 5 * 60,
     iBreak: 0,
     longBreakDuration: 15 * 60,
+    minFinishDuration: 10 * 60,
     isRunning: false,
     isFocusing: true,
     sessionEnding: false,
@@ -174,6 +188,7 @@ export const uiStateNames = [
     'focusDuration',
     'restDuration',
     'longBreakDuration',
+    'minFinishDuration',
     'monitorInterval',
     'screenShotInterval',
     'warnBeforeFocusStart',
@@ -261,6 +276,10 @@ export const extendCurrentSession = createActionCreator(
 export const setLongBreakDuration = createActionCreator(
     '[Timer]SET_LONG_BREAK',
     (resolve) => (longBreakDuration: number) => resolve({ longBreakDuration })
+);
+export const setMinFinishDuration = createActionCreator(
+    '[Timer]SET_MIN_FINISH_DURATION',
+    (resolve) => (duration: number) => resolve(duration)
 );
 export const setStartOnBoot = createActionCreator(
     '[Timer]SWITCH_START_ON_BOOT',
@@ -405,6 +424,7 @@ export const actions = {
             ['wallpaperPath', setWallpaperPath],
             ['wallpaperOpacity', setWallpaperOpacity],
             ['longBreakDuration', setLongBreakDuration],
+            ['minFinishDuration', setMinFinishDuration],
             ['distractingList', setDistractingList],
             ['autoUpdate', setAutoUpdate],
             ['calendarBaseColor', setCalendarBaseColor],
@@ -518,6 +538,15 @@ export const actions = {
         dbs.settingDB.update(
             { name: 'setting' },
             { $set: { longBreakDuration } },
+            { upsert: true },
+            throwError
+        );
+    },
+    setMinFinishDuration: (minFinishDuration: number) => async (dispatch: Dispatch) => {
+        dispatch(setMinFinishDuration(minFinishDuration));
+        dbs.settingDB.update(
+            { name: 'setting' },
+            { $set: { minFinishDuration } },
             { upsert: true },
             throwError
         );
@@ -736,6 +765,10 @@ export const reducer = createReducer<TimerState, any>(defaultState, (handle) => 
     handle(setLongBreakDuration, (state, { payload: { longBreakDuration } }) => ({
         ...state,
         longBreakDuration,
+    })),
+    handle(setMinFinishDuration, (state, { payload }) => ({
+        ...state,
+        minFinishDuration: payload,
     })),
     handle(extendCurrentSession, (state, { payload }) => ({
         ...state,

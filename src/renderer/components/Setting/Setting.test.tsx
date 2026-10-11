@@ -19,6 +19,7 @@
  */
 import * as React from 'react';
 import TestRenderer, { ReactTestRendererJSON, act } from 'react-test-renderer';
+import { Slider } from 'antd';
 
 const mockAlert = jest.fn();
 const mockToast = jest.fn();
@@ -76,6 +77,7 @@ const props = (): any => ({
     focusDuration: 1500,
     restDuration: 300,
     longBreakDuration: 900,
+    minFinishDuration: 600,
     monitorInterval: 1000,
     autoUpdate: false,
     screenShotInterval: undefined,
@@ -95,6 +97,7 @@ const props = (): any => ({
     setFocusDuration: jest.fn(),
     setRestDuration: jest.fn(),
     setLongBreakDuration: jest.fn(),
+    setMinFinishDuration: jest.fn(),
     setAutoUpdate: jest.fn(),
     setScreenShotInterval: jest.fn(),
     setWarnBeforeFocusStart: jest.fn(),
@@ -206,6 +209,59 @@ beforeEach(() => {
     importData.mockReset();
     (window as any).api = { exportData, importData };
 });
+describe('minimum focus time before Finish', () => {
+    it('renders the option on the timer section and saves the slider value in seconds', async () => {
+        const p = props();
+        await act(async () => {
+            renderer = TestRenderer.create(<Setting {...p} />);
+        });
+
+        const shown = texts(renderer.toJSON()).join(' ');
+        expect(shown).toContain('Minimum Focus Time before Finish');
+        // The hint has to explain the off switch: 0 allows finishing at any
+        // time, which is what the "Any" mark of the slider stands for.
+        expect(shown).toContain('allow finishing at any time');
+
+        // Focus, short break, long break, then the minimum: the last slider of
+        // the (default) timer section is the new one.
+        const sliders = renderer.root.findAllByType(Slider as any);
+        expect(sliders.length).toBe(4);
+        await act(async () => {
+            sliders[3].props.onChange(5);
+        });
+        expect(p.setMinFinishDuration).toHaveBeenCalledWith(5 * 60);
+    });
+
+    it('offers up to the focus duration, so a 50 minute session allows a 40 minute minimum', async () => {
+        const p = { ...props(), focusDuration: 50 * 60, minFinishDuration: 40 * 60 };
+        await act(async () => {
+            renderer = TestRenderer.create(<Setting {...p} />);
+        });
+
+        const sliders = renderer.root.findAllByType(Slider as any);
+        // The old flat maximum of 30 minutes made this unreachable.
+        expect(sliders[3].props.max).toBe(50);
+        expect(sliders[3].props.value).toBe(40);
+    });
+
+    it('shows a stored minimum above the focus duration at the effective value', async () => {
+        // 30 minutes minimum with a 25 minute focus session: the guard could
+        // never be passed, so the slider shows the effective value -- and the
+        // stored setting is left alone, it applies again once the focus
+        // duration allows it.
+        const p = { ...props(), focusDuration: 25 * 60, minFinishDuration: 30 * 60 };
+        await act(async () => {
+            renderer = TestRenderer.create(<Setting {...p} />);
+        });
+
+        const sliders = renderer.root.findAllByType(Slider as any);
+        expect(sliders[3].props.max).toBe(25);
+        expect(sliders[3].props.value).toBe(25);
+        // Rendering must never rewrite the setting on its own.
+        expect(p.setMinFinishDuration).not.toHaveBeenCalled();
+    });
+});
+
 describe('export', () => {
     it('names the file it wrote, which is also the receipt of when it was taken', async () => {
         exportData.mockResolvedValue({

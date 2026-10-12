@@ -83,6 +83,48 @@ export function focusedSeconds(elapsedSeconds: number, extendedMinutes: number):
 }
 
 /**
+ * The clock side of the dev time scale (see `timeScale` in `config.ts`).
+ *
+ * `TimerState.targetTime` counts down in WALL time: outside production the
+ * whole span is compressed by `DEBUG_TIME_SCALE`, so a 25 minute session ends
+ * after 12.5 seconds. Everything the user configured -- durations, the Finish
+ * minimum, the statistics -- is NOMINAL time. The three functions below are
+ * the one place where a raw `targetTime - now` span becomes a nominal value,
+ * so the countdown, the progress ring and the Finish guard cannot drift apart
+ * again; they used to divide the compressed span by the nominal duration
+ * directly, which pinned the dev progress ring at ~99% and made a fresh
+ * session look almost fully elapsed the moment it started. `scale` is passed
+ * in explicitly (production passes 1), keeping these helpers pure.
+ */
+
+/** Nominal seconds left on the clock, rounded to the nearest second. */
+export function countdownSeconds(rawRemainingMs: number, scale: number): number {
+    return Math.floor((rawRemainingMs * scale) / 1000 + 0.5);
+}
+
+/**
+ * How much of a session of `totalSeconds` -- the nominal duration plus any
+ * extension already applied -- is behind us, from 0% at the start to 100%
+ * when the clock runs out.
+ */
+export function progressPercent(
+    rawRemainingMs: number,
+    scale: number,
+    totalSeconds: number
+): number {
+    return 100 - (rawRemainingMs * scale) / 10 / totalSeconds;
+}
+
+/** Nominal seconds a session of `durationSeconds` has been running. */
+export function elapsedSeconds(
+    rawRemainingMs: number,
+    scale: number,
+    durationSeconds: number
+): number {
+    return durationSeconds - countdownSeconds(rawRemainingMs, scale);
+}
+
+/**
  * What a "start the session I name" request must do to the current timer. The
  * callers are the two tray items (and the ending mask's own button), which name
  * the session they want in `wantsFocusing`.

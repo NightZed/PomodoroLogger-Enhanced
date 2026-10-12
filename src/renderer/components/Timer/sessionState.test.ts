@@ -1,9 +1,12 @@
 import {
+    countdownSeconds,
     effectiveMinFinishDuration,
+    elapsedSeconds,
     focusedSeconds,
     hasSession,
     isFinishTooEarly,
     namedSessionAction,
+    progressPercent,
     trayMenuItems,
     TrayActionKey,
     TrayMenuItem,
@@ -92,6 +95,72 @@ describe('focusedSeconds', () => {
         // formula is back at the full 25 minutes and the session has focused
         // 40 in total.
         expect(focusedSeconds(25 * 60, 5 + 10)).toBe(40 * 60);
+    });
+});
+
+// The dev clock: `targetTime` counts down in wall time, compressed 120x
+// outside production (see `timeScale` in config.ts), while durations and
+// statistics are nominal. These three helpers are the only place the two
+// meet; scale 1 stands for production, 120 for the debug clock.
+describe('countdownSeconds', () => {
+    it('reads the wall-clock span back as the nominal countdown', () => {
+        // A fresh 25 minute dev session holds 12.5s of wall time but must
+        // show 25:00, not 00:13.
+        expect(countdownSeconds((25 * 60 * 1000) / 120, 120)).toBe(25 * 60);
+        // Halfway through, half the nominal duration is left: 6.25s of
+        // wall time remain of the 12.5s session.
+        expect(countdownSeconds(6250, 120)).toBe(12 * 60 + 30);
+    });
+
+    it('is a plain seconds conversion in production', () => {
+        expect(countdownSeconds(25 * 60 * 1000, 1)).toBe(25 * 60);
+        expect(countdownSeconds(1500, 1)).toBe(2);
+    });
+
+    it('goes negative once the clock ran out, which is what ends the session', () => {
+        expect(countdownSeconds(-600, 120)).toBeLessThan(0);
+        expect(countdownSeconds(-600, 1)).toBeLessThan(0);
+    });
+});
+
+describe('progressPercent', () => {
+    it('starts at 0% and reaches 100% at the end, dev clock included', () => {
+        // The old formula divided the compressed span by the nominal
+        // duration, pinning a dev session at 100 - 100/120 = 99.17% from the
+        // very first tick.
+        expect(progressPercent((25 * 60 * 1000) / 120, 120, 25 * 60)).toBeCloseTo(0, 5);
+        expect(progressPercent(0, 120, 25 * 60)).toBe(100);
+    });
+
+    it('counts extension minutes in the denominator', () => {
+        // 25 minutes run, +5 extended: the 5 remaining minutes of wall time
+        // are 5/30 of the extended session.
+        expect(progressPercent((5 * 60 * 1000) / 120, 120, 30 * 60)).toBeCloseTo(
+            100 - (100 * 5) / 30,
+            5
+        );
+    });
+
+    it('is the original formula in production', () => {
+        expect(progressPercent(25 * 60 * 1000, 1, 25 * 60)).toBeCloseTo(0, 5);
+        expect(progressPercent(0, 1, 25 * 60)).toBe(100);
+    });
+});
+
+describe('elapsedSeconds', () => {
+    it('reports nominal elapsed time on the dev clock', () => {
+        // A session that just started has NOT almost finished: the old
+        // `duration - rawSeconds` reported ~24.8 minutes of a 25 minute
+        // session the moment it began, which let Finish through the
+        // minimum-time guard immediately.
+        expect(elapsedSeconds((25 * 60 * 1000) / 120, 120, 25 * 60)).toBe(0);
+        // Halfway: 12.5 minutes of 25 (6.25s of wall time left of 12.5s).
+        expect(elapsedSeconds(6250, 120, 25 * 60)).toBe(12 * 60 + 30);
+    });
+
+    it('reaches the full duration when the clock runs out', () => {
+        expect(elapsedSeconds(0, 120, 25 * 60)).toBe(25 * 60);
+        expect(elapsedSeconds(0, 1, 25 * 60)).toBe(25 * 60);
     });
 });
 

@@ -6,7 +6,7 @@ import Hotkeys, { shouldPreventTabDefault } from '../Hotkeys';
 import { isModalOpen } from '../popupLayer';
 import styled from 'styled-components';
 import { MiniLogger } from '../../../components/common/Mini/MiniLogger';
-import { DEBUG_TIME_SCALE, __DEV__ } from '../../../config';
+import { timeScale, __DEV__ } from '../../../config';
 import dingMp3 from '../../../res/ding.mp3';
 import AppIcon from '../../../res/icon.png';
 import { EfficiencyAnalyser } from '../../../shared/efficiency/efficiency';
@@ -43,11 +43,14 @@ import { PomodoroNumView } from './PomodoroNumView';
 import Progress from './Progress';
 import { feedback, FEEDBACK_MESSAGES } from '../feedback';
 import {
+    countdownSeconds,
     effectiveMinFinishDuration,
+    elapsedSeconds,
     focusedSeconds,
     hasSession,
     isFinishTooEarly,
     namedSessionAction,
+    progressPercent,
     trayMenuItems,
     TrayActionKey,
 } from './sessionState';
@@ -478,22 +481,30 @@ class Timer extends Component<Props, State> {
     }
 
     updateLeftTime = () => {
-        // TODO: refactor this and add small tests
         const { targetTime, isRunning } = this.props.timer;
         if (!isRunning || !targetTime) {
             return;
         }
 
+        // `targetTime` counts down in wall time, compressed outside production
+        // (see the time scale contract in `config.ts`); the display speaks
+        // nominal time, so every reading goes through the pure helpers in
+        // `sessionState.ts` with the active scale.
+        const scale = timeScale();
         const now = new Date().getTime();
         const timeSpan = targetTime - now;
-        const sec = Math.floor(timeSpan / 1000 + 0.5);
+        const sec = countdownSeconds(timeSpan, scale);
         if (sec < 0) {
             this.onDone().catch(console.error);
             return;
         }
 
         const leftTime = `${to2digits(Math.floor(sec / 60))}:${to2digits(sec % 60)}`;
-        const percent = 100 - timeSpan / 10 / (this.getDuration() + this.extendedTimeInMinute * 60);
+        const percent = progressPercent(
+            timeSpan,
+            scale,
+            this.getDuration() + this.extendedTimeInMinute * 60
+        );
         if (leftTime.slice(0, 2) !== this.state.leftTime.slice(0, 2)) {
             setTrayImageWithMadeIcon(
                 leftTime.slice(0, 2),
@@ -816,14 +827,19 @@ class Timer extends Component<Props, State> {
 
         this.stagedSession = thisSession;
 
-        if (__DEV__) {
+        // The monitor recorded wall time, but the session ran on the
+        // compressed dev clock: scale the per-app times back to nominal so
+        // they agree with `spentTimeInHour` (which counts the nominal
+        // duration). A no-op in production.
+        const scale = timeScale();
+        if (scale > 1) {
             for (const app in this.stagedSession.apps) {
-                this.stagedSession.apps[app].spentTimeInHour *= DEBUG_TIME_SCALE;
+                this.stagedSession.apps[app].spentTimeInHour *= scale;
             }
 
             if (this.stagedSession.switchActivities) {
                 for (let i = 0; i < this.stagedSession.switchActivities.length; i += 1) {
-                    this.stagedSession.stayTimeInSecond![i] *= DEBUG_TIME_SCALE;
+                    this.stagedSession.stayTimeInSecond![i] *= scale;
                 }
             }
         }
@@ -888,9 +904,11 @@ class Timer extends Component<Props, State> {
         const { targetTime, isFocusing } = this.props.timer;
         const now = new Date().getTime();
         const timeSpan = targetTime! - now;
-        const leftTimeInSec = Math.floor(timeSpan / 1000 + 0.5);
         const duration = this.getDuration(isFocusing);
-        return duration - leftTimeInSec;
+        // Nominal seconds elapsed: the raw span is wall time and has to be
+        // scaled back before subtracting from the nominal duration (see
+        // `elapsedSeconds`).
+        return elapsedSeconds(timeSpan, timeScale(), duration);
     }
 
     /**
@@ -1124,10 +1142,10 @@ class Timer extends Component<Props, State> {
             this.monitor.start();
         }
 
-        if (__DEV__) {
-            minutes = 1 / 60;
-        }
-
+        // The extension stays NOMINAL (+5 means five minutes of focused time
+        // in the statistics and for the Finish guard); only the clock's
+        // target is compressed by the dev time scale, in the reducer (see
+        // `extendCurrentSession` in `action.ts`).
         this.extendedTimeInMinute += minutes;
         this.props.extendCurrentSession(minutes * 60);
         this.props.setSessionEnding(false);

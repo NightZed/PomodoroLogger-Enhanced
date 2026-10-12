@@ -1,6 +1,7 @@
 import {
     actions,
     defaultState,
+    extendCurrentSession,
     inferProject,
     reducer,
     resolveSessionProjectId,
@@ -23,7 +24,7 @@ import {
 import { generateRandomName } from '../../utils';
 import { workers } from '../../workers';
 import { getAllSession } from '../../monitor/sessionManager';
-import { dbPaths } from '../../../config';
+import { dbPaths, scaleMs, timeScale } from '../../../config';
 import { existsSync, unlinkSync } from 'fs';
 import { PomodoroRecord } from '../../monitor/type';
 import { Dispatch } from 'redux';
@@ -55,6 +56,51 @@ describe('Reducer', () => {
         expect(state.isRunning).toBeFalsy();
         state = reducer(state, startTimer());
         expect(state.isRunning).toBeTruthy();
+    });
+
+    it('runs both clock writes on the compressed scale outside production', () => {
+        // Jest runs with NODE_ENV=test, so the debug clock is on, exactly like
+        // in development: the countdown spans are shortened 120x while every
+        // configured value stays nominal. Both writes -- starting a session
+        // and extending one on the ending mask -- must use the same scale, so
+        // a dev +5 lasts 2.5 seconds of wall time (was: a hard coded 1s in
+        // `Timer.extendCurrentSession`, with the reducer not scaling at all).
+        expect(timeScale()).toBeGreaterThan(1);
+
+        const startBefore = new Date().getTime();
+        let state = reducer(undefined, startTimer());
+        const startAfter = new Date().getTime();
+        const startNominal = scaleMs(defaultState.focusDuration * 1000);
+        const startSpan = state.targetTime! - startBefore;
+        expect(startSpan).toBeGreaterThanOrEqual(startNominal);
+        expect(startSpan).toBeLessThanOrEqual(startNominal + (startAfter - startBefore));
+
+        const extBefore = new Date().getTime();
+        state = reducer(state, extendCurrentSession(5 * 60));
+        const extAfter = new Date().getTime();
+        const extNominal = scaleMs(5 * 60 * 1000);
+        const extSpan = state.targetTime! - extBefore;
+        expect(extSpan).toBeGreaterThanOrEqual(extNominal);
+        expect(extSpan).toBeLessThanOrEqual(extNominal + (extAfter - extBefore));
+        // An extension resumes the focusing session behind the ending mask.
+        expect(state.isFocusing).toBe(true);
+        expect(state.isRunning).toBe(true);
+    });
+
+    it('leaves the clock at nominal length in production', () => {
+        const originalEnv = process.env.NODE_ENV;
+        process.env.NODE_ENV = 'production';
+        try {
+            const before = new Date().getTime();
+            const state = reducer(undefined, startTimer());
+            const after = new Date().getTime();
+            const nominal = defaultState.focusDuration * 1000;
+            const span = state.targetTime! - before;
+            expect(span).toBeGreaterThanOrEqual(nominal);
+            expect(span).toBeLessThanOrEqual(nominal + (after - before));
+        } finally {
+            process.env.NODE_ENV = originalEnv;
+        }
     });
 
     it('works with user config setting', () => {

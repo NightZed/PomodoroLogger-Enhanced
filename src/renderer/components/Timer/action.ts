@@ -8,7 +8,7 @@ import { promisify } from 'util';
 import dbs from '../../dbs';
 import { PomodoroRecord } from '../../monitor/type';
 import { workers } from '../../workers';
-import { DEBUG_TIME_SCALE, __DEV__ } from '../../../config';
+import { DEBUG_TIME_SCALE, scaleMs } from '../../../config';
 import { AsyncDB } from '../../../utils/dbHelper';
 import { DEFAULT_THEME_ID, ThemeDefinition } from '../../theme/tokens';
 
@@ -664,15 +664,10 @@ export const reducer = createReducer<TimerState, any>(defaultState, (handle) => 
             ? state.longBreakDuration
             : state.restDuration;
         const now = new Date().getTime();
-        if (process.env.NODE_ENV !== 'production') {
-            return {
-                ...state,
-                isRunning: true,
-                targetTime: now + (duration * 1000) / DEBUG_TIME_SCALE,
-            };
-        }
-
-        return { ...state, isRunning: true, targetTime: now + duration * 1000 };
+        // `scaleMs` is the identity in production and divides by
+        // DEBUG_TIME_SCALE elsewhere -- the very branch this used to spell out
+        // inline; see the time scale contract in `config.ts`.
+        return { ...state, isRunning: true, targetTime: now + scaleMs(duration * 1000) };
     }),
 
     handle(pauseTimer, (state) => ({
@@ -772,7 +767,10 @@ export const reducer = createReducer<TimerState, any>(defaultState, (handle) => 
     })),
     handle(extendCurrentSession, (state, { payload }) => ({
         ...state,
-        targetTime: new Date().getTime() + payload * 1000,
+        // Same clock as `startTimer`: the extension is a nominal duration the
+        // dev clock compresses (see `scaleMs`), so +5 lasts 2.5 seconds
+        // outside production instead of a flat second or a real 5 minutes.
+        targetTime: new Date().getTime() + scaleMs(payload * 1000),
         isFocusing: true,
         isRunning: true,
     })),

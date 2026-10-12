@@ -61,9 +61,26 @@ const Main = styled.div<StyledProps>`
     /* Keep a barely visible hit-test surface so transparent Windows do not
        pass pointer events through to the desktop. */
     background-color: rgba(0, 0, 0, 0.01);
-    border-radius: ${({ minimize, compact }) => (minimize ? '10px' : compact ? '16px' : '12px')};
+    /* Single source of truth for the window corner radius: consumers that have
+       to match it (MiniLogger, any future full-bleed layer) read the variable
+       instead of copying the number. */
+    --pl-window-radius: ${({ minimize, compact }) =>
+        minimize ? '10px' : compact ? '16px' : '12px'};
+    border-radius: var(--pl-window-radius);
     border: 1px solid var(--pl-border);
     box-sizing: border-box;
+
+    /* overflow: hidden + border-radius above only clip descendants whose
+       containing block runs through this element -- and position: fixed
+       descendants (antd's modal wrap/mask, the tour mask, the Sankey overlay,
+       ...) take the viewport as their containing block instead, so opening a
+       dialog painted its full-viewport mask over the transparent corners and
+       the window looked square again. An ancestor with a transform IS that
+       containing block, which brings every portal mounted inside this tree
+       back under the rounded clip -- one rule instead of a radius patch per
+       overlay (SessionEndingMask used to carry its own). translateZ(0) is the
+       identity, so the geometry of those fixed layers does not move. */
+    transform: translateZ(0);
 
     /* Height of the elevated band, i.e. the tab bar that doubles as the window
        title bar. Mini mode hides that bar, so the band collapses and the whole

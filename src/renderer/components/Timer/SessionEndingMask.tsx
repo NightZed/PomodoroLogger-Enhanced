@@ -17,7 +17,7 @@ const ButtonContainer = styled.div`
     right: 16px;
 `;
 
-const Mask = styled.div<{ compact: boolean; nightTheme: boolean }>`
+const Mask = styled.div<{ nightTheme: boolean }>`
     left: 0;
     top: 0;
     height: 100%;
@@ -38,8 +38,10 @@ const Mask = styled.div<{ compact: boolean; nightTheme: boolean }>`
     justify-content: center;
     align-items: center;
     flex-direction: column;
-    border-radius: ${({ compact }) => (compact ? '16px' : '12px')};
-    overflow: hidden;
+    /* Full-viewport position: fixed layer: its corners are clipped by Main's
+       rounded overflow now (Main is the containing block for fixed
+       descendants, see the transform there), so it needs no radius of its
+       own -- the one added when the window got rounded corners was a patch. */
 `;
 
 const MaskInnerContainer = styled.div<{ compact: boolean }>`
@@ -151,7 +153,6 @@ const _TimerMask = (props: MaskProps) => {
 
     return (
         <Mask
-            compact={props.compact}
             nightTheme={props.nightTheme}
             style={{ display: props.showMask ? 'flex' : 'none' }}
             onClick={props.onCancel}

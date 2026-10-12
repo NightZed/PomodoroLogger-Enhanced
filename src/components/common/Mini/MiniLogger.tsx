@@ -51,7 +51,9 @@ const StyledLogger = styled.div`
     flex-direction: column;
     /* Frameless window: dragging anywhere except the buttons moves the strip. */
     -webkit-app-region: drag;
-    border-radius: 10px;
+    /* Matches the window corner radius (Main writes --pl-window-radius); the
+       fallback keeps standalone styleguidist previews rounded as well. */
+    border-radius: var(--pl-window-radius, 10px);
     overflow: hidden;
     margin: 0 auto;
 

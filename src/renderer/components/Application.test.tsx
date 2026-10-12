@@ -285,4 +285,33 @@ describe('Application page switching', () => {
             document.getElementById('pl-popup-container')
         );
     });
+
+    // The window is transparent and Main draws the rounded corners (54f3df7).
+    // position: fixed portals -- antd's modal wrap/mask above all -- take the
+    // viewport as their containing block, so `overflow: hidden` + border-radius
+    // never clipped them: opening a dialog painted its full-viewport mask over
+    // the transparent corners and the window looked square again (the board /
+    // card editors are both antd Modals). Main carries an identity transform,
+    // which makes it the containing block for fixed descendants and brings
+    // every portal mounted inside it back under the rounded clip -- and the
+    // radius travels as one CSS variable so nothing has to copy the number.
+    it('keeps fixed portals under the rounded clip of Main', () => {
+        // ConfigProvider renders no DOM of its own, so Main is the first
+        // element Application puts into the container.
+        const main = container.firstElementChild as HTMLElement;
+        expect(main).not.toBeNull();
+
+        const classes = Array.from(main.classList);
+        const css = Array.from(document.styleSheets)
+            .reduce(
+                (acc: string[], sheet) =>
+                    acc.concat(Array.from(sheet.cssRules).map((rule) => rule.cssText)),
+                []
+            )
+            .filter((text) => classes.some((cls) => text.includes(`.${cls}`)))
+            .join('\n');
+
+        expect(css).toContain('translateZ(0)');
+        expect(css).toContain('var(--pl-window-radius)');
+    });
 });

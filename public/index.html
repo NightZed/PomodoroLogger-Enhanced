@@ -24,6 +24,10 @@
             transform: translateZ(0);
             z-index: 100000;
             background: #ffffff;
+            /* The splash lives outside Application's Main, so the transparent
+               window's rounded corners have to be carried here as well. Keep
+               in sync with the normal-mode radius in Application.tsx. */
+            border-radius: 12px;
             transition: all 1s;
         }
 

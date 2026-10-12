@@ -43,6 +43,15 @@ export class UsageRecorder {
         return cloneDeep(this.record);
     }
 
+    /**
+     * Paths of the screenshots recorded so far. Read by `Monitor.discard`
+     * BEFORE `clear()` drops the record, so the files can leave the disk
+     * together with the record that referenced them.
+     */
+    get screenshotPaths(): string[] {
+        return (this.record.screenshots ?? []).map((s) => s.path);
+    }
+
     clear = () => {
         this.record = {
             _id: uid(),
@@ -57,11 +66,18 @@ export class UsageRecorder {
         this.maxIndex = 0;
         this.isRunning = false;
         this.lastUpdateTime = undefined;
+        // A fresh record starts with no "current app": a stale reference would
+        // count a phantom switch on the next tick (`updateLastAppUsageInfo`
+        // against an app the new record never saw).
+        this.lastUsingApp = undefined;
     };
 
     start = () => {
         this.record.startTime = new Date().getTime();
         this.lastUpdateTime = this.record.startTime;
+        // Same defensive reset as `clear()`: no app observed yet, so the
+        // first tick after a (re)start can never look like a switch.
+        this.lastUsingApp = undefined;
         this.isRunning = true;
     };
 
@@ -72,17 +88,30 @@ export class UsageRecorder {
 
     stop = () => {
         if (this.isRunning) {
-            this.updateThisAppUsageInfo(this.lastUsingApp!);
+            // Commit the time the last app was seen up to this moment.
+            if (this.lastUsingApp) {
+                this.updateThisAppUsageInfo(this.lastUsingApp);
+            }
+
+            // Ending the recording is NOT an app switch. The old
+            // `this.listener(undefined)` round-trip ran
+            // `updateLastAppUsageInfo`, which counted `switchTimes += 1` on
+            // every pause and again at every session end. `lastUsingApp` is
+            // deliberately KEPT though: it is the baseline the first tick
+            // after `resume()` compares against, so a switch that really
+            // happened during the pause is still counted (exactly once), and
+            // resuming into the same app counts nothing. `clear()`/`start()`
+            // reset it for the next session.
         }
 
         this.lastUpdateTime = undefined;
         this.isRunning = false;
-        this.listener(undefined);
     };
 
     /**
+     * Record one monitor tick.
      *
-     * @param result, undefined means the timer is stopped, letting recorder to record the last app info
+     * @param result, the active window; absent means "nothing to record"
      * @param screenshot, the path to screenshot
      */
     listener: ActiveWinListener = async (result?: BaseResult, screenshot?: string) => {
@@ -90,6 +119,20 @@ export class UsageRecorder {
         // this method is call at an interval, there are chances
         // that we run call the method before last call is done;
         // I use a lock to avoid that.
+        if (this.lock) {
+            console.warn('Locked! The update interval is too short.');
+            return;
+        }
+
+        // An in-flight `watch()` may deliver its result after `stop()` (the
+        // pause button, Stop, or the natural end of the session): the tick
+        // belongs to the paused/finished session, so nothing may be recorded.
+        // The old code pushed the screenshot BEFORE this guard, which let one
+        // late frame into the record with a paused timestamp.
+        if (!result || !this.isRunning) {
+            return;
+        }
+
         if (screenshot) {
             if (this.record.screenshots == null) {
                 this.record.screenshots = [];
@@ -101,19 +144,12 @@ export class UsageRecorder {
             });
         }
 
-        if (this.lock) {
-            console.warn('Locked! The update interval is too short.');
-            return;
-        }
-
-        const appName = result ? removeAppSuffix(result.owner.name) : undefined;
+        const appName = removeAppSuffix(result.owner.name);
+        // Switching apps counts one switch. Resuming into a different app
+        // counts too -- `stop()` keeps `lastUsingApp` precisely so this tick
+        // can tell a real switch (once) from staying in the same app.
         if (this.lastUsingApp && appName !== this.lastUsingApp) {
             this.updateLastAppUsageInfo(this.lastUsingApp);
-        }
-
-        if (!appName || !result || !this.isRunning) {
-            // the app may have stopped, but the listener may still be invoked
-            return;
         }
 
         this.lock = true;

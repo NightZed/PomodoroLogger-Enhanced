@@ -20,8 +20,8 @@ function createResult(appName: string, title: string = appName) {
         owner: {
             name: appName,
             path: `/path/to/${appName}.exe`,
-            processId: 123
-        }
+            processId: 123,
+        },
     };
 }
 
@@ -170,7 +170,7 @@ describe('monitor/UsageRecorder', () => {
         expect(recorder.sessionData.stayTimeInSecond).toStrictEqual([20, 10, 10, 40, 10, 10]);
         expect(recorder.sessionData.screenshots).toStrictEqual([
             { time: 70000, path: 'sss.jpg' },
-            { time: 100000, path: '111.jpg' }
+            { time: 100000, path: '111.jpg' },
         ]);
     });
 
@@ -190,5 +190,100 @@ describe('monitor/UsageRecorder', () => {
         expect(recorder.sessionData.switchActivities!.length).toBe(0);
         expect(recorder.sessionData.stayTimeInSecond!.length).toBe(0);
         expect(recorder.sessionData.efficiency).toBeUndefined();
+    });
+
+    it('excludes the paused gap from app time', async () => {
+        const recorder = new UsageRecorder(() => {});
+        const a = () => createResult('a');
+
+        mockDate(0);
+        recorder.start();
+        mockDate(10000);
+        await recorder.listener(a());
+        // Pause: `Timer.onPause` calls stop(), which commits the time up to
+        // this moment.
+        mockDate(20000);
+        recorder.stop();
+        // A long pause... the recorder is not collecting meanwhile.
+        mockDate(200000);
+        recorder.resume();
+        mockDate(210000);
+        await recorder.listener(a());
+        mockDate(220000);
+        recorder.stop();
+
+        // 20s + 20s of observed time, NOT the 200s wall span: the pause gap
+        // (20s -> 200s) must not be credited to any app. (spentTimeInHour is
+        // hours: 40s == 40 / 3600.)
+        const spent = recorder.sessionData.apps.a.spentTimeInHour;
+        expect(spent).toBeCloseTo(40 / 3600, 8);
+    });
+
+    it('does not count pausing or ending as an app switch', async () => {
+        const recorder = new UsageRecorder(() => {});
+        const a = () => createResult('a');
+        const b = () => createResult('b');
+
+        mockDate(0);
+        recorder.start();
+        mockDate(10000);
+        await recorder.listener(a());
+        // Pause. The old `listener(undefined)` round-trip in stop() counted
+        // one phantom switch here.
+        mockDate(20000);
+        recorder.stop();
+        // A real switch happens DURING the pause: the first tick after the
+        // resume sees a different app than the last one before the pause.
+        mockDate(100000);
+        recorder.resume();
+        mockDate(110000);
+        await recorder.listener(b());
+        expect(recorder.sessionData.switchTimes).toBe(1);
+
+        // Ending the recording adds nothing either.
+        mockDate(120000);
+        recorder.stop();
+        expect(recorder.sessionData.switchTimes).toBe(1);
+    });
+
+    it('drops an in-flight tick that arrives after stop()', async () => {
+        const recorder = new UsageRecorder(() => {});
+        const a = () => createResult('a');
+
+        mockDate(0);
+        recorder.start();
+        mockDate(10000);
+        await recorder.listener(a());
+        mockDate(20000);
+        recorder.stop();
+
+        // The interval callback was already in flight when the pause hit:
+        // it must add neither time, nor a screenshot, nor a switch.
+        mockDate(30000);
+        await recorder.listener(createResult('b'), 'late.jpg');
+        const data = recorder.sessionData;
+        expect(data.apps.b).toBeUndefined();
+        expect(data.screenshots ?? []).toStrictEqual([]);
+        expect(data.switchTimes).toBe(0);
+    });
+
+    it('forgets the last app on clear, so the next session starts switch-free', async () => {
+        const recorder = new UsageRecorder(() => {});
+        const a = () => createResult('a');
+
+        mockDate(0);
+        recorder.start();
+        mockDate(10000);
+        await recorder.listener(a());
+        mockDate(20000);
+        recorder.stop();
+
+        recorder.clear();
+        recorder.start();
+        mockDate(100000);
+        await recorder.listener(createResult('b'));
+        // The first tick of the new session must not look like a switch away
+        // from the previous session's app.
+        expect(recorder.sessionData.switchTimes).toBe(0);
     });
 });

@@ -11,6 +11,13 @@ export interface SessionState {
     isRunning: boolean;
     isFocusing: boolean;
     targetTime?: number;
+    /**
+     * The remaining wall-clock ms frozen by `pauseTimer` (see the reducer in
+     * `action.ts`). `targetTime` is NOT rewritten while paused, so against the
+     * moving wall clock it goes stale -- this snapshot is the remainder the
+     * pause actually left, and what `continueTimer` re-anchors on resume.
+     */
+    leftTime?: number;
 }
 
 /**
@@ -51,9 +58,10 @@ export function isFinishTooEarly(elapsedSeconds: number, minFinishSeconds: numbe
  * The minimum that actually applies to a session: never longer than the focus
  * session it guards (`Setting.focusDuration`).
  *
- * A longer minimum cannot be reached -- the session ends by itself before it
- * (and only the paused-clock quirk of `getElapsedTimeInSecond` would ever get
- * past the focus duration), so the focus duration wins. The stored setting is
+ * A longer minimum cannot be reached -- the session ends by itself before it,
+ * and the elapsed time cannot overshoot the focus duration any more (it is
+ * frozen while the clock is paused, see `sessionRemainingMs`), so the focus
+ * duration wins. The stored setting is
  * deliberately NOT rewritten when that happens: it is the user's intention,
  * which applies again once the focus duration allows it. Both the Finish guard
  * and the settings page therefore clamp on read, through this one function.
@@ -80,6 +88,41 @@ export function effectiveMinFinishDuration(
  */
 export function focusedSeconds(elapsedSeconds: number, extendedMinutes: number): number {
     return elapsedSeconds + extendedMinutes * 60;
+}
+
+/**
+ * Raw wall-clock milliseconds left on the session at `now`.
+ *
+ * While the timer runs this is the plain `targetTime - now`. While it is
+ * PAUSED, `targetTime` is stale -- it keeps its pre-pause value while the wall
+ * clock moves on -- so the raw difference would keep shrinking (and go
+ * negative) for as long as the pause lasts, reporting paused time as elapsed.
+ * That "paused-clock quirk" let a Finish after a long pause pass the
+ * minimum-time guard and even write the paused minutes into a rotten record's
+ * `spentTimeInHour`. `pauseTimer` freezes the true remainder into `leftTime`;
+ * that is what a paused session answers with, so the clock reads frozen until
+ * `continueTimer` re-anchors `targetTime` on resume.
+ *
+ * The consumer is `Timer.getElapsedTimeInSecond` (the Finish guard and the
+ * rotten record). The countdown display does not need it: `updateLeftTime`
+ * already refuses to tick while `isRunning` is false.
+ *
+ * (Named `sessionRemainingMs`, not `rawRemainingMs`, so it cannot shadow the
+ * `rawRemainingMs` *parameter* of the three dev-clock helpers below.)
+ */
+export function sessionRemainingMs(timer: SessionState, now: number): number {
+    if (timer.isRunning) {
+        return timer.targetTime != null ? timer.targetTime - now : 0;
+    }
+
+    if (timer.leftTime != null) {
+        return timer.leftTime;
+    }
+
+    // Defensive: a paused session normally always has `leftTime` (`pauseTimer`
+    // sets it whenever `targetTime` exists), so this only covers a foreign or
+    // stale state shape -- answer with the wall clock rather than invent one.
+    return timer.targetTime != null ? timer.targetTime - now : 0;
 }
 
 /**

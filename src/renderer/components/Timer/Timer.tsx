@@ -51,6 +51,7 @@ import {
     isFinishTooEarly,
     namedSessionAction,
     progressPercent,
+    sessionRemainingMs,
     trayMenuItems,
     TrayActionKey,
 } from './sessionState';
@@ -468,8 +469,16 @@ class Timer extends Component<Props, State> {
     componentWillUnmount(): void {
         this.componentGone = true;
         if (this.monitor) {
-            this.monitor.stop();
-            this.monitor.clear();
+            // A staged session (ending mask still up) has already snapshotted
+            // the record -- and a click on the mask may be pending its
+            // debounced save, which references the screenshots on disk. Only
+            // delete the files when nothing references them any more.
+            if (this.stagedSession) {
+                this.monitor.stop();
+                this.monitor.clear();
+            } else {
+                this.monitor.discard();
+            }
         }
 
         if (this.interval) {
@@ -591,6 +600,17 @@ class Timer extends Component<Props, State> {
             this.props.timer.isFocusing,
             false
         ).catch(console.error);
+        // Breaks never record the desktop (see `startResting`), so resuming
+        // one must not conjure a Monitor: the old fallback below created and
+        // STARTED one on every break resume, recording the break -- and the
+        // whole ending-mask wait after it (the rest branch of `onDone` never
+        // stops the monitor) -- into a record that is discarded anyway. Only
+        // a focus session owns a monitor; if it is missing there (should not
+        // happen), start it the same way as before.
+        if (!this.props.timer.isFocusing) {
+            return;
+        }
+
         if (this.monitor) {
             this.monitor.resume();
         } else {
@@ -764,14 +784,14 @@ class Timer extends Component<Props, State> {
 
     /**
      * Discard the current session: stop the timer, drop what the monitor
-     * collected for it and reset the display. This is what the "Stop" button,
-     * the tray entry and the mini window call; pausing is `onPause`.
+     * collected for it (including its screenshot files, which nothing
+     * references any more) and reset the display. This is what the "Stop"
+     * button, the tray entry and the mini window call; pausing is `onPause`.
      */
     onStop = () => {
         this.props.stopTimer();
         if (this.monitor) {
-            this.monitor.stop();
-            this.monitor.clear();
+            this.monitor.discard();
         }
 
         this.resetStat();
@@ -901,9 +921,15 @@ class Timer extends Component<Props, State> {
     }
 
     private getElapsedTimeInSecond() {
-        const { targetTime, isFocusing } = this.props.timer;
+        const { isFocusing } = this.props.timer;
         const now = new Date().getTime();
-        const timeSpan = targetTime! - now;
+        // Remaining wall ms through the shared helper: while paused it reads
+        // the frozen `leftTime`, not the stale `targetTime - now` -- the old
+        // raw subtraction counted the paused wall time as elapsed, which let
+        // a Finish after a long pause pass the minimum-time guard and write
+        // the pause into a rotten record's `spentTimeInHour` (see
+        // `sessionRemainingMs`).
+        const timeSpan = sessionRemainingMs(this.props.timer, now);
         const duration = this.getDuration(isFocusing);
         // Nominal seconds elapsed: the raw span is wall time and has to be
         // scaled back before subtracting from the nominal duration (see
@@ -998,8 +1024,9 @@ class Timer extends Component<Props, State> {
         // The extension only ever belonged to the session being dropped.
         this.extendedTimeInMinute = 0;
         if (this.monitor) {
-            this.monitor.stop();
-            this.monitor.clear();
+            // Same as `onStop`: the session is thrown away whole, so its
+            // screenshot files go with the record that referenced them.
+            this.monitor.discard();
         }
     };
 

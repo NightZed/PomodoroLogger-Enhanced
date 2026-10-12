@@ -7,6 +7,7 @@ import {
     loadDBSync,
     getTodaySessions,
     deleteFolderRecursive,
+    deleteScreenshots,
 } from './sessionManager';
 import { join } from 'path';
 import { dbBaseDir, dbPaths } from '../../config';
@@ -93,6 +94,28 @@ describe('sessionManager', () => {
 
         deleteFolderRecursive(root);
         expect(existsSync(root)).toBeFalsy();
+    });
+
+    it('should delete the screenshots of a discarded session', () => {
+        const root = generateRandomName();
+        mkdirSync(root);
+        const keep = join(root, 'keep.jpg');
+        const drop1 = join(root, 'drop1.jpg');
+        const drop2 = join(root, 'drop2.jpg');
+        const missing = join(root, 'missing.jpg');
+        writeFileSync(keep, 'keep');
+        writeFileSync(drop1, 'drop1');
+        writeFileSync(drop2, 'drop2');
+
+        deleteScreenshots([drop1, drop2, missing]);
+        // A file that never existed (already deleted, or the write failed) is
+        // skipped without throwing.
+        expect(existsSync(drop1)).toBeFalsy();
+        expect(existsSync(drop2)).toBeFalsy();
+        // Files of a session that was NOT discarded stay untouched.
+        expect(existsSync(keep)).toBeTruthy();
+
+        deleteFolderRecursive(root);
     });
 
     it('should load Db', async () => {

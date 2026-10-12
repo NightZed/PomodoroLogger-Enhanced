@@ -132,6 +132,28 @@ export const deleteFolderRecursive = (path: string) => {
     }
 };
 
+/**
+ * Delete the screenshot files a discarded session had recorded. Called when a
+ * record is thrown away whole (Stop, mode switch, unmount -- see
+ * `Monitor.discard`): the record referencing them is dropped, so the files
+ * would be orphans on disk. A SAVED record's files must stay -- `clear()`
+ * alone never deletes anything.
+ *
+ * A file that is already gone (or locked) is skipped: cleanup must never fail
+ * the session flow that triggered it.
+ */
+export function deleteScreenshots(paths: string[]) {
+    for (const p of paths) {
+        try {
+            if (fs.existsSync(p)) {
+                fs.unlinkSync(p);
+            }
+        } catch (e) {
+            console.error('[sessionManager] failed to delete screenshot', p, e);
+        }
+    }
+}
+
 /* istanbul ignore next */
 export async function deleteAllUserData() {
     if (fs.existsSync(dbBaseDir)) {

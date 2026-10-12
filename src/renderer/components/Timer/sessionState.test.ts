@@ -7,6 +7,7 @@ import {
     isFinishTooEarly,
     namedSessionAction,
     progressPercent,
+    sessionRemainingMs,
     trayMenuItems,
     TrayActionKey,
     TrayMenuItem,
@@ -161,6 +162,97 @@ describe('elapsedSeconds', () => {
     it('reaches the full duration when the clock runs out', () => {
         expect(elapsedSeconds(0, 120, 25 * 60)).toBe(25 * 60);
         expect(elapsedSeconds(0, 1, 25 * 60)).toBe(25 * 60);
+    });
+});
+
+describe('sessionRemainingMs', () => {
+    // Production clock (scale 1) throughout: the helper deals with raw ms and
+    // the dev scale only enters one layer down, in `elapsedSeconds`.
+    const duration = 25 * 60 * 1000;
+    const now = 1560000000000;
+
+    it('reads the live wall clock while the session runs', () => {
+        expect(
+            sessionRemainingMs(
+                { isRunning: true, isFocusing: true, targetTime: now + duration },
+                now
+            )
+        ).toBe(duration);
+        expect(
+            sessionRemainingMs(
+                { isRunning: true, isFocusing: true, targetTime: now + duration / 2 },
+                now
+            )
+        ).toBe(duration / 2);
+    });
+
+    it('is frozen at the paused remainder, no matter how long the pause lasts', () => {
+        // Paused 10 minutes into a 25 minute session: `pauseTimer` froze the
+        // 15 minute remainder into `leftTime` while `targetTime` stayed put.
+        // The old `targetTime - now` kept shrinking through the pause -- after
+        // 20 minutes of pausing it read -5 minutes, i.e. an elapsed of 30
+        // minutes: the pause itself counted as focus time, which let a Finish
+        // here pass the 10 minute minimum and write 30 minutes into a rotten
+        // record's `spentTimeInHour`.
+        const paused = {
+            isRunning: false,
+            isFocusing: true,
+            targetTime: now + 15 * 60 * 1000,
+            leftTime: 15 * 60 * 1000,
+        };
+        expect(sessionRemainingMs(paused, now)).toBe(15 * 60 * 1000);
+        // 20 minutes later, the wall clock has moved; the remainder has not.
+        expect(sessionRemainingMs(paused, now + 20 * 60 * 1000)).toBe(15 * 60 * 1000);
+    });
+
+    it('keeps the elapsed time below the duration across a pause (Finish guard)', () => {
+        // The regression the fix exists for, end to end through the helpers:
+        // 5 focused minutes + a 20 minute pause must still read 5 focused
+        // minutes, not 25 -- and certainly not the 30 the stale clock
+        // reported (which unlocked Finish before the minimum was reached).
+        const focusedMinutes = 5;
+        const pauseMinutes = 20;
+        const paused = {
+            isRunning: false,
+            isFocusing: true,
+            targetTime: now + (duration - focusedMinutes * 60 * 1000),
+            leftTime: duration - focusedMinutes * 60 * 1000,
+        };
+        const elapsed = elapsedSeconds(
+            sessionRemainingMs(paused, now + pauseMinutes * 60 * 1000),
+            1,
+            25 * 60
+        );
+        expect(elapsed).toBe(focusedMinutes * 60);
+        expect(isFinishTooEarly(elapsed, 10 * 60)).toBe(true);
+    });
+
+    it('falls back to the wall clock for a paused session without a frozen remainder', () => {
+        // Defensive: `pauseTimer` always stores `leftTime` alongside
+        // `targetTime`, so this shape should not occur -- but if it does,
+        // the raw clock still answers instead of throwing.
+        expect(
+            sessionRemainingMs(
+                { isRunning: false, isFocusing: true, targetTime: now + duration },
+                now
+            )
+        ).toBe(duration);
+    });
+
+    it('is zero without a session', () => {
+        expect(sessionRemainingMs({ isRunning: false, isFocusing: true }, now)).toBe(0);
+    });
+
+    it('reads the re-anchored clock after resuming', () => {
+        // `continueTimer` rewrites `targetTime = now + leftTime`, so a resume
+        // picks the counting back up from the frozen remainder.
+        const resumed = {
+            isRunning: true,
+            isFocusing: true,
+            targetTime: now + 15 * 60 * 1000,
+            leftTime: 15 * 60 * 1000,
+        };
+        expect(sessionRemainingMs(resumed, now)).toBe(15 * 60 * 1000);
     });
 });
 

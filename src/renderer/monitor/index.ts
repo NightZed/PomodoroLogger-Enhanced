@@ -1,5 +1,5 @@
 import { Monitor as WindowMonitor } from './activeWinMonitor';
-import { renameIllegalName } from './sessionManager';
+import { deleteScreenshots, renameIllegalName } from './sessionManager';
 import { PomodoroRecord } from './type';
 import { Listener, UsageRecorder } from './UsageRecorder';
 
@@ -59,6 +59,23 @@ export class Monitor {
         this.winMonitor.stop();
         this.recorder.stop();
         this.recorder.clear();
+    };
+
+    /**
+     * Throw the current session away completely: stop collecting, drop the
+     * record AND delete the screenshot files it had taken -- the record that
+     * referenced them is gone, so the files would be orphans on disk.
+     *
+     * Use this whenever the session is discarded (Stop, mode switch,
+     * unmount). `clear()` alone is the right call once the record has been
+     * staged or saved (the ending mask): its screenshots must stay.
+     */
+    discard = () => {
+        const screenshotPaths = this.recorder.screenshotPaths;
+        this.winMonitor.stop();
+        this.recorder.stop();
+        this.recorder.clear();
+        deleteScreenshots(screenshotPaths);
     };
 
     get sessionData(): PomodoroRecord {

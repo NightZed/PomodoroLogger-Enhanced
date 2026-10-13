@@ -254,6 +254,8 @@ const SafeStackGrid: FC<{ children: React.ReactNode; suspended?: boolean }> = ({
     // `null` = not measured yet: render the placeholder once so the first
     // measurement never feeds `undefined` into StackGrid's layout.
     const [width, setWidth] = useState<number | null>(null);
+    const gridRef = useRef<{ updateLayout: () => void } | null>(null);
+    const layoutRaf = useRef<number | null>(null);
     useEffect(() => {
         const el = ref.current;
         if (!el) {
@@ -277,6 +279,37 @@ const SafeStackGrid: FC<{ children: React.ReactNode; suspended?: boolean }> = ({
         };
     }, []);
 
+    // stack-grid measures the DOM only when its own props change, and it does
+    // so during the render phase -- i.e. against the *previous* commit. Card
+    // content can still grow after that (the nested connected list-count bar
+    // commits its chart one dispatch later), and with no further dispatch no
+    // re-measurement ever runs: boards below keep the stale `top` and cover
+    // the bottom of the board above them until the overview is re-sorted or
+    // remounted (which is exactly how the overlap used to be "fixed"). Re-run
+    // the layout one frame later, when every pending commit has landed;
+    // `children` is a fresh array on every parent render, so this also heals
+    // any other post-commit growth (images, fonts). Coalesce to one rAF per
+    // frame; `GridInline.updateLayout` is guarded by its `mounted` flag, so a
+    // callback that outlives `suspended` (or the unmount) is a no-op.
+    useEffect(() => {
+        if (layoutRaf.current !== null) {
+            cancelAnimationFrame(layoutRaf.current);
+        }
+
+        layoutRaf.current = requestAnimationFrame(() => {
+            layoutRaf.current = null;
+            if (gridRef.current) {
+                gridRef.current.updateLayout();
+            }
+        });
+        return () => {
+            if (layoutRaf.current !== null) {
+                cancelAnimationFrame(layoutRaf.current);
+                layoutRaf.current = null;
+            }
+        };
+    }, [children]);
+
     // The wrapper div (and its ref) stays mounted on both branches, so the
     // ResizeObserver keeps measuring and can bring the grid back on resize.
     // `suspended` unmounts the grid deterministically (e.g. mini mode hides
@@ -286,7 +319,13 @@ const SafeStackGrid: FC<{ children: React.ReactNode; suspended?: boolean }> = ({
     return (
         <div ref={ref}>
             {showGrid ? (
-                <StackGrid columnWidth={STACK_GRID_COLUMN_WIDTH} gutterHeight={0}>
+                <StackGrid
+                    columnWidth={STACK_GRID_COLUMN_WIDTH}
+                    gutterHeight={0}
+                    gridRef={(grid: any) => {
+                        gridRef.current = grid;
+                    }}
+                >
                     {children}
                 </StackGrid>
             ) : null}

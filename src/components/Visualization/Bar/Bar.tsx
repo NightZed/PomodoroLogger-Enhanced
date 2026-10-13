@@ -43,8 +43,13 @@ export const Bar: React.FC<BarProps> = (props: BarProps) => {
         if (ref.current == null) return;
         const lis = () => {
             if (ref.current == null) return;
-            setMaxItemInCol(Math.floor(ref.current.clientHeight / minHeightInPixel));
-            setW2H(ref.current.clientWidth / ref.current.clientHeight);
+            const h = ref.current.clientHeight;
+            // h is 0 before layout (and always under jsdom): keep the aspect
+            // ratio at its initial 1 instead of poisoning the `text` y with
+            // NaN, and clamp the column count to >= 1 so the layer maths
+            // below can never divide by zero.
+            setMaxItemInCol(Math.max(1, Math.floor(h / minHeightInPixel)));
+            setW2H(h > 0 ? ref.current.clientWidth / h : 1);
         };
         ref.current.addEventListener('resize', lis);
         lis();
@@ -60,13 +65,16 @@ export const Bar: React.FC<BarProps> = (props: BarProps) => {
 
     const margin = 2;
     const width = 100 / values.length - margin;
-    let scale = 1;
     const maxV = Math.max(...values);
-    if (maxV === 0) {
-        return <></>;
-    }
-
-    scale = maxItemInCol / maxV;
+    // Keep the fixed-height <svg> mounted even when every list is empty
+    // (maxV === 0): the kanban brief card reserves this strip for the chart,
+    // and dropping the whole element made the card grow ~26px *after*
+    // react-stack-grid had measured it. stack-grid only re-measures when its
+    // children change, so the boards below kept their stale `top` and covered
+    // the bottom of the board above them (see SafeStackGrid in the kanban
+    // Overview). With `scale = 0` every column draws n = 0 rects, and
+    // 0 * 0 === 0 keeps the division-by-zero out.
+    const scale = maxV > 0 ? maxItemInCol / maxV : 0;
     const layerHeight = (100 / maxItemInCol) * 0.6;
     const marginTop = (100 / maxItemInCol) * 0.4;
     return (

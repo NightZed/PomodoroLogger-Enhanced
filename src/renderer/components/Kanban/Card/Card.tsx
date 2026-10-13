@@ -123,6 +123,7 @@ export const Card: FC<Props> = React.memo((props: Props) => {
             const tag = matchParent(target, '.pl-tag');
             const cardLabel = matchParent(target, '.card-label');
             const checkbox = matchParent(target, '[type="checkbox"]');
+            const link = matchParent(target, 'a');
             if (cardLabel && cardLabel.textContent) {
                 props.setSearchReg('#' + cardLabel.textContent);
                 e.stopPropagation();
@@ -139,6 +140,16 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                 if (nextContent !== undefined) {
                     props.setContent(_id, nextContent);
                 }
+            } else if (link) {
+                // Opening the link is entirely the anchor's default action:
+                // formatMarkdown gives every <a> a target="_blank", and the
+                // main process hands that new-window request to the default
+                // browser (setWindowOpenHandler -> shell.openExternal). The
+                // click used to fall through to setEditCard below, so the
+                // external browser opened AND the card editor popped up on
+                // top of it. Swallow only the editor navigation here --
+                // no preventDefault, so the browser keeps opening the URL.
+                e.stopPropagation();
             } else {
                 props.setEditCard(true, props.listId, props._id);
             }

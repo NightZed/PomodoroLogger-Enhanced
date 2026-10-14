@@ -659,7 +659,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                 onClick={onPreviewClick}
                                 style={{
                                     padding: '0px 10px',
-                                    border: '1px solid rgb(220, 220, 220)',
+                                    border: '1px solid var(--pl-border)',
                                     borderRadius: 4,
                                     maxHeight: 'calc(100vh - 600px)',
                                     minHeight: 120,

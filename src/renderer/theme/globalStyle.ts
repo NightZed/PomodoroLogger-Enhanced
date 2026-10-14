@@ -186,8 +186,16 @@ export const GlobalStyle = createGlobalStyle`
         .ant-table-tbody > tr > td {
             border-bottom-color: var(--pl-border);
         }
-        .ant-table-tbody > tr:hover > td,
-        .ant-table-thead > tr:hover > th {
+        /* antd's row-hover rule carries two extra :not(...) guards
+           (.ant-table-tbody > tr:hover:not(...):not(...) > td, 0-4-2), so a
+           plain tr:hover selector loses the cascade and the row keeps antd's
+           #e6f7ff -- a light-blue block the night theme's light text cannot
+           be read on. Mirror the guards (and the JS-toggled
+           ant-table-row-hover class) so the themed hover background wins. */
+        .ant-table-tbody > tr.ant-table-row-hover:not(.ant-table-expanded-row):not(.ant-table-row-selected) > td,
+        .ant-table-tbody > tr:hover:not(.ant-table-expanded-row):not(.ant-table-row-selected) > td,
+        .ant-table-thead > tr.ant-table-row-hover:not(.ant-table-expanded-row):not(.ant-table-row-selected) > th,
+        .ant-table-thead > tr:hover:not(.ant-table-expanded-row):not(.ant-table-row-selected) > th {
             background-color: var(--pl-bg-hover);
         }
         .ant-table-placeholder,
@@ -356,6 +364,24 @@ export const GlobalStyle = createGlobalStyle`
         }
         .ant-input-affix-wrapper:hover .ant-input:not(.ant-input-disabled) {
             border-color: var(--pl-primary);
+        }
+        /* antd forces background-color: #fff on inputs inside a failed form
+           item (.has-error .ant-input, .has-error .ant-input:hover, 0-3-0),
+           which beats the plain .ant-input override above and paints a white
+           block over the light night-theme text (e.g. the board Name field
+           while its name is reported as duplicated). Keep the themed surface;
+           only the border stays red to signal the error. */
+        .has-error .ant-input,
+        .has-error .ant-input:hover,
+        .has-error .ant-input-affix-wrapper .ant-input,
+        .has-error .ant-input-affix-wrapper .ant-input:hover {
+            background-color: var(--pl-bg-elevated);
+            border-color: #f5222d;
+        }
+        .has-error .ant-input:focus,
+        .has-error .ant-input-affix-wrapper .ant-input:focus {
+            background-color: var(--pl-bg-elevated);
+            border-color: #ff4d4f;
         }
         .ant-form-item-label > label,
         .ant-form-item,

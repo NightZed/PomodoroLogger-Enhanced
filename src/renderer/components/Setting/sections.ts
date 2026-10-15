@@ -55,7 +55,7 @@ export const SHORTCUTS: { group: string; entries: ShortcutEntry[] }[] = [
     {
         group: 'Window',
         entries: [
-            { keys: 'F11', description: 'Toggle the compact (small window) mode' },
+            { keys: 'F11', description: 'Toggle compact mode' },
             { keys: 'F12', description: 'Toggle the mini mode' },
             { keys: 'Ctrl + Q', description: 'Quit the app' },
         ],

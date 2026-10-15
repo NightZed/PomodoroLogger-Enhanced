@@ -1406,10 +1406,7 @@ class Timer extends Component<Props, State> {
                         </MySider>
                     ))}
                 <TimerLayout compact={compact} ref={this.mainDiv}>
-                    <Tooltip
-                        title={compact ? 'Normal-screen (F11)' : 'Small-screen (F11)'}
-                        placement="bottom"
-                    >
+                    <Tooltip title={compact ? 'Normal (F11)' : 'Compact (F11)'} placement="bottom">
                         <Button
                             onClick={() => this.props.setCompact(!compact)}
                             shape={'circle'}

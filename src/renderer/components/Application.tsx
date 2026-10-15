@@ -240,7 +240,7 @@ class Application extends React.Component<Props, State> {
      * arrow-key navigation) and the Ctrl+Tab / Ctrl+Shift+Tab hotkeys all come
      * through here, so the three cannot disagree about what switching a page
      * does. The compact-window bookkeeping is `planTabChange`, see `appTabs.ts`
-     * -- the hotkeys used to only rotate the tab id, which left the small
+     * -- the hotkeys used to only rotate the tab id, which left the compact
      * window showing a page it is not sized for.
      *
      * Both writes below are ONE transition and have to be observed as such. The
@@ -251,7 +251,7 @@ class Application extends React.Component<Props, State> {
      * produced exactly the state its clearing rule reads as "the user left
      * compact mode on the timer page" (`compact` already off, `currentTab`
      * still 'timer'), which dropped the `returnToCompact` memory -- so Ctrl+Tab
-     * out of compact mode never brought the small window back, while a click on
+     * out of compact mode never brought the compact window back, while a click on
      * the same tab (React batches the event) did.
      */
     changeTab = (tab: tabType) => {

@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="./screenshots/promo-head-compact.png" height="400" alt="Small Screen promo head image"/>
+  <img src="./screenshots/promo-head-compact.png" height="400" alt="Compact mode promo head image"/>
 </p>
 
 <p align="center">
@@ -83,11 +83,11 @@ After creating a task on the Kanban board, select it on the timer page to track 
   <img width="200" src="./screenshots/mini-night-shadow.png" alt="Night Mini Mode"/>
 </p>
 
--   **Small Mode**：use `F11` to switch between the full interface and small mode.
+-   **Compact mode**: use `F11` to switch between the full interface and compact mode.
 
 <p align="center">
-  <img height="300" src="./screenshots/compact-wallpaper-day-shadow.png" alt="Day Small Mode"/>
-  <img height="300" src="./screenshots/compact-wallpaper-night-shadow.png" alt="Night Small Mode"/>
+  <img height="300" src="./screenshots/compact-wallpaper-day-shadow.png" alt="Day Compact Mode"/>
+  <img height="300" src="./screenshots/compact-wallpaper-night-shadow.png" alt="Night Compact Mode"/>
 </p>
 
 -   **Night Mode / Transparency / Wallpaper**：switch between day and night mode. Support free setting of application transparency and wallpaper.
@@ -223,7 +223,7 @@ These raw records are aggregated into the time proportion pie chart and word clo
 -   **Quick Save**：`Ctrl+Enter`(Card edit).
 -   **Quit**: `Ctrl+Q`.
 -   **Mini mode**: `F12`.
--   **Small mode**：`F11`.
+-   **Compact mode**: `F11`.
 
 <a id="quick-start"></a>
 

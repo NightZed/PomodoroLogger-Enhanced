@@ -12,7 +12,7 @@
  */
 export const TITLE_BAR_HEIGHT = 36;
 
-/** Height of the same bar in compact (small window) mode. */
+/** Height of the same bar in compact mode. */
 export const COMPACT_TITLE_BAR_HEIGHT = 32;
 
 /**

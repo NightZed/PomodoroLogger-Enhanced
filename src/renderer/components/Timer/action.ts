@@ -135,6 +135,17 @@ export interface TimerState extends Setting {
     boardId?: string;
     iBreak: number; // i-th break session, if i can be divided by 4, start longer break
     minimize: boolean;
+    /**
+     * The second window mode (F11): the window is resized to fit the Timer page
+     * only and its layout gets denser (shorter title bar, smaller progress ring,
+     * hidden side bar). This flag and everything named after it (`setCompact`,
+     * `compactWindow`, `COMPACT_TITLE_BAR_HEIGHT`, `returnToCompact`, ...) is
+     * the ONE name for that mode. The user-facing wording follows it too
+     * ("Compact window (F11)" on the Timer page, "小屏模式" in the Chinese
+     * README); "small window" / "small screen" are not names for it -- the
+     * smaller F12 strip (`minimize`, "mini mode") would be one more candidate
+     * for those words.
+     */
     compact: boolean;
 
     currentTab: tabType;

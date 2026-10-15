@@ -2,7 +2,7 @@
  * Page switching from the window's two navigation paths: the title bar (clicks)
  * and the Ctrl+Tab / Ctrl+Shift+Tab hotkeys.
  *
- * The two used to disagree in compact (small window) mode. Both call
+ * The two used to disagree in compact mode. Both call
  * `Application.changeTab`, which writes TWO pieces of state -- the compact flag
  * and the tab -- but the hotkeys run from a native `document` keydown listener,
  * i.e. outside React's event batching: each dispatch rendered on its own, and
@@ -158,7 +158,7 @@ describe('Application page switching', () => {
         expect(state().currentTab).toBe('timer');
         // Regression: the two writes of `changeTab` used to render one after the
         // other (a native keydown listener is not batched), and the intermediate
-        // render cleared the `returnToCompact` memory, so the small window never
+        // render cleared the `returnToCompact` memory, so the compact window never
         // came back.
         expect(state().compact).toBe(true);
     });
@@ -200,7 +200,7 @@ describe('Application page switching', () => {
     it('forgets the compact memory when the user leaves compact mode themselves', async () => {
         // F11 out of compact mode on the timer page is a deliberate exit -- the
         // Application writes the memory itself there -- so the page switches
-        // that follow must not bring the small window back.
+        // that follow must not bring the compact window back.
         await press('F11');
         expect(state().compact).toBe(false);
 

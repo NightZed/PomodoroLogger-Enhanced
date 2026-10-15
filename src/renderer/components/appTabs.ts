@@ -85,7 +85,7 @@ export interface TabChangePlan {
  * Both the tab bar (clicks *and* its arrow-key navigation, see rc-tabs
  * `onNavKeyDown`) and the Ctrl+Tab / Ctrl+Shift+Tab hotkeys plan through here.
  * The hotkeys used to bypass this: they only rotated the tab id, which left the
- * small window showing a page it is not sized for, with F11 as the only way
+ * compact window showing a page it is not sized for, with F11 as the only way
  * back to the normal window.
  */
 export function planTabChange(

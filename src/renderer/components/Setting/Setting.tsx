@@ -936,7 +936,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                     {section === 'system' && (
                         <>
                             <Field>
-                                <SettingLabel>Keep Small Window Always On Top</SettingLabel>
+                                <SettingLabel>Keep Compact Window Always On Top</SettingLabel>
                                 <Switch
                                     onChange={props.setCompactAlwaysOnTop}
                                     checked={props.compactAlwaysOnTop}

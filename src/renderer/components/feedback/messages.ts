@@ -51,9 +51,9 @@ export const FEEDBACK_MESSAGES = {
         screenshotRestart: 'Screenshot setting change needs restart to be applied',
         hardwareAccelerationRestart:
             'Hardware acceleration setting change needs restart to be applied',
-        dataRemoved: 'All user data is removed. Pomodoro needs to restart.',
+        dataRemoved: 'All user data is removed. Your settings are kept. Pomodoro needs to restart.',
         importConfirm: 'Pomodoro Logger will restart after importing. Continue?',
-        deleteAllConfirm: 'Sure to delete?',
+        deleteAllConfirm: 'Delete all sessions, projects and boards? Your settings are kept.',
         /** Export / import results, and the report of a refused file. */
         exportDone: (fileName: string) => `Data exported to ${fileName}`,
         exportFailed: 'Export Failed',

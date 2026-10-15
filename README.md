@@ -192,7 +192,7 @@ These raw records are aggregated into the time proportion pie chart and word clo
 ### 🔒 Data & Privacy
 
 -   **Local storage**: all data is saved on your own machine.
--   **Export / import / delete**: back up, migrate, or clear everything with one click in the settings.
+-   **Export / import / delete**: back up, migrate, or clear all data (your settings are kept) with one click in the settings.
 -   **Data directory**: `db/` holds the databases, `screenshots/` holds the periodic screenshots.
 
 | Platform | Data directory                          |

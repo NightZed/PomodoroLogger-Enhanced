@@ -45,6 +45,8 @@ jest.mock('../feedback', () => ({
             exportDone: (fileName: string) => `Data exported to ${fileName}`,
             exportFailed: 'Export Failed',
             exportFailedDetail: (reason: string) => `Could not export: ${reason}`,
+            deleteAllConfirm: 'Delete all sessions, projects and boards? Your settings are kept.',
+            dataRemoved: 'All user data is removed. Your settings are kept.',
         },
     },
 }));
@@ -54,7 +56,10 @@ jest.mock('../feedback', () => ({
 jest.mock('./DistractingList', () => ({
     DistractingListModalButton: () => null,
 }));
-jest.mock('../../monitor/sessionManager', () => ({ deleteAllUserData: jest.fn() }));
+const mockDeleteAllUserData = jest.fn<Promise<void>, []>().mockResolvedValue(undefined);
+jest.mock('../../monitor/sessionManager', () => ({
+    deleteAllUserData: () => mockDeleteAllUserData(),
+}));
 
 const mockSend = jest.fn();
 jest.mock('electron', () => ({
@@ -205,6 +210,7 @@ beforeEach(() => {
     mockToast.mockClear();
     mockConfirm.mockClear();
     mockSend.mockClear();
+    mockDeleteAllUserData.mockClear();
     exportData.mockReset();
     importData.mockReset();
     (window as any).api = { exportData, importData };
@@ -390,4 +396,37 @@ describe('import of a usable file', () => {
         expect(mockSend).toHaveBeenCalledWith(IpcEventName.Restart);
     });
 });
+
+describe('delete of all data', () => {
+    it('clears the data, reports it and restarts after the toast', async () => {
+        // The restart sits behind a 3 second toast, so the clock is faked for
+        // this test only: honest about the delay without actually spending it.
+        jest.useFakeTimers();
+        try {
+            await mount();
+
+            await click('Delete All Data');
+
+            expect(mockConfirm).toHaveBeenCalledTimes(1);
+            expect(mockConfirm.mock.calls[0][0].title).toBe(
+                'Delete all sessions, projects and boards? Your settings are kept.'
+            );
+            expect(mockDeleteAllUserData).toHaveBeenCalledTimes(1);
+            expect(mockToast.mock.calls[0][0].content).toBe(
+                'All user data is removed. Your settings are kept.'
+            );
+            // The restart is on a timer: nothing is sent while the toast shows.
+            expect(mockSend).not.toHaveBeenCalled();
+
+            await act(async () => {
+                jest.advanceTimersByTime(3000);
+            });
+
+            expect(mockSend).toHaveBeenCalledWith(IpcEventName.Restart);
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+});
+
 const importData = jest.fn<Promise<ImportResult>, []>();

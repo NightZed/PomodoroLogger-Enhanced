@@ -1,7 +1,8 @@
 import { workers } from '../workers';
 import { PomodoroRecord } from './type';
-import { dbBaseDir } from '../../config';
+import { dbBaseDir, dbPaths } from '../../config';
 import * as fs from 'fs';
+import { basename, join } from 'path';
 import nedb from 'nedb';
 
 const dbWorkers = workers.dbWorkers;
@@ -154,11 +155,44 @@ export function deleteScreenshots(paths: string[]) {
     }
 }
 
-/* istanbul ignore next */
-export async function deleteAllUserData() {
-    if (fs.existsSync(dbBaseDir)) {
-        deleteFolderRecursive(dbBaseDir);
+/**
+ * Delete every user data file under `dir`, keeping the application settings.
+ *
+ * The settings database is the one entry of `dbBaseDir` that is not recorded
+ * data: timers, theme, wallpaper and every other option of the app itself are
+ * persisted there (see `fetchSettings` in Timer/action.ts), so "Delete All
+ * Data" drops sessions, projects, kanban boards and the knn model around it,
+ * but leaves the settings alone -- wiping them was never what the button
+ * promised, and losing a configured setup to "clear my history" is a nasty
+ * surprise.
+ *
+ * The match is on the file name of `dbPaths.settingDB` rather than a hard
+ * coded `setting.nedb`, so the test environment's suffixed name follows the
+ * config as well, and it is a prefix match so nedb's temporary siblings of
+ * the file (a `~` copy while it compacts) survive too. Since the settings
+ * file stays, the directory itself stays with it; only the other entries go.
+ *
+ * `dir` defaults to the real database directory; the parameter exists for the
+ * test, which must not clear `__test__db` shared by parallel jest workers.
+ */
+export async function deleteAllUserData(dir: string = dbBaseDir) {
+    if (!fs.existsSync(dir)) {
+        return;
     }
+
+    const settingFile = basename(dbPaths.settingDB);
+    fs.readdirSync(dir).forEach((file) => {
+        if (file.startsWith(settingFile)) {
+            return;
+        }
+
+        const curPath = join(dir, file);
+        if (fs.lstatSync(curPath).isDirectory()) {
+            deleteFolderRecursive(curPath);
+        } else {
+            fs.unlinkSync(curPath);
+        }
+    });
 }
 
 export function getIndexToTitleApp(record: PomodoroRecord): [string, string][] {

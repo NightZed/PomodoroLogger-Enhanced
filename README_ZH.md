@@ -192,7 +192,7 @@ pomodoro-logger [C:\code\pomodoro-logger] .\src\renderer\components\src\Applicat
 ### 🔒 数据与隐私
 
 - **本地存储**：所有数据保存在本地。
-- **导出 / 导入 / 删除**：在设置页一键备份、迁移或清空全部数据。
+- **导出 / 导入 / 删除**：在设置页一键备份、迁移或清空全部数据（应用设置会保留）。
 - **数据目录**：`db/` 存数据库，`screenshots/` 存定时截图。
 
 | 平台    | 数据目录                                |

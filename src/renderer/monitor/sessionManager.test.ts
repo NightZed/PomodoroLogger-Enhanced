@@ -8,8 +8,9 @@ import {
     getTodaySessions,
     deleteFolderRecursive,
     deleteScreenshots,
+    deleteAllUserData,
 } from './sessionManager';
-import { join } from 'path';
+import { basename, join } from 'path';
 import { dbBaseDir, dbPaths } from '../../config';
 import { existsSync, unlinkSync, mkdirSync, writeFileSync } from 'fs';
 import { generateRandomName } from '../utils';
@@ -114,6 +115,36 @@ describe('sessionManager', () => {
         expect(existsSync(drop2)).toBeFalsy();
         // Files of a session that was NOT discarded stay untouched.
         expect(existsSync(keep)).toBeTruthy();
+
+        deleteFolderRecursive(root);
+    });
+
+    it('deleteAllUserData clears the data files but keeps the settings', async () => {
+        // A directory of its own: the real dbBaseDir is shared with the other
+        // test files running in parallel jest workers.
+        const root = generateRandomName();
+        const settingFile = join(root, basename(dbPaths.settingDB));
+        mkdirSync(join(root, 'nested'), { recursive: true });
+        writeFileSync(settingFile, '{"name":"setting"}');
+        // nedb keeps a `~` copy next to the file while it compacts.
+        writeFileSync(`${settingFile}~`, 'temp');
+        writeFileSync(join(root, 'session.nedb'), '[]');
+        writeFileSync(join(root, 'modelKnn.json'), '{}');
+        writeFileSync(join(root, 'nested', 'cards.nedb'), '[]');
+
+        await deleteAllUserData(root);
+
+        // The settings database and its temporary sibling stay untouched.
+        expect(existsSync(settingFile)).toBeTruthy();
+        expect(existsSync(`${settingFile}~`)).toBeTruthy();
+        expect(existsSync(join(root, 'session.nedb'))).toBeFalsy();
+        expect(existsSync(join(root, 'modelKnn.json'))).toBeFalsy();
+        expect(existsSync(join(root, 'nested'))).toBeFalsy();
+        // The directory holds the settings file, so the directory stays too.
+        expect(existsSync(root)).toBeTruthy();
+
+        // A directory that is already gone is not an error.
+        await deleteAllUserData(join(root, 'missing'));
 
         deleteFolderRecursive(root);
     });

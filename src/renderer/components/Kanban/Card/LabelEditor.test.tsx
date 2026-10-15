@@ -114,3 +114,85 @@ describe('LabelEditor suggestion input value', () => {
         expect(document.getElementById(POPUP_CONTAINER_ID)!.contains(dropdown)).toBe(true);
     });
 });
+
+describe('LabelEditor chip editing', () => {
+    let container: HTMLDivElement;
+    let onChange: jest.Mock;
+
+    const LABELS = [{ name: 'bug', color: '#eb5a46' }];
+    const SUGGESTIONS = [{ name: 'bug', color: '#eb5a46' }];
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+        const popupLayer = document.createElement('div');
+        popupLayer.id = POPUP_CONTAINER_ID;
+        document.body.appendChild(popupLayer);
+        onChange = jest.fn();
+
+        act(() => {
+            ReactDOM.render(
+                <LabelEditor labels={LABELS} onChange={onChange} suggestions={SUGGESTIONS} />,
+                container
+            );
+        });
+    });
+
+    afterEach(() => {
+        act(() => {
+            ReactDOM.unmountComponentAtNode(container);
+        });
+        container.remove();
+        document.body.innerHTML = '';
+    });
+
+    const chipName = () => container.querySelector('span[title="bug"]');
+    const chipRemove = () => container.querySelector('span[title="Remove label"]');
+
+    it('opens the edit popover from the chip, prefilled with the label', () => {
+        act(() => {
+            Simulate.click(chipName() as Element);
+        });
+
+        // The popup renders into the shared popup layer (getPopupContainer);
+        // the first input inside it is the prefilled name field.
+        const editInput = document.querySelector('.ant-popover input') as HTMLInputElement;
+        expect(editInput).not.toBeNull();
+        expect(editInput.value).toBe('bug');
+        // The field takes focus after commit (see the editPanelRef effect):
+        // typing can start right away.
+        expect(document.activeElement).toBe(editInput);
+    });
+
+    it('removes the label from the cross without opening the popover', () => {
+        act(() => {
+            Simulate.click(chipRemove() as Element);
+        });
+
+        expect(onChange).toHaveBeenCalledWith([]);
+        // The cross stops propagation, so the Popover trigger's own click
+        // (which would open the editor) must not have fired: rc-trigger only
+        // renders the popup after its first open, so no .ant-popover exists.
+        expect(document.querySelector('.ant-popover')).toBeNull();
+    });
+
+    it('saves an edited name through the popover OK button', () => {
+        act(() => {
+            Simulate.click(chipName() as Element);
+        });
+        const editInput = document.querySelector('.ant-popover input') as HTMLInputElement;
+        act(() => {
+            Simulate.change(editInput, { target: { value: 'defect' } as unknown as EventTarget });
+        });
+
+        const ok = Array.from(document.querySelectorAll('.ant-popover button')).find(
+            (button) => button.textContent === 'OK'
+        );
+        expect(ok).toBeDefined();
+        act(() => {
+            Simulate.click(ok as Element);
+        });
+
+        expect(onChange).toHaveBeenCalledWith([{ name: 'defect', color: '#eb5a46' }]);
+    });
+});

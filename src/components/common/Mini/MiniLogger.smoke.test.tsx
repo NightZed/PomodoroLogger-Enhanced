@@ -275,13 +275,34 @@ describe('MiniLogger two-row mini layout', () => {
         expect(orbits).toHaveLength(0);
     });
 
-    it('keeps the confirming chase exclusive: no orbit or pause badge', () => {
-        const tree = TestRenderer.create(
-            <MiniLogger {...baseProps} isConfirming hasSession isRunning />
-        ).toJSON() as ReactTestRendererJSON;
-        const orbits = findAll(tree, (n) => classNameOf(n).includes('timer-orbit'));
-        expect(orbits).toHaveLength(0);
-        const badges = findAll(tree, (n) => classNameOf(n).includes('timer-paused-badge'));
-        expect(badges).toHaveLength(0);
+    it('sweeps a single highlight while confirming: one animated node, static ticks', () => {
+        jest.useFakeTimers();
+        try {
+            const renderer = TestRenderer.create(
+                <MiniLogger {...baseProps} isConfirming hasSession isRunning />
+            );
+            const tree = renderer.toJSON() as ReactTestRendererJSON;
+            // One rotating highlight instead of eighteen animated ticks.
+            const sweeps = findAll(tree, (n) => classNameOf(n).includes('timer-confirm'));
+            expect(sweeps).toHaveLength(1);
+            // All 18 base ticks stay static: no per-tick animation delay.
+            const lines = findAll(tree, (n) => n.type === 'line');
+            expect(lines.length).toBeGreaterThanOrEqual(18);
+            lines.forEach((line) => {
+                expect(line.props.style?.animationDelay).toBeUndefined();
+            });
+            // No second hand or pause badge while confirming.
+            const orbits = findAll(tree, (n) => classNameOf(n).includes('timer-orbit'));
+            expect(orbits).toHaveLength(0);
+            const badges = findAll(tree, (n) => classNameOf(n).includes('timer-paused-badge'));
+            expect(badges).toHaveLength(0);
+            // Long-idle freeze: after ~60s the sweep pauses itself.
+            const instance = renderer.getInstance() as MiniLogger | null;
+            expect(instance?.state.confirmSweepFrozen).toBe(false);
+            jest.advanceTimersByTime(60000);
+            expect(instance?.state.confirmSweepFrozen).toBe(true);
+        } finally {
+            jest.useRealTimers();
+        }
     });
 });

@@ -3,33 +3,36 @@ import React from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import { PomodoroRecord } from '../../../renderer/monitor/type';
 
-const fadeIn = keyframes`
-    0% {
-        opacity: 1;
-        transform: scale(1.1);
+const confirmSpin = keyframes`
+    from {
+        transform: rotate(0deg);
     }
 
-    20% {
-        opacity: 0.2;
-        transform: scale(1);
-    }
-
-    100% {
-        opacity: 0.2;
+    to {
+        transform: rotate(360deg);
     }
 `;
 
-interface LineProps {
-    anime: boolean;
-}
+/**
+ * Single rotating highlight that marks "session ended, waiting for confirm".
+ * One 1s/round transform-only rotation replaces the old 18 simultaneous
+ * 800ms opacity+scale chases, so the compositor synthesizes one layer per
+ * frame instead of eighteen -- while the chase read stays the same. It steps
+ * 18 detents per round (one per tick, ~55ms apart) instead of sweeping, like
+ * a quartz movement: each frame holds a tick position, no in-between
+ * interpolation frames.
+ */
+const ConfirmSweep = styled.g<{ frozen: boolean }>`
+    transform-box: view-box;
+    transform-origin: center;
+    animation: ${confirmSpin} 1s steps(18) infinite;
+    animation-play-state: ${({ frozen }) => (frozen ? 'paused' : 'running')};
+    @media (prefers-reduced-motion: reduce) {
+        animation: none;
+    }
+`;
 
-const Line = styled.line<LineProps>`
-    ${({ anime }) =>
-        anime
-            ? css`
-                  animation: ${fadeIn} 800ms linear infinite;
-              `
-            : ''}
+const Line = styled.line`
     @media (prefers-reduced-motion: reduce) {
         animation: none;
     }
@@ -271,6 +274,50 @@ interface Props {
 export class MiniLogger extends React.Component<Props> {
     constructor(props: Props) {
         super(props);
+        this.state = { confirmSweepFrozen: false };
+    }
+
+    state: { confirmSweepFrozen: boolean } = { confirmSweepFrozen: false };
+
+    /**
+     * Long-idle freeze for the confirming sweep (plan C): the sweep runs for
+     * ~8s after the session ends, then pauses so an unattended confirm mask
+     * costs zero compositor frames. Any new confirming round re-arms it; the
+     * 1s/round rotation itself is plan A (one layer instead of eighteen).
+     */
+    private confirmFreezeTimer: ReturnType<typeof setTimeout> | undefined = undefined;
+
+    componentDidMount(): void {
+        if (this.props.isConfirming) this.armConfirmFreeze();
+    }
+
+    componentDidUpdate(prevProps: Props): void {
+        if (!prevProps.isConfirming && this.props.isConfirming) {
+            // New confirming round: spin again, then re-arm the freeze.
+            this.setState({ confirmSweepFrozen: false });
+            this.armConfirmFreeze();
+        } else if (prevProps.isConfirming && !this.props.isConfirming) {
+            this.clearConfirmFreeze();
+            this.setState({ confirmSweepFrozen: false });
+        }
+    }
+
+    componentWillUnmount(): void {
+        this.clearConfirmFreeze();
+    }
+
+    private armConfirmFreeze(): void {
+        this.clearConfirmFreeze();
+        this.confirmFreezeTimer = setTimeout(() => {
+            this.setState({ confirmSweepFrozen: true });
+        }, 60000);
+    }
+
+    private clearConfirmFreeze(): void {
+        if (this.confirmFreezeTimer !== undefined) {
+            clearTimeout(this.confirmFreezeTimer);
+            this.confirmFreezeTimer = undefined;
+        }
     }
 
     /**
@@ -468,8 +515,10 @@ export class MiniLogger extends React.Component<Props> {
                             key={i}
                             transform={`translate(50 50) rotate(${20 * i}) translate(-50 -50)`}
                         >
+                            {/* Static in every state: progress while running,
+                                dim base while confirming (the single
+                                ConfirmSweep below carries the motion). */}
                             <Line
-                                anime={isConfirming}
                                 y1="0"
                                 y2="12"
                                 x1="50"
@@ -481,11 +530,24 @@ export class MiniLogger extends React.Component<Props> {
                                         ? 'rgb(200, 200, 200)'
                                         : 'rgb(99,99,99)',
                                     strokeWidth: 12,
-                                    animationDelay: i * (800 / 18) + 'ms',
                                 }}
                             />
                         </g>
                     ))}
+                {isConfirming && (
+                    <ConfirmSweep frozen={this.state.confirmSweepFrozen} className="timer-confirm">
+                        {/* One bright tick on a 1s/round rotation: the chase
+                            read without eighteen simultaneous animations. */}
+                        <line
+                            y1="0"
+                            y2="12"
+                            x1="50"
+                            x2="50"
+                            stroke="rgb(230, 230, 230, 0.5)"
+                            strokeWidth={12}
+                        />
+                    </ConfirmSweep>
+                )}
                 <text x="50" y="64" textAnchor="middle" fontSize="40" style={{ fill: '#fff' }}>
                     {isConfirming ? (isFocusing ? '🍅' : '🍇') : time}
                 </text>

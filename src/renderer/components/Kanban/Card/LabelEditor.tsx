@@ -282,6 +282,33 @@ const getEditDropdownContainer = (node: any): HTMLElement => {
     return popover ? (popover as HTMLElement) : getPopupContainer();
 };
 
+/**
+ * Is a suggestion chip currently highlighted in the visible dropdown?
+ *
+ * Enter reaches antd Input's `onPressEnter` BEFORE rc-select's own keydown
+ * handler (antd input/Input.js calls onPressEnter first, then the merged
+ * onKeyDown). While a suggestion is highlighted, that keypress belongs to the
+ * dropdown: rc-select selects the chip right after this handler and fires
+ * `onSelect`, which commits the label directly. Committing from `onPressEnter`
+ * as well would add the half-typed text AND the picked suggestion -- two
+ * commits for one keypress.
+ *
+ * The DOM check mirrors the one in CardEditor's document listener: a closed
+ * rc-select dropdown stays mounted (with `ant-select-dropdown-hidden` on its
+ * wrap, where the dropdownClassName lives) and its active-item class survives
+ * closing, so the wrap must be visible for the highlight to count. Only the
+ * focused input's dropdown is ever un-hidden at a time, so a single selector
+ * covers both the add row and the edit popover. `defaultActiveFirstOption`
+ * (rc-select default) keeps the first option active whenever options exist;
+ * with no options (a brand-new name) nothing is active and a bare Enter
+ * commits the typed text as before.
+ */
+const hasHighlightedSuggestion = (): boolean =>
+    !!document.querySelector(
+        '.pl-label-suggest-dropdown:not(.ant-select-dropdown-hidden)' +
+            ' .ant-select-dropdown-menu-item-active'
+    );
+
 interface Props {
     labels: CardLabel[];
     onChange: (labels: CardLabel[]) => void;
@@ -307,12 +334,19 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
         nameColorMap.set(suggestion.name, suggestion.color);
     }
 
+    // Picking a suggestion (click, or Enter on the highlighted chip) commits
+    // it right away with its board color. Filling the input first made every
+    // pick a two-step action; the typed-name path (no matching suggestion)
+    // still goes through the Add button / a plain Enter.
     const onNewNameSelect = (value: any) => {
-        setNewName(value);
-        const matchedColor = nameColorMap.get(value);
+        const name = String(value).trim();
+        const matchedColor = nameColorMap.get(name);
         if (matchedColor) {
-            setNewColor(matchedColor);
-            setColorTouched(false);
+            addLabel(name, matchedColor);
+        } else {
+            // Defensive: every suggestion comes from nameColorMap, so this
+            // branch should be unreachable -- fall back to the old fill.
+            setNewName(name);
         }
     };
 
@@ -329,8 +363,14 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [newName, suggestions]);
 
-    const addLabel = () => {
-        const name = newName.trim();
+    /**
+     * `nameOverride`/`colorOverride` are how a suggestion pick commits: both
+     * rows call this from `onSelect` with the picked name and board color.
+     * Callers that pass no arguments (Add button, plain Enter) read the
+     * current input/palette state instead.
+     */
+    const addLabel = (nameOverride?: string, colorOverride?: string) => {
+        const name = (nameOverride !== undefined ? nameOverride : newName).trim();
         if (!name) {
             return;
         }
@@ -340,11 +380,30 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
             return;
         }
 
-        const color = newColor;
+        const color = colorOverride !== undefined ? colorOverride : newColor;
         onChange([...labels, { name, color }]);
         setNewName('');
         setNewColor(LABEL_COLORS[0]);
         setColorTouched(false);
+    };
+
+    // Plain Enter in the add row. While a suggestion is highlighted this
+    // steps aside -- rc-select's keydown (which runs right after antd's
+    // onPressEnter) selects the chip and onSelect adds it directly. See
+    // hasHighlightedSuggestion.
+    const onNewNamePressEnter = (event: React.KeyboardEvent<HTMLInputElement>) => {
+        // Ctrl+Enter is the card editor's save (document-level listener);
+        // Alt/Shift combos belong to the OS/browser. Only a bare Enter
+        // commits here.
+        if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
+            return;
+        }
+
+        if (hasHighlightedSuggestion()) {
+            return;
+        }
+
+        addLabel();
     };
 
     // Closing the edit popover. Also clears the "user picked a color" flag so
@@ -372,12 +431,17 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
         setEditSession((session) => session + 1);
     };
 
+    // Picking a suggestion in the edit popover renames/saves immediately
+    // with the suggestion's board color -- the same "pick = commit"
+    // semantics as the add row above.
     const onEditNameSelect = (value: any) => {
-        setEditName(value);
-        const matchedColor = nameColorMap.get(value);
+        const name = String(value).trim();
+        const matchedColor = nameColorMap.get(name);
         if (matchedColor) {
-            setEditColor(matchedColor);
-            setEditColorTouched(false);
+            saveEdit(name, matchedColor);
+        } else {
+            // Defensive fallback, same as the add row.
+            setEditName(name);
         }
     };
 
@@ -393,12 +457,13 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [editName, editingIndex, suggestions]);
 
-    const saveEdit = () => {
+    /** Overrides: see addLabel -- a suggestion pick commits name + color. */
+    const saveEdit = (nameOverride?: string, colorOverride?: string) => {
         if (editingIndex === undefined) {
             return;
         }
 
-        const name = editName.trim();
+        const name = (nameOverride !== undefined ? nameOverride : editName).trim();
         if (!name) {
             return;
         }
@@ -408,11 +473,24 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
             return;
         }
 
-        const color = editColor;
+        const color = colorOverride !== undefined ? colorOverride : editColor;
         const next = labels.slice();
         next[editingIndex] = { name, color };
         onChange(next);
         cancelEdit();
+    };
+
+    // Plain Enter in the edit popover: identical to the add row -- a
+    // highlighted suggestion belongs to rc-select, everything else saves the
+    // typed name. (No modifier guard here: the card editor's document
+    // listener deliberately ignores keys inside .ant-popover, so there is no
+    // competing Ctrl+Enter meaning in this popup.)
+    const onEditNamePressEnter = () => {
+        if (hasHighlightedSuggestion()) {
+            return;
+        }
+
+        saveEdit();
     };
 
     // All board labels not yet on this card, filtered by the typed text and
@@ -479,7 +557,7 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                                     onChange={(value: any) => setEditName(value)}
                                     filterOption={false}
                                 >
-                                    <Input size="small" onPressEnter={saveEdit} />
+                                    <Input size="small" onPressEnter={onEditNamePressEnter} />
                                 </AutoComplete>
                                 <EditColorRow>
                                     <ColorGroupLabel>Color:</ColorGroupLabel>
@@ -496,7 +574,7 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                                     ))}
                                 </EditColorRow>
                                 <EditActions>
-                                    <Button size="small" type="primary" onClick={saveEdit}>
+                                    <Button size="small" type="primary" onClick={() => saveEdit()}>
                                         OK
                                     </Button>
                                 </EditActions>
@@ -538,7 +616,11 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                     onChange={(value: any) => setNewName(value)}
                     filterOption={false}
                 >
-                    <Input size="small" placeholder={'Label name'} onPressEnter={addLabel} />
+                    <Input
+                        size="small"
+                        placeholder={'Label name'}
+                        onPressEnter={onNewNamePressEnter}
+                    />
                 </AutoComplete>
                 <Button
                     size="small"
@@ -548,7 +630,7 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                     disabled={
                         !newName.trim() || labels.some((label) => label.name === newName.trim())
                     }
-                    onClick={addLabel}
+                    onClick={() => addLabel()}
                 >
                     Add
                 </Button>

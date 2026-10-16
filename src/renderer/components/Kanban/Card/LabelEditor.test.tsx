@@ -88,7 +88,11 @@ describe('LabelEditor suggestion input value', () => {
         expect(inputValueWarnings()).toEqual([]);
     });
 
-    it('keeps the plain label name in the input after picking a suggestion', () => {
+    it('commits the picked suggestion as a plain name and clears the input', () => {
+        // A pick is a direct commit now (see "direct commit on suggestion
+        // pick" below): the regression this test guards -- the SuggestionChip
+        // element leaking into the input as "[object Object]" -- now shows up
+        // in the committed label instead, so assert on the onChange payload.
         type('bu');
         const option = Array.from(document.querySelectorAll('.ant-select-dropdown-menu-item')).find(
             (item) => item.textContent === 'bug'
@@ -99,9 +103,10 @@ describe('LabelEditor suggestion input value', () => {
             Simulate.click(option as Element);
         });
 
-        expect(nameInput().value).toBe('bug');
+        expect(onChange).toHaveBeenCalledWith([{ name: 'bug', color: '#eb5a46' }]);
         expect(inputValueWarnings()).toEqual([]);
-        expect(nameInput().value).not.toContain('[object Object]');
+        // Committed, not just filled: the input starts over empty.
+        expect(nameInput().value).toBe('');
     });
 
     it('mounts the dropdown in the shared popup layer, not on <body>', () => {
@@ -194,5 +199,129 @@ describe('LabelEditor chip editing', () => {
         });
 
         expect(onChange).toHaveBeenCalledWith([{ name: 'defect', color: '#eb5a46' }]);
+    });
+});
+
+/**
+ * A suggestion pick (click, or Enter while its chip is highlighted) commits
+ * the label directly -- it no longer only fills the input. The Enter path
+ * needs the guard in hasHighlightedSuggestion: antd Input's onPressEnter runs
+ * BEFORE rc-select's own keydown, so without the guard one keypress would
+ * commit the half-typed text AND the picked suggestion.
+ */
+describe('LabelEditor direct commit on suggestion pick', () => {
+    let container: HTMLDivElement;
+    let onChange: jest.Mock;
+
+    const SUGGESTIONS = [
+        { name: 'bug', color: '#eb5a46' },
+        { name: 'feature', color: '#61bd4f' },
+    ];
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+        const popupLayer = document.createElement('div');
+        popupLayer.id = POPUP_CONTAINER_ID;
+        document.body.appendChild(popupLayer);
+        onChange = jest.fn();
+
+        act(() => {
+            ReactDOM.render(
+                <LabelEditor labels={[]} onChange={onChange} suggestions={SUGGESTIONS} />,
+                container
+            );
+        });
+    });
+
+    afterEach(() => {
+        act(() => {
+            ReactDOM.unmountComponentAtNode(container);
+        });
+        container.remove();
+        document.body.innerHTML = '';
+    });
+
+    const nameInput = () =>
+        container.querySelector('input[placeholder="Label name"]') as HTMLInputElement;
+
+    const type = (value: string) => {
+        act(() => {
+            Simulate.change(nameInput(), { target: { value } as unknown as EventTarget });
+        });
+    };
+
+    const suggestionItem = () =>
+        document.querySelector(
+            '.pl-label-suggest-dropdown:not(.ant-select-dropdown-hidden) ' +
+                '.ant-select-dropdown-menu-item'
+        ) as HTMLElement;
+
+    it('Enter on a hovered suggestion adds it once, not the half-typed text', () => {
+        type('bu');
+        const item = suggestionItem();
+        // Hover is what highlights a chip (rc-select clears the active key on
+        // every input change) -- the same state as the user's "hover a
+        // suggestion and press Enter".
+        act(() => {
+            Simulate.mouseEnter(item);
+        });
+        expect(
+            document.querySelector(
+                '.pl-label-suggest-dropdown .ant-select-dropdown-menu-item-active'
+            )
+        ).not.toBeNull();
+
+        act(() => {
+            Simulate.keyDown(nameInput(), { key: 'Enter', keyCode: 13, which: 13 });
+        });
+
+        // Exactly one commit, and it is the full suggestion -- not 'bu'.
+        expect(onChange).toHaveBeenCalledTimes(1);
+        expect(onChange).toHaveBeenCalledWith([{ name: 'bug', color: '#eb5a46' }]);
+    });
+
+    it('bare Enter with no highlighted suggestion still commits the typed text', () => {
+        // 'brand-new' matches no suggestion: nothing can be highlighted, so
+        // the typed name goes through the regular add path.
+        type('brand-new');
+
+        act(() => {
+            Simulate.keyDown(nameInput(), { key: 'Enter', keyCode: 13, which: 13 });
+        });
+
+        expect(onChange).toHaveBeenCalledTimes(1);
+        expect(onChange).toHaveBeenCalledWith([{ name: 'brand-new', color: '#61bd4f' }]);
+    });
+
+    it('picking a suggestion in the edit popover saves the rename immediately', () => {
+        act(() => {
+            ReactDOM.render(
+                <LabelEditor
+                    labels={[{ name: 'bug', color: '#eb5a46' }]}
+                    onChange={onChange}
+                    suggestions={SUGGESTIONS}
+                />,
+                container
+            );
+        });
+        act(() => {
+            Simulate.click(container.querySelector('span[title="bug"]') as Element);
+        });
+
+        const editInput = document.querySelector('.ant-popover input') as HTMLInputElement;
+        act(() => {
+            Simulate.change(editInput, { target: { value: 'feature' } as unknown as EventTarget });
+        });
+        expect(suggestionItem()).not.toBeNull();
+
+        act(() => {
+            Simulate.click(suggestionItem());
+        });
+
+        // The picked name replaces the edited label with the board color --
+        // no OK press needed.
+        expect(onChange).toHaveBeenCalledTimes(1);
+        expect(onChange).toHaveBeenCalledWith([{ name: 'feature', color: '#61bd4f' }]);
     });
 });

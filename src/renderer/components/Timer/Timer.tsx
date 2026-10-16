@@ -659,8 +659,30 @@ class Timer extends Component<Props, State> {
         return this.startFocusingSession(false, boardId);
     };
 
+    /**
+     * Paint the running-state tray icon the moment a session starts.
+     *
+     * `updateLeftTime` only refreshes the tray when the minute slice CHANGES,
+     * and a fresh session starts from the very default `resetStat` left on
+     * screen ("25:00" -> "25:00"), so the throttle read "no change" and the
+     * tray kept the idle app icon until the countdown rolled its first minute
+     * -- ~1s of wall time at scale 1 (i.e. production; unnoticed only because
+     * the 120x dev clock rolls a minute within one frame). `onPause`/
+     * `onResume` already repaint explicitly on their transitions; this is the
+     * same pattern for the start transition, called from both start paths.
+     */
+    private paintTrayRunning = () => {
+        setTrayImageWithMadeIcon(
+            this.defaultLeftTime().slice(0, 2),
+            0,
+            this.props.timer.isFocusing,
+            false
+        ).catch(console.error);
+    };
+
     private startResting = () => {
         this.props.startTimer();
+        this.paintTrayRunning();
         requestAnimationFrame(this.updateLeftTime);
     };
 
@@ -701,6 +723,7 @@ class Timer extends Component<Props, State> {
         this.monitor.start();
 
         this.props.startTimer();
+        this.paintTrayRunning();
         requestAnimationFrame(this.updateLeftTime);
     };
 

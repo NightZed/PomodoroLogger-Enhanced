@@ -19,14 +19,22 @@ export function parseTag(
         registerTag,
     }: MarkdownContext = defaultContext
 ) {
-    return html.replace(/([^&\*#@a-z]|^)(#[^\s\\<>]+)(\s|$|<)/gi, (_, p1, p2, p3) => {
+    // The trailing boundary is a ZERO-WIDTH lookahead on purpose. The old
+    // pattern consumed it as a captured group (`(\s|$|<)`) and re-emitted it
+    // in the replacement -- which ate the separator between two adjacent
+    // tags: in `#a #b` the first match swallowed the space, leaving no
+    // character for the leading context `([^&\*#@a-z]|^)` of `#b`, so only
+    // '#a' was ever tagged (and only '#a' ever reached the search
+    // suggestions). A lookahead asserts the same boundaries without
+    // consuming them, so every tag gets its own chance to match.
+    return html.replace(/([^&*@a-z]|^)(#[^\s\\<>]+)(?=\s|$|<)/gi, (_, p1, p2) => {
         const { background, color } = stringColorMap(p2);
         if (registerTag) {
             registerTag(p2);
         }
         return `${p1}<span class="pl-tag" style="background:${background}; color:${color}; --hover-background: ${
             background.slice(0, 7) + '55'
-        }">${p2}</span>${p3}`;
+        }">${p2}</span>`;
     });
 }
 

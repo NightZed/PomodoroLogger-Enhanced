@@ -21,9 +21,9 @@ describe('getBoardSearchTags', () => {
         const cards = {
             c1: makeCard('nothing here'),
             c2: makeCard('#deep'),
-            // '#deep' twice on one card still counts that card once (tags
-            // word-separated, see the note below about parseTag)
-            c3: makeCard('fix #deep again #deep before #urgent'),
+            // '#deep' twice on one card still counts that card once; the
+            // adjacent '#urgent' registers too (see the parseTag lookahead)
+            c3: makeCard('#deep #deep #urgent'),
             c4: makeCard('', [
                 { name: 'alpha', color: '#000' },
                 { name: 'deep', color: '#000' },
@@ -66,11 +66,7 @@ describe('getBoardSearchTags', () => {
 
     it('reflects the CURRENT content: a removed tag disappears immediately', () => {
         const lists = { lA: makeList(['c1']) };
-        // Tags must be word-separated: parseTag (the display pipeline, which
-        // extractTags reuses) consumes the space after a tag as its trailing
-        // context, so `#a #b` renders only '#a'. The suggestions deliberately
-        // match exactly what the card shows.
-        const before = { c1: makeCard('text #deleted more #stay') };
+        const before = { c1: makeCard('#deleted #stay') };
         const after = { c1: makeCard('just text now') };
 
         expect(getBoardSearchTags(makeBoard(['lA']), lists, before)).toEqual(['#deleted', '#stay']);

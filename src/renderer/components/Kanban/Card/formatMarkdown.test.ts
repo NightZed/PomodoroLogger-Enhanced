@@ -15,6 +15,16 @@ describe('Markdown tag', () => {
         expect(parseTag(`#world`).trim()).toEqual(`<span class="pl-tag" ${style}>#world</span>`);
     });
 
+    it('tags both of two adjacent tags, `#alpha #beta`', () => {
+        // Regression: the trailing boundary used to be consumed, so the first
+        // match ate the space between the tags and '#beta' never matched.
+        expect(parseTag(`#alpha #beta`)).toEqual(
+            `<span class="pl-tag" ${style}>#alpha</span> ` +
+                `<span class="pl-tag" ${style}>#beta</span>`
+        );
+        expect(extractTags('#alpha #beta')).toEqual(['#alpha', '#beta']);
+    });
+
     it("'hello'", () => {
         expect(formatMarkdown("'hello'").trim()).toEqual('<p>&#39;hello&#39;</p>');
     });

@@ -12,8 +12,6 @@ import { Markdown } from '../style/Markdown';
 import { PomodoroDot } from '../../Visualization/PomodoroDot';
 import { Card as CardType } from '../type';
 import { matchParent } from '../../../utils';
-import { useSelector } from 'react-redux';
-import { RootState } from '../../../reducers';
 import { formatTimeYmdHm } from '../../Visualization/Timeline';
 import { CreatedTime } from '../style/CreatedTime';
 import { CompletedTime } from './CompletedTime';
@@ -110,11 +108,6 @@ interface Props extends CardType, InputProps, CardActionTypes, KanbanActionTypes
 }
 
 export const Card: FC<Props> = React.memo((props: Props) => {
-    // Never wrap selector results in a freshly created array: `useSelector`
-    // compares the previous result with `===`, so a new array makes every
-    // store update re-render every mounted card (a huge CPU cost while a
-    // board with many cards is visible).
-    const tagManager = useSelector((rootState: RootState) => rootState.kanban.kanban.tagManager);
     const markdownRef = React.useRef<HTMLDivElement>(null);
     const { index, _id, isDraggingOver, listId } = props;
     const onClick = React.useCallback(
@@ -191,22 +184,10 @@ export const Card: FC<Props> = React.memo((props: Props) => {
     // Parsing markdown on every render is expensive, and with a frequently
     // updating store (e.g. the Timer's 500ms tick) every dispatch used to
     // re-parse the markdown of every mounted card. Memoize the parse so it
-    // only re-runs when the (highlighted) content or the tag manager changes.
-    // Tag registration is idempotent (TagManager dedupes by board/list/card
-    // path), so registering once per content change is enough.
-    const renderedMarkdown = React.useMemo(
-        () =>
-            formatMarkdown(content, {
-                registerTag: (tag) => {
-                    tagManager.push(tag, {
-                        boardId: props.boardId,
-                        listId: props.listId,
-                        cardId: props.cardId,
-                    });
-                },
-            }),
-        [content, tagManager, props.boardId, props.listId, props.cardId]
-    );
+    // only re-runs when the (highlighted) content changes. (Content tags for
+    // the search panel are no longer registered here: they are extracted on
+    // demand from the store -- see extractTags / getBoardSearchTags.)
+    const renderedMarkdown = React.useMemo(() => formatMarkdown(content), [content]);
 
     return (
         <>

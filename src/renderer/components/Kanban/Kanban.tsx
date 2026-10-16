@@ -20,6 +20,7 @@ import { thinScrollBar } from '../../style/scrollbar';
 import { EditKanbanForm } from './BoardEditor';
 import { PlayPauseButton } from './Board/PlayPauseButton';
 import { Search } from '../../../components/common/Search/Search';
+import { getBoardSearchTags } from './boardTags';
 import { PomodoroRecord } from '../../monitor/type';
 import { debounce } from 'lodash';
 
@@ -104,25 +105,21 @@ export const Kanban: FunctionComponent<Props> = React.memo(
         const [showTable, setShowTable] = useState(false);
         const [editingBoardId, setEditingBoardId] = useState<string | undefined>('');
         const getSuggestions = React.useCallback(() => {
-            const labelSet = new Set<string>();
             const board = props.kanban.chosenBoardId
                 ? props.boards[props.kanban.chosenBoardId]
                 : undefined;
-            if (board) {
-                for (const listId of board.lists) {
-                    for (const cardId of props.lists[listId]?.cards ?? []) {
-                        for (const label of props.cards[cardId]?.labels ?? []) {
-                            labelSet.add('#' + label.name);
-                        }
-                    }
-                }
+            if (!board) {
+                return [];
             }
 
-            const labels = Array.from(labelSet);
-            const contentTags = props.kanban.chosenBoardId
-                ? props.kanban.tagManager.getSortedTagByBoard(props.kanban.chosenBoardId)
-                : [];
-            return contentTags.concat(labels).filter((x, index, arr) => arr.indexOf(x) === index);
+            // One pool of content #tags and card labels, ordered by unified
+            // card count with alphabetical ties -- see getBoardSearchTags.
+            // Content tags are extracted from the cards' current markdown, so
+            // the panel always matches the store: deleting the `#` of a tag
+            // or removing a card drops its suggestion immediately. (The old
+            // render-time TagManager registry only ever accumulated, so a
+            // deleted tag stayed suggested until an app restart.)
+            return getBoardSearchTags(board, props.lists, props.cards);
         }, [props.cards, props.lists, props.boards, props.kanban]);
         const onShowTableChange = (value: boolean) => {
             setShowTable(value);

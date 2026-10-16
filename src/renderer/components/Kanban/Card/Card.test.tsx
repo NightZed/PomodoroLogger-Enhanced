@@ -41,16 +41,14 @@ jest.mock('../../Visualization/Timeline', () => ({
 }));
 
 import { Card } from './Card';
-import { TagManager } from '../tagManager';
 
 describe('Card content clicks', () => {
     let container: HTMLDivElement;
 
-    // Card reads rootState.kanban.kanban.tagManager through useSelector; a
-    // constant store with a real TagManager is all it needs.
-    const store = createStore(() => ({
-        kanban: { kanban: { tagManager: new TagManager() } },
-    })) as any;
+    // Card currently reads nothing from the redux store (content tags are
+    // extracted on demand now, no registry to select); keep a constant store
+    // so the Provider setup stays representative for store-connected props.
+    const store = createStore(() => ({})) as any;
 
     beforeEach(() => {
         container = document.createElement('div');

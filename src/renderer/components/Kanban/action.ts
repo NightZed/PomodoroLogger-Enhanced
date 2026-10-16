@@ -3,7 +3,6 @@ import { createActionCreator, createReducer } from 'deox';
 import { actions as boardActions } from './Board/action';
 import { actions as timerActions } from '../Timer/action';
 import { Dispatch } from 'redux';
-import { TagManager } from './tagManager';
 import dbs from '../../dbs';
 import { AsyncDB } from '../../../utils/dbHelper';
 
@@ -24,11 +23,9 @@ export interface KanbanState {
     isSearching: boolean;
     searchReg?: string;
     configuringBoardId?: string;
-    tagManager: TagManager;
 }
 
 const defaultState: KanbanState = {
-    tagManager: new TagManager(),
     isSearching: false,
     sortedBy: 'recent',
     sortDirection: 'asc',

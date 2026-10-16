@@ -1,4 +1,4 @@
-import { parseTag, formatMarkdown } from './formatMarkdown';
+import { parseTag, formatMarkdown, extractTags } from './formatMarkdown';
 
 describe('Markdown tag', () => {
     const style = 'style="background:#98989869; color:#222; --hover-background: #98989855"';
@@ -60,5 +60,28 @@ describe('task checkbox', () => {
             expect(box).not.toContain('disabled');
             expect(box).toContain('onclick="return false"');
         }
+    });
+});
+
+describe('extractTags', () => {
+    it('extracts the tags formatMarkdown renders, deduplicated in order', () => {
+        expect(extractTags('hello #world and #world again #foo')).toEqual(['#world', '#foo']);
+    });
+
+    it('returns nothing for tag-free content', () => {
+        expect(extractTags('plain **text**')).toEqual([]);
+        expect(extractTags('')).toEqual([]);
+    });
+
+    it('does not treat a markdown heading as a tag', () => {
+        // `# heading` (with a space) renders as <h1>: the # never reaches
+        // parseTag, and extractTags runs the same pipeline.
+        expect(extractTags('# heading\nbody text')).toEqual([]);
+    });
+
+    it('matches what the card view renders', () => {
+        const html = formatMarkdown('deploy #prod now');
+        expect(html).toContain('<span class="pl-tag"');
+        expect(extractTags('deploy #prod now')).toEqual(['#prod']);
     });
 });

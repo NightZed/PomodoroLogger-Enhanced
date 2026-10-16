@@ -69,4 +69,44 @@ export const formatMarkdown = (markdown: string, context: MarkdownContext = defa
     return parseTag(html, context);
 };
 
+const contentTagCache = new Map<string, string[]>();
+// The search panel re-extracts on every render while it is open (once per
+// debounced keystroke); parsing every card's markdown again each time would
+// jank large boards. The result is a pure function of the content string, so
+// cache it. The cap bounds memory -- a full clear simply re-parses on the
+// next call.
+const CONTENT_TAG_CACHE_LIMIT = 2048;
+
+/**
+ * Every content tag of `markdown`, exactly as `formatMarkdown` would render
+ * it (same marked pipeline + parseTag regex), deduplicated in order of
+ * appearance.
+ *
+ * Tags are extracted on demand from the card's current content instead of
+ * being accumulated in a registry at render time: the search suggestions
+ * then always match the store -- deleting the `#` of a tag (or the card
+ * itself) drops the suggestion immediately, with no side effect to keep in
+ * sync and nothing left stale until an app restart.
+ */
+export const extractTags = (markdown: string): string[] => {
+    const cached = contentTagCache.get(markdown);
+    if (cached) {
+        return cached;
+    }
+
+    const tags: string[] = [];
+    formatMarkdown(markdown, {
+        registerTag: (tag) => {
+            if (!tags.includes(tag)) {
+                tags.push(tag);
+            }
+        },
+    });
+    if (contentTagCache.size >= CONTENT_TAG_CACHE_LIMIT) {
+        contentTagCache.clear();
+    }
+    contentTagCache.set(markdown, tags);
+    return tags;
+};
+
 export default formatMarkdown;

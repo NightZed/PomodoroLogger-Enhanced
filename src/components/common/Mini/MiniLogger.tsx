@@ -30,6 +30,31 @@ const Line = styled.line<LineProps>`
                   animation: ${fadeIn} 800ms linear infinite;
               `
             : ''}
+    @media (prefers-reduced-motion: reduce) {
+        animation: none;
+    }
+`;
+
+/**
+ * Second-hand tick positioned by wall time instead of a free-running CSS
+ * loop, so it can never drift: pause freezes the prop (the tick freezes with
+ * it), resume continues from it, a new session re-anchors it. The rendered
+ * angle is cumulative (see `renderTimer`): each passing second adds +6deg, so
+ * the hand always walks clockwise and the minute wrap is 354deg -> 360deg
+ * (identical to 0deg) instead of a backward sweep. It snaps to each detent
+ * instantly like a quartz second hand -- no transform transition, so the
+ * compositor skips the ~10 interpolated sweep frames per tick. It stays mounted across
+ * pause/resume and only flips opacity, so React never remounts the node
+ * mid-session.
+ */
+const SecondHand = styled.g<{ hidden: boolean }>`
+    transform-box: view-box;
+    transform-origin: center;
+    opacity: ${({ hidden }) => (hidden ? 0 : 1)};
+    transition: opacity 180ms ease-out;
+    @media (prefers-reduced-motion: reduce) {
+        transition: none;
+    }
 `;
 
 const StyledLogger = styled.div`
@@ -178,6 +203,21 @@ const StyledLogger = styled.div`
            timer as part of the window drag region. */
         -webkit-app-region: no-drag;
     }
+
+    /* Paused-but-alive session: the whole dial dims so running (bright +
+       orbiting dot) and idle (static ring) each have their own read. The
+       time text keeps full contrast via its own fill below. */
+    .timer-svg.is-paused {
+        opacity: 0.62;
+        filter: saturate(0.55);
+    }
+
+    /* Small pause badge tucked at the lower-right of the dial. Sized in SVG
+       units (viewBox 100) so it stays proportional to the 30px render: a
+       dark pill behind two white bars, never covering the time text. */
+    .timer-paused-badge {
+        pointer-events: none;
+    }
 `;
 
 interface Props {
@@ -198,6 +238,16 @@ interface Props {
     extendCurrentSession: (minute: number) => void;
     time: string;
     percentage: number;
+    /**
+     * Whole remaining seconds of the live countdown, committed every tick by
+     * `Timer.updateLeftTime` (unlike `percentage`, which is throttled to 2%
+     * steps). The second hand derives a cumulative clockwise angle from it
+     * (each elapsed second adds +6deg from 12 o'clock): pause freezes the
+     * value (the hand holds its detent with no extra code), resume continues
+     * from it, and a new session re-anchors it. `undefined` while idle or
+     * confirming -- there is no hand to show then.
+     */
+    secondsLeft?: number;
     isRunning: boolean;
     isFocusing: boolean;
     isConfirming: boolean;
@@ -222,6 +272,24 @@ export class MiniLogger extends React.Component<Props> {
     constructor(props: Props) {
         super(props);
     }
+
+    /**
+     * Cumulative second-hand angle, so the hand always walks clockwise. The
+     * countdown prop (`secondsLeft`) DECREASES, and `secondsLeft % 60 * 6deg`
+     * would decrease with it (counter-clockwise); worse, each minute wrap
+     * 0deg -> 354deg was interpolated by the CSS transition as a full
+     * clockwise sweep -- the "spin then walk backwards" bug. Instead the hand
+     * starts at 12 o'clock and each elapsed second adds +6deg: the modulo-60
+     * dial position is identical, but the rendered angle never goes backward.
+     *
+     * Reset bookkeeping: when the countdown jumps UP by more than a tick
+     * (new session, mode switch, +5/+10 extension re-anchor), the cumulative
+     * base restarts so the hand snaps to 12 o'clock for the new round instead
+     * of spinning forward from the old total.
+     */
+    private handBaseSecondsLeft: number | undefined = undefined;
+    private handElapsedSeconds = 0;
+    private handLastSecondsLeft: number | undefined = undefined;
 
     extend5Minutes = () => {
         this.props.extendCurrentSession(5);
@@ -328,19 +396,67 @@ export class MiniLogger extends React.Component<Props> {
 
     /** Hover label for the countdown: which state the current session is in. */
     private getTimerStateLabel(): string {
-        const { isConfirming, isFocusing } = this.props;
+        const { isConfirming, isFocusing, isRunning, hasSession } = this.props;
         if (isConfirming) return 'Finish';
-        return isFocusing ? 'Working' : 'Breaking';
+        const phase = isFocusing ? 'Working' : 'Breaking';
+        if (hasSession && !isRunning) return `${phase} - Paused`;
+        if (isRunning) return `${phase} - Running`;
+        return phase;
     }
 
     private renderTimer(): React.ReactNode {
-        const { time, percentage, isFocusing, isConfirming } = this.props;
+        const { time, percentage, isFocusing, isConfirming, isRunning, hasSession, secondsLeft } =
+            this.props;
         // The disc inside the ring is the state indicator: red while focusing,
         // deep navy while resting. Confirmation keeps the color of the session
         // that just finished -- there is no dedicated "finish" color.
         const stateColor = isFocusing ? '#e84545' : '#2b2e4a';
+        // Four visual states, in priority order: confirming (existing fast
+        // chase) > running (slow orbit dot) > paused-with-session (dimmed dial
+        // + badge) > idle (unchanged static ring). Paused must require
+        // hasSession: without a session the timer is idle, not paused, and the
+        // owner derives hasSession from sessionState (never from the throttled
+        // percentage) for exactly this kind of call.
+        const isPausedWithSession = !isConfirming && hasSession && !isRunning;
+        // Cumulative clockwise angle from the DECREASING countdown: the hand
+        // starts each round at 12 o'clock and every elapsed second adds +6deg.
+        // `secondsLeft % 60 * 6deg` would walk counter-clockwise and sweep a
+        // full circle on each minute wrap (0deg -> 354deg interpolated
+        // clockwise by the CSS transition) -- the reported bug.
+        let handAngle: number | undefined;
+        if (!isConfirming && hasSession && secondsLeft !== undefined) {
+            if (
+                this.handBaseSecondsLeft === undefined ||
+                this.handLastSecondsLeft === undefined ||
+                // New round (start / switch mode / extend re-anchor): the
+                // countdown jumped UP, so restart from 12 o'clock.
+                secondsLeft > this.handLastSecondsLeft + 1
+            ) {
+                this.handBaseSecondsLeft = secondsLeft;
+                this.handElapsedSeconds = 0;
+            } else if (secondsLeft < this.handLastSecondsLeft) {
+                // Normal tick (possibly several seconds at once after a
+                // throttled render): advance the same amount.
+                this.handElapsedSeconds += this.handLastSecondsLeft - secondsLeft;
+            }
+            // Paused renders repeat the frozen value: neither branch moves, so
+            // the hand holds its detent until resume.
+            this.handLastSecondsLeft = secondsLeft;
+            handAngle = this.handElapsedSeconds * 6;
+        } else {
+            this.handBaseSecondsLeft = undefined;
+            this.handLastSecondsLeft = undefined;
+            this.handElapsedSeconds = 0;
+        }
+        const showSecondHand = handAngle !== undefined;
+        const ringDim = isPausedWithSession ? 0.45 : 1;
         return (
-            <svg className="timer-svg" viewBox="0 0 100 100" width="30" height="30">
+            <svg
+                className={`timer-svg${isPausedWithSession ? ' is-paused' : ''}`}
+                viewBox="0 0 100 100"
+                width="30"
+                height="30"
+            >
                 {/* Native SVG <title>: the same browser tooltip mechanism the
                     buttons in this row get from their title attributes. */}
                 <title>{this.getTimerStateLabel()}</title>
@@ -371,8 +487,54 @@ export class MiniLogger extends React.Component<Props> {
                         </g>
                     ))}
                 <text x="50" y="64" textAnchor="middle" fontSize="40" style={{ fill: '#fff' }}>
-                    {isConfirming ? (isFocusing ? '🍅' : '') : time}
+                    {isConfirming ? (isFocusing ? '🍅' : '🍇') : time}
                 </text>
+                {showSecondHand && (
+                    <SecondHand
+                        hidden={isPausedWithSession}
+                        className="timer-orbit"
+                        style={{
+                            // Cumulative clockwise angle (see above): never
+                            // decreases, so the transition always ticks forward
+                            // 6deg per second -- no wrap sweep, no backwards walk.
+                            // `transform-box: view-box` keeps the origin at the
+                            // dial centre in Chromium/Electron.
+                            transform: `rotate(${handAngle as number}deg)`,
+                        }}
+                    >
+                        {/* Slim tick riding the outer gap (just outside the
+                            18-tick ring): slightly longer than a progress tick
+                            (16 vs 12) but narrower (6 vs 12), so it reads as a
+                            second hand while the progress ticks stay static and
+                            readable. Hidden (opacity 0) while paused so only
+                            the pause badge shows. */}
+                        <rect
+                            x="47"
+                            y="0"
+                            width="8"
+                            height="12"
+                            rx="3"
+                            fill="rgba(255, 255, 255, 0.95)"
+                        />
+                    </SecondHand>
+                )}
+                {isPausedWithSession && (
+                    <g className="timer-paused-badge">
+                        {/* Lower-right pill + twin bars: offset from centre so
+                            the time text stays fully visible at 30px. */}
+                        <rect
+                            x="58"
+                            y="62"
+                            width="30"
+                            height="26"
+                            rx="13"
+                            fill="rgba(0, 0, 0, 0.72)"
+                            opacity={ringDim}
+                        />
+                        <rect x="66" y="68" width="5" height="14" rx="2" fill="#fff" />
+                        <rect x="75" y="68" width="5" height="14" rx="2" fill="#fff" />
+                    </g>
+                )}
             </svg>
         );
     }

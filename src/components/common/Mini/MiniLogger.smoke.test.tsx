@@ -168,10 +168,120 @@ describe('MiniLogger two-row mini layout', () => {
             ).toJSON() as ReactTestRendererJSON;
             const titles = findAll(tree, (n) => n.type === 'title');
             expect(titles.length).toBeGreaterThan(0);
-            return titles[0].children;
+            // react-test-renderer keeps the text child as a string array.
+            return (titles[0].children || []).join('');
         };
         expect(stateLabel({})).toContain('Working');
         expect(stateLabel({ isFocusing: false })).toContain('Breaking');
         expect(stateLabel({ isConfirming: true })).toContain('Finish');
+        expect(stateLabel({ hasSession: true, isRunning: true })).toContain('Running');
+        expect(stateLabel({ hasSession: true, isRunning: false })).toContain('Paused');
+    });
+
+    it('walks the second hand clockwise from 12 o clock', () => {
+        const tree = TestRenderer.create(
+            <MiniLogger {...baseProps} hasSession isRunning percentage={50} secondsLeft={125} />
+        ).toJSON() as ReactTestRendererJSON;
+        const orbits = findAll(tree, (n) => classNameOf(n).includes('timer-orbit'));
+        expect(orbits).toHaveLength(1);
+        // Fresh mount starts a new round at 12 o'clock: the first render
+        // anchors the base, so the angle is 0deg.
+        expect(orbits[0].props.style.transform).toBe('rotate(0deg)');
+        const badges = findAll(tree, (n) => classNameOf(n).includes('timer-paused-badge'));
+        expect(badges).toHaveLength(0);
+    });
+
+    it('advances the second hand clockwise as the countdown decreases', () => {
+        const renderer = TestRenderer.create(
+            <MiniLogger {...baseProps} hasSession isRunning percentage={50} secondsLeft={125} />
+        );
+        const angleOf = () => {
+            const tree = renderer.toJSON() as ReactTestRendererJSON;
+            const orbits = findAll(tree, (n) => classNameOf(n).includes('timer-orbit'));
+            expect(orbits).toHaveLength(1);
+            return orbits[0].props.style.transform;
+        };
+        expect(angleOf()).toBe('rotate(0deg)');
+        // One elapsed second -> +6deg clockwise (not 30deg -> 24deg backwards).
+        renderer.update(
+            <MiniLogger {...baseProps} hasSession isRunning percentage={50} secondsLeft={124} />
+        );
+        expect(angleOf()).toBe('rotate(6deg)');
+        // Across the minute wrap the angle keeps growing (354deg -> 360deg,
+        // the same dial position as 0deg) instead of sweeping backwards.
+        renderer.update(
+            <MiniLogger {...baseProps} hasSession isRunning percentage={50} secondsLeft={65} />
+        );
+        const beforeWrap = angleOf();
+        renderer.update(
+            <MiniLogger {...baseProps} hasSession isRunning percentage={50} secondsLeft={64} />
+        );
+        const afterWrap = angleOf();
+        const degrees = (t: string) => Number(t.replace('rotate(', '').replace('deg)', ''));
+        expect(degrees(afterWrap)).toBeGreaterThan(degrees(beforeWrap));
+        expect(degrees(afterWrap) - degrees(beforeWrap)).toBe(6);
+    });
+
+    it('dims the dial and badges pause instead of ticking while paused', () => {
+        const renderer = TestRenderer.create(
+            <MiniLogger {...baseProps} hasSession isRunning percentage={50} secondsLeft={125} />
+        );
+        const angleOf = () => {
+            const tree = renderer.toJSON() as ReactTestRendererJSON;
+            const orbits = findAll(tree, (n) => classNameOf(n).includes('timer-orbit'));
+            expect(orbits).toHaveLength(1);
+            return orbits[0].props.style.transform;
+        };
+        renderer.update(
+            <MiniLogger {...baseProps} hasSession isRunning percentage={50} secondsLeft={124} />
+        );
+        expect(angleOf()).toBe('rotate(6deg)');
+        // Pause repeats the frozen value: the hand holds its detent (only
+        // opacity flips via the styled rule, invisible to the snapshot).
+        renderer.update(
+            <MiniLogger
+                {...baseProps}
+                hasSession
+                isRunning={false}
+                percentage={50}
+                secondsLeft={124}
+            />
+        );
+        expect(angleOf()).toBe('rotate(6deg)');
+        const tree = renderer.toJSON() as ReactTestRendererJSON;
+        const svgs = findAll(
+            tree,
+            (n) => n.type === 'svg' && classNameOf(n).split(' ').includes('timer-svg')
+        );
+        expect(svgs).toHaveLength(1);
+        expect(classNameOf(svgs[0])).toContain('is-paused');
+        const badges = findAll(tree, (n) => classNameOf(n).includes('timer-paused-badge'));
+        expect(badges).toHaveLength(1);
+        // The time text itself stays rendered so the remaining time is never hidden.
+        const texts = findAll(tree, (n) => n.type === 'text');
+        expect(texts.length).toBeGreaterThan(0);
+        // Resume continues from the frozen detent instead of jumping back.
+        renderer.update(
+            <MiniLogger {...baseProps} hasSession isRunning percentage={50} secondsLeft={123} />
+        );
+        expect(angleOf()).toBe('rotate(12deg)');
+    });
+
+    it('hides the second hand while idle', () => {
+        const tree = TestRenderer.create(
+            <MiniLogger {...baseProps} hasSession={false} isRunning={false} percentage={0} />
+        ).toJSON() as ReactTestRendererJSON;
+        const orbits = findAll(tree, (n) => classNameOf(n).includes('timer-orbit'));
+        expect(orbits).toHaveLength(0);
+    });
+
+    it('keeps the confirming chase exclusive: no orbit or pause badge', () => {
+        const tree = TestRenderer.create(
+            <MiniLogger {...baseProps} isConfirming hasSession isRunning />
+        ).toJSON() as ReactTestRendererJSON;
+        const orbits = findAll(tree, (n) => classNameOf(n).includes('timer-orbit'));
+        expect(orbits).toHaveLength(0);
+        const badges = findAll(tree, (n) => classNameOf(n).includes('timer-paused-badge'));
+        expect(badges).toHaveLength(0);
     });
 });

@@ -231,6 +231,15 @@ function _joinDict<T>(maps: { [key: string]: T }[]): { [key: string]: T } {
 interface State {
     leftTime: string;
     percent: number;
+    /**
+     * Whole remaining seconds of the live countdown (`countdownSeconds` in
+     * `updateLeftTime`). Committed every tick (unlike `percent`, which is
+     * throttled to 2% steps) so the mini second hand steps once per second.
+     * While paused `updateLeftTime` returns early, freezing the value -- and
+     * the hand -- at the paused detent. `undefined` while idle -- the hand
+     * hides then.
+     */
+    secondsLeft?: number;
     showSider: boolean;
     more: boolean;
     pomodorosToday: PomodoroRecord[];
@@ -526,6 +535,14 @@ class Timer extends Component<Props, State> {
             this.setState({ leftTime });
         }
 
+        // Whole-second remainder for the mini second hand. Committed on every
+        // tick (unlike `percent`, which is throttled to 2% steps) so the hand
+        // steps once per second. While paused `updateLeftTime` returns early,
+        // freezing the value -- and the hand -- at the paused detent.
+        if (sec !== this.state.secondsLeft) {
+            this.setState({ secondsLeft: sec });
+        }
+
         if (Math.abs(percent - this.state.percent) > 2 || percent === 0) {
             this.setState({ percent });
         }
@@ -779,6 +796,9 @@ class Timer extends Component<Props, State> {
         this.setState((_, props) => ({
             leftTime: this.defaultLeftTime(props.timer.isFocusing),
             percent: 0,
+            // Idle has no countdown, so the mini second hand hides too (it only
+            // renders from a defined `secondsLeft`).
+            secondsLeft: undefined,
         }));
     };
 
@@ -1306,7 +1326,7 @@ class Timer extends Component<Props, State> {
     };
 
     render() {
-        const { leftTime, percent, more, pomodorosToday } = this.state;
+        const { leftTime, percent, secondsLeft, more, pomodorosToday } = this.state;
         const { isRunning, minimize, compact, isFocusing, sessionEnding } = this.props.timer;
         // One predicate for "a session exists" (running, or paused with time
         // left), shared with `switchMode` and the mini layout so the three
@@ -1343,6 +1363,12 @@ class Timer extends Component<Props, State> {
                         pause={this.onPauseResumeOrStart}
                         percentage={percent}
                         play={this.onPauseResumeOrStart}
+                        /* Whole remaining seconds: positions the mini second
+                           hand at `secondsLeft % 60 * 6deg` each tick, so it is
+                           true to wall time instead of a free-running loop.
+                           `undefined` while idle hides the hand, exactly like
+                           the dial it belongs to. */
+                        secondsLeft={secondsLeft}
                         switch={this.switchMode}
                         task={name || stagedName || ''}
                         time={shownLeftTime.slice(0, 2)}

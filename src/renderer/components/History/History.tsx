@@ -20,7 +20,7 @@ import { PomodoroDot } from '../Visualization/PomodoroDot';
 import { TimeBadge } from '../../../components/Visualization/Badge/Badge';
 import { workers } from '../../workers';
 import { Card as CardState } from '../Kanban/type';
-import { DualPieChart } from '../../../components/Visualization/DualPieChart';
+import { TimeTreemap } from '../../../components/Visualization/TimeTreemap';
 
 const { Option } = Select;
 
@@ -566,7 +566,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                                 </div>
                             ) : (
                                 <>
-                                    <DualPieChart
+                                    <TimeTreemap
                                         {...(shownPieChart || { projectData: [], appData: [] })}
                                         width={calendarWidth}
                                         onProjectClick={onProjectClick}

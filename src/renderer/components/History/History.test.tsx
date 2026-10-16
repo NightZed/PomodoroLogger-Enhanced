@@ -15,12 +15,13 @@ jest.mock('../../workers', () => ({
 }));
 
 // The charts draw into canvases / echarts, none of which exist under jsdom.
-// DualPieChart lives under src/components, not src/renderer/components: this
-// path used to miss it, and the real chart then mounted and blew up as soon as
-// the calendar section became visible.
+// TimeTreemap lives under src/components, not src/renderer/components: this
+// path used to miss the chart module (when it was DualPieChart), and the real
+// chart then mounted and blew up as soon as the calendar section became
+// visible.
 jest.mock('../Visualization/WordCloud', () => ({ WordCloud: () => null }));
-jest.mock('../../../components/Visualization/DualPieChart', () => ({
-    DualPieChart: () => null,
+jest.mock('../../../components/Visualization/TimeTreemap', () => ({
+    TimeTreemap: () => null,
 }));
 // The heat map lays out an SVG grid that is of no use under jsdom, so the
 // component is stubbed. `monthList` stays real: the month picker renders from it.

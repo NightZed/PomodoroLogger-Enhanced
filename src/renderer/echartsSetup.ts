@@ -6,6 +6,8 @@
  */
 import 'echarts/lib/chart/pie';
 import 'echarts/lib/chart/sankey';
+// The History page replaced its dual pie with two side-by-side treemaps.
+import 'echarts/lib/chart/treemap';
 import 'echarts/lib/component/tooltip';
 import 'echarts/lib/component/legend';
 import 'echarts/lib/component/title';

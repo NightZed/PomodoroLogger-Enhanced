@@ -15,7 +15,7 @@ import * as url from 'url';
 import * as db from './db';
 import logo from '../res/icon_sm.png';
 import fs from 'fs';
-import { dbBaseDir, dbPaths } from '../config';
+import { dbPaths } from '../config';
 import { DAY_THEME_ID } from '../renderer/theme/tokens';
 import { build } from '../../package.json';
 import { AutoUpdater } from './AutoUpdater';
@@ -347,13 +347,23 @@ const createWindow = async () => {
 
     ipcMain.addListener(IpcEventName.Restart, restart);
 
-    ipcMain.addListener(IpcEventName.SetTray, (event: any, src: string) => {
-        const pngBuffer = nativeImage.createFromDataURL(src).toPNG();
-        const imgFile = path.join(dbBaseDir, 'tray@2x.png');
-        fs.writeFile(imgFile, pngBuffer, {}, () => {
-            mGlobal.tray?.setImage(imgFile);
-        });
-    });
+    // 方案一 + 附带清理: the renderer draws the icon at the physical size it
+    // will be SHOWN at (16 logical px x display scale, see `trayCanvasSize`),
+    // so the image is declared with that `scaleFactor` and the shell never
+    // re-scales it -- no blur. Memory direct `setImage(dataURL-backed
+    // nativeImage)` instead of the old write-tray@2x.png-then-read-path round
+    // trip, which added file IO latency to every icon update.
+    ipcMain.addListener(
+        IpcEventName.SetTray,
+        (event: any, payload: { src: string; scaleFactor: number }) => {
+            const scaleFactor = payload.scaleFactor > 0 ? payload.scaleFactor : 1;
+            const image = nativeImage.createFromBuffer(
+                nativeImage.createFromDataURL(payload.src).toPNG(),
+                { scaleFactor }
+            );
+            mGlobal.tray?.setImage(image);
+        }
+    );
 
     if (process.platform === 'darwin') {
         let forceQuit = false;

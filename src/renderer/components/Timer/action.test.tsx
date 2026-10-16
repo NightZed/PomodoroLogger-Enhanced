@@ -24,7 +24,7 @@ import {
 import { generateRandomName } from '../../utils';
 import { workers } from '../../workers';
 import { getAllSession } from '../../monitor/sessionManager';
-import { dbPaths, scaleMs, timeScale } from '../../../config';
+import { dbPaths, DEBUG_TIME_SCALE, scaleMs, timeScale } from '../../../config';
 import { existsSync, unlinkSync } from 'fs';
 import { PomodoroRecord } from '../../monitor/type';
 import { Dispatch } from 'redux';
@@ -58,14 +58,19 @@ describe('Reducer', () => {
         expect(state.isRunning).toBeTruthy();
     });
 
-    it('runs both clock writes on the compressed scale outside production', () => {
-        // Jest runs with NODE_ENV=test, so the debug clock is on, exactly like
-        // in development: the countdown spans are shortened 120x while every
-        // configured value stays nominal. Both writes -- starting a session
-        // and extending one on the ending mask -- must use the same scale, so
-        // a dev +5 lasts 2.5 seconds of wall time (was: a hard coded 1s in
-        // `Timer.extendCurrentSession`, with the reducer not scaling at all).
-        expect(timeScale()).toBeGreaterThan(1);
+    it('runs both clock writes on the configured scale outside production', () => {
+        // Jest runs with NODE_ENV=test, so the debug clock answers exactly like
+        // in development: `timeScale()` must hand `DEBUG_TIME_SCALE` through
+        // outside production. The constant itself is a debugging knob the
+        // developer may turn at any time (120 by default, lowered to watch a
+        // whole session in wall time), so this asserts the GATE, not a hard
+        // coded value -- the old `toBeGreaterThan(1)` broke every dev who set
+        // the scale to 1. What still pins the behaviour down is that both
+        // writes -- starting a session and extending one on the ending mask --
+        // go through the SAME scale: the `scaleMs` expectations below hold for
+        // any value of it (was: a hard coded 1s in `Timer.extendCurrentSession`
+        // with the reducer not scaling at all).
+        expect(timeScale()).toBe(DEBUG_TIME_SCALE);
 
         const startBefore = new Date().getTime();
         let state = reducer(undefined, startTimer());

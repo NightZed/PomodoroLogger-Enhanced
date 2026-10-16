@@ -790,9 +790,22 @@ class Timer extends Component<Props, State> {
     /**
      * Reset the display only: default left time, zero progress, tray icon. The
      * session itself is untouched -- `onPause` keeps it, `onStop` discards it.
+     *
+     * `tray` decides which icon the reset leaves behind: `idle` (the app icon,
+     * for Stop / mode switch) or the confirming disc (session ended, waiting
+     * for confirm -- session disc + fruit, mirroring MiniLogger, never the app
+     * icon). It exists because `onDone` resets the countdown display AND must
+     * leave the confirming icon; calling the idle reset first and then
+     * overwriting would race the two async `makeIcon` loads over IPC.
      */
-    private resetStat = () => {
-        setTrayImageWithMadeIcon(undefined).catch(console.error);
+    private resetStat = (tray: 'idle' | { confirming: boolean; isFocusing: boolean } = 'idle') => {
+        if (tray === 'idle') {
+            setTrayImageWithMadeIcon(undefined).catch(console.error);
+        } else {
+            setTrayImageWithMadeIcon(undefined, undefined, tray.isFocusing, false, true).catch(
+                console.error
+            );
+        }
         this.setState((_, props) => ({
             leftTime: this.defaultLeftTime(props.timer.isFocusing),
             percent: 0,
@@ -835,7 +848,11 @@ class Timer extends Component<Props, State> {
         this.props.setSessionEnding(true);
         this.props.pauseTimer();
         this.props.changeAppTab('timer');
-        this.resetStat();
+        // Leave the confirming disc (session color + fruit) on the tray, not
+        // the app icon -- mirroring MiniLogger's confirming dial. `isFocusing`
+        // is still the session that just ended here: `timerFinished` (which
+        // flips it) only runs on confirm.
+        this.resetStat({ confirming: true, isFocusing: this.props.timer.isFocusing });
         if (shouldRemind) {
             this.focusOnCurrentWindow();
             this.remindUserTimeout(0);
@@ -1010,6 +1027,11 @@ class Timer extends Component<Props, State> {
         if (startNextSession !== undefined) {
             await new Promise((r) => setTimeout(r, 30));
             startNextSession();
+        } else {
+            // Confirmed with no follow-up session: the tray was showing the
+            // confirming disc -- put the idle app icon back. (A follow-up
+            // start paints its own running icon via `updateLeftTime`.)
+            this.resetStat();
         }
     }, 50);
 
@@ -1196,6 +1218,10 @@ class Timer extends Component<Props, State> {
         this.extendedTimeInMinute += minutes;
         this.props.extendCurrentSession(minutes * 60);
         this.props.setSessionEnding(false);
+        // The 500ms `updateLeftTime` tick repaints the running icon (the
+        // post-extend remainder differs from the confirming reset's default,
+        // so its minute-slice check passes); this frame just gets there first.
+        requestAnimationFrame(this.updateLeftTime);
     };
 
     private onFinishButtonClick = async () => {

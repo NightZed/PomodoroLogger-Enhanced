@@ -12,7 +12,7 @@ import styled from 'styled-components';
 import { fatScrollBar } from '../../style/scrollbar';
 import Hotkeys from '../Hotkeys';
 import { formatTimeYmdHms } from './Timeline';
-import { EChartOption } from 'echarts';
+import { EChartsOption } from 'echarts';
 import { ThemeTokens } from '../../theme/tokens';
 import { useThemeTokens } from '../../theme/useThemeTokens';
 
@@ -254,7 +254,7 @@ const getLinkAndNode = (
     };
 };
 
-const getOption = (props: Props, tokens: ThemeTokens): EChartOption => {
+const getOption = (props: Props, tokens: ThemeTokens): EChartsOption => {
     const data = getLinkAndNode(props.record!, props.efficiencyAnalyser, props.showSwitch);
     return {
         title: {
@@ -327,29 +327,21 @@ const getOption = (props: Props, tokens: ThemeTokens): EChartOption => {
                     },
                 ],
                 label: {
-                    normal: {
-                        textStyle: {
-                            color: tokens.text,
-                            fontFamily: 'Arial',
-                            fontSize: 14,
-                        },
-                    },
+                    color: tokens.text,
+                    fontFamily: 'Arial',
+                    fontSize: 14,
                 },
                 lineStyle: {
-                    normal: {
-                        color: 'target',
-                        curveness: 0.5,
-                    },
+                    color: 'target',
+                    curveness: 0.5,
                 },
                 itemStyle: {
-                    normal: {
-                        color: '#1f77b4',
-                        borderColor: '#1f77b4',
-                    },
+                    color: '#1f77b4',
+                    borderColor: '#1f77b4',
                 },
             },
         ],
-    } as any;
+    };
 };
 
 export const PomodoroSankey = (props: Props) => {

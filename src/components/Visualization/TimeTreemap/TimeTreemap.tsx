@@ -1,4 +1,4 @@
-import { EChartOption } from 'echarts';
+import { EChartsOption, SeriesOption } from 'echarts';
 import ReactEcharts from 'echarts-for-react';
 import * as React from 'react';
 import { ThemeTokens } from '../../../renderer/theme/tokens';
@@ -65,7 +65,7 @@ function treemapSeries(
     data: { name: string; value: number }[],
     position: { left: number | string; top: number; right: number | string; bottom: number },
     tokens: ThemeTokens
-): EChartOption.Series {
+): SeriesOption {
     return {
         name,
         type: 'treemap',
@@ -98,7 +98,7 @@ function treemapSeries(
 /**
  * Exported for tests; the component itself only wires it to echarts-for-react.
  */
-export function getOption(props: Props, tokens: ThemeTokens): EChartOption {
+export function getOption(props: Props, tokens: ThemeTokens): EChartsOption {
     const projectTotal = sumHours(props.projectData);
     const appTotal = sumHours(props.appData);
     const panelTitle = {
@@ -160,11 +160,11 @@ export function getOption(props: Props, tokens: ThemeTokens): EChartOption {
 export const TimeTreemap: React.FC<Props> = (props: Props) => {
     const { tokens } = useThemeTokens();
     const { projectData, appData, onProjectClick } = props;
-    const [option, setOption] = React.useState(() => getOption(props, tokens));
     const { width = 800, height = 400 } = props;
-    React.useEffect(() => {
-        setOption(getOption({ projectData, appData }, tokens));
-    }, [projectData, appData, tokens]);
+    const option = React.useMemo(
+        () => getOption({ projectData, appData }, tokens),
+        [projectData, appData, tokens]
+    );
 
     // Only the project panel filters the view; app blocks are informational.
     const onEvents = React.useMemo(

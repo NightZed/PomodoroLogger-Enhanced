@@ -112,8 +112,6 @@ module.exports = merge(baseConfig, {
         })
     ],
     resolve: {
-        alias: {
-            echarts$: 'echarts/lib/echarts.js',
-        }
+        alias: {}
     }
 });

@@ -1,6 +1,8 @@
 ```tsx
 import { DualPieChart } from './DualPieChart';
 
+// Compatibility name retained; this renders the dual treemap visualisation.
+
 <DualPieChart
     appData={[
         { name: 'B', value: 12 },

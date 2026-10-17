@@ -220,7 +220,7 @@
         "react-trend": "zxch3n/react-trend",
         "redux": "^4.0.1",
         "redux-devtools-extension": "^2.13.5",
-        "redux-thunk": "^2.3.0",
+        "redux-thunk": "^3.1.0",
         "sass": "^1.105.1",
         "sass-loader": "^17.0.1",
         "semantic-release": "^25.0.9",

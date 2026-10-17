@@ -17,7 +17,7 @@ updates:
       timezone: Asia/Shanghai
     # Headroom for the grouped minor/patch PR plus individually reviewed
     # major bumps. Security-update PRs never count against this limit.
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 15
     commit-message:
       # Merges become "chore(deps): bump ..." / "chore(deps-dev): bump ..." --
       # Conventional Commits friendly, and chore never triggers a

@@ -2,14 +2,14 @@ import * as React from 'react';
 import { PomodoroRecord } from '../../monitor/type';
 import { getTimeSpentDataFromRecords, TimeSpentData } from '../History/op';
 import { Loading } from '../utils/Loading';
-import { DualPieChart, Props } from '../../../components/Visualization/DualPieChart';
+import { TimeTreemap, Props } from '../../../components/Visualization/TimeTreemap';
 
-interface PomodoroPieChartProps extends Partial<Props> {
+interface PomodoroTimeTreemapProps extends Partial<Props> {
     pomodoros: PomodoroRecord[];
 }
 
-export const PomodoroDualPieChart: React.FC<PomodoroPieChartProps> = (
-    props: PomodoroPieChartProps
+export const PomodoroTimeTreemap: React.FC<PomodoroTimeTreemapProps> = (
+    props: PomodoroTimeTreemapProps
 ) => {
     const { pomodoros, ...restProps } = props;
     const [timeSpent, setTimeSpent] = React.useState<TimeSpentData>({
@@ -27,6 +27,6 @@ export const PomodoroDualPieChart: React.FC<PomodoroPieChartProps> = (
     return isLoading ? (
         <Loading size={'large'} height={400} />
     ) : (
-        <DualPieChart {...timeSpent} {...restProps} />
+        <TimeTreemap {...timeSpent} {...restProps} />
     );
 };

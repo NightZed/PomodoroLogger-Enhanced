@@ -126,7 +126,7 @@ export function getOption(props: Props, tokens: ThemeTokens): EChartsOption {
         tooltip: {
             trigger: 'item',
             // The tooltip is rendered as HTML, so it can use the `--pl-*` CSS
-            // custom properties directly (same approach as DualPieChart).
+            // custom properties directly because the tooltip is rendered as HTML.
             formatter: tooltipFormatter(projectTotal, appTotal),
             backgroundColor: 'var(--pl-bg-elevated)',
             borderColor: 'var(--pl-border)',

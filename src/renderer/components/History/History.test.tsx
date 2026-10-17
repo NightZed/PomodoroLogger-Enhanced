@@ -16,7 +16,7 @@ jest.mock('../../workers', () => ({
 
 // The charts draw into canvases / echarts, none of which exist under jsdom.
 // TimeTreemap lives under src/components, not src/renderer/components: this
-// path used to miss the chart module (when it was DualPieChart), and the real
+// path used to miss the chart module (when it was a renderer-local chart), and the real
 // chart then mounted and blew up as soon as the calendar section became
 // visible.
 jest.mock('../Visualization/WordCloud', () => ({ WordCloud: () => null }));

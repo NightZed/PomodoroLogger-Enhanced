@@ -23,7 +23,7 @@ async function resolveBoardName(boardId: string) {
 }
 
 /**
- * Async variant used outside the worker (e.g. DualPieChart): delegates the
+ * Async variant used outside the worker (e.g. TimeTreemap): delegates the
  * counting to the shared sync core and resolves project names via the kanban DB.
  */
 export const getTimeSpentDataFromRecords = async (
@@ -63,7 +63,7 @@ export interface AggPomodoroInfo {
  * the charts, so they follow the project/year filter; card titles are not mixed in
  * because cards have no year dimension, so the word cloud follows the period.
  *
- * Kept for in-process use (tests, DualPieChart). The History view uses the
+ * Kept for in-process use (tests, TimeTreemap). The History view uses the
  * worker-side `aggHistory` op instead, so records stay inside the worker.
  */
 export async function getAggPomodoroInfo(

@@ -23,7 +23,7 @@ import { BoardActionTypes } from '../Kanban/Board/action';
 import { HelpIcon } from '../UserGuide/HelpIcon';
 import backIcon from '../../../res/back.svg';
 import { DAY_THEME_ID, NIGHT_THEME_ID } from '../../theme/tokens';
-import { PomodoroDualPieChart } from '../Visualization/DualPieChart';
+import { PomodoroTimeTreemap } from '../Visualization/PomodoroTimeTreemap';
 import { AsyncWordCloud } from '../Visualization/WordCloud';
 import {
     inferProject,
@@ -1637,7 +1637,7 @@ class Timer extends Component<Props, State> {
                         {more ? (
                             <MoreInfo>
                                 <h2>Time Spent</h2>
-                                <PomodoroDualPieChart
+                                <PomodoroTimeTreemap
                                     pomodoros={this.state.pomodorosToday}
                                     width={800}
                                 />

@@ -147,6 +147,10 @@ function treemapSeries(
         name,
         type: 'treemap',
         ...position,
+        animation: true,
+        animationDuration: 100,
+        animationDurationUpdate: 500,
+        animationEasing: 'cubicOut',
         // A statistics panel, not an explorable tree: no pan, no zoom-to-node,
         // no breadcrumb. The History view already offers its own filtering.
         roam: false,
@@ -158,6 +162,7 @@ function treemapSeries(
             formatter: labelFormatter(sumHours(displayData)),
             color: '#fff',
             fontSize: 12,
+            lineHeight: 16,
             // Palette blocks range from light green to dark red; a shadow keeps
             // the white label readable on the lighter ones. Canvas text cannot
             // resolve var(), so these are literal colors in both themes.

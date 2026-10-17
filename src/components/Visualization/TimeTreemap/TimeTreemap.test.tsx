@@ -46,6 +46,10 @@ describe('TimeTreemap option', () => {
         const [projects, apps] = option.series;
         expect(projects.type).toBe('treemap');
         expect(projects.name).toBe(PROJECT_SERIES_NAME);
+        expect(projects.animation).toBe(true);
+        expect(projects.animationDuration).toBe(100);
+        expect(projects.animationDurationUpdate).toBe(500);
+        expect(projects.animationEasing).toBe('cubicOut');
         expect(apps.type).toBe('treemap');
         expect(apps.name).toBe(APP_SERIES_NAME);
         expect(projects.squareRatio).toBeGreaterThan(1);
@@ -82,6 +86,8 @@ describe('TimeTreemap option', () => {
         const projectLabel = option.series[0].label.formatter;
         const appLabel = option.series[1].label.formatter;
 
+        expect(option.series[0].label.lineHeight).toBe(16);
+        expect(option.series[1].label.lineHeight).toBe(16);
         expect(projectLabel({ name: 'Board A', value: 30 })).toBe('Board A\n30.0 h (75.0%)');
         expect(projectLabel({ name: 'Board B', value: 10 })).toBe('Board B\n10.0 h (25.0%)');
         expect(appLabel({ name: 'Code', value: 25 })).toBe('Code\n25.0 h (62.5%)');

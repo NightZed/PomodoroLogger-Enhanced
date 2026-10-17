@@ -34,11 +34,16 @@ const nodeValue = (params: any): number =>
 /**
  * The pie's `{d}` percent placeholder is pie-series specific and stays empty
  * for treemaps, so each panel formats percentages against its own total.
+ * The hours sit next to the share so a block reads the spend without needing
+ * a hover, and they use one decimal to match the panel totals above.
  * Blocks too small for two lines get ellipsized by the treemap's built-in
  * label truncation, which is what keeps a crowded period readable.
  */
 function labelFormatter(total: number) {
-    return (params: any) => `${params.name}\n${percentOf(nodeValue(params), total).toFixed(1)}%`;
+    return (params: any) => {
+        const value = nodeValue(params);
+        return `${params.name}\n${value.toFixed(1)} h (${percentOf(value, total).toFixed(1)}%)`;
+    };
 }
 
 function tooltipFormatter(projectTotal: number, appTotal: number) {

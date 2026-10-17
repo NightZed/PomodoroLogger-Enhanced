@@ -67,14 +67,14 @@ describe('TimeTreemap option', () => {
         expect(option.title[0].subtextStyle.color).toBe(nightTokens.textSecondary);
     });
 
-    it('labels each block with its share of the panel total', () => {
+    it('labels each block with its hours and share of the panel total', () => {
         const option = getOption(props(), dayTokens) as any;
         const projectLabel = option.series[0].label.formatter;
         const appLabel = option.series[1].label.formatter;
 
-        expect(projectLabel({ name: 'Board A', value: 30 })).toBe('Board A\n75.0%');
-        expect(projectLabel({ name: 'Board B', value: 10 })).toBe('Board B\n25.0%');
-        expect(appLabel({ name: 'Code', value: 25 })).toBe('Code\n62.5%');
+        expect(projectLabel({ name: 'Board A', value: 30 })).toBe('Board A\n30.0 h (75.0%)');
+        expect(projectLabel({ name: 'Board B', value: 10 })).toBe('Board B\n10.0 h (25.0%)');
+        expect(appLabel({ name: 'Code', value: 25 })).toBe('Code\n25.0 h (62.5%)');
     });
 
     it('computes the label percent against each panel’s own total', () => {
@@ -87,15 +87,15 @@ describe('TimeTreemap option', () => {
         const projectLabel = option.series[0].label.formatter;
         const appLabel = option.series[1].label.formatter;
 
-        expect(projectLabel({ name: 'Solo', value: 20 })).toBe('Solo\n100.0%');
-        expect(appLabel({ name: 'Code', value: 25 })).toBe('Code\n62.5%');
+        expect(projectLabel({ name: 'Solo', value: 20 })).toBe('Solo\n20.0 h (100.0%)');
+        expect(appLabel({ name: 'Code', value: 25 })).toBe('Code\n25.0 h (62.5%)');
     });
 
     it('tolerates dimension-array values from the treemap tree', () => {
         const option = getOption(props(), dayTokens) as any;
 
         expect(option.series[0].label.formatter({ name: 'Board A', value: [30] })).toBe(
-            'Board A\n75.0%'
+            'Board A\n30.0 h (75.0%)'
         );
     });
 

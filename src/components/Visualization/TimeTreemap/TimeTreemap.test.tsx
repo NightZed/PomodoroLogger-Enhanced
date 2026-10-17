@@ -12,7 +12,15 @@ jest.mock('echarts-for-react', () => ({
     },
 }));
 
-import { getOption, Props, PROJECT_SERIES_NAME, APP_SERIES_NAME, TimeTreemap } from './TimeTreemap';
+import {
+    getOption,
+    getSquareRatio,
+    Props,
+    PROJECT_SERIES_NAME,
+    APP_SERIES_NAME,
+    APPLICATIONS_OTHER_NAME,
+    TimeTreemap,
+} from './TimeTreemap';
 import { dayTokens, nightTokens } from '../../../renderer/theme/tokens';
 
 const props = (overrides: Partial<Props> = {}): Props => ({
@@ -40,6 +48,8 @@ describe('TimeTreemap option', () => {
         expect(projects.name).toBe(PROJECT_SERIES_NAME);
         expect(apps.type).toBe('treemap');
         expect(apps.name).toBe(APP_SERIES_NAME);
+        expect(projects.squareRatio).toBeGreaterThan(1);
+        expect(apps.squareRatio).toBeGreaterThan(1);
         // Both panels span the full height; the right one starts where the
         // left one ends (PANEL_DIVIDE), so no space is wasted.
         expect(projects.left).toBe(0);
@@ -125,6 +135,82 @@ describe('TimeTreemap option', () => {
             '(0.0%)'
         );
     });
+
+    it('keeps all blocks, including very small ones', () => {
+        const data = [
+            { name: 'Large', value: 90 },
+            { name: 'Small A', value: 1 },
+            { name: 'Small B', value: 1 },
+        ];
+
+        const option = getOption({ ...props(), projectData: data }, dayTokens) as any;
+        expect(option.series[0].data).toEqual(data);
+        expect(option.series[1].data).toEqual(props().appData);
+    });
+
+    it('merges only small application blocks into English Others', () => {
+        const apps = [
+            { name: 'Large App', value: 90 },
+            { name: 'Small App A', value: 1 },
+            { name: 'Small App B', value: 1 },
+        ];
+        const option = getOption({ ...props(), appData: apps }, dayTokens) as any;
+
+        expect(option.series[0].data).toEqual(props().projectData);
+        expect(option.series[1].data).toEqual([
+            { name: 'Large App', value: 90 },
+            { name: APPLICATIONS_OTHER_NAME, value: 2 },
+        ]);
+    });
+
+    it('expands the application Others block inside its original node', () => {
+        const apps = [
+            { name: 'Large App', value: 90 },
+            { name: 'Small App A', value: 1 },
+            { name: 'Small App B', value: 1 },
+        ];
+        const option = getOption(
+            { ...props(), appData: apps, showAllApplications: true },
+            dayTokens
+        ) as any;
+
+        expect(option.series[1].data).toEqual([
+            {
+                name: 'Large App',
+                value: 90,
+            },
+            {
+                name: APPLICATIONS_OTHER_NAME,
+                value: 2,
+                children: [
+                    { name: 'Small App A', value: 1 },
+                    { name: 'Small App B', value: 1 },
+                ],
+            },
+        ]);
+    });
+
+    it('reduces the horizontal bias when one item dominates', () => {
+        const balanced = getSquareRatio(
+            [
+                { name: 'A', value: 50 },
+                { name: 'B', value: 50 },
+            ],
+            400,
+            300
+        );
+        const dominant = getSquareRatio(
+            [
+                { name: 'A', value: 90 },
+                { name: 'B', value: 10 },
+            ],
+            400,
+            300
+        );
+
+        expect(balanced).toBeGreaterThan(dominant);
+        expect(dominant).toBeGreaterThanOrEqual(1.15);
+    });
 });
 
 describe('TimeTreemap click wiring', () => {
@@ -150,6 +236,66 @@ describe('TimeTreemap click wiring', () => {
 
         capturedProps.onEvents.click({ seriesIndex: 1, name: 'Code' });
         expect(onProjectClick).not.toHaveBeenCalled();
+    });
+
+    it('expands the application Others block without changing top-level values', async () => {
+        const apps = [
+            { name: 'Large App', value: 90 },
+            { name: 'Small App A', value: 1 },
+            { name: 'Small App B', value: 1 },
+        ];
+        await act(async () => {
+            TestRenderer.create(<TimeTreemap {...props({ appData: apps })} />);
+        });
+
+        expect(capturedProps.option.series[1].data).toEqual([
+            { name: 'Large App', value: 90 },
+            { name: APPLICATIONS_OTHER_NAME, value: 2 },
+        ]);
+        await act(async () => {
+            capturedProps.onEvents.click({
+                seriesIndex: 1,
+                name: APPLICATIONS_OTHER_NAME,
+            });
+        });
+        expect(capturedProps.option.series[1].data).toEqual([
+            { name: 'Large App', value: 90 },
+            {
+                name: APPLICATIONS_OTHER_NAME,
+                value: 2,
+                children: [
+                    { name: 'Small App A', value: 1 },
+                    { name: 'Small App B', value: 1 },
+                ],
+            },
+        ]);
+    });
+
+    it('collapses Others when another application block is clicked', async () => {
+        const apps = [
+            { name: 'Large App', value: 90 },
+            { name: 'Small App A', value: 1 },
+            { name: 'Small App B', value: 1 },
+        ];
+        await act(async () => {
+            TestRenderer.create(<TimeTreemap {...props({ appData: apps })} />);
+        });
+
+        await act(async () => {
+            capturedProps.onEvents.click({
+                seriesIndex: 1,
+                name: APPLICATIONS_OTHER_NAME,
+            });
+        });
+        expect(capturedProps.option.series[1].data[1].children).toHaveLength(2);
+
+        await act(async () => {
+            capturedProps.onEvents.click({ seriesIndex: 1, name: 'Large App' });
+        });
+        expect(capturedProps.option.series[1].data).toEqual([
+            { name: 'Large App', value: 90 },
+            { name: APPLICATIONS_OTHER_NAME, value: 2 },
+        ]);
     });
 
     it('renders without an onProjectClick handler', async () => {

@@ -66,7 +66,7 @@ describe('History aggregating operations', () => {
         ] as [string, number][];
         const timeSpent = await op.getTimeSpentDataFromRecords([createRecord('pa', 100, appData)]);
 
-        expect(timeSpent.appData.length).toBe(10);
+        expect(timeSpent.appData.length).toBe(14);
         for (let i = 0; i < 10; i += 1) {
             expect(timeSpent.appData[i].name).toBe(appData[i][0].toUpperCase());
             expect(timeSpent.appData[i].value).toBe(appData[i][1]);

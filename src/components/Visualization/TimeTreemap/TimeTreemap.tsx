@@ -10,19 +10,88 @@ export interface Props {
     projectData: { name: string; value: number }[];
     appData: { name: string; value: number }[];
     onProjectClick?: (project: string) => void;
+    showAllApplications?: boolean;
+}
+
+interface TreemapItem {
+    name: string;
+    value: number;
+    children?: TreemapItem[];
 }
 
 export const PROJECT_SERIES_NAME = 'Project Hours';
 export const APP_SERIES_NAME = 'Application Hours';
+export const APPLICATIONS_OTHER_NAME = 'Others';
 /** The two panels meet here: each one spans 49% with a 2% gutter between. */
 const PANEL_DIVIDE = '51%';
 /** Below the two title/subtitle blocks. */
 const PANEL_TOP = 44;
+const MIN_READABLE_AREA = 2200;
+const MIN_SQUARE_RATIO = 1.15;
+const MAX_SQUARE_RATIO = 2.25;
 
 const sumHours = (data: { value: number }[]): number =>
     data.reduce((sum, item) => sum + item.value, 0);
 
 const percentOf = (value: number, total: number): number => (total > 0 ? (value / total) * 100 : 0);
+
+const clamp = (value: number, min: number, max: number): number =>
+    Math.min(max, Math.max(min, value));
+
+function getApplicationDisplayData(
+    data: { name: string; value: number }[],
+    width: number,
+    height: number,
+    showAll: boolean
+): TreemapItem[] {
+    if (data.length < 2 || width <= 0 || height <= 0) {
+        return data;
+    }
+
+    const total = sumHours(data);
+    const minimumShare = total > 0 ? MIN_READABLE_AREA / (width * height) : 0;
+    const visible: TreemapItem[] = [];
+    let otherValue = 0;
+
+    for (const item of data) {
+        if (item.value / total < minimumShare) {
+            otherValue += item.value;
+        } else {
+            visible.push(item);
+        }
+    }
+
+    if (otherValue === 0) {
+        return data;
+    }
+
+    return [
+        ...visible,
+        {
+            name: APPLICATIONS_OTHER_NAME,
+            value: otherValue,
+            ...(showAll
+                ? {
+                      children: data.filter((item) => item.value / total < minimumShare),
+                  }
+                : {}),
+        },
+    ];
+}
+
+export function getSquareRatio(
+    data: { name: string; value: number }[],
+    width: number,
+    height: number
+): number {
+    const total = sumHours(data);
+    const largestShare = total > 0 ? Math.max(...data.map((item) => item.value)) / total : 0;
+    const panelAspect = height > 0 ? width / height : 1;
+    const aspectBias = clamp(panelAspect, 0.75, 2.5) * 0.3;
+    const dominantBlockPenalty = largestShare * 0.8;
+
+    return clamp(1.25 + aspectBias - dominantBlockPenalty, MIN_SQUARE_RATIO, MAX_SQUARE_RATIO);
+}
 
 /**
  * `params.value` is the raw data value, which a treemap node may carry as a
@@ -64,8 +133,16 @@ function treemapSeries(
     name: string,
     data: { name: string; value: number }[],
     position: { left: number | string; top: number; right: number | string; bottom: number },
-    tokens: ThemeTokens
+    tokens: ThemeTokens,
+    width: number,
+    height: number,
+    showAllApplications = false
 ): SeriesOption {
+    const displayData =
+        name === APP_SERIES_NAME
+            ? getApplicationDisplayData(data, width, height, showAllApplications)
+            : data;
+
     return {
         name,
         type: 'treemap',
@@ -75,9 +152,10 @@ function treemapSeries(
         roam: false,
         nodeClick: false,
         breadcrumb: { show: false },
+        squareRatio: getSquareRatio(displayData, width, height),
         label: {
             show: true,
-            formatter: labelFormatter(sumHours(data)),
+            formatter: labelFormatter(sumHours(displayData)),
             color: '#fff',
             fontSize: 12,
             // Palette blocks range from light green to dark red; a shadow keeps
@@ -91,7 +169,7 @@ function treemapSeries(
             borderColor: tokens.bg,
             borderWidth: 1,
         },
-        data,
+        data: displayData,
     };
 }
 
@@ -99,6 +177,10 @@ function treemapSeries(
  * Exported for tests; the component itself only wires it to echarts-for-react.
  */
 export function getOption(props: Props, tokens: ThemeTokens): EChartsOption {
+    const width = props.width ?? 800;
+    const height = props.height ?? 400;
+    const panelWidth = width * 0.49;
+    const panelHeight = Math.max(0, height - PANEL_TOP);
     const projectTotal = sumHours(props.projectData);
     const appTotal = sumHours(props.appData);
     const panelTitle = {
@@ -140,13 +222,18 @@ export function getOption(props: Props, tokens: ThemeTokens): EChartsOption {
                 PROJECT_SERIES_NAME,
                 props.projectData,
                 { left: 0, top: PANEL_TOP, right: PANEL_DIVIDE, bottom: 0 },
-                tokens
+                tokens,
+                panelWidth,
+                panelHeight
             ),
             treemapSeries(
                 APP_SERIES_NAME,
                 props.appData,
                 { left: PANEL_DIVIDE, top: PANEL_TOP, right: 0, bottom: 0 },
-                tokens
+                tokens,
+                panelWidth,
+                panelHeight,
+                props.showAllApplications
             ),
         ],
     };
@@ -161,9 +248,10 @@ export const TimeTreemap: React.FC<Props> = (props: Props) => {
     const { tokens } = useThemeTokens();
     const { projectData, appData, onProjectClick } = props;
     const { width = 800, height = 400 } = props;
+    const [showAllApplications, setShowAllApplications] = React.useState(false);
     const option = React.useMemo(
-        () => getOption({ projectData, appData }, tokens),
-        [projectData, appData, tokens]
+        () => getOption({ projectData, appData, width, height, showAllApplications }, tokens),
+        [projectData, appData, width, height, showAllApplications, tokens]
     );
 
     // Only the project panel filters the view; app blocks are informational.
@@ -172,6 +260,9 @@ export const TimeTreemap: React.FC<Props> = (props: Props) => {
             click: (params: any) => {
                 if (params.seriesIndex === 0 && onProjectClick) {
                     onProjectClick(String(params.name));
+                }
+                if (params.seriesIndex === 1) {
+                    setShowAllApplications(params.name === APPLICATIONS_OTHER_NAME);
                 }
             },
         }),

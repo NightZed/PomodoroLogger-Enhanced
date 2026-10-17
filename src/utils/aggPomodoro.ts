@@ -86,10 +86,9 @@ export function getTimeSpentDataFromRecordsSync(
         }
     }
 
-    const projectData = projectTimeCounter.getNameValuePairs({
-        toFixed: 2,
-        topK: 10,
-    });
+    const projectData = projectTimeCounter
+        .getNameValuePairs({ toFixed: 2 })
+        .sort((a, b) => b.value - a.value);
     for (const v of projectData) {
         if (v.name === UNK) {
             v.name = 'Unknown';
@@ -100,7 +99,8 @@ export function getTimeSpentDataFromRecordsSync(
     }
 
     const appData = appTimeCounter
-        .getNameValuePairs({ toFixed: 2, topK: 10, minRatio: 0.01 })
+        .getNameValuePairs({ toFixed: 2 })
+        .sort((a, b) => b.value - a.value)
         .map((v) => ({ ...v, name: getBetterAppName(v.name) }));
 
     return {

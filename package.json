@@ -170,7 +170,7 @@
         "@types/redux-thunk": "^2.1.0",
         "@types/styled-components": "^5.1.24",
         "@types/webpack-env": "^1.18.8",
-        "antd": "^3.19.7",
+        "antd": "^5.29.3",
         "babel-loader": "^10.1.1",
         "classnames": "^2.5.1",
         "codecov": "^3.5.0",

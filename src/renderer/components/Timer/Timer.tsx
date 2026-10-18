@@ -187,6 +187,11 @@ const ButtonRow = styled.div`
 
 const MoreInfo = styled.div`
     margin: 10px auto;
+    /* The treemap and word cloud are fixed at 800px, narrower than the 850px
+       timer column, so the block needs a cap for the auto margins to center
+       it. This also keeps the h2 headings aligned with the charts' left edge.
+       Below 800px the block collapses to the column width as before. */
+    max-width: 800px;
 `;
 
 const ThemeToggleRow = styled.div`

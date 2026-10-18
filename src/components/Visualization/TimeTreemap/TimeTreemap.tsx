@@ -33,6 +33,12 @@ const PANEL_TOP = 44;
 const MIN_READABLE_AREA = 2200;
 const MIN_SQUARE_RATIO = 1.15;
 const MAX_SQUARE_RATIO = 2.25;
+/**
+ * Corner radius, in canvas pixels, for every treemap block. Must stay above
+ * `borderWidth` (1px) so the rounded corner is not eaten by the page-colored
+ * seam; blocks too small for it are clamped by zrender, never distorted.
+ */
+export const BLOCK_RADIUS = 4;
 const sumHours = (data: { value: number }[]): number =>
     data.reduce((sum, item) => sum + item.value, 0);
 
@@ -184,6 +190,9 @@ function treemapSeries(
             // Page-colored seams between the blocks read as gaps in both themes.
             borderColor: tokens.bg,
             borderWidth: 1,
+            // Rounded corners on every block; ECharts clamps the radius on
+            // blocks narrower than 2x the radius, so tiny ones stay intact.
+            borderRadius: BLOCK_RADIUS,
         },
         data: displayData,
     };

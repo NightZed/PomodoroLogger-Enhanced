@@ -19,6 +19,7 @@ import {
     PROJECT_SERIES_NAME,
     APP_SERIES_NAME,
     APPLICATIONS_OTHER_NAME,
+    BLOCK_RADIUS,
     TimeTreemap,
 } from './TimeTreemap';
 import { dayTokens, nightTokens } from '../../../renderer/theme/tokens';
@@ -68,6 +69,10 @@ describe('TimeTreemap option', () => {
         expect(apps.right).toBe(0);
         for (const series of option.series) {
             expect(series.bottom).toBe(0);
+            // Rounded blocks; the radius sits above the 1px seam so corners
+            // still read as round against the page-colored gap.
+            expect(series.itemStyle.borderWidth).toBe(1);
+            expect(series.itemStyle.borderRadius).toBe(BLOCK_RADIUS);
             // Not an explorable tree: no pan/zoom/breadcrumb on a stats panel.
             expect(series.roam).toBe(false);
             expect(series.nodeClick).toBe(false);

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Button, Card, Col, Row, Select, Statistic } from 'antd';
+import { Button, Card, Col, ConfigProvider, Row, Select, Statistic } from 'antd';
 import { HistoryActionCreatorTypes, HistoryState } from './action';
 import {
     GridCalendar,
@@ -62,6 +62,10 @@ const Container = styled.div`
     height: calc(100vh - 45px);
     ${fatScrollBar}
 
+    & .history-month-filter.ant-select-disabled .ant-select-selector {
+        background-color: var(--pl-bg-sunken) !important;
+    }
+
     & .visible-pomodoros-view {
         transform-origin: 0 0;
         transition: transform 150ms;
@@ -115,23 +119,32 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
     const [errorMsg, setErrorMsg] = useState<string | undefined>(undefined);
     // Bumped by the retry button to re-run the aggregation effect as is.
     const [reloadToken, setReloadToken] = useState(0);
-    const container = useRef<HTMLDivElement>();
+    const container = useRef<HTMLDivElement | null>(null);
     const [calendarWidth, setCalendarWidth] = useState(document.body.clientWidth - 40);
 
     const resizeEffect = () => {
-        const setWidth = debounce(() => {
-            const w = !container.current
-                ? 800
-                : container.current.clientWidth > 1060
-                ? 1000
-                : container.current.clientWidth - 60;
-            setCalendarWidth(w);
+        const measure = debounce(() => {
+            const measuredWidth = container.current?.clientWidth ?? 800;
+            if (measuredWidth <= 0) {
+                return;
+            }
+
+            setCalendarWidth(measuredWidth > 1060 ? 1000 : measuredWidth - 60);
         }, 200);
-        setWidth();
-        window.addEventListener('resize', setWidth);
+        measure();
+        window.addEventListener('resize', measure);
+
+        const element = container.current;
+        let observer: ResizeObserver | undefined;
+        if (element && typeof ResizeObserver !== 'undefined') {
+            observer = new ResizeObserver(() => measure());
+            observer.observe(element);
+        }
+
         return () => {
-            setWidth.cancel();
-            window.removeEventListener('resize', setWidth);
+            measure.cancel();
+            observer?.disconnect();
+            window.removeEventListener('resize', measure);
         };
     };
 
@@ -402,25 +415,27 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
 
     return (
         <Container>
-            <SubContainer ref={container as any}>
+            <SubContainer ref={container}>
                 <Row style={{ marginBottom: 20, display: 'flex', alignItems: 'center' }}>
-                    <Select
-                        onChange={onChange}
-                        value={props.chosenId}
-                        style={{ width: 200 }}
-                        placeholder={'Set Project Filter'}
-                    >
-                        <Option value="" key="all-projects">
-                            All Projects
-                        </Option>
-                        {sortedBoards.map((v) => {
-                            return (
-                                <Option value={v._id} key={v._id}>
-                                    {v.name}
-                                </Option>
-                            );
-                        })}
-                    </Select>
+                    <ConfigProvider theme={{ token: { motionDurationMid: '120ms' } }}>
+                        <Select
+                            onChange={onChange}
+                            value={props.chosenId}
+                            style={{ width: 200 }}
+                            placeholder={'Set Project Filter'}
+                        >
+                            <Option value="" key="all-projects">
+                                All Projects
+                            </Option>
+                            {sortedBoards.map((v) => {
+                                return (
+                                    <Option value={v._id} key={v._id}>
+                                        {v.name}
+                                    </Option>
+                                );
+                            })}
+                        </Select>
+                    </ConfigProvider>
                     {/* Short enough that the month picker fits beside it without
                         pushing the badges around. */}
                     <Select
@@ -450,6 +465,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                         }
                         value={chosenMonth}
                         disabled={chosenYear === ALL_TIME}
+                        className="history-month-filter"
                         style={{ width: 70, marginLeft: 10 }}
                     >
                         <Option value={ALL_MONTHS} key="all-months">

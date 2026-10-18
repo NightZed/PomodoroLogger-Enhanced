@@ -1,4 +1,5 @@
 import { Button } from 'antd';
+import { AntdIcon as Icon } from '../../../renderer/components/antdIcon';
 import React from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import { PomodoroRecord } from '../../../renderer/monitor/type';
@@ -361,28 +362,48 @@ export class MiniLogger extends React.Component<Props> {
             <>
                 <Button
                     size="small"
-                    icon="caret-right"
+                    icon={<Icon type="caret-right" />}
                     onClick={confirmAndStartNextSession}
                     title="Start Next Session"
                 />
-                <Button size="small" icon="check" title="Finish" onClick={this.props.confirm} />
+                <Button
+                    size="small"
+                    icon={<Icon type="check" />}
+                    title="Finish"
+                    onClick={this.props.confirm}
+                />
             </>
         ) : (
             <>
                 {isRunning ? (
-                    <Button size="small" icon="pause" title="Pause (F6)" onClick={pause} />
+                    <Button
+                        size="small"
+                        icon={<Icon type="pause" />}
+                        title="Pause (F6)"
+                        onClick={pause}
+                    />
                 ) : (
-                    <Button size="small" icon="caret-right" title="Start (F5)" onClick={play} />
+                    <Button
+                        size="small"
+                        icon={<Icon type="caret-right" />}
+                        title="Start (F5)"
+                        onClick={play}
+                    />
                 )}
                 {/* `hasSession`, not `percentage`: see its documentation -- the
                     percentage is throttled, so it cannot tell "no session" from
                     "a session that has not reached 2% yet". */}
                 {hasSession ? (
-                    <Button size="small" icon="check" title="Finish" onClick={this.props.finish} />
+                    <Button
+                        size="small"
+                        icon={<Icon type="check" />}
+                        title="Finish"
+                        onClick={this.props.finish}
+                    />
                 ) : (
                     <Button
                         size="small"
-                        icon="swap"
+                        icon={<Icon type="swap" />}
                         title="Switch Mode (Tab)"
                         onClick={this.props.switch}
                     />
@@ -418,14 +439,14 @@ export class MiniLogger extends React.Component<Props> {
                 <>
                     <Button
                         size="small"
-                        icon="close"
+                        icon={<Icon type="close" />}
                         title="Stop"
                         onClick={this.props.stop}
                         disabled={isConfirming}
                     />
                     <Button
                         size="small"
-                        icon="fullscreen"
+                        icon={<Icon type="fullscreen" />}
                         title="Expand (F12)"
                         onClick={this.props.expand}
                     />

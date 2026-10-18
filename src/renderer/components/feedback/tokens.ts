@@ -10,12 +10,19 @@ import { FeedbackKind } from './type';
  * `theme/tokens.ts` stays about colors, this file stays about feedback.
  */
 
-/** antd 3 icon name per kind. */
-export const FEEDBACK_ICONS: { [K in FeedbackKind]: string } = {
-    info: 'info-circle',
-    success: 'check-circle',
-    warning: 'exclamation-circle',
-    error: 'close-circle',
+import {
+    CheckCircleOutlined,
+    CloseCircleOutlined,
+    ExclamationCircleOutlined,
+    InfoCircleOutlined,
+} from '@ant-design/icons';
+
+/** antd icon component per kind (antd v5: no more `Icon type=` strings). */
+export const FEEDBACK_ICONS: { [K in FeedbackKind]: typeof InfoCircleOutlined } = {
+    info: InfoCircleOutlined,
+    success: CheckCircleOutlined,
+    warning: ExclamationCircleOutlined,
+    error: CloseCircleOutlined,
 };
 
 /**

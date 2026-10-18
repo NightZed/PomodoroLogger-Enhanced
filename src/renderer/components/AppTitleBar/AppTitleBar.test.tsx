@@ -4,7 +4,7 @@
  * contract down: a page the hotkeys can reach but the bar does not declare shows
  * up as a blank tab, which is what 'setting' + Ctrl+Tab used to do.
  *
- * They run on a bare react-test-renderer rather than on the DOM: antd 3 has no
+ * They run on a bare react-test-renderer rather than on the DOM: antd has no
  * `data-node-key` attribute to query, and the tab bar reads pixel geometry off
  * its host refs while it mounts (jsdom reports nothing for that). The panes are
  * read off the `Tabs` element instead, which is the declaration the hotkeys have
@@ -22,11 +22,11 @@ import AppTitleBar from './AppTitleBar';
 (window as any).api = { windowAction: jest.fn(), windowDrag: jest.fn() };
 
 /**
- * Fake DOM node for antd 3's tab bar.
+ * Fake DOM node for the tab bar.
  *
  * `react-test-renderer` hands `null` to host-element refs unless a
- * `createNodeMock` is supplied, and rc-tabs (the tabs implementation behind
- * antd 3) reads geometry off those refs while it mounts: it measures the ink bar
+ * `createNodeMock` is supplied, and rc-tabs reads geometry off those refs while
+ * it mounts: it measures the ink bar
  * (`style`, `offsetWidth`), the scroll container and the tab nodes. All zeros
  * here are enough for it to render, and they keep the test about which pages the
  * bar declares instead of about pixel measurements.
@@ -57,13 +57,14 @@ const build = (
     currentTab: tabType,
     onTabChange: (tab: tabType) => void,
     sessionEnding = false,
-    maximized = false
+    maximized = false,
+    compact = false
 ) =>
     TestRenderer.create(
         <AppTitleBar
             currentTab={currentTab}
             minimize={false}
-            compact={false}
+            compact={compact}
             maximized={maximized}
             sessionEnding={sessionEnding}
             onTabChange={onTabChange}
@@ -96,7 +97,7 @@ const pointerDownEvent = () => ({
     pointerId: 7,
     // `isDragSurface` walks up with `closest`: inside the bar, outside the
     // entries. See dragRegion.test.ts for the real element structure.
-    target: { closest: (selector: string) => (selector.includes('tabs-bar') ? {} : null) },
+    target: { closest: (selector: string) => (selector === '.ant-tabs-nav' ? {} : null) },
     currentTarget: { setPointerCapture: jest.fn() },
     preventDefault: jest.fn(),
 });
@@ -111,22 +112,19 @@ const pointerDownEvent = () => ({
  * What the hotkeys have to stay within is the set of *declared* pages.
  */
 const declaredTabs = (renderer: TestRenderer.ReactTestRenderer) => {
-    const panes = React.Children.toArray(renderer.root.findByType(Tabs).props.children) as Array<
-        React.ReactElement<{
-            tab: React.ReactElement<{ title: string; 'data-tour'?: string }>;
-            forceRender?: boolean;
-            disabled?: boolean;
-        }>
-    >;
+    const items = renderer.root.findByType(Tabs).props.items as Array<{
+        key: string;
+        label: React.ReactElement<{ title: string; 'data-tour'?: string }>;
+        forceRender?: boolean;
+        disabled?: boolean;
+    }>;
 
-    return panes.map((pane) => ({
-        // `React.Children.toArray` prefixes the key of a child element ('.$timer'),
-        // so strip it back to the page name the hotkeys rotate through.
-        key: String(pane.key).replace(/^\.\$/, ''),
-        title: pane.props.tab.props.title,
-        tourKey: pane.props.tab.props['data-tour'],
-        forceRender: pane.props.forceRender,
-        disabled: pane.props.disabled,
+    return items.map((item) => ({
+        key: item.key,
+        title: item.label.props.title,
+        tourKey: item.label.props['data-tour'],
+        forceRender: item.forceRender,
+        disabled: item.disabled,
     }));
 };
 
@@ -143,6 +141,10 @@ describe('AppTitleBar', () => {
 
             const pane = declaredTabs(renderer).find((tab) => tab.key === key);
             expect(pane).toBeDefined();
+            expect(renderer.root.findByType(Tabs).props.animated).toEqual({
+                inkBar: true,
+                tabPane: false,
+            });
             expect(pane?.title).toBe(title);
             // The marker attributes of the guided tour and the mounted-ness of
             // the page travel with the tab, so both come from the same list.
@@ -170,6 +172,19 @@ describe('AppTitleBar', () => {
             current = nextTabKey(current, 1);
             expect(declaredTabs(renderer).map((tab) => tab.key)).toContain(current);
         }
+
+        unmount(renderer);
+    });
+
+    it('centers each compact icon without an individual offset', () => {
+        const renderer = build('timer', () => undefined, false, false, true);
+        const items = renderer.root.findByType(Tabs).props.items;
+        const firstIcon = items[0].label.props.children[0];
+        const secondIcon = items[1].label.props.children[0];
+
+        expect(items[0].label.props.style).toMatchObject({ justifyContent: 'center' });
+        expect(firstIcon.props.style).toBeUndefined();
+        expect(secondIcon.props.style).toBeUndefined();
 
         unmount(renderer);
     });

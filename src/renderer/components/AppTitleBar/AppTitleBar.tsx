@@ -1,4 +1,5 @@
-import { Icon, Tabs } from 'antd';
+import { ConfigProvider, Tabs } from 'antd';
+import { AntdIcon as Icon } from '../antdIcon';
 import * as React from 'react';
 import styled from 'styled-components';
 import { tabType } from '../Timer/action';
@@ -29,24 +30,13 @@ interface Props {
 }
 
 const TitleBar = styled.div<{ compact: boolean; maximized: boolean; sessionEnding: boolean }>`
-    .ant-tabs-bar {
+    .ant-tabs-nav {
         position: relative;
+        margin: 0 !important;
         border-bottom: 0 !important;
     }
 
-    /* Keep the divider independent from antd's tab/extra-content layout so it
-       spans the complete window width, including below the window controls. */
-    .ant-tabs-bar::after {
-        content: '';
-        position: absolute;
-        right: 0;
-        bottom: 0;
-        left: 0;
-        height: 1px;
-        background-color: var(--pl-border);
-        pointer-events: none;
-    }
-
+    .ant-tabs-content-holder,
     .ant-tabs-content,
     .ant-tabs-tabpane {
         -webkit-app-region: no-drag;
@@ -58,7 +48,7 @@ const TitleBar = styled.div<{ compact: boolean; maximized: boolean; sessionEndin
        opacity once and differ only in their base color. Painting it here as
        well would apply the opacity a second time on top of the band and make
        the header denser than the page. */
-    .ant-tabs-bar {
+    .ant-tabs-nav {
         margin: 0;
         height: ${TITLE_BAR_HEIGHT}px;
         box-sizing: border-box;
@@ -80,9 +70,8 @@ const TitleBar = styled.div<{ compact: boolean; maximized: boolean; sessionEndin
     }
 
     .ant-tabs-nav,
-    .ant-tabs-nav-container,
     .ant-tabs-nav-wrap,
-    .ant-tabs-nav-scroll {
+    .ant-tabs-nav-list {
         background-color: transparent !important;
     }
 
@@ -94,14 +83,9 @@ const TitleBar = styled.div<{ compact: boolean; maximized: boolean; sessionEndin
         background-color: transparent !important;
     }
 
-    .ant-tabs-nav-container,
     .ant-tabs-nav-wrap,
-    .ant-tabs-nav-scroll {
+    .ant-tabs-nav-list {
         height: ${TITLE_BAR_HEIGHT}px;
-    }
-
-    .ant-tabs-nav-container {
-        line-height: ${TITLE_BAR_HEIGHT}px;
     }
 
     .ant-tabs-nav {
@@ -152,20 +136,15 @@ const TitleBar = styled.div<{ compact: boolean; maximized: boolean; sessionEndin
     ${({ compact }) =>
         compact
             ? `
-                .ant-tabs-bar {
+                .ant-tabs-nav {
                     height: ${COMPACT_TITLE_BAR_HEIGHT}px !important;
                     margin: 0 !important;
                     padding: 0 !important;
                     box-sizing: border-box;
                 }
-                .ant-tabs-nav-container,
                 .ant-tabs-nav-wrap,
-                .ant-tabs-nav-scroll {
+                .ant-tabs-nav-list {
                     height: ${COMPACT_TITLE_BAR_HEIGHT}px !important;
-                }
-                .ant-tabs-nav-container {
-                    margin: 0 !important;
-                    line-height: ${COMPACT_TITLE_BAR_HEIGHT}px !important;
                 }
                 .ant-tabs-nav {
                     height: ${COMPACT_TITLE_BAR_HEIGHT}px;
@@ -181,6 +160,13 @@ const TitleBar = styled.div<{ compact: boolean; maximized: boolean; sessionEndin
                     line-height: ${COMPACT_TITLE_BAR_HEIGHT}px;
                     text-align: center;
                     box-sizing: border-box;
+                }
+                .ant-tabs-nav .ant-tabs-tab-btn {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 100%;
+                    height: 100%;
                 }
                 .ant-tabs-ink-bar {
                     bottom: 0 !important;
@@ -205,15 +191,13 @@ const TitleBar = styled.div<{ compact: boolean; maximized: boolean; sessionEndin
     ${({ sessionEnding }) =>
         sessionEnding
             ? `
-                .ant-tabs-nav-container {
+                .ant-tabs-nav {
                     pointer-events: none;
                     opacity: 0.4;
                 }
             `
             : ''}
 `;
-
-const { TabPane } = Tabs;
 
 const AppTitleBar: React.FC<Props> = ({
     currentTab,
@@ -310,39 +294,38 @@ const AppTitleBar: React.FC<Props> = ({
             onPointerUp={endWindowDrag}
             onPointerCancel={endWindowDrag}
         >
-            <Tabs
-                activeKey={minimize ? 'timer' : currentTab}
-                onChange={(tabKey) => {
-                    // Guarded, not only greyed: the tab entries are already
-                    // disabled while the mask is up (see below), and this keeps
-                    // every other path into `activeKey` honest as well. See
-                    // `TimerState.sessionEnding` for why.
-                    if (!sessionEnding) {
-                        onTabChange(tabKey as tabType);
+            <ConfigProvider theme={{ token: { motionDurationSlow: '120ms' } }}>
+                <Tabs
+                    activeKey={minimize ? 'timer' : currentTab}
+                    animated={{ inkBar: true, tabPane: false }}
+                    onChange={(tabKey) => {
+                        // Guarded, not only greyed: the tab entries are already
+                        // disabled while the mask is up (see below), and this keeps
+                        // every other path into `activeKey` honest as well. See
+                        // `TimerState.sessionEnding` for why.
+                        if (!sessionEnding) {
+                            onTabChange(tabKey as tabType);
+                        }
+                    }}
+                    tabBarExtraContent={
+                        minimize ? null : (
+                            <WindowControls
+                                compact={compact}
+                                maximized={maximized}
+                                alwaysOnTop={alwaysOnTop}
+                                onToggleAlwaysOnTop={onToggleAlwaysOnTop}
+                            />
+                        )
                     }
-                }}
-                tabBarExtraContent={
-                    minimize ? null : (
-                        <WindowControls
-                            compact={compact}
-                            maximized={maximized}
-                            alwaysOnTop={alwaysOnTop}
-                            onToggleAlwaysOnTop={onToggleAlwaysOnTop}
-                        />
-                    )
-                }
-            >
-                {APP_TABS.map(({ key, title, icon, tourKey, forceRender }) => (
-                    <TabPane
-                        key={key}
-                        tab={tab(title, icon, tourKey)}
-                        forceRender={forceRender}
-                        disabled={sessionEnding}
-                    >
-                        {pages[key]}
-                    </TabPane>
-                ))}
-            </Tabs>
+                    items={APP_TABS.map(({ key, title, icon, tourKey, forceRender }) => ({
+                        key,
+                        label: tab(title, icon, tourKey),
+                        children: pages[key],
+                        forceRender,
+                        disabled: sessionEnding,
+                    }))}
+                />
+            </ConfigProvider>
         </TitleBar>
     );
 };

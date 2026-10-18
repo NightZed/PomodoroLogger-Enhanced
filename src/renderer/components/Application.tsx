@@ -1,4 +1,4 @@
-import 'antd/dist/antd.css';
+import 'antd/dist/reset.css';
 import { ipcRenderer } from 'electron';
 import * as React from 'react';
 import { batch } from 'react-redux';
@@ -27,7 +27,10 @@ import AppTitleBar from './AppTitleBar/AppTitleBar';
 import { titleBarBandHeight } from './AppTitleBar/tokens';
 import { nextTabKey, planTabChange } from './appTabs';
 import { getPopupContainer, POPUP_CONTAINER_ID } from './popupLayer';
-import { ConfigProvider } from 'antd';
+import { App as AntdApp, ConfigProvider, theme as antdTheme } from 'antd';
+import { APP_FONT_FAMILY } from '../theme/tokens';
+import { useThemeTokens } from '../theme/useThemeTokens';
+import { FeedbackContextBridge } from './feedback/Feedback';
 
 /**
  * Window layer stack, bottom to top, and the setting that sizes each layer:
@@ -127,12 +130,11 @@ const Main = styled.div<StyledProps>`
        The tabs bar is hidden too: only its 1px bottom border would remain, and
        the strip's content height (MiniLogger 90px) must match the window
        content size exactly (see ipc.ts setContentSize). */
-    .ant-tabs-bar,
-    .ant-tabs-nav-container,
+    .ant-tabs-nav,
     .ant-modal-root {
         ${({ minimize }) => (minimize ? 'display: none;' : '')}
     }
-    .ant-btn-icon-only > i {
+    .ant-btn-icon-only .anticon {
         transform: translateY(-0.5px);
     }
 
@@ -322,7 +324,9 @@ class Application extends React.Component<Props, State> {
         ipcRenderer.removeListener(WindowEventName.MaximizedChanged, this.onWindowMaximizedChanged);
     }
 
-    onError = (event: ErrorEvent) => this.handleError(event.error);
+    onError = (event: ErrorEvent) => {
+        this.handleError(event.error || new Error(event.message));
+    };
     handleError = (err: Error) => {
         console.error(err);
         setTimeout(() => {
@@ -357,58 +361,56 @@ class Application extends React.Component<Props, State> {
             // with the page instead of escaping to <body> (popupLayer.ts).
             // An explicit container/getContainer prop on any of them still
             // wins over this default.
-            <ConfigProvider getPopupContainer={getPopupContainer}>
-                <Main minimize={minimize} compact={compact}>
-                    <Wallpaper path={wallpaperDataUrl} opacity={wallpaperOpacity} />
-                    <Content contentOpacity={contentOpacity}>
-                        {/* Mount point of every antd overlay (dialogs, toasts,
+            <Main minimize={minimize} compact={compact}>
+                <Wallpaper path={wallpaperDataUrl} opacity={wallpaperOpacity} />
+                <Content contentOpacity={contentOpacity}>
+                    {/* Mount point of every antd overlay (dialogs, toasts,
                         notifications, popovers). It lives inside the content
                         layer so those surfaces fade with the page instead of
                         escaping to <body>, see popupLayer.ts. */}
-                        <div id={POPUP_CONTAINER_ID} />
-                        <AppTitleBar
-                            currentTab={currentTab}
-                            minimize={minimize}
-                            compact={compact}
-                            maximized={this.state.maximized}
-                            sessionEnding={sessionEnding}
-                            alwaysOnTop={compactAlwaysOnTop}
-                            onToggleAlwaysOnTop={() => setCompactAlwaysOnTop(!compactAlwaysOnTop)}
-                            onTabChange={this.changeTab}
-                            timer={this.timer}
-                            kanban={
-                                <DestroyOnTimeoutWrapper
-                                    isVisible={currentTab === 'kanban'}
-                                    timeout={600000}
-                                >
-                                    <Kanban />
-                                </DestroyOnTimeoutWrapper>
-                            }
-                            history={
-                                <DestroyOnTimeoutWrapper
-                                    isVisible={currentTab === 'history'}
-                                    timeout={600000}
-                                >
-                                    <History />
-                                </DestroyOnTimeoutWrapper>
-                            }
-                            setting={<Setting />}
-                        />
-                        {!minimize && (
-                            <>
-                                <UserGuide />
-                                <UpdateController />
-                                <CardInDetail />
-                                <ConnectedPomodoroSankey />
-                            </>
-                        )}
-                        <Hotkeys
-                            keyName={'ctrl+tab,ctrl+shift+tab,ctrl+f12,ctrl+q,f11,f12'}
-                            onKeyDown={this.onKeyDown}
-                        />
-                    </Content>
-                </Main>
-            </ConfigProvider>
+                    <div id={POPUP_CONTAINER_ID} />
+                    <AppTitleBar
+                        currentTab={currentTab}
+                        minimize={minimize}
+                        compact={compact}
+                        maximized={this.state.maximized}
+                        sessionEnding={sessionEnding}
+                        alwaysOnTop={compactAlwaysOnTop}
+                        onToggleAlwaysOnTop={() => setCompactAlwaysOnTop(!compactAlwaysOnTop)}
+                        onTabChange={this.changeTab}
+                        timer={this.timer}
+                        kanban={
+                            <DestroyOnTimeoutWrapper
+                                isVisible={currentTab === 'kanban'}
+                                timeout={600000}
+                            >
+                                <Kanban />
+                            </DestroyOnTimeoutWrapper>
+                        }
+                        history={
+                            <DestroyOnTimeoutWrapper
+                                isVisible={currentTab === 'history'}
+                                timeout={600000}
+                            >
+                                <History />
+                            </DestroyOnTimeoutWrapper>
+                        }
+                        setting={<Setting />}
+                    />
+                    {!minimize && (
+                        <>
+                            <UserGuide />
+                            <UpdateController />
+                            <CardInDetail />
+                            <ConnectedPomodoroSankey />
+                        </>
+                    )}
+                    <Hotkeys
+                        keyName={'ctrl+tab,ctrl+shift+tab,ctrl+f12,ctrl+q,f11,f12'}
+                        onKeyDown={this.onKeyDown}
+                    />
+                </Content>
+            </Main>
         );
     }
 }
@@ -431,4 +433,42 @@ const ApplicationContainer = connect(
     })
 )(Application);
 
-export default hot(ApplicationContainer);
+const ThemedApplication: React.FC<React.ComponentProps<typeof ApplicationContainer>> = (props) => {
+    const { tokens, isDark } = useThemeTokens();
+    const theme = React.useMemo(
+        () => ({
+            algorithm: isDark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
+            token: {
+                fontFamily: APP_FONT_FAMILY,
+                colorPrimary: tokens.primary,
+                colorBgBase: tokens.bg,
+                colorBgContainer: tokens.bgElevated,
+                colorBgElevated: tokens.bgElevated,
+                colorBgLayout: tokens.bg,
+                colorText: tokens.text,
+                colorTextSecondary: tokens.textSecondary,
+                colorTextTertiary: tokens.textTertiary,
+                colorTextPlaceholder: tokens.textTertiary,
+                colorBorder: tokens.border,
+                colorBorderSecondary: tokens.border,
+                colorFillAlter: tokens.bgSunken,
+            },
+        }),
+        [isDark, tokens]
+    );
+
+    return (
+        <ConfigProvider getPopupContainer={getPopupContainer} theme={theme}>
+            <AntdApp
+                component={false}
+                message={{ getContainer: getPopupContainer }}
+                notification={{ getContainer: getPopupContainer, placement: 'topRight' }}
+            >
+                <FeedbackContextBridge />
+                <ApplicationContainer {...props} />
+            </AntdApp>
+        </ConfigProvider>
+    );
+};
+
+export default hot(ThemedApplication);

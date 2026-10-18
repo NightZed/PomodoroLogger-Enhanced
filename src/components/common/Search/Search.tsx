@@ -1,4 +1,4 @@
-import { Icon } from 'antd';
+import { AntdIcon as Icon } from '../../../renderer/components/antdIcon';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled, { keyframes } from 'styled-components';
 

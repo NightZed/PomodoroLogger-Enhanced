@@ -165,7 +165,7 @@ const findAll = (
 
 /** The button whose label is exactly `label`. */
 const button = (r: TestRenderer.ReactTestRenderer, label: string) =>
-    findAll(r.toJSON(), (n) => n.type === 'button' && texts(n).join(' ') === label)[0];
+    findAll(r.toJSON(), (n) => n.type === 'button' && texts(n).join(' ').includes(label))[0];
 
 const isLoading = (node: ReactTestRendererJSON | undefined) => !!node?.props?.loading === true;
 

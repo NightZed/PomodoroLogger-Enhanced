@@ -1,13 +1,11 @@
 import * as PropTypes from 'prop-types';
 import * as React from 'react';
 import classNames from 'classnames';
-import { ConfigConsumer, ConfigConsumerProps } from 'antd/lib/config-provider';
-import { tuple } from 'antd/lib/_util/type';
-import Circle from 'antd/lib/progress/Circle';
+import Circle from 'antd/es/progress/Circle';
 
-const ProgressTypes = tuple('line', 'circle', 'dashboard');
+const ProgressTypes = ['line', 'circle', 'dashboard'] as const;
 export type ProgressType = typeof ProgressTypes[number];
-const ProgressStatuses = tuple('normal', 'exception', 'active', 'success');
+const ProgressStatuses = ['normal', 'exception', 'active', 'success'] as const;
 export type ProgressSize = 'default' | 'small';
 export type StringGradients = { [percentage: string]: string };
 type FromToGradients = { from: string; to: string };
@@ -73,7 +71,7 @@ export default class Progress extends React.Component<ProgressProps> {
         return status || 'normal';
     }
 
-    renderProgress = ({ getPrefixCls }: ConfigConsumerProps) => {
+    renderProgress = () => {
         const props = this.props;
         // Destructure-then-ignore: antd's Circle forwards unknown props to the
         // DOM, so every prop this component consumes itself (or deliberately
@@ -82,12 +80,9 @@ export default class Progress extends React.Component<ProgressProps> {
         const {
             prefixCls: customizePrefixCls,
             className,
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             percent = 0,
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            status,
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            format,
+            status: _status,
+            format: _format,
             // The trail ring must not rely on the rc-progress builtin default
             // ('#D9D9D9', written as inline style so CSS cannot override it).
             // var() is legal inside inline styles and resolves live, so the
@@ -95,33 +90,35 @@ export default class Progress extends React.Component<ProgressProps> {
             // explicit trailColor prop still takes precedence.
             trailColor = 'var(--pl-border)',
             size,
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             successPercent,
             type,
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             strokeWidth,
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             width,
             showInfo,
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             gapDegree = 0,
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             gapPosition,
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             strokeColor,
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             strokeLinecap = 'round',
             children,
             ...restProps
         } = props;
-        const prefixCls = getPrefixCls('progress', customizePrefixCls);
+        const prefixCls = customizePrefixCls || 'ant-progress';
         const progressStatus = this.getProgressStatus();
+        const circleSize = width ?? size;
         const progress = (
             <Circle
-                {...this.props}
                 prefixCls={prefixCls}
                 progressStatus={progressStatus}
                 trailColor={trailColor}
+                type={type}
+                percent={percent}
+                successPercent={successPercent}
+                strokeWidth={strokeWidth}
+                strokeLinecap={strokeLinecap}
+                strokeColor={strokeColor}
+                gapDegree={gapDegree}
+                gapPosition={gapPosition}
+                size={circleSize}
             >
                 <span className={`${prefixCls}-text`}>{children}</span>
             </Circle>
@@ -146,6 +143,6 @@ export default class Progress extends React.Component<ProgressProps> {
     };
 
     render() {
-        return <ConfigConsumer>{this.renderProgress}</ConfigConsumer>;
+        return this.renderProgress();
     }
 }

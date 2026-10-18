@@ -1,8 +1,9 @@
-import React, { FunctionComponent, useCallback, useEffect, useRef, useState } from 'react';
+import React, { FunctionComponent, useCallback, useEffect, useState } from 'react';
 import { KanbanActionTypes } from './action';
 import { KanbanState, uiStateNames } from './reducer';
 import { BoardActionTypes } from './Board/action';
-import { Button, Form, Icon, Layout, Select, Switch, Tooltip } from 'antd';
+import { Button, Form, Layout, Select, Switch, Tooltip } from 'antd';
+import { AntdIcon as Icon, IconComponent } from '../antdIcon';
 import { feedback, FEEDBACK_MESSAGES } from '../feedback';
 import Board from './Board';
 import styled from 'styled-components';
@@ -100,7 +101,7 @@ interface Props extends KanbanState, KanbanActionTypes, BoardActionTypes, TimerA
 
 export const Kanban: FunctionComponent<Props> = React.memo(
     (props: Props) => {
-        const ref = useRef<Form>();
+        const [boardForm] = Form.useForm();
         const [visible, setVisible] = useState(false);
         const [showTable, setShowTable] = useState(false);
         const [editingBoardId, setEditingBoardId] = useState<string | undefined>('');
@@ -137,21 +138,10 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                 props.editBoard(editingBoardId, name, description);
             }
         };
-        const handleSave = () => {
-            if (ref.current === undefined) {
-                return;
-            }
-
-            const form: any = ref.current.props.form;
-            form.validateFields((err: Error, values: any) => {
-                if (err) {
-                    throw err;
-                }
-
-                valueHandler(values);
-                setTimeout(() => form.resetFields(), 200);
-                setVisible(false);
-            });
+        const handleSave = (values: FormValue) => {
+            valueHandler(values);
+            setTimeout(() => boardForm.resetFields(), 200);
+            setVisible(false);
         };
         const handleCancel = () => {
             setVisible(false);
@@ -163,32 +153,11 @@ export const Kanban: FunctionComponent<Props> = React.memo(
         const showConfigById = (id?: string) => {
             setEditingBoardId(id);
             setVisible(true);
-            if (ref.current === undefined) {
-                return;
-            }
-
-            const form: any = ref.current.props.form;
             if (id === undefined) {
-                form.setFieldsValue(
-                    {
-                        name: '',
-                        description: '',
-                    },
-                    (err: Error) => {
-                        if (err) throw err;
-                    }
-                );
+                boardForm.setFieldsValue({ name: '', description: '' });
             } else {
                 const board = props.boards[id];
-                form.setFieldsValue(
-                    {
-                        name: board.name,
-                        description: board.description,
-                    },
-                    (err: Error) => {
-                        if (err) throw err;
-                    }
-                );
+                boardForm.setFieldsValue({ name: board.name, description: board.description });
             }
         };
 
@@ -308,7 +277,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                 style={{ paddingLeft: 10, paddingRight: 10, marginLeft: 10 }}
                                 onClick={goBack}
                             >
-                                <Icon component={backIcon} />
+                                <IconComponent component={backIcon} />
                             </Button>
                             {props.boards[props.kanban.chosenBoardId]?.createdTime !== undefined ? (
                                 <CreatedTime>
@@ -364,11 +333,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                     id={'sort-direction-button'}
                                 >
                                     <Icon
-                                        type={
-                                            props.kanban.sortDirection === 'asc'
-                                                ? 'caret-up'
-                                                : 'caret-down'
-                                        }
+                                        type={props.kanban.sortDirection === 'asc' ? 'up' : 'down'}
                                     />
                                 </Button>
                             </Tooltip>
@@ -409,7 +374,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                     />
                                     <Button
                                         shape={'circle'}
-                                        icon={'setting'}
+                                        icon={<Icon type={'setting'} />}
                                         onClick={showBoardSettingMenu}
                                     />
                                 </LabelButton>
@@ -439,7 +404,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                 </Content>
                 <EditKanbanForm
                     boardId={editingBoardId || ''}
-                    wrappedComponentRef={ref as any}
+                    form={boardForm}
                     visible={visible}
                     onSave={handleSave}
                     onCancel={handleCancel}

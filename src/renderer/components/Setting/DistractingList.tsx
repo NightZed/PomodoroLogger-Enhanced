@@ -1,13 +1,15 @@
 import * as React from 'react';
 import { DistractingRow, actions } from '../Timer/action';
 import { actions as boardActions } from '../Kanban/Board/action';
-import { connect } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../reducers';
 import { Dispatch } from 'redux';
-import { Form, Input, Icon, Button, Modal } from 'antd';
+import { Form, Input, Button, Modal } from 'antd';
+import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { getPopupContainer } from '../popupLayer';
-import { FormComponentProps } from 'antd/es/form/Form';
 import styled from 'styled-components';
+
+const { useForm } = Form;
 
 const Container = styled.div`
     max-height: calc(100vh - 300px);
@@ -28,260 +30,217 @@ const Container = styled.div`
     }
 `;
 
-class DynamicFieldSet extends React.Component<
-    FormComponentProps & { onSubmit: (ans: any) => void }
-> {
-    private id = 0;
-    remove = (k: number) => {
-        const { form } = this.props;
-        // can use data-binding to get
+const InputGroup = styled.div`
+    display: flex;
+    width: 85%;
+    margin-right: 8px;
+
+    .ant-form-item {
+        flex: 1;
+        min-width: 0;
+        margin-bottom: 0;
+    }
+
+    > .ant-input {
+        flex: 1;
+        min-width: 0;
+        border-left: 0;
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+    }
+`;
+
+const InputAddon = styled.span`
+    box-sizing: border-box;
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+    padding: 0 11px;
+    color: var(--pl-text);
+    font-size: 14px;
+    white-space: nowrap;
+    background: var(--pl-bg-sunken);
+    border: 1px solid var(--pl-border);
+    border-right: 1px solid var(--pl-border);
+    border-radius: 6px 0 0 6px;
+`;
+
+interface DynamicFieldSetProps {
+    onSubmit: (ans: DistractingRow[]) => void;
+    initialApps: string[];
+    initialTitles: string[];
+    registerSubmit: (submit: () => void) => void;
+}
+
+const DynamicFieldSet: React.FC<DynamicFieldSetProps> = ({
+    onSubmit,
+    initialApps,
+    initialTitles,
+    registerSubmit,
+}) => {
+    const [form] = useForm();
+    const [idCounter, setIdCounter] = React.useState(0);
+
+    React.useEffect(() => {
+        const keys = initialApps.map((_, i) => i);
+        form.setFieldsValue({ keys, apps: initialApps, titles: initialTitles });
+        setIdCounter(Math.max(-1, ...keys) + 1);
+        registerSubmit(() => form.submit());
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const remove = (k: number) => {
         const keys = form.getFieldValue('keys');
-        // We need at least one passenger
         if (keys.length === 1) {
             return;
         }
-
-        // can use data-binding to set
         form.setFieldsValue({
             keys: keys.filter((key: number) => key !== k),
         });
     };
 
-    add = () => {
-        const { form } = this.props;
-        // can use data-binding to get
+    const add = () => {
         const keys = form.getFieldValue('keys');
-        const nextKeys = keys.concat(this.id);
-        this.id += 1;
-        // can use data-binding to set
-        // important! notify form to detect changes
+        const nextKeys = keys.concat(idCounter);
+        setIdCounter(idCounter + 1);
         form.setFieldsValue({
             keys: nextKeys,
         });
     };
 
-    setValues = (apps: (string | undefined)[], titles: (string | undefined)[]) => {
-        if (apps.length === 0) {
-            return;
-        }
+    const handleSubmit = async () => {
+        try {
+            const values = await form.validateFields();
+            const { apps, titles } = values;
+            let { keys } = values;
+            keys = keys.filter((key: any) => apps[key] || titles[key]);
+            form.setFieldsValue({ keys });
 
-        const keys = apps.map((v, i) => i);
-        this.id = Math.max(...keys) + 1;
-        this.props.form.setFieldsValue(
-            {
-                keys,
-            },
-            console.error
-        );
-        this.render();
-        this.props.form.setFieldsValue(
-            {
-                apps,
-                titles,
-            },
-            console.error
-        );
-    };
-
-    handleSubmit = (e?: any) => {
-        if (e) {
-            e.preventDefault();
-        }
-
-        this.props.form.validateFields((err: Error, values: any) => {
-            if (!err) {
-                // `keys` is filtered below, the other two are only read
-                const { apps, titles } = values;
-                let { keys } = values;
-                // `keys` holds the row ids, which are the indexes into the (sparse)
-                // `apps` / `titles` arrays. Filtering by position would drop every
-                // row that comes after a removed one.
-                keys = keys.filter((key: any) => apps[key] || titles[key]);
-                this.props.form.setFieldsValue(
-                    {
-                        keys,
-                    },
-                    console.error
-                );
-
-                const ans = [];
-                for (const key of keys) {
-                    ans.push({
-                        app: apps[key],
-                        title: titles[key],
-                    });
-                }
-
-                this.props.onSubmit(ans);
+            const ans: any[] = [];
+            for (const key of keys) {
+                ans.push({
+                    app: apps[key],
+                    title: titles[key],
+                });
             }
-        });
+            onSubmit(ans);
+        } catch {
+            // validation failed
+        }
     };
 
-    render() {
-        const { getFieldDecorator, getFieldValue } = this.props.form;
-        const formItemLayout = {
-            labelCol: {
-                xs: { span: 24 },
-                sm: { span: 4 },
-            },
-            wrapperCol: {
-                xs: { span: 24 },
-                sm: { span: 20 },
-            },
-        };
-        const formItemLayoutWithOutLabel = {
-            wrapperCol: {
-                xs: { span: 24, offset: 0 },
-                sm: { span: 20, offset: 4 },
-            },
-        };
+    const keys = form.getFieldValue('keys') ?? [];
+    const formItemLayout = {
+        labelCol: { xs: { span: 24 }, sm: { span: 4 } },
+        wrapperCol: { xs: { span: 24 }, sm: { span: 20 } },
+    };
+    const formItemLayoutWithOutLabel = {
+        wrapperCol: { xs: { span: 24, offset: 0 }, sm: { span: 20, offset: 4 } },
+    };
 
-        getFieldDecorator('keys', { initialValue: [] });
-        const keys = getFieldValue('keys');
-        const formItems = keys.map((k: number, index: number) => (
-            // One control per `Form.Item`: antd can only derive `validateStatus`
-            // and `help` from a single decorated field, and warns when a row holds
-            // more (its error message would never show up once rules are added).
-            <React.Fragment key={k}>
-                <Form.Item
-                    {...(index === 0 ? formItemLayout : formItemLayoutWithOutLabel)}
-                    label={index === 0 ? 'RegExp' : ''}
-                    required={false}
-                    style={{ marginBottom: 4 }}
-                >
-                    {getFieldDecorator(
-                        `apps[${k}]`,
-                        {}
-                    )(
-                        <Input
-                            placeholder="App RegExp"
-                            style={{ width: '85%', marginRight: 8 }}
-                            addonBefore={'App'}
-                        />
-                    )}
-                </Form.Item>
-                <Form.Item {...formItemLayoutWithOutLabel}>
-                    {getFieldDecorator(
-                        `titles[${k}]`,
-                        {}
-                    )(
-                        <Input
-                            placeholder="Title RegExp"
-                            style={{ width: '85%', marginRight: 8 }}
-                            addonBefore={'Title'}
-                        />
-                    )}
-
+    const formItems = keys.map((k: number, index: number) => (
+        <React.Fragment key={k}>
+            <Form.Item
+                {...(index === 0 ? formItemLayout : formItemLayoutWithOutLabel)}
+                label={index === 0 ? 'RegExp' : ''}
+                required={false}
+                style={{ marginBottom: 4 }}
+            >
+                <InputGroup>
+                    <InputAddon>App</InputAddon>
+                    <Form.Item name={['apps', k]} noStyle>
+                        <Input placeholder="App RegExp" />
+                    </Form.Item>
+                </InputGroup>
+            </Form.Item>
+            <Form.Item {...formItemLayoutWithOutLabel} style={{ marginBottom: 24 }}>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <InputGroup>
+                        <InputAddon>Title</InputAddon>
+                        <Form.Item name={['titles', k]} noStyle>
+                            <Input placeholder="Title RegExp" />
+                        </Form.Item>
+                    </InputGroup>
                     {keys.length > 1 ? (
-                        <Icon
+                        <Button
+                            type="text"
                             className="dynamic-delete-button"
-                            type="minus-circle-o"
-                            /* tslint:disable-next-line:jsx-no-lambda */
-                            onClick={() => this.remove(k)}
+                            onClick={() => remove(k)}
+                            icon={<MinusCircleOutlined />}
+                            aria-label="Remove rule"
                         />
                     ) : null}
-                </Form.Item>
-            </React.Fragment>
-        ));
-        return (
-            <Form onSubmit={this.handleSubmit}>
+                </div>
+            </Form.Item>
+        </React.Fragment>
+    ));
+
+    return (
+        <Container>
+            <Form form={form} onFinish={handleSubmit}>
                 {formItems}
                 <Form.Item {...formItemLayoutWithOutLabel}>
-                    <Button type="dashed" onClick={this.add} style={{ width: '85%' }}>
-                        <Icon type="plus" /> Add field
+                    <Button
+                        type="dashed"
+                        onClick={add}
+                        style={{ width: '85%' }}
+                        icon={<PlusOutlined />}
+                    >
+                        Add field
                     </Button>
                 </Form.Item>
             </Form>
-        );
-    }
-}
+        </Container>
+    );
+};
 
-const WrappedDynamicFieldSet = Form.create({ name: 'dynamic_form_item' })(DynamicFieldSet);
+interface DistractingListProps extends InputProps {
+    registerSubmit: (submit: () => void) => void;
+    onSaved: () => void;
+}
 
 interface InputProps {
     boardId?: string;
 }
 
-interface Props extends InputProps {
-    distractingList: DistractingRow[];
-    setDistractingList: (rows: DistractingRow[]) => void;
-}
+export const DistractingList: React.FC<DistractingListProps> = ({
+    boardId,
+    registerSubmit,
+    onSaved,
+}) => {
+    const dispatch = useDispatch<Dispatch>();
+    const distractingList = useSelector((state: RootState) =>
+        boardId == null
+            ? state.timer.distractingList
+            : state.kanban.boards[boardId].distractionList || []
+    );
 
-class PrivateDistractingList extends React.Component<Props> {
-    ref = React.createRef<DynamicFieldSet>();
-    constructor(props: Props) {
-        super(props);
-    }
-
-    componentDidMount(): void {
-        if (!this.ref.current) {
-            return;
+    const onSubmit = (rows: DistractingRow[]) => {
+        if (boardId == null) {
+            actions.setDistractingList(rows)(dispatch);
+        } else {
+            boardActions.setDistractionList(boardId, rows)(dispatch);
         }
-
-        this.ref.current.setValues(
-            this.props.distractingList.map((v) => v.app),
-            this.props.distractingList.map((v) => v.title)
-        );
-    }
-
-    onSubmit = (ans: any) => {
-        this.props.setDistractingList(ans);
+        onSaved();
     };
 
-    onSave = () => {
-        if (this.ref.current) {
-            this.ref.current.handleSubmit();
-        }
-    };
-
-    render() {
-        const node = (
-            // @ts-ignore
-            <WrappedDynamicFieldSet wrappedComponentRef={this.ref} onSubmit={this.onSubmit} />
-        );
-        return <Container>{node}</Container>;
-    }
-}
-
-export const DistractingList = connect(
-    (state: RootState, props: InputProps) => {
-        if (props.boardId == null) {
-            return {
-                distractingList: state.timer.distractingList,
-            };
-        }
-
-        return {
-            distractingList: state.kanban.boards[props.boardId].distractionList || [],
-        };
-    },
-    (dispatch: Dispatch, props: InputProps) => {
-        if (props.boardId == null) {
-            return {
-                setDistractingList: (rows: DistractingRow[]) =>
-                    actions.setDistractingList(rows)(dispatch),
-            };
-        }
-
-        return {
-            setDistractingList: (rows?: DistractingRow[]) =>
-                boardActions.setDistractionList(props.boardId!, rows)(dispatch),
-        };
-    },
-    null,
-    { forwardRef: true }
-)(PrivateDistractingList);
+    return (
+        <DynamicFieldSet
+            initialApps={distractingList.map((v) => v.app ?? '')}
+            initialTitles={distractingList.map((v) => v.title ?? '')}
+            onSubmit={onSubmit}
+            registerSubmit={registerSubmit}
+        />
+    );
+};
 
 export const DistractingListModalButton = (props: InputProps) => {
     const [editingDistracting, setEditingDistracting] = React.useState(false);
-    // @ts-ignore
-    const formRef = React.useRef<DistractingList>();
+    const submitForm = React.useRef<() => void>();
     const onOk = () => {
-        if (formRef.current) {
-            formRef.current.onSave();
-        }
-
-        setEditingDistracting(false);
+        submitForm.current?.();
     };
 
     return (
@@ -290,18 +249,21 @@ export const DistractingListModalButton = (props: InputProps) => {
             <Button onClick={() => setEditingDistracting(true)}>Distracting App Setting</Button>
             <Modal
                 title={'Distracting App Setting'}
-                visible={editingDistracting}
+                open={editingDistracting}
                 /* tslint:disable-next-line:jsx-no-lambda */
                 onCancel={() => setEditingDistracting(false)}
                 onOk={onOk}
-                destroyOnClose={true}
+                destroyOnHidden={true}
                 okText={'Save'}
                 getContainer={getPopupContainer}
             >
-                {
-                    // @ts-ignore
-                    <DistractingList ref={formRef as any} {...props} />
-                }
+                <DistractingList
+                    {...props}
+                    registerSubmit={(submit) => {
+                        submitForm.current = submit;
+                    }}
+                    onSaved={() => setEditingDistracting(false)}
+                />
             </Modal>
         </>
     );

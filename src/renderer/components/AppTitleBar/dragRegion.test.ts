@@ -8,22 +8,24 @@
  */
 import { isDragSurface } from './dragRegion';
 
-/** The title bar as antd 3 renders it, trimmed to the parts that matter. */
+/** The title bar as antd v5 renders it, trimmed to the parts that matter. */
 const buildBar = () => {
     document.body.innerHTML = `
         <div class="ant-tabs">
-            <div class="ant-tabs-bar">
-                <div class="ant-tabs-nav-container">
-                    <div class="ant-tabs-nav-wrap">
-                        <div class="ant-tabs-nav-scroll">
-                            <div class="ant-tabs-nav">
-                                <div class="ant-tabs-tab"><span><i class="anticon"></i></span></div>
-                            </div>
-                        </div>
+            <div class="ant-tabs-nav" role="tablist">
+                <div class="ant-tabs-extra-content"><button type="button">pin</button></div>
+                <div class="ant-tabs-nav-wrap">
+                    <div class="ant-tabs-nav-list">
+                        <div class="ant-tabs-tab"><span><i class="anticon"></i></span></div>
+                        <div class="ant-tabs-ink-bar"></div>
                     </div>
                 </div>
-                <div class="ant-tabs-extra-content"><button type="button">pin</button></div>
-                <div class="ant-tabs-ink-bar"></div>
+                <div class="ant-tabs-nav-operations">
+                    <button class="ant-tabs-nav-more" type="button">more</button>
+                </div>
+                <div class="ant-tabs-extra-content">
+                    <button type="button">pin</button>
+                </div>
             </div>
             <div class="ant-tabs-content">
                 <div class="ant-tabs-tabpane">timer page</div>
@@ -38,9 +40,9 @@ describe('isDragSurface', () => {
     beforeEach(buildBar);
 
     it('accepts the empty parts of the tab bar', () => {
-        // The container, the scroll wrapper and the ink bar are all painted by
+        // The nav, the wrapper and the ink bar are all painted by
         // rc-tabs and carry no action of their own.
-        ['ant-tabs-bar', 'ant-tabs-nav-scroll', 'ant-tabs-ink-bar'].forEach((className) => {
+        ['ant-tabs-nav', 'ant-tabs-nav-wrap', 'ant-tabs-ink-bar'].forEach((className) => {
             expect(isDragSurface(element(`.${className}`))).toBe(true);
         });
     });

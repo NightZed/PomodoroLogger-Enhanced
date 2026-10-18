@@ -97,7 +97,7 @@ export function initialize() {
         setSkipTaskbar(on);
         if (on) {
             // Mini bar: content must be exactly the two-row MiniLogger size
-            // (90px; Application.tsx hides the 1px .ant-tabs-bar border while
+            // (90px; Application.tsx hides the tab navigation while
             // minimized so no extra chrome remains). setContentSize keeps the
             // semantics identical to `useContentSize: true` at construction --
             // setBounds() would set the outer frame instead and shrink the

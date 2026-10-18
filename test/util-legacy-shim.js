@@ -24,6 +24,19 @@
 // setupFiles run before any test module is loaded, so pin it here.
 process.env.NODE_ENV = 'test';
 
+if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
+    window.matchMedia = (query) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: () => undefined,
+        removeListener: () => undefined,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+        dispatchEvent: () => false,
+    });
+}
+
 const util = require('util');
 
 function isBufferLike(value) {

@@ -1,5 +1,5 @@
 import React, { FunctionComponent } from 'react';
-import { Select } from 'antd';
+import { ConfigProvider, Select } from 'antd';
 import { KanbanState } from '../Kanban/reducer';
 import { actions as timerActions } from './action';
 import { RootState } from '../../reducers';
@@ -43,23 +43,25 @@ const mFocusSelector: FunctionComponent<Props> = (props: Props) => {
     }
 
     return (
-        <Select
-            value={props.chosenId}
-            style={style}
-            placeholder="Choose Your Focus"
-            onChange={onChange}
-            id="focus-selector"
-        >
-            {options}
-            <Option
-                key="no-focusing-project"
-                value=""
-                style={{ color: '#bfbfbf' }}
-                className="focus-option"
+        <ConfigProvider theme={{ token: { motionDurationMid: '120ms' } }}>
+            <Select
+                value={props.chosenId}
+                style={style}
+                placeholder="Choose Your Focus"
+                onChange={onChange}
+                id="focus-selector"
             >
-                No Focusing Project
-            </Option>
-        </Select>
+                {options}
+                <Option
+                    key="no-focusing-project"
+                    value=""
+                    style={{ color: '#bfbfbf' }}
+                    className="focus-option"
+                >
+                    No Focusing Project
+                </Option>
+            </Select>
+        </ConfigProvider>
     );
 };
 

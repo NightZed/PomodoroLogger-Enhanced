@@ -1,12 +1,11 @@
 import React, { FC, useState } from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
 import { AutoComplete, Button, Input, Popover } from 'antd';
+import { AntdIcon as Icon } from '../../antdIcon';
 import { feedback, FEEDBACK_MESSAGES } from '../../feedback';
 import { getPopupContainer } from '../../popupLayer';
 import { CardLabel } from '../type';
 import { getLabelSuggestions } from './labelSuggestion';
-
-const { Option } = AutoComplete;
 
 export const LABEL_COLORS = [
     '#61bd4f',
@@ -192,7 +191,7 @@ const SuggestionChip = styled.span<{ color: string }>`
     font-size: 0.85em;
     color: #fff;
     background-color: ${(props) => props.color};
-    margin-right: 8px;
+    margin-right: 0;
     white-space: nowrap;
     max-width: 110px;
     overflow: hidden;
@@ -201,27 +200,39 @@ const SuggestionChip = styled.span<{ color: string }>`
 
 /**
  * The suggestion dropdown is portaled outside this component's subtree, so a
- * scoped styled-component cannot reach it -- restyle it through the
- * `dropdownClassName` with these global rules instead.
+ * scoped styled-component cannot reach it -- restyle it through
+ * `classNames.popup.root` with these global rules instead.
  *
  * Layout goal: the same wrapping chip cloud the search panel uses
- * (SearchPanel's Group), instead of antd's vertical list. antd.css is injected
- * by style-loader in an order we cannot rely on (see theme/globalStyle.ts), so
- * the rules that fight antd's own `:not(.…-disabled)` hover/active selectors
- * carry the `html` prefix to stay specific enough to win.
+ * (SearchPanel's Group), instead of antd's vertical list. Ant Design injects
+ * component styles at runtime, so the rules that fight its `:not(.…-disabled)`
+ * hover/active selectors carry the `html` prefix to stay specific enough.
  */
 const LabelSuggestDropdownStyle = createGlobalStyle`
-    html .pl-label-suggest-dropdown .ant-select-dropdown-menu {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px 2px;
-        padding: 6px;
-        max-height: 240px;
+    html .pl-label-suggest-dropdown .ant-select-dropdown {
+        padding: 0;
     }
 
-    html .pl-label-suggest-dropdown .ant-select-dropdown-menu-item {
+    html .pl-label-suggest-dropdown .rc-virtual-list-holder {
+        max-height: 240px;
+        overflow-y: auto;
+    }
+
+    html .pl-label-suggest-dropdown .rc-virtual-list-holder-inner {
+        display: flex;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        align-items: flex-start;
+        align-content: flex-start;
+        gap: 4px 8px;
+        padding: 4px;
+        box-sizing: border-box;
+    }
+
+    html .pl-label-suggest-dropdown .ant-select-item-option {
         display: inline-flex;
         align-items: center;
+        min-height: 0;
         padding: 0;
         overflow: visible;
         height: auto;
@@ -229,26 +240,33 @@ const LabelSuggestDropdownStyle = createGlobalStyle`
         background-color: transparent;
     }
 
+    html .pl-label-suggest-dropdown .ant-select-item-option-content {
+        display: flex;
+        align-items: center;
+        flex: none;
+        overflow: visible;
+    }
+
     /* antd's hover/active/selected highlights would paint blue/grey blocks
        behind the chips; keep the list background clean and mark the focused
        item on the chip itself instead. */
     html .pl-label-suggest-dropdown
-        .ant-select-dropdown-menu-item:hover:not(.ant-select-dropdown-menu-item-disabled),
+        .ant-select-item-option:hover:not(.ant-select-item-option-disabled),
     html .pl-label-suggest-dropdown
-        .ant-select-dropdown-menu-item-active:not(.ant-select-dropdown-menu-item-disabled),
-    html .pl-label-suggest-dropdown .ant-select-dropdown-menu-item-selected {
+        .ant-select-item-option-active:not(.ant-select-item-option-disabled),
+    html .pl-label-suggest-dropdown .ant-select-item-option-selected {
         background-color: transparent;
     }
 
     html .pl-label-suggest-dropdown
-        .ant-select-dropdown-menu-item-active:not(.ant-select-dropdown-menu-item-disabled)
+        .ant-select-item-option-active:not(.ant-select-item-option-disabled)
         .pl-suggest-chip {
-        outline: 2px solid var(--pl-primary);
-        outline-offset: 1px;
+        outline: 2px solid var(--pl-text);
+        outline-offset: 0px;
     }
 
     html .pl-label-suggest-dropdown
-        .ant-select-dropdown-menu-item:hover:not(.ant-select-dropdown-menu-item-disabled)
+        .ant-select-item-option:hover:not(.ant-select-item-option-disabled)
         .pl-suggest-chip {
         filter: brightness(1.1);
     }
@@ -295,7 +313,7 @@ const getEditDropdownContainer = (node: any): HTMLElement => {
  *
  * The DOM check mirrors the one in CardEditor's document listener: a closed
  * rc-select dropdown stays mounted (with `ant-select-dropdown-hidden` on its
- * wrap, where the dropdownClassName lives) and its active-item class survives
+ * wrap, where the popup root class lives) and its active-item class survives
  * closing, so the wrap must be visible for the highlight to count. Only the
  * focused input's dropdown is ever un-hidden at a time, so a single selector
  * covers both the add row and the edit popover. `defaultActiveFirstOption`
@@ -306,7 +324,7 @@ const getEditDropdownContainer = (node: any): HTMLElement => {
 const hasHighlightedSuggestion = (): boolean =>
     !!document.querySelector(
         '.pl-label-suggest-dropdown:not(.ant-select-dropdown-hidden)' +
-            ' .ant-select-dropdown-menu-item-active'
+            ' .ant-select-item-option-active'
     );
 
 interface Props {
@@ -403,7 +421,12 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
             return;
         }
 
-        addLabel();
+        const firstSuggestion = getLabelSuggestions(suggestions ?? [], labels, newName)[0];
+        if (firstSuggestion) {
+            addLabel(firstSuggestion.name, firstSuggestion.color);
+        } else {
+            addLabel();
+        }
     };
 
     // Closing the edit popover. Also clears the "user picked a color" flag so
@@ -497,14 +520,18 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
     // ordered alphabetically (see labelSuggestion.ts). No 8-item cap: an empty
     // input lists the whole board palette, rendered as a wrapping chip cloud
     // (LabelSuggestDropdownStyle) like the search panel's #TAGS group.
+    // antd v5: `options` with plain string values, so the input always holds
+    // the label name (never "[object Object]"). The chip rendering moves to
+    // `label` nodes; `optionLabelProp` no longer exists.
     const suggestionOptions = (input: string, excludeLabels: CardLabel[]) =>
-        getLabelSuggestions(suggestions ?? [], excludeLabels, input).map(({ name, color }) => (
-            <Option key={name} value={name}>
+        getLabelSuggestions(suggestions ?? [], excludeLabels, input).map(({ name, color }) => ({
+            value: name,
+            label: (
                 <SuggestionChip className="pl-suggest-chip" color={color}>
                     {name}
                 </SuggestionChip>
-            </Option>
-        ));
+            ),
+        }));
 
     // Esc cancels just the label edit. The card editor's document-level
     // Ctrl+Enter/Esc listener deliberately ignores keys originating inside
@@ -527,21 +554,25 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                         // chip is being edited. rc-trigger only reports the
                         // transitions here -- opening = startEdit, any close
                         // (toggle, click outside, save) = cancelEdit.
-                        visible={editingIndex === index}
+                        open={editingIndex === index}
                         trigger="click"
                         placement="bottom"
-                        onVisibleChange={(visible) => (visible ? startEdit(index) : cancelEdit())}
+                        onOpenChange={(open) => (open ? startEdit(index) : cancelEdit())}
                         getPopupContainer={getPopupContainer}
                         content={
                             <EditPanel key={editSession} onKeyDown={onEditPanelKeyDown}>
                                 <AutoComplete
                                     style={{ width: '100%' }}
                                     value={editName}
-                                    dataSource={suggestionOptions(
+                                    listHeight={240}
+                                    virtual={false}
+                                    options={suggestionOptions(
                                         editName,
                                         labels.filter((_, i) => i !== editingIndex)
                                     )}
-                                    dropdownClassName="pl-label-suggest-dropdown"
+                                    classNames={{
+                                        popup: { root: 'pl-label-suggest-dropdown' },
+                                    }}
                                     notFoundContent="No matching labels"
                                     // NOT the bare popup layer here: see
                                     // getEditDropdownContainer -- inside the
@@ -549,15 +580,11 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                                     // popover node or a suggestion press
                                     // closes the popover before its click.
                                     getPopupContainer={getEditDropdownContainer}
-                                    // Same pin as the add-row below: optionLabelProp
-                                    // must be 'value' or the chip element leaks into
-                                    // inputValue as "[object Object]".
-                                    optionLabelProp="value"
                                     onSelect={onEditNameSelect}
                                     onChange={(value: any) => setEditName(value)}
                                     filterOption={false}
                                 >
-                                    <Input size="small" onPressEnter={onEditNamePressEnter} />
+                                    <Input onPressEnter={onEditNamePressEnter} />
                                 </AutoComplete>
                                 <EditColorRow>
                                     <ColorGroupLabel>Color:</ColorGroupLabel>
@@ -603,29 +630,25 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                 <AutoComplete
                     style={{ width: 280 }}
                     value={newName}
-                    dataSource={suggestionOptions(newName, labels)}
-                    dropdownClassName="pl-label-suggest-dropdown"
+                    listHeight={240}
+                    virtual={false}
+                    options={suggestionOptions(newName, labels)}
+                    classNames={{
+                        popup: { root: 'pl-label-suggest-dropdown' },
+                    }}
                     notFoundContent="No matching labels"
                     // Portals into the opacity layer (popupLayer.ts).
                     getPopupContainer={getPopupContainer}
-                    // optionLabelProp must be 'value' or the chip element
-                    // leaks into inputValue as "[object Object]" (regression
-                    // covered by LabelEditor.test.tsx).
-                    optionLabelProp="value"
                     onSelect={onNewNameSelect}
                     onChange={(value: any) => setNewName(value)}
                     filterOption={false}
                 >
-                    <Input
-                        size="small"
-                        placeholder={'Label name'}
-                        onPressEnter={onNewNamePressEnter}
-                    />
+                    <Input placeholder={'Label name'} onPressEnter={onNewNamePressEnter} />
                 </AutoComplete>
                 <Button
                     size="small"
                     type="primary"
-                    icon="plus"
+                    icon={<Icon type="plus" />}
                     style={{ marginLeft: 8 }}
                     disabled={
                         !newName.trim() || labels.some((label) => label.name === newName.trim())

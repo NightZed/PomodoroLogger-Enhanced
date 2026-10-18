@@ -1,4 +1,4 @@
-import { Icon } from 'antd';
+import { AntdIcon as Icon } from '../../../renderer/components/antdIcon';
 import * as React from 'react';
 import styled from 'styled-components';
 
@@ -54,6 +54,7 @@ export const Pin: React.FC<Props> = (props: Props) => {
             onClick={onClick}
         >
             <Icon
+                type={'pin' as any}
                 component={PinSvg}
                 style={{
                     transform: `rotate(${(props.isPin ? 0 : 45) + (isHover ? 8 : 0)}deg)`,

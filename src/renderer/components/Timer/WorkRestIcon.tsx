@@ -1,7 +1,7 @@
 import RestIcon from '../../../res/rest.svg';
 import WorkIcon from '../../../res/work.svg';
 import React, { FunctionComponent } from 'react';
-import { Icon } from 'antd';
+import { IconComponent as Icon } from '../antdIcon';
 import styled, { keyframes } from 'styled-components';
 
 const fade = keyframes`

@@ -4,6 +4,7 @@ import { BoardActionTypes, defaultBoard } from './action';
 import styled from 'styled-components';
 import List from '../List';
 import { Button } from 'antd';
+import { AntdIcon as Icon } from '../../antdIcon';
 import { fatScrollBar } from '../../../style/scrollbar';
 import { isShallowEqualByKeys } from '../../../utils';
 import { KanbanBoard } from '../type';
@@ -114,7 +115,7 @@ export const Board: FC<Props> = React.memo(
                     ))}
                     {provided.placeholder}
                     <ListPlaceholder>
-                        <Button onClick={addList} icon={'plus'} shape="circle-outline" />
+                        <Button onClick={addList} icon={<Icon type={'plus'} />} shape="circle" />
                     </ListPlaceholder>
                 </ListContainer>
             );

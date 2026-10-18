@@ -1,4 +1,4 @@
-import { Icon } from 'antd';
+import { AntdIcon as Icon } from './antdIcon';
 import React, { FC } from 'react';
 import styled from 'styled-components';
 import { COMPACT_TITLE_BAR_HEIGHT, TITLE_BAR_HEIGHT } from './AppTitleBar/tokens';

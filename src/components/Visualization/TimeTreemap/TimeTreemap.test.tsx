@@ -50,6 +50,12 @@ describe('TimeTreemap option', () => {
         expect(projects.animationDuration).toBe(100);
         expect(projects.animationDurationUpdate).toBe(500);
         expect(projects.animationEasing).toBe('cubicOut');
+        expect(projects.levels[1].color.length).toBeGreaterThan(1);
+        expect(apps.levels[1].color.length).toBeGreaterThan(1);
+        const nightOption = getOption(props(), nightTokens) as any;
+        expect(projects.levels[0].color).not.toEqual(nightOption.series[0].levels[0].color);
+        expect(projects.levels[0].color).toEqual(projects.levels[1].color);
+        expect(apps.levels[0].color).toEqual(apps.levels[1].color);
         expect(apps.type).toBe('treemap');
         expect(apps.name).toBe(APP_SERIES_NAME);
         expect(projects.squareRatio).toBeGreaterThan(1);

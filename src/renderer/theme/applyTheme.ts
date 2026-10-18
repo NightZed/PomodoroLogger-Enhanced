@@ -7,7 +7,7 @@ import {
     ThemeTokens,
 } from './tokens';
 
-type ColorTokenKey = Exclude<keyof ThemeTokens, 'base'>;
+type ColorTokenKey = Exclude<keyof ThemeTokens, 'base' | 'treemapColors'>;
 
 /** token name -> css custom property. `base` is exposed as `data-theme`. */
 const CSS_VAR_NAMES: { [K in ColorTokenKey]: string } = {

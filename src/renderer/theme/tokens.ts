@@ -38,6 +38,8 @@ export interface ThemeTokens {
     accent: string;
     /** Shadow color of raised surfaces. */
     shadow: string;
+    /** Fixed palette shared by all treemap hierarchy levels. */
+    treemapColors?: string[];
 }
 
 /**
@@ -54,6 +56,30 @@ export interface ThemeDefinition {
 
 export const DAY_THEME_ID = 'day';
 export const NIGHT_THEME_ID = 'night';
+
+export const DAY_TREEMAP_COLORS = [
+    '#ffa5a5',
+    '#ffffc2',
+    '#c8e7ed',
+    '#bfcfff',
+    '#99ddcc',
+    '#74f9ff',
+    '#ffe2e2',
+    '#bad7df',
+    '#00e0ff',
+];
+
+export const NIGHT_TREEMAP_COLORS = [
+    '#b83b5e',
+    '#f08a5d',
+    '#6a2c70',
+    '#f73859',
+    '#7ac7c4',
+    '#384259',
+    '#e84a5f',
+    '#ff847b',
+    '#2a363b',
+];
 
 /** The app starts in the night theme. */
 export const DEFAULT_THEME_ID = NIGHT_THEME_ID;
@@ -75,6 +101,7 @@ export const dayTokens: ThemeTokens = {
     primary: '#1890ff',
     accent: '#87d068',
     shadow: 'rgba(0, 0, 0, 0.15)',
+    treemapColors: DAY_TREEMAP_COLORS,
 };
 
 /** Night theme -- follows the antd 4 dark palette for a familiar look. */
@@ -91,6 +118,7 @@ export const nightTokens: ThemeTokens = {
     primary: '#177ddc',
     accent: '#49aa19',
     shadow: 'rgba(0, 0, 0, 0.45)',
+    treemapColors: NIGHT_TREEMAP_COLORS,
 };
 
 export const BUILTIN_THEMES: ThemeDefinition[] = [

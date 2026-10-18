@@ -1,7 +1,11 @@
 import { EChartsOption, SeriesOption } from 'echarts';
 import ReactEcharts from 'echarts-for-react';
 import * as React from 'react';
-import { ThemeTokens } from '../../../renderer/theme/tokens';
+import {
+    DAY_TREEMAP_COLORS,
+    NIGHT_TREEMAP_COLORS,
+    ThemeTokens,
+} from '../../../renderer/theme/tokens';
 import { useThemeTokens } from '../../../renderer/theme/useThemeTokens';
 
 export interface Props {
@@ -29,7 +33,6 @@ const PANEL_TOP = 44;
 const MIN_READABLE_AREA = 2200;
 const MIN_SQUARE_RATIO = 1.15;
 const MAX_SQUARE_RATIO = 2.25;
-
 const sumHours = (data: { value: number }[]): number =>
     data.reduce((sum, item) => sum + item.value, 0);
 
@@ -142,6 +145,9 @@ function treemapSeries(
         name === APP_SERIES_NAME
             ? getApplicationDisplayData(data, width, height, showAllApplications)
             : data;
+    const colors =
+        tokens.treemapColors ??
+        (tokens.base === 'dark' ? NIGHT_TREEMAP_COLORS : DAY_TREEMAP_COLORS);
 
     return {
         name,
@@ -157,17 +163,22 @@ function treemapSeries(
         nodeClick: false,
         breadcrumb: { show: false },
         squareRatio: getSquareRatio(displayData, width, height),
+        levels: [
+            {
+                color: colors,
+            },
+            {
+                color: colors,
+            },
+        ],
         label: {
             show: true,
             formatter: labelFormatter(sumHours(displayData)),
-            color: '#fff',
+            color: tokens.text,
             fontSize: 12,
             lineHeight: 16,
-            // Palette blocks range from light green to dark red; a shadow keeps
-            // the white label readable on the lighter ones. Canvas text cannot
-            // resolve var(), so these are literal colors in both themes.
-            textShadowColor: 'rgba(0, 0, 0, 0.45)',
-            textShadowBlur: 2,
+            // textShadowColor: 'rgba(0, 0, 0, 0.45)',
+            // textShadowBlur: 2,
         },
         itemStyle: {
             // Page-colored seams between the blocks read as gaps in both themes.

@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useRef, useState } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 import { Table } from 'antd';
 import { RootState } from '../../../reducers';
 import { Dispatch } from 'redux';
@@ -10,11 +10,18 @@ import styled from 'styled-components';
 import { formatTimeWithoutZero } from '../../../utils';
 import { BoardBrief } from './BoardBrief';
 import { actions, SortDirection, SortType } from '../action';
-// @ts-ignore
-import StackGrid from 'react-stack-grid';
 import { Card, KanbanBoard, ListsState } from '../type';
 
 const Container = styled.div``;
+const BoardGrid = styled.div`
+    column-width: 265px;
+    column-gap: 5px;
+
+    > * {
+        break-inside: avoid;
+        margin-bottom: 5px;
+    }
+`;
 
 interface Props {
     boards: KanbanBoardState;
@@ -224,137 +231,11 @@ interface OverviewCardsProps {
     showConfigById?: (boardId: string) => void;
 }
 
-/**
- * Guard for `react-stack-grid@0.7.1`: when its measured container width cannot
- * fit a single column, its `getColumnLengthAndWidth(width, 265, 5)` computes
- * `maxColumn = 0`, leaving `columnHeights = []`, so `Math.max(...[]) -
- * gutterHeight` becomes `-Infinity` and React warns `` `Infinity` is an
- * invalid value for the `height` css style property `` on the TransitionGroup
- * div.
- *
- * `maxColumn >= 1` requires `width >= 265` (columnWidth), not just `width >=
- * 1`: anything in `[1, 265)` still yields `maxColumn = 0` and reproduces the
- * warning. This happens when restoring from mini mode: `suspended` flips
- * synchronously while the window is still at mini size, so the grid would
- * briefly mount at ~200px before the resize settles.
- */
-const STACK_GRID_COLUMN_WIDTH = 265;
-
-/**
- * Minimum container width that fits one column. Below this
- * `getColumnLengthAndWidth` yields `maxColumn = 0` (see above).
- */
-const STACK_GRID_MIN_WIDTH = STACK_GRID_COLUMN_WIDTH;
-
-const SafeStackGrid: FC<{ children: React.ReactNode; suspended?: boolean }> = ({
+const ResponsiveBoardGrid: FC<{ children: React.ReactNode; suspended?: boolean }> = ({
     children,
     suspended = false,
 }) => {
-    const ref = useRef<HTMLDivElement>(null);
-    // `null` = not measured yet: render the placeholder once so the first
-    // measurement never feeds `undefined` into StackGrid's layout.
-    const [width, setWidth] = useState<number | null>(null);
-    const gridRef = useRef<{ updateLayout: () => void } | null>(null);
-    const layoutRaf = useRef<number | null>(null);
-    useEffect(() => {
-        const el = ref.current;
-        if (!el) {
-            return;
-        }
-
-        let measureRaf: number | null = null;
-        const measure = () => {
-            // Defer React's layout updates until after the ResizeObserver
-            // delivery, or StackGrid can resize the observed node in the same
-            // cycle and trigger the browser's undelivered-notifications error.
-            if (measureRaf !== null) {
-                cancelAnimationFrame(measureRaf);
-            }
-            measureRaf = requestAnimationFrame(() => {
-                measureRaf = null;
-                if (!el.isConnected) {
-                    return;
-                }
-                const nextWidth = el.clientWidth;
-                setWidth((prev) => (prev === nextWidth ? prev : nextWidth));
-            });
-        };
-        const measureNow = () => {
-            const nextWidth = el.clientWidth;
-            setWidth((prev) => (prev === nextWidth ? prev : nextWidth));
-        };
-        measureNow();
-        if (typeof ResizeObserver !== 'undefined') {
-            const observer = new ResizeObserver(measure);
-            observer.observe(el);
-            return () => {
-                observer.disconnect();
-                if (measureRaf !== null) {
-                    cancelAnimationFrame(measureRaf);
-                }
-            };
-        }
-        window.addEventListener('resize', measure);
-        return () => {
-            window.removeEventListener('resize', measure);
-            if (measureRaf !== null) {
-                cancelAnimationFrame(measureRaf);
-            }
-        };
-    }, []);
-
-    // stack-grid measures the DOM only when its own props change, and it does
-    // so during the render phase -- i.e. against the *previous* commit. Card
-    // content can still grow after that (the nested connected list-count bar
-    // commits its chart one dispatch later), and with no further dispatch no
-    // re-measurement ever runs: boards below keep the stale `top` and cover
-    // the bottom of the board above them until the overview is re-sorted or
-    // remounted (which is exactly how the overlap used to be "fixed"). Re-run
-    // the layout one frame later, when every pending commit has landed;
-    // `children` is a fresh array on every parent render, so this also heals
-    // any other post-commit growth (images, fonts). Coalesce to one rAF per
-    // frame; `GridInline.updateLayout` is guarded by its `mounted` flag, so a
-    // callback that outlives `suspended` (or the unmount) is a no-op.
-    useEffect(() => {
-        if (layoutRaf.current !== null) {
-            cancelAnimationFrame(layoutRaf.current);
-        }
-
-        layoutRaf.current = requestAnimationFrame(() => {
-            layoutRaf.current = null;
-            if (gridRef.current) {
-                gridRef.current.updateLayout();
-            }
-        });
-        return () => {
-            if (layoutRaf.current !== null) {
-                cancelAnimationFrame(layoutRaf.current);
-                layoutRaf.current = null;
-            }
-        };
-    }, [children]);
-
-    // The wrapper div (and its ref) stays mounted on both branches, so the
-    // ResizeObserver keeps measuring and can bring the grid back on resize.
-    // `suspended` unmounts the grid deterministically (e.g. mini mode hides
-    // the pane *and* shrinks the window, and the inner SizeMe listener could
-    // otherwise observe width 0 before our observer callback runs).
-    const showGrid = !suspended && width !== null && width >= STACK_GRID_MIN_WIDTH;
-    return (
-        <div ref={ref}>
-            {showGrid ? (
-                <StackGrid
-                    columnWidth={STACK_GRID_COLUMN_WIDTH}
-                    gutterHeight={0}
-                    gridRef={(grid: any) => {
-                        gridRef.current = grid;
-                    }}
-                >
-                    {children}
-                </StackGrid>
-            ) : null}
-        </div>
-    );
+    return suspended ? null : <BoardGrid>{children}</BoardGrid>;
 };
 
 const OverviewCards = connect(
@@ -422,7 +303,7 @@ const OverviewCards = connect(
     ]);
 
     return (
-        <SafeStackGrid suspended={props.minimize}>
+        <ResponsiveBoardGrid suspended={props.minimize}>
             {ids.map((_id) => {
                 const onClick = () => setId(_id);
                 const onSettingClick = props.showConfigById
@@ -439,7 +320,7 @@ const OverviewCards = connect(
                     />
                 );
             })}
-        </SafeStackGrid>
+        </ResponsiveBoardGrid>
     );
 }) as FC<OverviewCardsProps>);
 

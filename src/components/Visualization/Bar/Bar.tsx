@@ -69,11 +69,10 @@ export const Bar: React.FC<BarProps> = (props: BarProps) => {
     // Keep the fixed-height <svg> mounted even when every list is empty
     // (maxV === 0): the kanban brief card reserves this strip for the chart,
     // and dropping the whole element made the card grow ~26px *after*
-    // react-stack-grid had measured it. stack-grid only re-measures when its
-    // children change, so the boards below kept their stale `top` and covered
-    // the bottom of the board above them (see SafeStackGrid in the kanban
-    // Overview). With `scale = 0` every column draws n = 0 rects, and
-    // 0 * 0 === 0 keeps the division-by-zero out.
+    // the overview layout. Its CSS columns now reflow when this content grows,
+    // and the reserved chart height keeps the card size stable as well. With
+    // `scale = 0` every column draws n = 0 rects, and 0 * 0 === 0 keeps the
+    // division-by-zero out.
     const scale = maxV > 0 ? maxItemInCol / maxV : 0;
     const layerHeight = (100 / maxItemInCol) * 0.6;
     const marginTop = (100 / maxItemInCol) * 0.4;

@@ -12,7 +12,8 @@
  */
 import { Tabs } from 'antd';
 import * as React from 'react';
-import TestRenderer, { act } from 'react-test-renderer';
+import { act } from 'react';
+import TestRenderer from 'react-test-renderer';
 import { APP_TABS, nextTabKey } from '../appTabs';
 import { tabType } from '../Timer/action';
 import AppTitleBar from './AppTitleBar';
@@ -60,23 +61,29 @@ const build = (
     maximized = false,
     compact = false
 ) =>
-    TestRenderer.create(
-        <AppTitleBar
-            currentTab={currentTab}
-            minimize={false}
-            compact={compact}
-            maximized={maximized}
-            sessionEnding={sessionEnding}
-            onTabChange={onTabChange}
-            timer={<div>timer page</div>}
-            kanban={<div>kanban page</div>}
-            history={<div>history page</div>}
-            setting={<div>setting page</div>}
-            alwaysOnTop={false}
-            onToggleAlwaysOnTop={() => undefined}
-        />,
-        { createNodeMock: () => fakeNode }
-    );
+    (() => {
+        let renderer!: TestRenderer.ReactTestRenderer;
+        act(() => {
+            renderer = TestRenderer.create(
+                <AppTitleBar
+                    currentTab={currentTab}
+                    minimize={false}
+                    compact={compact}
+                    maximized={maximized}
+                    sessionEnding={sessionEnding}
+                    onTabChange={onTabChange}
+                    timer={<div>timer page</div>}
+                    kanban={<div>kanban page</div>}
+                    history={<div>history page</div>}
+                    setting={<div>setting page</div>}
+                    alwaysOnTop={false}
+                    onToggleAlwaysOnTop={() => undefined}
+                />,
+                { createNodeMock: () => fakeNode }
+            );
+        });
+        return renderer;
+    })();
 
 /**
  * The host element the bar's pointer handlers live on. `styled-components`

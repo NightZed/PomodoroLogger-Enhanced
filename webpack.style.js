@@ -1,6 +1,5 @@
 const webpack = require('webpack');
 const { merge } = require('webpack-merge');
-const path = require('path');
 const baseConfig = require('./webpack.base.config');
 
 module.exports = merge(baseConfig, {
@@ -14,27 +13,22 @@ module.exports = merge(baseConfig, {
             {
                 test: /\.(ts|tsx)$/,
                 exclude: /node_modules/,
-                use: [
-                    {
-                        loader: 'babel-loader',
-                        options: {
-                            babelrc: false,
-                            presets: [
-                                '@babel/preset-react',
-                                '@babel/preset-env',
-                                '@babel/preset-typescript',
-                            ],
-                            plugins: [
-                                '@babel/plugin-proposal-optional-chaining',
-                                '@babel/plugin-transform-runtime',
-                                ['@babel/plugin-proposal-class-properties', { loose: true }],
-                            ],
-                        },
+                use: {
+                    loader: 'babel-loader',
+                    options: {
+                        babelrc: false,
+                        presets: [
+                            '@babel/preset-react',
+                            '@babel/preset-env',
+                            '@babel/preset-typescript',
+                        ],
+                        plugins: [
+                            '@babel/plugin-proposal-optional-chaining',
+                            '@babel/plugin-transform-runtime',
+                            ['@babel/plugin-proposal-class-properties', { loose: true }],
+                        ],
                     },
-                    {
-                        loader: 'react-docgen-typescript-loader'
-                    }
-                ],
+                },
             },
             {
                 test: /\.svg(\?v=\d+\.\d+\.\d+)?$/,
@@ -66,6 +60,5 @@ module.exports = merge(baseConfig, {
     },
     plugins: [
         new webpack.HotModuleReplacementPlugin(),
-        new webpack.NamedModulesPlugin(),
     ],
 });

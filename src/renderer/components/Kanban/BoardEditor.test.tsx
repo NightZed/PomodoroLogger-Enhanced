@@ -1,6 +1,5 @@
 import * as React from 'react';
-import * as ReactDOM from 'react-dom';
-import { act, Simulate } from 'react-dom/test-utils';
+import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { Form, FormInstance } from 'antd';
 import { EditKanbanForm } from './BoardEditor';
 
@@ -29,9 +28,7 @@ const createBoardForm = (
         );
     };
 
-    act(() => {
-        ReactDOM.render(<FormHarness />, container);
-    });
+    render(<FormHarness />, { container });
     return formRef.current!;
 };
 
@@ -45,9 +42,7 @@ describe('EditKanbanForm board name validation', () => {
     });
 
     afterEach(() => {
-        act(() => {
-            ReactDOM.unmountComponentAtNode(container);
-        });
+        cleanup();
         document.body.innerHTML = '';
         warn.mockRestore();
     });
@@ -73,7 +68,7 @@ describe('EditKanbanForm board name validation', () => {
             );
             expect(createButton).toBeDefined();
             await act(async () => {
-                Simulate.click(createButton!);
+                fireEvent.click(createButton!);
                 await new Promise((resolve) => setTimeout(resolve, 0));
             });
 

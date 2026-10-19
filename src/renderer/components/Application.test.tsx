@@ -15,11 +15,10 @@
  * batching question is actually exercised.
  */
 import * as React from 'react';
-import * as ReactDOM from 'react-dom';
-import { act } from 'react-dom/test-utils';
+import { act, cleanup, render } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { applyMiddleware, createStore, Store } from 'redux';
-import thunk from 'redux-thunk';
+import { thunk } from 'redux-thunk';
 
 // The pages are content, not the subject: they drag in echarts, the monitor and
 // the worker threads, none of which the navigation depends on.
@@ -73,7 +72,6 @@ jest.mock('electron', () => ({
     ipcRenderer: { send: jest.fn(), addListener: jest.fn(), removeListener: jest.fn() },
 }));
 jest.mock('@electron/remote', () => ({ getGlobal: () => undefined }));
-jest.mock('react-hot-loader/root', () => ({ hot: (component: unknown) => component }));
 
 import { ipcRenderer } from 'electron';
 import { WindowEventName } from '../../main/ipc/type';
@@ -136,7 +134,7 @@ const clickTab = async (index: number) => {
 
 describe('Application page switching', () => {
     let container: HTMLDivElement;
-    let store: Store<RootState | undefined>;
+    let store: Store<RootState>;
 
     const state = () => store.getState()!.timer;
 
@@ -152,17 +150,12 @@ describe('Application page switching', () => {
         document.body.appendChild(container);
         store = createStore(rootReducer, applyMiddleware(thunk));
 
-        act(() => {
-            ReactDOM.render(
-                <Provider store={store}>
-                    {/* `fetchKanban` is the one prop connect does not supply:
-                        it is passed to `genMapDispatchToProp` as an extra key,
-                        outside the action types the prop is typed with. */}
-                    <ConnectedApplication fetchKanban={jest.fn()} />
-                </Provider>,
-                container
-            );
-        });
+        render(
+            <Provider store={store}>
+                <ConnectedApplication />
+            </Provider>,
+            { container }
+        );
 
         act(() => {
             store.dispatch(setCompact(true));
@@ -172,9 +165,7 @@ describe('Application page switching', () => {
     });
 
     afterEach(() => {
-        act(() => {
-            ReactDOM.unmountComponentAtNode(container);
-        });
+        cleanup();
         container.remove();
         document.documentElement.removeAttribute('data-theme');
         (console.error as jest.Mock).mockRestore();

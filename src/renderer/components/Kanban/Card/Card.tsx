@@ -1,4 +1,4 @@
-import { Draggable } from 'react-beautiful-dnd';
+import { Draggable } from '@hello-pangea/dnd';
 import React, { FC } from 'react';
 import { CardActionTypes } from './action';
 import { KanbanActionTypes } from '../action';
@@ -290,7 +290,6 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                                     </CardContent>
                                 )}
                             </CardContainer>
-                            {isDraggingOver && provided.placeholder}
                         </>
                     );
                 }}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { act } from 'react';
 import TestRenderer, { ReactTestRendererJSON } from 'react-test-renderer';
 import { MiniLogger } from './MiniLogger';
 
@@ -39,9 +39,17 @@ function findAll(
 
 const classNameOf = (n: ReactTestRendererJSON) => String(n.props?.className || '');
 
+const createRenderer = (element: React.ReactElement) => {
+    let renderer!: TestRenderer.ReactTestRenderer;
+    act(() => {
+        renderer = TestRenderer.create(element);
+    });
+    return renderer;
+};
+
 describe('MiniLogger two-row mini layout', () => {
     it('renders task row on top and control row below the divider', () => {
-        const tree = TestRenderer.create(
+        const tree = createRenderer(
             <MiniLogger {...baseProps} />
         ).toJSON() as ReactTestRendererJSON;
         const controlRows = findAll(tree, (n) => classNameOf(n).includes('control-row'));
@@ -57,7 +65,7 @@ describe('MiniLogger two-row mini layout', () => {
     });
 
     it('fills the inner disc with the working color while focusing', () => {
-        const tree = TestRenderer.create(
+        const tree = createRenderer(
             <MiniLogger {...baseProps} />
         ).toJSON() as ReactTestRendererJSON;
         const circles = findAll(tree, (n) => n.type === 'circle');
@@ -66,7 +74,7 @@ describe('MiniLogger two-row mini layout', () => {
     });
 
     it('fills the inner disc with the rest color while resting', () => {
-        const tree = TestRenderer.create(
+        const tree = createRenderer(
             <MiniLogger {...baseProps} isFocusing={false} />
         ).toJSON() as ReactTestRendererJSON;
         const circles = findAll(tree, (n) => n.type === 'circle');
@@ -75,7 +83,7 @@ describe('MiniLogger two-row mini layout', () => {
     });
 
     it('renders exactly 4 ghost control buttons in normal mode', () => {
-        const tree = TestRenderer.create(
+        const tree = createRenderer(
             <MiniLogger {...baseProps} hasSession isRunning percentage={50} />
         ).toJSON() as ReactTestRendererJSON;
         const buttons = findAll(tree, (n) => n.type === 'button');
@@ -88,7 +96,7 @@ describe('MiniLogger two-row mini layout', () => {
         // offer Finish instead of Switch Mode, exactly like the normal/compact
         // pages, which read the timer state instead of the percentage.
         const leftClusterIcons = (props: Partial<typeof baseProps>) => {
-            const tree = TestRenderer.create(
+            const tree = createRenderer(
                 <MiniLogger {...baseProps} {...props} />
             ).toJSON() as ReactTestRendererJSON;
             const left = findAll(tree, (n) => classNameOf(n).includes('btn-side left'));
@@ -123,7 +131,7 @@ describe('MiniLogger two-row mini layout', () => {
     });
 
     it('never renders the removed status icons (fire / coffee / check-circle)', () => {
-        const tree = TestRenderer.create(
+        const tree = createRenderer(
             <MiniLogger {...baseProps} isConfirming />
         ).toJSON() as ReactTestRendererJSON;
         const iconClasses = findAll(tree, (n) => classNameOf(n).includes('anticon'))
@@ -135,7 +143,7 @@ describe('MiniLogger two-row mini layout', () => {
     });
 
     it('shows a default placeholder when no project is selected', () => {
-        const tree = TestRenderer.create(
+        const tree = createRenderer(
             <MiniLogger {...baseProps} task="" />
         ).toJSON() as ReactTestRendererJSON;
         const taskNodes = findAll(
@@ -147,7 +155,7 @@ describe('MiniLogger two-row mini layout', () => {
     });
 
     it('keeps the right side filled after a rest, with Stop disabled', () => {
-        const tree = TestRenderer.create(
+        const tree = createRenderer(
             <MiniLogger {...baseProps} isConfirming isFocusing={false} />
         ).toJSON() as ReactTestRendererJSON;
         const buttons = findAll(tree, (n) => n.type === 'button');
@@ -163,7 +171,7 @@ describe('MiniLogger two-row mini layout', () => {
 
     it('exposes the timer state via a native SVG title, like the buttons', () => {
         const stateLabel = (props: Partial<typeof baseProps>) => {
-            const tree = TestRenderer.create(
+            const tree = createRenderer(
                 <MiniLogger {...baseProps} {...props} />
             ).toJSON() as ReactTestRendererJSON;
             const titles = findAll(tree, (n) => n.type === 'title');
@@ -179,7 +187,7 @@ describe('MiniLogger two-row mini layout', () => {
     });
 
     it('walks the second hand clockwise from 12 o clock', () => {
-        const tree = TestRenderer.create(
+        const tree = createRenderer(
             <MiniLogger {...baseProps} hasSession isRunning percentage={50} secondsLeft={125} />
         ).toJSON() as ReactTestRendererJSON;
         const orbits = findAll(tree, (n) => classNameOf(n).includes('timer-orbit'));
@@ -192,7 +200,7 @@ describe('MiniLogger two-row mini layout', () => {
     });
 
     it('advances the second hand clockwise as the countdown decreases', () => {
-        const renderer = TestRenderer.create(
+        const renderer = createRenderer(
             <MiniLogger {...baseProps} hasSession isRunning percentage={50} secondsLeft={125} />
         );
         const angleOf = () => {
@@ -203,19 +211,25 @@ describe('MiniLogger two-row mini layout', () => {
         };
         expect(angleOf()).toBe('rotate(0deg)');
         // One elapsed second -> +6deg clockwise (not 30deg -> 24deg backwards).
-        renderer.update(
-            <MiniLogger {...baseProps} hasSession isRunning percentage={50} secondsLeft={124} />
-        );
+        act(() => {
+            renderer.update(
+                <MiniLogger {...baseProps} hasSession isRunning percentage={50} secondsLeft={124} />
+            );
+        });
         expect(angleOf()).toBe('rotate(6deg)');
         // Across the minute wrap the angle keeps growing (354deg -> 360deg,
         // the same dial position as 0deg) instead of sweeping backwards.
-        renderer.update(
-            <MiniLogger {...baseProps} hasSession isRunning percentage={50} secondsLeft={65} />
-        );
+        act(() => {
+            renderer.update(
+                <MiniLogger {...baseProps} hasSession isRunning percentage={50} secondsLeft={65} />
+            );
+        });
         const beforeWrap = angleOf();
-        renderer.update(
-            <MiniLogger {...baseProps} hasSession isRunning percentage={50} secondsLeft={64} />
-        );
+        act(() => {
+            renderer.update(
+                <MiniLogger {...baseProps} hasSession isRunning percentage={50} secondsLeft={64} />
+            );
+        });
         const afterWrap = angleOf();
         const degrees = (t: string) => Number(t.replace('rotate(', '').replace('deg)', ''));
         expect(degrees(afterWrap)).toBeGreaterThan(degrees(beforeWrap));
@@ -223,7 +237,7 @@ describe('MiniLogger two-row mini layout', () => {
     });
 
     it('dims the dial and badges pause instead of ticking while paused', () => {
-        const renderer = TestRenderer.create(
+        const renderer = createRenderer(
             <MiniLogger {...baseProps} hasSession isRunning percentage={50} secondsLeft={125} />
         );
         const angleOf = () => {
@@ -232,21 +246,25 @@ describe('MiniLogger two-row mini layout', () => {
             expect(orbits).toHaveLength(1);
             return orbits[0].props.style.transform;
         };
-        renderer.update(
-            <MiniLogger {...baseProps} hasSession isRunning percentage={50} secondsLeft={124} />
-        );
+        act(() => {
+            renderer.update(
+                <MiniLogger {...baseProps} hasSession isRunning percentage={50} secondsLeft={124} />
+            );
+        });
         expect(angleOf()).toBe('rotate(6deg)');
         // Pause repeats the frozen value: the hand holds its detent (only
         // opacity flips via the styled rule, invisible to the snapshot).
-        renderer.update(
-            <MiniLogger
-                {...baseProps}
-                hasSession
-                isRunning={false}
-                percentage={50}
-                secondsLeft={124}
-            />
-        );
+        act(() => {
+            renderer.update(
+                <MiniLogger
+                    {...baseProps}
+                    hasSession
+                    isRunning={false}
+                    percentage={50}
+                    secondsLeft={124}
+                />
+            );
+        });
         expect(angleOf()).toBe('rotate(6deg)');
         const tree = renderer.toJSON() as ReactTestRendererJSON;
         const svgs = findAll(
@@ -261,14 +279,16 @@ describe('MiniLogger two-row mini layout', () => {
         const texts = findAll(tree, (n) => n.type === 'text');
         expect(texts.length).toBeGreaterThan(0);
         // Resume continues from the frozen detent instead of jumping back.
-        renderer.update(
-            <MiniLogger {...baseProps} hasSession isRunning percentage={50} secondsLeft={123} />
-        );
+        act(() => {
+            renderer.update(
+                <MiniLogger {...baseProps} hasSession isRunning percentage={50} secondsLeft={123} />
+            );
+        });
         expect(angleOf()).toBe('rotate(12deg)');
     });
 
     it('hides the second hand while idle', () => {
-        const tree = TestRenderer.create(
+        const tree = createRenderer(
             <MiniLogger {...baseProps} hasSession={false} isRunning={false} percentage={0} />
         ).toJSON() as ReactTestRendererJSON;
         const orbits = findAll(tree, (n) => classNameOf(n).includes('timer-orbit'));
@@ -278,7 +298,7 @@ describe('MiniLogger two-row mini layout', () => {
     it('sweeps a single highlight while confirming: one animated node, static ticks', () => {
         jest.useFakeTimers();
         try {
-            const renderer = TestRenderer.create(
+            const renderer = createRenderer(
                 <MiniLogger {...baseProps} isConfirming hasSession isRunning />
             );
             const tree = renderer.toJSON() as ReactTestRendererJSON;
@@ -299,7 +319,9 @@ describe('MiniLogger two-row mini layout', () => {
             // Long-idle freeze: after ~60s the sweep pauses itself.
             const instance = renderer.getInstance() as MiniLogger | null;
             expect(instance?.state.confirmSweepFrozen).toBe(false);
-            jest.advanceTimersByTime(60000);
+            act(() => {
+                jest.advanceTimersByTime(60000);
+            });
             expect(instance?.state.confirmSweepFrozen).toBe(true);
         } finally {
             jest.useRealTimers();

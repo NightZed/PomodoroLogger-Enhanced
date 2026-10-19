@@ -1019,6 +1019,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                     Open Source @GitHub
                     <StyledIcon
                         onClick={openGithubPage}
+                        aria-label="GitHub"
                         title="This project is open-source and hosted on GitHub"
                     />
                     Version v{pkg.version}

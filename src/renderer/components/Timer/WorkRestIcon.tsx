@@ -43,6 +43,7 @@ interface Props {
     isWorking: boolean;
     isLongBreak: boolean;
     onClick?: () => void;
+    'aria-label'?: string;
 }
 
 export const WorkRestIcon: FunctionComponent<Props> = (props: Props) => {
@@ -54,6 +55,7 @@ export const WorkRestIcon: FunctionComponent<Props> = (props: Props) => {
             onClick={props.onClick}
             id={'timer-mode'}
             data-tour={'timer-mode'}
+            aria-label={props['aria-label'] ?? 'Switch timer mode'}
         >
             <FadeEffect key={`icon-${animationKey}`}>
                 {props.isWorking ? <Icon component={WorkIcon} /> : <Icon component={RestIcon} />}

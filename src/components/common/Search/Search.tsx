@@ -251,9 +251,10 @@ export const Search = ({
                         transition: 'transform 120ms',
                     }}
                     className="close"
+                    aria-label="Expand search panel"
                     onClick={togglePanel}
                 />
-                <Icon type="close" className="close" onClick={clear} />
+                <Icon type="close" className="close" aria-label="Clear" onClick={clear} />
             </header>
             {showPanel && isSearching && (
                 <SearchPanel

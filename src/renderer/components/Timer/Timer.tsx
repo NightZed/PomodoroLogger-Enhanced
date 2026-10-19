@@ -1554,6 +1554,7 @@ class Timer extends Component<Props, State> {
                                         isLongBreak={
                                             !(this.props.timer.iBreak % LONG_BREAK_INTERVAL)
                                         }
+                                        aria-label="Switch timer mode"
                                         onClick={this.switchMode}
                                     />
                                 </ProgressTextContainer>

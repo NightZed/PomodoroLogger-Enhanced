@@ -1,4 +1,4 @@
-import { Draggable, Droppable } from 'react-beautiful-dnd';
+import { Draggable, Droppable } from '@hello-pangea/dnd';
 import FocusIcon from '../../../../res/Focus.svg';
 import DoneIcon from '../../../../res/done.svg';
 import React, { FC, useRef, useState } from 'react';
@@ -262,7 +262,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
     const cardCount = props.cards?.length ?? 0;
     const [isEditing, setIsEditing] = useState(false);
     const [value, setValue] = useState('');
-    const inputRef = useRef<any>();
+    const inputRef = useRef<any>(null);
 
     const addCard = () => {
         props.setEditCard(true, props.listId, undefined);
@@ -297,7 +297,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
     };
 
     /** The shared popover forwards the antd instance, so the menu can open it. */
-    const popConfirmRef = useRef<{ setVisible: (visible: boolean) => void }>();
+    const popConfirmRef = useRef<{ setVisible: (visible: boolean) => void } | null>(null);
     const onPreDelete = React.useCallback(() => {
         if (popConfirmRef.current) {
             popConfirmRef.current.setVisible(true);
@@ -442,7 +442,6 @@ export const List: FC<Props> = React.memo((props: Props) => {
                             />
                         </ButtonWrapper>
                     </Container>
-                    {provided.placeholder}
                 </div>
             )}
         </Draggable>

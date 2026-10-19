@@ -1,4 +1,8 @@
 const path = require('path');
+const propsParser = require('react-docgen-typescript').withCustomConfig(
+    path.resolve(__dirname, 'tsconfig.json'),
+    { shouldExtractLiteralValuesFromEnum: true }
+).parse;
 const rhythm = (value = 1, unit = 'rem', basis = 1.5) =>
     Array.isArray(value)
         ? value.map((v) => `${basis * v}${unit}`).join(' ')
@@ -191,6 +195,7 @@ module.exports = {
         '**/*.d.ts',
         '**/*.js',
     ],
+    propsParser,
     styles,
     theme,
     webpackConfig: require('./webpack.style.js'),

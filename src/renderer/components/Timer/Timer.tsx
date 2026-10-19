@@ -276,8 +276,8 @@ class Timer extends Component<Props, State> {
      * consumed (and cleared) by `onSessionConfirmed` once the record is in.
      */
     private nextSessionStarter?: () => void;
-    mainDiv: React.RefObject<HTMLDivElement>;
-    sound: React.RefObject<HTMLAudioElement>;
+    mainDiv: React.RefObject<HTMLDivElement | null>;
+    sound: React.RefObject<HTMLAudioElement | null>;
     extendedTimeInMinute: number;
     efficiencyAnalyser: EfficiencyAnalyser;
     private stagedSession?: PomodoroRecord;
@@ -288,7 +288,7 @@ class Timer extends Component<Props, State> {
      * selected, i.e. when there is nothing to predict.
      */
     private projectInference?: Promise<string | undefined>;
-    selfRef: React.RefObject<HTMLDivElement> = React.createRef();
+    selfRef: React.RefObject<HTMLDivElement | null> = React.createRef<HTMLDivElement>();
     private componentGone = false;
     /**
      * The open "no project / no cards" confirmation, if any. A new start request

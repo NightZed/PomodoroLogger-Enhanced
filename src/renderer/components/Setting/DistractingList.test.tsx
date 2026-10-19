@@ -1,6 +1,5 @@
 import * as React from 'react';
-import * as ReactDOM from 'react-dom';
-import { act } from 'react-dom/test-utils';
+import { cleanup, render } from '@testing-library/react';
 import { createStore } from 'redux';
 import { Provider } from 'react-redux';
 
@@ -40,17 +39,12 @@ describe('DistractingList', () => {
         const warnings = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 
         try {
-            act(() => {
-                ReactDOM.render(
-                    <Provider store={store}>
-                        <DistractingList
-                            registerSubmit={() => undefined}
-                            onSaved={() => undefined}
-                        />
-                    </Provider>,
-                    container
-                );
-            });
+            render(
+                <Provider store={store}>
+                    <DistractingList registerSubmit={() => undefined} onSaved={() => undefined} />
+                </Provider>,
+                { container }
+            );
 
             expect(container.querySelector('[placeholder="App RegExp"]')).not.toBeNull();
             expect(container.querySelector('[placeholder="Title RegExp"]')).not.toBeNull();
@@ -99,9 +93,7 @@ describe('DistractingList', () => {
                     )
             ).toEqual([]);
         } finally {
-            act(() => {
-                ReactDOM.unmountComponentAtNode(container);
-            });
+            cleanup();
             errors.mockRestore();
             warnings.mockRestore();
         }

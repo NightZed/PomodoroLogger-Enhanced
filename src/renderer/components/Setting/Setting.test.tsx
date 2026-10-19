@@ -18,7 +18,9 @@
  * exercise end to end through the real component.
  */
 import * as React from 'react';
-import TestRenderer, { ReactTestRendererJSON, act } from 'react-test-renderer';
+import { act } from 'react';
+import { render } from '@testing-library/react';
+import TestRenderer, { ReactTestRendererJSON } from 'react-test-renderer';
 import { Slider } from 'antd';
 
 const mockAlert = jest.fn();
@@ -202,7 +204,10 @@ const click = async (label: string) => {
 /** Renders the content the last dialog was opened with, as flat text. */
 const alertText = () => {
     const content = mockAlert.mock.calls.slice(-1)[0][0].content;
-    return texts(TestRenderer.create(<>{content}</>).toJSON()).join('\n');
+    const { container, unmount } = render(<>{content}</>);
+    const text = container.textContent ?? '';
+    unmount();
+    return text;
 };
 
 beforeEach(() => {

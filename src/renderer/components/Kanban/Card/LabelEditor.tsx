@@ -153,10 +153,10 @@ const EditPanelBox = styled.div`
  * rc-trigger caches the popup after the first open, so the key is what makes
  * every open remount -- and therefore refocus -- the panel.
  */
-const EditPanel: FC<{ onKeyDown: (event: React.KeyboardEvent) => void }> = ({
-    onKeyDown,
-    children,
-}) => {
+const EditPanel: FC<{
+    onKeyDown: (event: React.KeyboardEvent) => void;
+    children: React.ReactNode;
+}> = ({ onKeyDown, children }) => {
     const panelRef = React.useRef<HTMLDivElement>(null);
     React.useEffect(() => {
         const input = panelRef.current ? panelRef.current.querySelector('input') : null;

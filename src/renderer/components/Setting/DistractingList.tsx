@@ -228,8 +228,8 @@ export const DistractingList: React.FC<DistractingListProps> = ({
 
     return (
         <DynamicFieldSet
-            initialApps={distractingList.map((v) => v.app ?? '')}
-            initialTitles={distractingList.map((v) => v.title ?? '')}
+            initialApps={distractingList.map((v: DistractingRow) => v.app ?? '')}
+            initialTitles={distractingList.map((v: DistractingRow) => v.title ?? '')}
             onSubmit={onSubmit}
             registerSubmit={registerSubmit}
         />
@@ -238,7 +238,7 @@ export const DistractingList: React.FC<DistractingListProps> = ({
 
 export const DistractingListModalButton = (props: InputProps) => {
     const [editingDistracting, setEditingDistracting] = React.useState(false);
-    const submitForm = React.useRef<() => void>();
+    const submitForm = React.useRef<(() => void) | null>(null);
     const onOk = () => {
         submitForm.current?.();
     };

@@ -13,15 +13,14 @@
  * branch stealing one of them.
  */
 import * as React from 'react';
-import * as ReactDOM from 'react-dom';
-import { act } from 'react-dom/test-utils';
+import { act, cleanup, render } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { createStore } from 'redux';
 
-// react-beautiful-dnd is drag plumbing, not the subject: its Draggable only
+// The drag-and-drop package is plumbing, not the subject: its Draggable only
 // wraps the card in a drag context. Rendering the real one under jsdom drags
 // in rAF/measurements for zero extra coverage of the click logic.
-jest.mock('react-beautiful-dnd', () => ({
+jest.mock('@hello-pangea/dnd', () => ({
     Draggable: (props: any) =>
         props.children(
             {
@@ -56,9 +55,7 @@ describe('Card content clicks', () => {
     });
 
     afterEach(() => {
-        act(() => {
-            ReactDOM.unmountComponentAtNode(container);
-        });
+        cleanup();
         container.remove();
         document.body.innerHTML = '';
     });
@@ -84,24 +81,19 @@ describe('Card content clicks', () => {
             ...actions,
         };
 
-        act(() => {
-            ReactDOM.render(
-                <Provider store={store}>
-                    <Card {...props} />
-                </Provider>,
-                container
-            );
-        });
+        render(
+            <Provider store={store}>
+                <Card {...props} />
+            </Provider>,
+            { container }
+        );
 
         return actions;
     };
 
     /**
-     * Dispatch a real bubbling MouseEvent: React 16 listens at the document,
-     * so the card's onClick fires with nativeEvent.target pointing at `el`
-     * (Simulate would not populate e.nativeEvent.target the way the handler
-     * reads it). Returns the event so the caller can inspect whether the
-     * default action survived.
+     * Dispatch a real bubbling MouseEvent so the handler sees the native
+     * target and the caller can inspect whether the default action survived.
      */
     const click = (el: Element): MouseEvent => {
         const event = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });

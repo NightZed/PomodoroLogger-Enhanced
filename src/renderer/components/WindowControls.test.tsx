@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { act } from 'react';
 import TestRenderer, { ReactTestRendererJSON } from 'react-test-renderer';
 import WindowControls from './WindowControls';
 
@@ -18,17 +18,27 @@ function findAll(
     return result;
 }
 
+const createRenderer = (element: React.ReactElement) => {
+    let renderer!: TestRenderer.ReactTestRenderer;
+    act(() => {
+        renderer = TestRenderer.create(element);
+    });
+    return renderer;
+};
+
 describe('WindowControls (frameless caption buttons)', () => {
     it('renders minimize / maximize / close wired to the windowAction IPC', () => {
         const windowAction = jest.fn();
         (window as any).api = { windowAction };
 
-        const tree = TestRenderer.create(<WindowControls />).toJSON() as ReactTestRendererJSON;
+        const tree = createRenderer(<WindowControls />).toJSON() as ReactTestRendererJSON;
         const buttons = findAll(tree, (n) => n.type === 'button');
         expect(buttons).toHaveLength(3);
         expect(buttons.map((b) => b.props.title)).toEqual(['Minimize', 'Maximize', 'Close']);
 
-        buttons.forEach((b) => b.props.onClick());
+        act(() => {
+            buttons.forEach((b) => b.props.onClick());
+        });
         expect(windowAction).toHaveBeenNthCalledWith(1, 'minimize');
         expect(windowAction).toHaveBeenNthCalledWith(2, 'maximize');
         expect(windowAction).toHaveBeenNthCalledWith(3, 'close');
@@ -41,9 +51,7 @@ describe('WindowControls (frameless caption buttons)', () => {
         const windowAction = jest.fn();
         (window as any).api = { windowAction };
 
-        const tree = TestRenderer.create(
-            <WindowControls maximized />
-        ).toJSON() as ReactTestRendererJSON;
+        const tree = createRenderer(<WindowControls maximized />).toJSON() as ReactTestRendererJSON;
 
         const buttons = findAll(tree, (n) => n.type === 'button');
         expect(buttons.map((b) => b.props.title)).toEqual(['Minimize', 'Restore Down', 'Close']);
@@ -56,7 +64,9 @@ describe('WindowControls (frameless caption buttons)', () => {
 
         // The button keeps toggling the same window action: the window is
         // maximized, so the main process unmaximizes it.
-        buttons[1].props.onClick();
+        act(() => {
+            buttons[1].props.onClick();
+        });
         expect(windowAction).toHaveBeenCalledWith('maximize');
     });
 });

@@ -39,7 +39,7 @@ interface Props {
 
 export const ProjectTrend: React.FC<Props> = (props: Props) => {
     const { hoverEffect = false } = props;
-    const ref = useRef();
+    const ref = useRef<SVGSVGElement | null>(null);
     const C = hoverEffect ? Container : NoHover;
     return (
         // @ts-ignore

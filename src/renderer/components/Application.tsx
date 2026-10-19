@@ -3,7 +3,6 @@ import { ipcRenderer } from 'electron';
 import * as React from 'react';
 import { batch } from 'react-redux';
 import Hotkeys from './Hotkeys';
-import { hot } from 'react-hot-loader/root';
 import { connect } from 'react-redux';
 import styled from 'styled-components';
 import { IpcEventName, WindowEventName } from '../../main/ipc/type';
@@ -426,7 +425,9 @@ const ApplicationContainer = connect(
         wallpaperOpacity: state.timer.wallpaperOpacity,
         sessionEnding: state.timer.sessionEnding,
     }),
-    genMapDispatchToProp<TimerActionTypes & HistoryActionCreatorTypes>({
+    genMapDispatchToProp<
+        TimerActionTypes & HistoryActionCreatorTypes & { fetchKanban: () => void }
+    >({
         ...timerActions,
         ...historyActions,
         fetchKanban: kanbanActions.boardActions.fetchBoards,
@@ -471,4 +472,4 @@ const ThemedApplication: React.FC<React.ComponentProps<typeof ApplicationContain
     );
 };
 
-export default hot(ThemedApplication);
+export default ThemedApplication;

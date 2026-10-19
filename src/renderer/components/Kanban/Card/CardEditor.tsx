@@ -6,11 +6,12 @@ import { actions as kanbanActions } from '../action';
 import { RootState } from '../../../reducers';
 import { genMapDispatchToProp, matchParent } from '../../../utils';
 import { Button, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Tabs, Tooltip } from 'antd';
+import { AntdIcon as Icon } from '../../antdIcon';
 import { ConfirmPopover } from '../../feedback';
 import { getPopupContainer } from '../../popupLayer';
 import TextArea from 'antd/es/input/TextArea';
 import { uid } from '../../../../utils/uid';
-import moment from 'moment';
+import dayjs, { Dayjs } from 'dayjs';
 import { Card, CardLabel } from '../type';
 import { Markdown } from '../style/Markdown';
 import formatMarkdown from './formatMarkdown';
@@ -20,8 +21,6 @@ import { EditorContainer, EditorAnimation } from '../style/editorStyle';
 import { CreatedTime } from '../style/CreatedTime';
 import { formatTimeYmdHm } from '../../Visualization/Timeline';
 import { LabelEditor } from './LabelEditor';
-const { TabPane } = Tabs;
-
 /**
  * The class antd puts on the editor's dialog wrap (the Modal's wrapClassName
  * below). The document-level Ctrl+Enter/Esc listener uses it to tell THIS
@@ -36,9 +35,8 @@ const CARD_EDITOR_WRAP_CLASS = 'card-editor-dialog';
 
 interface Props extends CardActionTypes {
     visible: boolean;
-    onCancel: () => void;
+    onCancel?: () => void;
     card?: Card;
-    form: any;
     listId: string;
     // whether the list being edited is the done list of its board
     isInDoneList: boolean;
@@ -51,31 +49,35 @@ interface FormData {
     content: string;
     estimatedTime?: number;
     actualTime?: number;
-    completedTime?: moment.Moment;
+    completedTime?: Dayjs;
 }
 
 const _CardInDetail: FC<Props> = React.memo((props: Props) => {
+    const [form] = Form.useForm();
     const [showMarkdownPreview, setShowMarkdownPreview] = useState(false);
     const [cardContent, setCardContent] = useState('');
     const [cardLabels, setCardLabels] = useState<CardLabel[]>([]);
-    const { card, visible, form, onCancel, listId, labelSuggestions, boardCards, isInDoneList } =
-        props;
+    const {
+        card,
+        visible,
+        onCancel,
+        listId,
+        labelSuggestions,
+        boardCards,
+        isInDoneList,
+        deleteCard,
+    } = props;
     const isCreating = !card;
     const lastIsCreating = React.useRef<boolean | null>(null);
     const thisIsCreating = visible ? isCreating : lastIsCreating.current ?? isCreating;
-    const {
-        getFieldDecorator,
-        setFieldsValue,
-        setFields,
-        getFieldsValue,
-        validateFields,
-        resetFields,
-    } = form;
+    const { setFieldsValue, setFields, getFieldsValue, validateFields, resetFields } = form;
     useEffect(() => {
         lastIsCreating.current = isCreating;
     }, [isCreating]);
     useEffect(() => {
         if (!visible) {
+            setLinkModalVisible(false);
+            pendingLinkRef.current = null;
             return;
         }
 
@@ -91,7 +93,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                 content: card.content,
                 estimatedTime: time ? time : undefined,
                 actualTime: actual ? actual : undefined,
-                completedTime: card.completedTime ? moment(card.completedTime) : undefined,
+                completedTime: card.completedTime ? dayjs(card.completedTime) : undefined,
             } as FormData);
         } else {
             setCardContent('');
@@ -105,16 +107,16 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                 completedTime: undefined,
             } as FormData);
         }
-    }, [card, visible]);
+    }, [card, visible, setFieldsValue]);
 
     const onDelete = React.useCallback(() => {
         if (!card) {
             return;
         }
 
-        props.deleteCard(card._id, listId);
-        onCancel();
-    }, [card?._id, listId, onCancel]);
+        deleteCard(card._id, listId);
+        onCancel?.();
+    }, [card, deleteCard, listId, onCancel]);
 
     const [isEditingActualTime, setIsEditingActualTime] = useState(false);
     const contentRef = useRef<any>(null);
@@ -153,11 +155,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                 replaceRange?: [number, number];
             }
         ) => {
-            validateFields((err: Error, values: FormData) => {
-                if (err) {
-                    return;
-                }
-
+            validateFields().then((values: FormData) => {
                 const current = values.content || '';
                 const textarea = getTextarea();
                 const start = textarea?.selectionStart ?? current.length;
@@ -223,11 +221,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
     }, [wrapSelection]);
 
     const openLinkModal = React.useCallback(() => {
-        validateFields((err: Error, values: FormData) => {
-            if (err) {
-                return;
-            }
-
+        validateFields().then((values: FormData) => {
             const current = values.content || '';
             const textarea = getTextarea();
             const start = textarea?.selectionStart ?? current.length;
@@ -262,11 +256,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
         // default 'title' stored when the modal was opened)
         const title = linkText.trim() || pending.text;
         const text = `[${title}](${url})`;
-        validateFields((err: Error, values: FormData) => {
-            if (err) {
-                return;
-            }
-
+        validateFields().then((values: FormData) => {
             const textarea = getTextarea();
             if (textarea) {
                 insertViaExecCommand(textarea, pending.start, pending.end, text);
@@ -379,11 +369,12 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
         // antd-style error display. Mirror any new rule here.
         const values = getFieldsValue() as FormData;
         if (values.title === undefined || values.title === null || values.title === '') {
-            setFields({
-                title: {
-                    errors: [{ message: 'Please input the title of card!' }],
+            setFields([
+                {
+                    name: 'title',
+                    errors: ['Please input the title of card!'],
                 },
-            });
+            ]);
             return;
         }
 
@@ -392,7 +383,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
         // re-render (close render + cards store + lists store + label sync =
         // 300+ms of renders before a single paint). Batched = ONE render.
         unstable_batchedUpdates(() => {
-            onCancel();
+            onCancel?.();
             saveValues(values);
         });
         setTimeout(resetFields, 200);
@@ -433,7 +424,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             const inAntdPopup =
                 target !== null &&
                 typeof target.closest === 'function' &&
-                target.closest('.ant-popover, .ant-select-dropdown, .ant-calendar');
+                target.closest('.ant-popover, .ant-select-dropdown, .ant-picker-dropdown');
             if (inAntdPopup) {
                 return;
             }
@@ -473,7 +464,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                 latestOnSaveRef.current();
             } else if (isEsc) {
                 event.preventDefault();
-                latestOnCancelRef.current();
+                latestOnCancelRef.current?.();
             }
         };
 
@@ -516,16 +507,19 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
         [insertCheckbox, insertBold, insertItalic, insertStrikethrough, openLinkModal]
     );
 
-    const onTabChange = React.useCallback((name: string) => {
-        if (name === 'edit') {
-            setShowMarkdownPreview(false);
-        } else {
-            validateFields((err: Error, values: FormData) => {
-                setCardContent(values.content || '');
-                setShowMarkdownPreview(true);
-            });
-        }
-    }, []);
+    const onTabChange = React.useCallback(
+        (name: string) => {
+            if (name === 'edit') {
+                setShowMarkdownPreview(false);
+            } else {
+                validateFields().then((values: FormData) => {
+                    setCardContent(values.content || '');
+                    setShowMarkdownPreview(true);
+                });
+            }
+        },
+        [validateFields]
+    );
 
     // Toggling a task box in the preview flips the markdown source exactly
     // like the card view does (the Nth rendered checkbox maps to the Nth
@@ -556,7 +550,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
 
     return (
         <Modal
-            visible={visible}
+            open={visible}
             title={thisIsCreating ? 'Create a new card' : 'Edit'}
             // custom footer: wrap the Save button in an antd Tooltip so the
             // Ctrl+Enter hint pops fast (~0.1s) instead of the slow native title
@@ -576,104 +570,132 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             onCancel={onCancel}
             style={{ minWidth: 300 }}
             width={960}
-            transitionName="card-editor-zoom"
+            transitionName="card-editor-fade"
             maskTransitionName="card-editor-fade"
             getContainer={getPopupContainer}
             wrapClassName={CARD_EDITOR_WRAP_CLASS}
         >
             <EditorAnimation />
             <EditorContainer>
-                <Form layout="vertical">
-                    <Form.Item label="Title">
-                        {getFieldDecorator('title', {
-                            rules: [{ required: true, message: 'Please input the title of card!' }],
-                        })(<Input placeholder={'Title'} />)}
-                        {!thisIsCreating && card && card.createdTime !== undefined ? (
-                            <CreatedTime style={{ marginTop: 4 }}>
-                                Created: {formatTimeYmdHm(card.createdTime)}
-                            </CreatedTime>
-                        ) : undefined}
-                    </Form.Item>
-                    <Tabs
-                        onChange={onTabChange}
-                        type="card"
-                        activeKey={showMarkdownPreview ? 'preview' : 'edit'}
-                        style={{ marginBottom: 10, minHeight: 120 }}
+                <Form form={form} layout="vertical">
+                    <Form.Item
+                        label="Title"
+                        name="title"
+                        rules={[{ required: true, message: 'Please input the title of card!' }]}
                     >
-                        <TabPane tab="Edit" key="edit">
-                            <div style={{ marginBottom: 4 }}>
-                                <Tooltip title={'Insert task checkbox - [ ] (Ctrl+L)'}>
-                                    <Button size={'small'} onClick={insertCheckbox}>
-                                        ☐
-                                    </Button>
-                                </Tooltip>
-                                <Tooltip title={'Toggle bold **text** (Ctrl+B)'}>
-                                    <Button
-                                        size={'small'}
-                                        style={{ marginLeft: 4 }}
-                                        onClick={insertBold}
-                                    >
-                                        <b>B</b>
-                                    </Button>
-                                </Tooltip>
-                                <Tooltip title={'Toggle italic *text* (Ctrl+I)'}>
-                                    <Button
-                                        size={'small'}
-                                        style={{ marginLeft: 4 }}
-                                        onClick={insertItalic}
-                                    >
-                                        <i>I</i>
-                                    </Button>
-                                </Tooltip>
-                                <Tooltip title={'Toggle strikethrough ~~text~~ (Ctrl+Shift+X)'}>
-                                    <Button
-                                        size={'small'}
-                                        style={{ marginLeft: 4, textDecoration: 'line-through' }}
-                                        onClick={insertStrikethrough}
-                                    >
-                                        S
-                                    </Button>
-                                </Tooltip>
-                                <Tooltip title={'Insert link [text](URL) (Ctrl+K)'}>
-                                    <Button
-                                        size={'small'}
-                                        style={{ marginLeft: 4 }}
-                                        icon={'link'}
-                                        onClick={openLinkModal}
-                                    />
-                                </Tooltip>
-                            </div>
-                            {getFieldDecorator('content')(
-                                <TextArea
-                                    ref={contentRef}
-                                    autoSize={{ minRows: 6, maxRows: 16 }}
-                                    placeholder={'Description'}
-                                    onKeyDown={onContentKeyDown}
-                                    onChange={(e: any) => setCardContent(e.target.value)}
-                                />
-                            )}
-                        </TabPane>
-                        <TabPane tab="Preview" key="preview">
-                            <Markdown
-                                ref={previewRef}
-                                onClick={onPreviewClick}
-                                style={{
-                                    padding: '0px 10px',
-                                    border: '1px solid var(--pl-border)',
-                                    borderRadius: 4,
-                                    maxHeight: 'calc(100vh - 600px)',
-                                    minHeight: 120,
-                                }}
-                                dangerouslySetInnerHTML={{
-                                    __html: formatMarkdown(cardContent || ''),
-                                }}
-                            />
-                        </TabPane>
-                    </Tabs>
+                        <Input placeholder={'Title'} />
+                    </Form.Item>
+                    {!thisIsCreating && card && card.createdTime !== undefined ? (
+                        <CreatedTime style={{ marginTop: -4, marginBottom: 8 }}>
+                            Created: {formatTimeYmdHm(card.createdTime)}
+                        </CreatedTime>
+                    ) : undefined}
+                    {/* Avoid leaving Tabs' resize observers active inside a closed modal. */}
+                    {visible ? (
+                        <Tabs
+                            onChange={onTabChange}
+                            type="card"
+                            activeKey={showMarkdownPreview ? 'preview' : 'edit'}
+                            style={{ marginBottom: 10, minHeight: 120 }}
+                            items={[
+                                {
+                                    key: 'edit',
+                                    label: 'Edit',
+                                    children: (
+                                        <>
+                                            <div style={{ marginBottom: 4 }}>
+                                                <Tooltip
+                                                    title={'Insert task checkbox - [ ] (Ctrl+L)'}
+                                                >
+                                                    <Button size={'small'} onClick={insertCheckbox}>
+                                                        ☐
+                                                    </Button>
+                                                </Tooltip>
+                                                <Tooltip title={'Toggle bold **text** (Ctrl+B)'}>
+                                                    <Button
+                                                        size={'small'}
+                                                        style={{ marginLeft: 4 }}
+                                                        onClick={insertBold}
+                                                    >
+                                                        <b>B</b>
+                                                    </Button>
+                                                </Tooltip>
+                                                <Tooltip title={'Toggle italic *text* (Ctrl+I)'}>
+                                                    <Button
+                                                        size={'small'}
+                                                        style={{ marginLeft: 4 }}
+                                                        onClick={insertItalic}
+                                                    >
+                                                        <i>I</i>
+                                                    </Button>
+                                                </Tooltip>
+                                                <Tooltip
+                                                    title={
+                                                        'Toggle strikethrough ~~text~~ (Ctrl+Shift+X)'
+                                                    }
+                                                >
+                                                    <Button
+                                                        size={'small'}
+                                                        style={{
+                                                            marginLeft: 4,
+                                                            textDecoration: 'line-through',
+                                                        }}
+                                                        onClick={insertStrikethrough}
+                                                    >
+                                                        S
+                                                    </Button>
+                                                </Tooltip>
+                                                <Tooltip title={'Insert link [text](URL) (Ctrl+K)'}>
+                                                    <Button
+                                                        size={'small'}
+                                                        style={{ marginLeft: 4 }}
+                                                        icon={<Icon type={'link'} />}
+                                                        onClick={openLinkModal}
+                                                    />
+                                                </Tooltip>
+                                            </div>
+                                            <Form.Item name="content" noStyle>
+                                                <TextArea
+                                                    ref={contentRef}
+                                                    autoSize={{ minRows: 6, maxRows: 16 }}
+                                                    style={{ transition: 'none' }}
+                                                    placeholder={'Description'}
+                                                    onKeyDown={onContentKeyDown}
+                                                    onChange={(e: any) =>
+                                                        setCardContent(e.target.value)
+                                                    }
+                                                />
+                                            </Form.Item>
+                                        </>
+                                    ),
+                                },
+                                {
+                                    key: 'preview',
+                                    label: 'Preview',
+                                    children: (
+                                        <Markdown
+                                            ref={previewRef}
+                                            onClick={onPreviewClick}
+                                            style={{
+                                                padding: '0px 10px',
+                                                border: '1px solid var(--pl-border)',
+                                                borderRadius: 4,
+                                                maxHeight: 'calc(100vh - 600px)',
+                                                minHeight: 120,
+                                            }}
+                                            dangerouslySetInnerHTML={{
+                                                __html: formatMarkdown(cardContent || ''),
+                                            }}
+                                        />
+                                    ),
+                                },
+                            ]}
+                        />
+                    ) : null}
                     <Row>
                         <Col span={12}>
                             <Form.Item label="Estimated Time In Hour">
-                                {getFieldDecorator('estimatedTime')(
+                                <Form.Item name="estimatedTime" noStyle>
                                     <InputNumber
                                         min={0}
                                         max={100}
@@ -681,13 +703,13 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                         precision={1}
                                         placeholder={'Estimated Time In Hour'}
                                     />
-                                )}
+                                </Form.Item>
                             </Form.Item>
                         </Col>
                         <Col span={12}>
                             {thisIsCreating ? undefined : (
                                 <Form.Item label="Actual Spent Time In Hour">
-                                    {getFieldDecorator('actualTime')(
+                                    <Form.Item name="actualTime" noStyle>
                                         <InputNumber
                                             disabled={!isEditingActualTime}
                                             precision={2}
@@ -695,11 +717,13 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                             step={0.2}
                                             placeholder={'Actual Time In Hour'}
                                         />
-                                    )}
+                                    </Form.Item>
                                     <Button
                                         style={{ marginLeft: 4 }}
-                                        icon={isEditingActualTime ? 'unlock' : 'lock'}
-                                        shape={'circle-outline'}
+                                        icon={
+                                            <Icon type={isEditingActualTime ? 'unlock' : 'lock'} />
+                                        }
+                                        shape={'circle'}
                                         onClick={onSwitchIsEditing}
                                     />
                                 </Form.Item>
@@ -712,14 +736,14 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                 <Form.Item
                                     label={isInDoneList ? 'Completed Time' : 'Last Completed Time'}
                                 >
-                                    {getFieldDecorator('completedTime')(
+                                    <Form.Item name="completedTime" noStyle>
                                         <DatePicker
                                             showTime={true}
                                             format={'YYYY-MM-DD HH:mm'}
                                             placeholder={'Completion time'}
                                             style={{ width: 200 }}
                                         />
-                                    )}
+                                    </Form.Item>
                                 </Form.Item>
                             </Col>
                         </Row>
@@ -734,7 +758,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                     {thisIsCreating ? undefined : (
                         <Row>
                             <ConfirmPopover onConfirm={onDelete}>
-                                <Button type={'danger'} icon={'delete'}>
+                                <Button type="primary" danger icon={<Icon type={'delete'} />}>
                                     Delete
                                 </Button>
                             </ConfirmPopover>
@@ -744,13 +768,13 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             </EditorContainer>
             <Modal
                 title={'Insert link'}
-                visible={linkModalVisible}
+                open={linkModalVisible}
                 okText={'Insert'}
                 cancelText={'Cancel'}
                 width={360}
                 onOk={confirmLink}
                 onCancel={closeLinkModal}
-                destroyOnClose={true}
+                destroyOnHidden={true}
                 getContainer={getPopupContainer}
             >
                 <Input
@@ -815,4 +839,4 @@ export const CardInDetail = connect(
         onCancel: () => (dispatch: any) =>
             dispatch(kanbanActions.setEditCard(false, '', undefined)),
     })
-)(Form.create({})(_CardInDetail));
+)(_CardInDetail);

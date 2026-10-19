@@ -3,6 +3,7 @@ import { actions } from './actions';
 import React, { FC } from 'react';
 import { Dispatch } from 'redux';
 import { Button } from 'antd';
+import { AntdIcon as Icon } from '../antdIcon';
 
 interface InputProps {
     storyName: string;
@@ -22,7 +23,7 @@ interface Props {
 const _HelpIcon: FC<Props> = (props: Props) => {
     return (
         <Button
-            icon={'question'}
+            icon={<Icon type={'question'} />}
             onClick={props.resume ? props.resumeStory : props.showStory}
             shape={'circle'}
             style={props.style}

@@ -294,6 +294,7 @@ describe('History (month filter)', () => {
         expect(lastCall().periodRange).toBeUndefined();
         expect(lastCall().yearQuery.startTime).toBeUndefined();
         expect(pickers(renderer)[2].props.disabled).toBe(true);
+        expect(pickers(renderer)[2].props.className).toBe('history-month-filter');
         expect(calendarProps.highlightMonth).toBeUndefined();
         renderer.unmount();
     });

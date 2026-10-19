@@ -8,6 +8,7 @@ import { Dispatch } from 'redux';
 import styled, { keyframes } from 'styled-components';
 import { CardsState } from '../Card/action';
 import { Button, Divider } from 'antd';
+import { AntdIcon as Icon } from '../../antdIcon';
 import { feedback, FEEDBACK_MESSAGES } from '../../feedback';
 import { Badge, TimeBadge } from '../../../../components/Visualization/Badge/Badge';
 import formatMarkdown from '../Card/formatMarkdown';
@@ -261,7 +262,7 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
                     {props.onSettingClick ? (
                         <Button
                             type={'default'}
-                            icon={'setting'}
+                            icon={<Icon type={'setting'} />}
                             shape={'circle'}
                             onClick={onSettingClick}
                             size={'small'}

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Checkbox, Icon, Modal, Popconfirm, message, notification } from 'antd';
+import { App as AntdApp, Checkbox, Popconfirm } from 'antd';
 import { getPopupContainer } from '../popupLayer';
 import { FEEDBACK_MESSAGES } from './messages';
 import {
@@ -45,15 +45,32 @@ import {
  * `<body>`, which would put them outside the content layer and therefore outside
  * the content opacity (see `popupLayer.ts`).
  *
- * `Modal` and `notification` accept the node per call, while `message` reads it
- * from its global config only -- one call is enough, because
- * `getPopupContainer()` resolves the node lazily each time an overlay opens.
+ * The Ant Design App receives this resolver for messages and notifications;
+ * modal calls receive it directly. The lookup stays lazy so the container can
+ * be created by Application before the first overlay opens.
  */
-message.config({ getContainer: getPopupContainer });
+type FeedbackAppApi = ReturnType<typeof AntdApp.useApp>;
 
-const kindIcon = (kind: FeedbackKind) => (
-    <Icon type={FEEDBACK_ICONS[kind]} style={{ color: FEEDBACK_ICON_COLORS[kind] }} />
-);
+let feedbackAppApi: FeedbackAppApi | undefined;
+
+export const FeedbackContextBridge: React.FC = () => {
+    feedbackAppApi = AntdApp.useApp();
+    return null;
+};
+
+const getFeedbackAppApi = (): FeedbackAppApi => {
+    if (!feedbackAppApi) {
+        throw new Error(
+            'Feedback APIs are unavailable. Mount FeedbackContextBridge inside an Ant Design App.'
+        );
+    }
+    return feedbackAppApi;
+};
+
+const kindIcon = (kind: FeedbackKind) => {
+    const IconComponent = FEEDBACK_ICONS[kind];
+    return <IconComponent style={{ color: FEEDBACK_ICON_COLORS[kind] }} />;
+};
 
 const dialogClassName = (kind?: FeedbackKind) =>
     [FEEDBACK_MODAL_CLASS, feedbackKindClass(kind)].filter(Boolean).join(' ');
@@ -66,7 +83,7 @@ export const toast = ({
     key,
     onClose,
 }: ToastOptions): void => {
-    message.open({
+    getFeedbackAppApi().message.open({
         type: kind,
         content: <span className={FEEDBACK_TEXT_CLASS}>{content}</span>,
         icon: kindIcon(kind),
@@ -87,7 +104,7 @@ export const notice = ({
     placement = 'topRight',
     onClose,
 }: NoticeOptions): void => {
-    notification.open({
+    getFeedbackAppApi().notification.open({
         key,
         message: title,
         description:
@@ -99,13 +116,12 @@ export const notice = ({
         btn: actions,
         placement,
         onClose,
-        getContainer: getPopupContainer,
     });
 };
 
 /** Closes a notice opened with the same key. */
 export const closeNotice = (key: string): void => {
-    notification.close(key);
+    getFeedbackAppApi().notification.destroy(key);
 };
 
 /**
@@ -150,7 +166,7 @@ export const confirm = ({
     onOk,
     onCancel,
 }: ConfirmOptions) => {
-    return Modal.confirm({
+    return getFeedbackAppApi().modal.confirm({
         className: dialogClassName(kind),
         title,
         content: <ConfirmContent content={content} checkbox={checkbox} />,
@@ -175,7 +191,7 @@ export const alert = ({
     width = FEEDBACK_WIDTH,
     onOk,
 }: AlertOptions) => {
-    return Modal.info({
+    return getFeedbackAppApi().modal.info({
         className: dialogClassName(kind),
         title,
         content: <div className={FEEDBACK_TEXT_CLASS}>{content}</div>,

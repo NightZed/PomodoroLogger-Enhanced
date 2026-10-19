@@ -1,4 +1,4 @@
-import { Button, List, Popover, Row } from 'antd';
+import { Button, ConfigProvider, List, Popover, Row } from 'antd';
 import { actions, LONG_BREAK_INTERVAL } from './action';
 import { PomodoroNumView } from './PomodoroNumView';
 import React from 'react';
@@ -47,6 +47,10 @@ const Mask = styled.div<{ nightTheme: boolean }>`
 const MaskInnerContainer = styled.div<{ compact: boolean }>`
     max-width: 500px;
     width: ${({ compact }) => (compact ? 'calc(100% - 24px)' : '100%')};
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
     /* The session summary is copyable, like every other feedback surface. */
     user-select: text;
 `;
@@ -58,9 +62,19 @@ const ProjectName = styled.h1<{ compact: boolean }>`
     cursor: pointer;
     line-height: 1em;
     margin: 0;
+    width: 100%;
+    text-align: center;
     :hover {
         color: white;
     }
+`;
+
+const PomodoroSummary = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    margin-top: 2em;
 `;
 
 const ListItem = styled.span`
@@ -158,7 +172,7 @@ const _TimerMask = (props: MaskProps) => {
             onClick={props.onCancel}
         >
             <MaskInnerContainer compact={props.compact}>
-                <Row onClick={onProjectClick}>
+                <Row onClick={onProjectClick} justify="center" style={{ width: '100%' }}>
                     {props.isFocusing ? (
                         <Popover title="Project Name" content={content}>
                             <ProjectName compact={props.compact}>
@@ -175,21 +189,24 @@ const _TimerMask = (props: MaskProps) => {
                             color: 'white',
                             fontSize: props.compact ? '2em' : '3.5em',
                             marginBottom: props.compact ? '0.6em' : '1em',
+                            width: '100%',
                         }}
                     >
                         Session Finished
                     </h1>
                 </Row>
-                <Button size="large" onClick={onStartClick}>
-                    Start
-                    {!props.isFocusing
-                        ? ' Focusing'
-                        : props.isLongBreak
-                        ? ' Long Break'
-                        : ' Short Break'}
-                </Button>
-                <Row style={{ marginTop: '2em' }}>
-                    <h1 style={{ color: 'white' }}>Today Pomodoros</h1>
+                <ConfigProvider wave={{ disabled: true }}>
+                    <Button size="large" onClick={onStartClick}>
+                        Start
+                        {!props.isFocusing
+                            ? ' Focusing'
+                            : props.isLongBreak
+                            ? ' Long Break'
+                            : ' Short Break'}
+                    </Button>
+                </ConfigProvider>
+                <PomodoroSummary>
+                    <h1 style={{ color: 'white', margin: 0 }}>Today Pomodoros</h1>
                     <PomodoroNumView
                         pomodoros={props.pomodoros}
                         color={'#f9ec52'}
@@ -197,7 +214,7 @@ const _TimerMask = (props: MaskProps) => {
                         newPomodoro={props.newPomodoro}
                         compact={props.compact}
                     />
-                </Row>
+                </PomodoroSummary>
             </MaskInnerContainer>
             {props.isFocusing ? (
                 <ButtonContainer>

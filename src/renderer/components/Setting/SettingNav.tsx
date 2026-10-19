@@ -1,5 +1,5 @@
-import { Icon } from 'antd';
 import React from 'react';
+import { AntdIcon as Icon } from '../antdIcon';
 import styled from 'styled-components';
 import { SECTIONS, SectionId, SectionMeta } from './sections';
 

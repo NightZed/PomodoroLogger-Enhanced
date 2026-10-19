@@ -1,15 +1,13 @@
 import { createGlobalStyle } from 'styled-components';
+import { APP_FONT_FAMILY } from './tokens';
 
 /**
  * Global (document level) theme layer.
  *
  * Our own components read the `--pl-*` custom properties written by
- * `applyTheme()`, so they follow the active theme automatically. antd 3 has
- * neither a dark stylesheet nor CSS variables, hence its components are adapted
- * here: every override lives under `html[data-theme='dark']`, which gives it a
- * higher specificity than the plain `.ant-*` selectors shipped in
- * `antd/dist/antd.css` (loaded through style-loader, so the injection order
- * cannot be relied upon).
+ * `applyTheme()`, so they follow the active theme automatically. Ant Design
+ * receives the same tokens through ConfigProvider; these overrides cover the
+ * remaining app-specific surfaces and win over generated component styles.
  *
  * Only neutral surfaces (background / border / text) are overridden: brand
  * colored buttons keep antd's blue so actions stay recognizable.
@@ -44,14 +42,15 @@ export const GlobalStyle = createGlobalStyle`
     body {
         background-color: transparent;
         color: var(--pl-text);
+        font-family: ${APP_FONT_FAMILY};
     }
 
-    /* antd.css ships its own body rule (color rgba(0, 0, 0, 0.65), background
-       #fff) and its stylesheet is injected after the styled-components one.
-       !important makes the theme colors win regardless of stylesheet order. */
+    /* Keep the document transparent for the frameless window; !important makes
+       this rule win over component styles regardless of injection order. */
     html[data-theme] body {
         background-color: transparent !important;
         color: var(--pl-text) !important;
+        font-family: ${APP_FONT_FAMILY} !important;
         transition: background-color 0.2s, color 0.2s;
     }
 
@@ -75,6 +74,18 @@ export const GlobalStyle = createGlobalStyle`
         background-color: var(--pl-scrollbar-track);
     }
 
+    html[data-theme] .ant-select-dropdown .rc-virtual-list-holder::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    html[data-theme] .ant-select-dropdown .rc-virtual-list-scrollbar-vertical {
+        width: 6px !important;
+    }
+
+    html[data-theme] .ant-select-dropdown .rc-virtual-list-holder-inner {
+        padding-inline-end: 6px;
+    }
+
     html[data-theme='dark'] {
         /* Give headings and paragraphs the theme color explicitly: body color
            inheritance must not depend on the antd/stylesheet order anywhere. */
@@ -94,12 +105,15 @@ export const GlobalStyle = createGlobalStyle`
         .ant-tabs-content {
             color: var(--pl-text);
         }
-        .ant-tabs-bar {
+        .ant-tabs-nav {
             /* Transparent on purpose: the window background layer paints this
                band (see Application.tsx and AppTitleBar.tsx), so painting it
                here as well would apply the background opacity a second time on
                top of the band. */
             background-color: transparent;
+            border-bottom-color: var(--pl-border);
+        }
+        .ant-tabs-nav::before {
             border-bottom-color: var(--pl-border);
         }
         .ant-tabs-nav .ant-tabs-tab {
@@ -112,34 +126,34 @@ export const GlobalStyle = createGlobalStyle`
         /* card type tabs (the Edit/Preview switch in the board and card
            editors) ship a white background with a higher specificity than the
            generic tab rules above */
-        .ant-tabs.ant-tabs-card > .ant-tabs-bar .ant-tabs-tab {
+        .ant-tabs.ant-tabs-card > .ant-tabs-nav .ant-tabs-tab {
             background-color: var(--pl-bg-sunken);
             border-color: var(--pl-border);
             color: var(--pl-text-secondary);
         }
-        .ant-tabs.ant-tabs-card > .ant-tabs-bar .ant-tabs-tab:hover {
+        .ant-tabs.ant-tabs-card > .ant-tabs-nav .ant-tabs-tab:hover {
             color: var(--pl-primary);
         }
-        .ant-tabs.ant-tabs-card > .ant-tabs-bar .ant-tabs-tab-active {
+        .ant-tabs.ant-tabs-card > .ant-tabs-nav .ant-tabs-tab-active {
             background-color: var(--pl-bg-elevated);
             border-color: var(--pl-primary);
             color: var(--pl-primary);
         }
 
         /* ---------- buttons: neutral ones only ---------- */
-        .ant-btn:not(.ant-btn-primary):not(.ant-btn-danger):not(.ant-btn-link) {
+        .ant-btn:not(.ant-btn-primary):not(.ant-btn-dangerous):not(.ant-btn-link):not(.ant-btn-text):not(.ant-btn-variant-text):not(.ant-btn-variant-link) {
             background-color: var(--pl-bg-elevated);
             border-color: var(--pl-border);
             color: var(--pl-text);
         }
-        .ant-btn:not(.ant-btn-primary):not(.ant-btn-danger):not(.ant-btn-link):hover,
-        .ant-btn:not(.ant-btn-primary):not(.ant-btn-danger):not(.ant-btn-link):focus {
+        .ant-btn:not(.ant-btn-primary):not(.ant-btn-dangerous):not(.ant-btn-link):not(.ant-btn-text):not(.ant-btn-variant-text):not(.ant-btn-variant-link):hover,
+        .ant-btn:not(.ant-btn-primary):not(.ant-btn-dangerous):not(.ant-btn-link):not(.ant-btn-text):not(.ant-btn-variant-text):not(.ant-btn-variant-link):focus {
             background-color: var(--pl-bg-hover);
             border-color: var(--pl-primary);
             color: var(--pl-primary);
         }
-        .ant-btn:not(.ant-btn-primary):not(.ant-btn-danger):not(.ant-btn-link)[disabled],
-        .ant-btn:not(.ant-btn-primary):not(.ant-btn-danger):not(.ant-btn-link)[disabled]:hover {
+        .ant-btn:not(.ant-btn-primary):not(.ant-btn-dangerous):not(.ant-btn-link):not(.ant-btn-text):not(.ant-btn-variant-text):not(.ant-btn-variant-link)[disabled],
+        .ant-btn:not(.ant-btn-primary):not(.ant-btn-dangerous):not(.ant-btn-link):not(.ant-btn-text):not(.ant-btn-variant-text):not(.ant-btn-variant-link)[disabled]:hover {
             background-color: var(--pl-bg-sunken);
             border-color: var(--pl-border);
             color: var(--pl-text-tertiary);
@@ -252,11 +266,6 @@ export const GlobalStyle = createGlobalStyle`
         .ant-popover-message {
             color: var(--pl-text);
         }
-        .ant-popover-arrow {
-            border-color: var(--pl-border);
-            background-color: var(--pl-bg-elevated);
-        }
-
         /* ---------- tooltip ---------- */
         .ant-tooltip-inner {
             background-color: #434343;
@@ -299,47 +308,45 @@ export const GlobalStyle = createGlobalStyle`
 
         /* ---------- select ---------- */
         .ant-select,
-        .ant-select-selection {
+        .ant-select-selector {
             color: var(--pl-text);
         }
-        .ant-select-selection {
+        .ant-select-selector {
             background-color: var(--pl-bg-elevated);
             border-color: var(--pl-border);
         }
-        .ant-select:hover .ant-select-selection,
-        .ant-select-focused .ant-select-selection {
+        .ant-select:hover .ant-select-selector,
+        .ant-select-focused .ant-select-selector {
             border-color: var(--pl-primary);
         }
         .ant-select-arrow,
-        .ant-select-selection__clear {
+        .ant-select-clear {
             color: var(--pl-text-secondary);
             background-color: transparent;
         }
-        .ant-select-selection__placeholder,
-        .ant-select-search__field__placeholder {
+        .ant-select-selection-placeholder,
+        .ant-select-selection-search-input::placeholder {
             color: var(--pl-text-tertiary);
         }
-        .ant-select-selection__rendered .ant-select-selection-selected-value,
-        .ant-select-search__field {
+        .ant-select-selection-item,
+        .ant-select-selection-search-input,
+        .ant-select-item-option {
             color: var(--pl-text);
         }
         .ant-select-dropdown {
             background-color: var(--pl-bg-elevated);
             box-shadow: 0 2px 8px var(--pl-shadow);
         }
-        .ant-select-dropdown-menu-item {
-            color: var(--pl-text);
-        }
-        .ant-select-dropdown-menu-item-active,
-        .ant-select-dropdown-menu-item:hover {
+        .ant-select-item-option-active,
+        .ant-select-item-option:hover {
             background-color: var(--pl-bg-hover);
         }
-        .ant-select-dropdown-menu-item-selected {
+        .ant-select-item-option-selected {
             background-color: var(--pl-bg-hover);
             color: var(--pl-primary);
         }
-        .ant-select-dropdown-menu-item-divider {
-            background-color: var(--pl-border);
+        .ant-select-item-group {
+            color: var(--pl-text-secondary);
         }
 
         /* ---------- input / form ---------- */
@@ -359,27 +366,27 @@ export const GlobalStyle = createGlobalStyle`
         }
         .ant-input::placeholder,
         .ant-input-number-input::placeholder,
-        .ant-select-search__field::placeholder {
+        .ant-select-selection-search-input::placeholder {
             color: var(--pl-text-tertiary);
         }
         .ant-input-affix-wrapper:hover .ant-input:not(.ant-input-disabled) {
             border-color: var(--pl-primary);
         }
         /* antd forces background-color: #fff on inputs inside a failed form
-           item (.has-error .ant-input, .has-error .ant-input:hover, 0-3-0),
+           item (.ant-form-item-has-error .ant-input, 0-3-0),
            which beats the plain .ant-input override above and paints a white
            block over the light night-theme text (e.g. the board Name field
            while its name is reported as duplicated). Keep the themed surface;
            only the border stays red to signal the error. */
-        .has-error .ant-input,
-        .has-error .ant-input:hover,
-        .has-error .ant-input-affix-wrapper .ant-input,
-        .has-error .ant-input-affix-wrapper .ant-input:hover {
+        .ant-form-item-has-error .ant-input,
+        .ant-form-item-has-error .ant-input:hover,
+        .ant-form-item-has-error .ant-input-affix-wrapper .ant-input,
+        .ant-form-item-has-error .ant-input-affix-wrapper .ant-input:hover {
             background-color: var(--pl-bg-elevated);
             border-color: #f5222d;
         }
-        .has-error .ant-input:focus,
-        .has-error .ant-input-affix-wrapper .ant-input:focus {
+        .ant-form-item-has-error .ant-input:focus,
+        .ant-form-item-has-error .ant-input-affix-wrapper .ant-input:focus {
             background-color: var(--pl-bg-elevated);
             border-color: #ff4d4f;
         }
@@ -395,6 +402,9 @@ export const GlobalStyle = createGlobalStyle`
         }
         .ant-form-item-required::before {
             color: #ff4d4f;
+        }
+        .ant-form-item-extra {
+            color: var(--pl-text-secondary);
         }
 
         /* ---------- switch ---------- */
@@ -559,136 +569,44 @@ export const GlobalStyle = createGlobalStyle`
             color: var(--pl-text);
         }
 
-        /* ---------- date picker / calendar panel ---------- */
-        .ant-calendar {
+        /* ---------- date picker ---------- */
+        .ant-picker,
+        .ant-picker-input > input,
+        .ant-picker-panel,
+        .ant-picker-header,
+        .ant-picker-content th,
+        .ant-picker-cell,
+        .ant-picker-footer,
+        .ant-picker-time-panel {
+            color: var(--pl-text);
+        }
+        .ant-picker,
+        .ant-picker-panel,
+        .ant-picker-time-panel-column > li {
             background-color: var(--pl-bg-elevated);
             border-color: var(--pl-border);
-            box-shadow: 0 2px 8px var(--pl-shadow);
         }
-        .ant-calendar-input-wrap {
-            border-bottom-color: var(--pl-border);
+        .ant-picker-header,
+        .ant-picker-footer {
+            border-color: var(--pl-border);
         }
-        .ant-calendar-input {
-            background-color: transparent;
-            color: var(--pl-text);
-        }
-        .ant-calendar-header {
-            border-bottom-color: var(--pl-border);
-        }
-        .ant-calendar-header .ant-calendar-prev-year-btn,
-        .ant-calendar-header .ant-calendar-next-year-btn,
-        .ant-calendar-header .ant-calendar-prev-month-btn,
-        .ant-calendar-header .ant-calendar-next-month-btn,
-        .ant-calendar-header a {
+        .ant-picker-header button,
+        .ant-picker-content th,
+        .ant-picker-cell-disabled .ant-picker-cell-inner {
             color: var(--pl-text-secondary);
         }
-        .ant-calendar-header .ant-calendar-month-select,
-        .ant-calendar-header .ant-calendar-year-select {
-            color: var(--pl-text);
-        }
-        .ant-calendar-header .ant-calendar-month-select:hover,
-        .ant-calendar-header .ant-calendar-year-select:hover {
-            background-color: var(--pl-bg-hover);
-        }
-        .ant-calendar-column-header {
-            color: var(--pl-text-secondary);
-        }
-        .ant-calendar-date {
-            color: var(--pl-text);
-        }
-        .ant-calendar-date:hover {
-            background-color: var(--pl-bg-hover);
+        .ant-picker-cell-in-view.ant-picker-cell-today .ant-picker-cell-inner::before {
             border-color: var(--pl-primary);
         }
-        .ant-calendar-today .ant-calendar-date {
-            border-color: var(--pl-primary);
-            color: var(--pl-primary);
-        }
-        .ant-calendar-selected-day .ant-calendar-date {
-            background-color: var(--pl-primary);
-            border-color: var(--pl-primary);
-            color: #fff;
-        }
-        .ant-calendar-last-month-cell .ant-calendar-date,
-        .ant-calendar-next-month-btn-day .ant-calendar-date,
-        .ant-calendar-disabled-cell .ant-calendar-date {
-            color: var(--pl-text-tertiary);
-        }
-        .ant-calendar-footer {
-            border-top-color: var(--pl-border);
-        }
-        .ant-calendar-footer .ant-calendar-today-btn,
-        .ant-calendar-footer .ant-calendar-time-picker-btn {
-            color: var(--pl-primary);
-        }
-        .ant-calendar-footer .ant-calendar-today-btn:hover,
-        .ant-calendar-footer .ant-calendar-time-picker-btn:hover {
-            color: var(--pl-text);
-        }
-        .ant-calendar-picker-clear {
-            background-color: var(--pl-bg-elevated);
-            color: var(--pl-text-tertiary);
-        }
-        .ant-calendar-picker-icon {
-            color: var(--pl-text-tertiary);
-        }
-        /* time column (DatePicker with showTime) */
-        .ant-calendar-time-picker,
-        .ant-calendar-time-picker-inner {
-            background-color: var(--pl-bg-elevated);
-        }
-        .ant-calendar-time-picker-header {
-            border-bottom-color: var(--pl-border);
-            color: var(--pl-text-secondary);
-        }
-        .ant-calendar-time-picker-select li {
-            color: var(--pl-text);
-        }
-        .ant-calendar-time-picker-select li:hover {
-            background-color: var(--pl-bg-hover);
-        }
-        .ant-calendar-time-picker-select li.ant-calendar-time-picker-select-option-selected {
-            background-color: var(--pl-bg-hover);
-            color: var(--pl-primary);
-            font-weight: 600;
-        }
-        /* month / year / decade sub panels */
-        .ant-calendar-month-panel,
-        .ant-calendar-year-panel,
-        .ant-calendar-decade-panel {
-            background-color: var(--pl-bg-elevated);
-        }
-        .ant-calendar-month-panel-header,
-        .ant-calendar-year-panel-header,
-        .ant-calendar-decade-panel-header {
-            border-bottom-color: var(--pl-border);
-        }
-        .ant-calendar-month-panel-header a,
-        .ant-calendar-year-panel-header a,
-        .ant-calendar-decade-panel-header a {
-            color: var(--pl-text-secondary);
-        }
-        .ant-calendar-month-panel-month,
-        .ant-calendar-year-panel-year,
-        .ant-calendar-decade-panel-decade {
-            color: var(--pl-text);
-        }
-        .ant-calendar-month-panel-month:hover,
-        .ant-calendar-year-panel-year:hover,
-        .ant-calendar-decade-panel-decade:hover {
-            background-color: var(--pl-bg-hover);
-        }
-        .ant-calendar-month-panel-month-selected,
-        .ant-calendar-year-panel-year-selected,
-        .ant-calendar-decade-panel-decade-selected {
+        .ant-picker-cell-in-view.ant-picker-cell-selected .ant-picker-cell-inner,
+        .ant-picker-cell-in-view.ant-picker-cell-range-start .ant-picker-cell-inner,
+        .ant-picker-cell-in-view.ant-picker-cell-range-end .ant-picker-cell-inner {
             background-color: var(--pl-primary);
             color: #fff;
         }
-        .ant-calendar-month-panel-cell-disabled .ant-calendar-month-panel-month,
-        .ant-calendar-year-panel-cell-disabled .ant-calendar-year-panel-year {
-            color: var(--pl-text-tertiary);
+        .ant-picker-cell-in-view:not(.ant-picker-cell-selected):hover .ant-picker-cell-inner {
+            background-color: var(--pl-bg-hover);
         }
-
         /* ---------- notification ---------- */
         .ant-notification-notice {
             background-color: var(--pl-bg-elevated);
@@ -709,11 +627,33 @@ export const GlobalStyle = createGlobalStyle`
         }
     }
 
+    /* The v5 Circle is rendered directly by Timer/Progress.tsx, so provide
+       the positioning normally added by antd's Progress component in both themes. */
+    html[data-theme] .ant-progress-circle .ant-progress-inner {
+        position: relative;
+        line-height: 1;
+    }
+    html[data-theme] .ant-progress-circle .ant-progress-text {
+        position: absolute;
+        top: 50%;
+        left: 0;
+        box-sizing: border-box;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        transform: translateY(-50%);
+        text-align: center;
+        white-space: normal;
+    }
+    html[data-theme] .ant-progress-text {
+        color: var(--pl-text);
+    }
+
     /* ---------- feedback layer ---------- */
     /* One visual language for toast / notice / dialog / popconfirm: same
        surface color, 8px radius, shadow and selectable copy. The colors come
        from the theme tokens, so these rules fit both themes -- the
-       html[data-theme] prefix only raises their specificity above antd.css.
+       html[data-theme] prefix raises specificity above generated component CSS.
        Keep in sync with components/feedback/tokens.ts. */
     html[data-theme] .pl-feedback-text {
         /* Copy of a feedback surface can always be selected (the guide dialog
@@ -763,9 +703,8 @@ export const GlobalStyle = createGlobalStyle`
         border-radius: 8px;
         user-select: text;
     }
-    /* antd 3 hard codes black confirm copy (rgba(0,0,0,.85) / rgba(0,0,0,.65))
-       that does not inherit from .ant-modal-content, so both lines need their own
-       override, or the night theme would show black on dark. */
+    /* Confirm title and body use explicit colors instead of inheriting from the
+       modal, so override both for the night theme. */
     html[data-theme] .ant-modal-confirm-title {
         color: var(--pl-text);
     }

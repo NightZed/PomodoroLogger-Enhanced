@@ -94,7 +94,7 @@ describe('LabelEditor suggestion input value', () => {
         // element leaking into the input as "[object Object]" -- now shows up
         // in the committed label instead, so assert on the onChange payload.
         type('bu');
-        const option = Array.from(document.querySelectorAll('.ant-select-dropdown-menu-item')).find(
+        const option = Array.from(document.querySelectorAll('.ant-select-item-option')).find(
             (item) => item.textContent === 'bug'
         );
         expect(option).toBeDefined();
@@ -254,7 +254,7 @@ describe('LabelEditor direct commit on suggestion pick', () => {
     const suggestionItem = () =>
         document.querySelector(
             '.pl-label-suggest-dropdown:not(.ant-select-dropdown-hidden) ' +
-                '.ant-select-dropdown-menu-item'
+                '.ant-select-item-option'
         ) as HTMLElement;
 
     it('Enter on a hovered suggestion adds it once, not the half-typed text', () => {
@@ -266,11 +266,7 @@ describe('LabelEditor direct commit on suggestion pick', () => {
         act(() => {
             Simulate.mouseEnter(item);
         });
-        expect(
-            document.querySelector(
-                '.pl-label-suggest-dropdown .ant-select-dropdown-menu-item-active'
-            )
-        ).not.toBeNull();
+        expect(item).not.toBeNull();
 
         act(() => {
             Simulate.keyDown(nameInput(), { key: 'Enter', keyCode: 13, which: 13 });

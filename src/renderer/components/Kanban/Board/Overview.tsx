@@ -261,21 +261,45 @@ const SafeStackGrid: FC<{ children: React.ReactNode; suspended?: boolean }> = ({
         if (!el) {
             return;
         }
+
+        let measureRaf: number | null = null;
         const measure = () => {
+            // Defer React's layout updates until after the ResizeObserver
+            // delivery, or StackGrid can resize the observed node in the same
+            // cycle and trigger the browser's undelivered-notifications error.
+            if (measureRaf !== null) {
+                cancelAnimationFrame(measureRaf);
+            }
+            measureRaf = requestAnimationFrame(() => {
+                measureRaf = null;
+                if (!el.isConnected) {
+                    return;
+                }
+                const nextWidth = el.clientWidth;
+                setWidth((prev) => (prev === nextWidth ? prev : nextWidth));
+            });
+        };
+        const measureNow = () => {
             const nextWidth = el.clientWidth;
             setWidth((prev) => (prev === nextWidth ? prev : nextWidth));
         };
-        measure();
+        measureNow();
         if (typeof ResizeObserver !== 'undefined') {
             const observer = new ResizeObserver(measure);
             observer.observe(el);
             return () => {
                 observer.disconnect();
+                if (measureRaf !== null) {
+                    cancelAnimationFrame(measureRaf);
+                }
             };
         }
         window.addEventListener('resize', measure);
         return () => {
             window.removeEventListener('resize', measure);
+            if (measureRaf !== null) {
+                cancelAnimationFrame(measureRaf);
+            }
         };
     }, []);
 

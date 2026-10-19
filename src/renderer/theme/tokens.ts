@@ -3,15 +3,19 @@
  *
  * Every surface of the app is expressed through these semantic tokens. They are
  * written to the document as CSS custom properties (`--pl-bg`, `--pl-text`, ...)
- * by `applyTheme`, so switching theme is a plain CSS variable update: the antd 3
- * component overrides (see `globalStyle.ts`) and our own styled-components read
- * exactly the same variables.
+ * by `applyTheme`, so switching theme is a plain CSS variable update: Ant
+ * Design's ConfigProvider and our own styled-components read the same palette.
  *
  * `ThemeTokens` is intentionally a small, semantic set instead of a 1:1 mirror of
  * antd's variables: it keeps the antd overrides maintainable and leaves room for
  * user defined themes later on.
  */
 export type ThemeBase = 'light' | 'dark';
+
+export const APP_FONT_FAMILY =
+    "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Microsoft YaHei', " +
+    "'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', " +
+    "'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'";
 
 export interface ThemeTokens {
     /** Tells whether the theme is a light or a dark one. */

@@ -1,7 +1,9 @@
 import React, { useCallback, useState } from 'react';
 import { TimerActionTypes, TimerState } from '../Timer/action';
 import styled from 'styled-components';
-import { Button, Icon, Slider, Switch } from 'antd';
+import { GithubOutlined } from '@ant-design/icons';
+import { Button, Slider, Switch } from 'antd';
+import { AntdIcon as Icon } from '../antdIcon';
 import { deleteAllUserData } from '../../monitor/sessionManager';
 import { shell, ipcRenderer } from 'electron';
 import { feedback, FEEDBACK_MESSAGES } from '../feedback';
@@ -144,7 +146,7 @@ const Hint = styled.p`
     color: var(--pl-text-secondary);
 `;
 
-const StyledIcon = styled(Icon)`
+const StyledIcon = styled(GithubOutlined)`
     font-size: 1.25rem;
     color: var(--pl-text);
     transition: color 0.1s;
@@ -993,7 +995,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                     </Button>
                                 </ButtonWrapper>
                                 <ButtonWrapper>
-                                    <Button type="danger" onClick={onDeleteConfirm}>
+                                    <Button danger={true} onClick={onDeleteConfirm}>
                                         Delete All Data
                                     </Button>
                                 </ButtonWrapper>
@@ -1016,7 +1018,6 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 <Footer>
                     Open Source @GitHub
                     <StyledIcon
-                        type="github"
                         onClick={openGithubPage}
                         title="This project is open-source and hosted on GitHub"
                     />

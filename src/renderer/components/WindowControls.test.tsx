@@ -48,7 +48,7 @@ describe('WindowControls (frameless caption buttons)', () => {
         const buttons = findAll(tree, (n) => n.type === 'button');
         expect(buttons.map((b) => b.props.title)).toEqual(['Minimize', 'Restore Down', 'Close']);
 
-        const iconClasses = findAll(tree, (n) => n.type === 'i').map((n) =>
+        const iconClasses = findAll(tree, (n) => typeof n.props.className === 'string').map((n) =>
             String(n.props.className)
         );
         expect(iconClasses.some((className) => className.includes('anticon-switcher'))).toBe(true);

@@ -6,10 +6,9 @@
  * its own dialog stayed fully opaque. `Application.tsx` renders this container
  * inside the content layer so an overlay fades together with the page.
  *
- * A DOM id is used instead of a React context because the feedback layer is a
- * module of imperative calls (`message.open`, `notification.open`,
- * `Modal.confirm`, ...) that run outside of the React tree and cannot receive
- * the node as a prop.
+ * A DOM id gives the ConfigProvider, Ant Design App feedback APIs, and
+ * imperative modal calls one shared resolver without requiring the container
+ * to exist when those providers are created.
  */
 export const POPUP_CONTAINER_ID = 'pl-popup-container';
 

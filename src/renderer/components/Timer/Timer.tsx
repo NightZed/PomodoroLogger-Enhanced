@@ -1,4 +1,5 @@
-import { Button, Divider, Icon, Tooltip } from 'antd';
+import { Button, Divider, Tooltip } from 'antd';
+import { AntdIcon as Icon, IconComponent } from '../antdIcon';
 import * as remote from '@electron/remote';
 import { debounce } from 'lodash';
 import React, { Component } from 'react';
@@ -101,10 +102,13 @@ const CompactModeIcon = styled.span<{ compact: boolean }>`
 
 const ProgressTextContainer = styled.div`
     user-select: none;
-    margin-top: -50px;
-    padding: 12px;
+    box-sizing: border-box;
+    width: 100%;
     text-align: center;
-    transform: translateY(0.4em);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 `;
 
 const TimerLayout = styled.div<{ compact: boolean }>`
@@ -1463,7 +1467,7 @@ class Timer extends Component<Props, State> {
                             <KanbanName onClick={this.switchToKanban}>
                                 {this.props.kanban.boards[boardId]?.name}
                                 <Button className={'kanban-name-arrow'}>
-                                    <Icon component={backIcon} />
+                                    <IconComponent component={backIcon} />
                                 </Button>
                             </KanbanName>
                             <Board
@@ -1472,7 +1476,7 @@ class Timer extends Component<Props, State> {
                                 showHeader={false}
                             />
                             <Button
-                                icon={'more'}
+                                icon={<Icon type={'more'} />}
                                 style={{
                                     position: 'absolute',
                                     right: 0,
@@ -1502,7 +1506,7 @@ class Timer extends Component<Props, State> {
                     </Tooltip>
                     <Tooltip title="Minimize (F12)" placement="bottom">
                         <Button
-                            icon={'fullscreen-exit'}
+                            icon={<Icon type={'fullscreen-exit'} />}
                             onClick={this.minimize}
                             shape={'circle'}
                             style={{
@@ -1529,10 +1533,8 @@ class Timer extends Component<Props, State> {
                         <ProgressContainer>
                             <Progress
                                 type="circle"
-                                strokeColor={{
-                                    '0%': '#108ee9',
-                                    '100%': '#87d068',
-                                }}
+                                strokeColor="#e84545"
+                                strokeLinecap="round"
                                 percent={percent}
                                 width={compact ? 240 : 300}
                                 style={{
@@ -1577,7 +1579,7 @@ class Timer extends Component<Props, State> {
                                 {isRunning ? (
                                     <Tooltip title="Pause (F6)">
                                         <Button
-                                            icon="pause"
+                                            icon={<Icon type="pause" />}
                                             shape={'circle'}
                                             onClick={this.onPauseResumeOrStart}
                                         />
@@ -1585,7 +1587,7 @@ class Timer extends Component<Props, State> {
                                 ) : (
                                     <Tooltip title="Start (F5)">
                                         <Button
-                                            icon="caret-right"
+                                            icon={<Icon type="caret-right" />}
                                             shape={'circle'}
                                             onClick={this.onPauseResumeOrStart}
                                         />
@@ -1595,7 +1597,7 @@ class Timer extends Component<Props, State> {
                             {hasActiveSession ? (
                                 <Tooltip title="Finish">
                                     <Button
-                                        icon="check"
+                                        icon={<Icon type="check" />}
                                         shape={'circle'}
                                         onClick={this.onFinishButtonClick}
                                     />
@@ -1604,7 +1606,7 @@ class Timer extends Component<Props, State> {
                                 <Tooltip title="Switch Mode (Tab)">
                                     <Button
                                         id="mode-switching-button"
-                                        icon="swap"
+                                        icon={<Icon type="swap" />}
                                         shape="circle"
                                         onClick={this.switchMode}
                                     />
@@ -1612,14 +1614,18 @@ class Timer extends Component<Props, State> {
                             )}
                             <div id="stop-timer-button" style={{ lineHeight: 0 }}>
                                 <Tooltip title="Stop">
-                                    <Button shape="circle" icon="close" onClick={this.onStop} />
+                                    <Button
+                                        shape="circle"
+                                        icon={<Icon type="close" />}
+                                        onClick={this.onStop}
+                                    />
                                 </Tooltip>
                             </div>
                             {this.state.pomodorosToday.length ? (
                                 <Tooltip title="Show More">
                                     <Button
                                         id="more-timer-button"
-                                        icon="more"
+                                        icon={<Icon type="more" />}
                                         shape="circle"
                                         onClick={this.toggleMode}
                                     />

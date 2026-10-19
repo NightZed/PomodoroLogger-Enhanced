@@ -9,6 +9,7 @@ import { connect } from 'react-redux';
 import { RootState } from '../../reducers';
 import { Dispatch } from 'redux';
 import { Button } from 'antd';
+import { AntdIcon as Icon } from '../antdIcon';
 import { TargetRect } from './utils';
 
 const Mask = styled.div`
@@ -204,9 +205,9 @@ const _UserGuide: React.FC<UserGuideProps> = (props: UserGuideProps) => {
                     <Button
                         onClick={exit}
                         shape={'circle'}
-                        icon={'close'}
+                        icon={<Icon type={'close'} />}
                         size={'small'}
-                        type={'danger'}
+                        danger={true}
                         style={{
                             position: 'fixed',
                             zIndex: 2000,

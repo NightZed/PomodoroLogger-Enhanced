@@ -13,7 +13,7 @@
  * `.ant-tabs-nav-more` (the overflow dropdown) and `.ant-tabs-extra-content`
  * (the caption buttons and the always-on-top pin) are all `no-drag` in the
  * normal bar for the same reason, and a press there must keep going to them.
- * Everything outside `.ant-tabs-bar` (page content, the ending mask, dialogs)
+ * Everything outside `.ant-tabs-nav` (page content, the ending mask, dialogs)
  * is not a drag surface either.
  */
 const NO_DRAG_SELECTOR = '.ant-tabs-tab, .ant-tabs-nav-more, .ant-tabs-extra-content, button';
@@ -27,5 +27,5 @@ export function isDragSurface(target: Element | null): boolean {
         return false;
     }
 
-    return target.closest('.ant-tabs-bar') !== null;
+    return target.closest('.ant-tabs-nav') !== null;
 }

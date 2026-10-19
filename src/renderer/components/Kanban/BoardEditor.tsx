@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Button, Form, Input, Modal, Tabs } from 'antd';
+import type { RuleObject } from 'antd/es/form';
 import { ConfirmPopover } from '../feedback';
 import { getPopupContainer } from '../popupLayer';
 import TextArea from 'antd/es/input/TextArea';
@@ -9,12 +10,11 @@ import { CreatedTime } from './style/CreatedTime';
 import { formatTimeYmdHm } from '../Visualization/Timeline';
 import formatMarkdown from './Card/formatMarkdown';
 import { Markdown } from './style/Markdown';
-
-const { TabPane } = Tabs;
+import { AntdIcon as Icon } from '../antdIcon';
 
 interface FormProps {
     boardId: string;
-    onSave?: any;
+    onSave?: (values: { name: string; description: string }) => void;
     onCancel?: any;
     form: any;
     visible: boolean;
@@ -24,156 +24,145 @@ interface FormProps {
     createdTime?: number;
 }
 
-interface State {
-    showMarkdownPreview: boolean;
-    isCreating: boolean;
-    description: string;
-}
+export const EditKanbanForm = (props: FormProps) => {
+    const [internalForm] = Form.useForm();
+    const form = props.form ?? internalForm;
+    const { onSave, isCreating, nameValidator } = props;
+    const [showMarkdownPreview, setShowMarkdownPreview] = useState(true);
+    const [description, setDescription] = useState('');
 
-export const EditKanbanForm = Form.create<
-    FormProps & {
-        wrappedComponentRef: any;
-    }
->({
-    name: 'form_in_modal',
-})(
-    class extends React.Component<FormProps, State> {
-        constructor(props: FormProps) {
-            super(props);
-            this.state = {
-                showMarkdownPreview: true,
-                isCreating: false,
-                description: '',
-            };
-        }
-
-        componentDidMount() {
-            this.setDescriptionState();
-        }
-
-        private onKeydown = (e: React.KeyboardEvent<any>) => {
+    const onKeydown = useCallback(
+        (e: React.KeyboardEvent<any>) => {
             if (e.key === 'Enter' || e.keyCode === 13) {
                 if (e.ctrlKey || e.shiftKey || e.altKey) {
                     e.stopPropagation();
                     e.preventDefault();
-                    this.props.onSave();
+                    form.submit();
                 }
             }
-        };
+        },
+        [form]
+    );
 
-        setDescriptionState = () => {
-            this.setState({ description: this.props.form.getFieldValue('description') || '' });
-        };
+    useEffect(() => {
+        setDescription(form.getFieldValue('description') || '');
+    }, [form]);
 
-        static getDerivedStateFromProps(nextProps: FormProps, prevState: State) {
-            const nextState = { description: nextProps.form.getFieldValue('description') || '' };
-            if (nextProps.isCreating !== prevState.isCreating) {
-                Object.assign(nextState, {
-                    isCreating: nextProps.isCreating,
-                    showMarkdownPreview: false,
-                });
-            }
-
-            return nextState;
+    useEffect(() => {
+        if (!isCreating) {
+            setShowMarkdownPreview(false);
         }
+    }, [isCreating]);
 
-        validator = (rule: any, name: string, callback: Function) => {
-            if (!this.props.isCreating || this.props.nameValidator(name)) {
-                callback();
-                return;
+    const validator = useCallback(
+        (_rule: RuleObject, name: unknown) => {
+            if (!isCreating || typeof name !== 'string' || !name || nameValidator(name)) {
+                return Promise.resolve();
             }
-            callback(`Board "${name}" already exists`);
-        };
+            return Promise.reject(new Error(`Board "${name}" already exists`));
+        },
+        [isCreating, nameValidator]
+    );
 
-        onTabChange = (key: string) => {
+    const onTabChange = useCallback(
+        (key: string) => {
             const toPreview = key === 'preview';
             if (toPreview) {
-                this.setDescriptionState();
+                setDescription(form.getFieldValue('description') || '');
             }
+            setShowMarkdownPreview(toPreview);
+        },
+        [form]
+    );
 
-            this.setState({ showMarkdownPreview: toPreview });
-        };
+    const { visible, onDelete, boardId, onCancel, createdTime } = props;
 
-        render() {
-            const { visible, onSave, form, isCreating, onDelete, boardId, onCancel, createdTime } =
-                this.props;
-            const { getFieldDecorator } = form;
-            return (
-                <Modal
-                    visible={visible}
-                    title={isCreating ? 'Create a new board' : 'Edit'}
-                    okText={isCreating ? 'Create' : 'Save'}
-                    onCancel={onCancel}
-                    cancelButtonProps={{ style: { display: 'none' } }}
-                    onOk={onSave}
-                    style={{ minWidth: 300 }}
-                    width={'60vw'}
-                    getContainer={getPopupContainer}
-                >
-                    <EditorContainer>
-                        <Form layout="vertical" onKeyDown={this.onKeydown}>
-                            <Form.Item label="Name">
-                                {getFieldDecorator('name', {
-                                    rules: [
-                                        {
-                                            required: true,
-                                            message: 'Please input the name of board!',
-                                        },
-                                        { max: 48, message: 'Max length of name is 48' },
-                                        { validator: this.validator },
-                                    ],
-                                })(<Input onKeyDown={this.onKeydown} />)}
-                                {!isCreating && createdTime !== undefined ? (
-                                    <CreatedTime style={{ marginTop: 4 }}>
-                                        Created: {formatTimeYmdHm(createdTime)}
-                                    </CreatedTime>
-                                ) : undefined}
-                            </Form.Item>
-                            <Tabs
-                                onChange={this.onTabChange}
-                                type="card"
-                                activeKey={this.state.showMarkdownPreview ? 'preview' : 'edit'}
-                                style={{ marginBottom: 10, minHeight: 120 }}
-                            >
-                                <TabPane tab="Edit" key="edit">
-                                    {getFieldDecorator('description')(
-                                        <TextArea
-                                            autoSize={{ minRows: 3, maxRows: 5 }}
-                                            onKeyDown={this.onKeydown}
+    return (
+        <Modal
+            open={visible}
+            title={isCreating ? 'Create a new board' : 'Edit'}
+            okText={isCreating ? 'Create' : 'Save'}
+            onCancel={onCancel}
+            cancelButtonProps={{ style: { display: 'none' } }}
+            onOk={() => form.submit()}
+            style={{ minWidth: 300 }}
+            width={'60vw'}
+            getContainer={getPopupContainer}
+            forceRender
+        >
+            <EditorContainer>
+                <Form form={form} layout="vertical" onKeyDown={onKeydown} onFinish={onSave}>
+                    <Form.Item
+                        label="Name"
+                        name="name"
+                        rules={[
+                            { required: true, message: 'Please input the name of board!' },
+                            { max: 48, message: 'Max length of name is 48' },
+                            { validator },
+                        ]}
+                    >
+                        <Input onKeyDown={onKeydown} />
+                    </Form.Item>
+                    {!isCreating && createdTime !== undefined ? (
+                        <CreatedTime style={{ marginTop: 4 }}>
+                            Created: {formatTimeYmdHm(createdTime)}
+                        </CreatedTime>
+                    ) : undefined}
+                    {/* Avoid leaving Tabs' resize observers active inside a closed modal. */}
+                    {visible ? (
+                        <Tabs
+                            onChange={onTabChange}
+                            type="card"
+                            activeKey={showMarkdownPreview ? 'preview' : 'edit'}
+                            style={{ marginBottom: 10, minHeight: 120 }}
+                            items={[
+                                {
+                                    key: 'edit',
+                                    label: 'Edit',
+                                    children: (
+                                        <Form.Item name="description">
+                                            <TextArea
+                                                autoSize={{ minRows: 3, maxRows: 5 }}
+                                                onKeyDown={onKeydown}
+                                            />
+                                        </Form.Item>
+                                    ),
+                                },
+                                {
+                                    key: 'preview',
+                                    label: 'Preview',
+                                    children: (
+                                        <Markdown
+                                            style={{
+                                                padding: '0px 10px',
+                                                border: '1px solid var(--pl-border)',
+                                                borderRadius: 4,
+                                                maxHeight: 'calc(100vh - 600px)',
+                                                minHeight: 120,
+                                            }}
+                                            dangerouslySetInnerHTML={{
+                                                __html: formatMarkdown(description),
+                                            }}
                                         />
-                                    )}
-                                </TabPane>
-                                <TabPane tab="Preview" key="preview">
-                                    <Markdown
-                                        style={{
-                                            padding: '0px 10px',
-                                            border: '1px solid var(--pl-border)',
-                                            borderRadius: 4,
-                                            maxHeight: 'calc(100vh - 600px)',
-                                            minHeight: 120,
-                                        }}
-                                        dangerouslySetInnerHTML={{
-                                            __html: formatMarkdown(this.state.description),
-                                        }}
-                                    />
-                                </TabPane>
-                            </Tabs>
-                            {!isCreating ? (
-                                <>
-                                    <Form.Item>
-                                        <ConfirmPopover onConfirm={onDelete}>
-                                            <Button type={'danger'} icon={'delete'}>
-                                                Delete
-                                            </Button>
-                                        </ConfirmPopover>
-                                    </Form.Item>
-                                    <DistractingListModalButton boardId={boardId} />
-                                </>
-                            ) : undefined}
-                        </Form>
-                    </EditorContainer>
-                </Modal>
-            );
-        }
-    }
-);
+                                    ),
+                                },
+                            ]}
+                        />
+                    ) : null}
+                    {!isCreating ? (
+                        <>
+                            <Form.Item>
+                                <ConfirmPopover onConfirm={onDelete}>
+                                    <Button type="primary" danger icon={<Icon type={'delete'} />}>
+                                        Delete
+                                    </Button>
+                                </ConfirmPopover>
+                            </Form.Item>
+                            <DistractingListModalButton boardId={boardId} />
+                        </>
+                    ) : undefined}
+                </Form>
+            </EditorContainer>
+        </Modal>
+    );
+};

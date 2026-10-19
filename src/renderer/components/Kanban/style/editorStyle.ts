@@ -12,33 +12,10 @@ export const EditorContainer = styled.div`
 `;
 
 /**
- * Custom Modal animation: cheap compositing-only zoom/fade (~150ms).
- * `will-change` is applied only on the enter/leave classes so the GPU layer
- * is created for the animation and released afterwards (nothing persists).
+ * Fade the editor dialog without scaling it, so its content does not appear to
+ * grow as the modal opens. `will-change` is limited to the animation classes.
  */
 export const EditorAnimation = createGlobalStyle`
-    @keyframes cardEditorZoomIn {
-        from {
-            opacity: 0;
-            transform: scale(0.98);
-        }
-        to {
-            opacity: 1;
-            transform: scale(1);
-        }
-    }
-
-    @keyframes cardEditorZoomOut {
-        from {
-            opacity: 1;
-            transform: scale(1);
-        }
-        to {
-            opacity: 0;
-            transform: scale(0.98);
-        }
-    }
-
     @keyframes cardEditorFadeIn {
         from {
             opacity: 0;
@@ -57,29 +34,16 @@ export const EditorAnimation = createGlobalStyle`
         }
     }
 
-    .card-editor-zoom-enter,
-    .card-editor-zoom-appear {
-        will-change: transform, opacity;
-        animation-name: cardEditorZoomIn;
-        animation-duration: 0.15s;
-        animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
-    }
-
-    .card-editor-zoom-leave {
-        will-change: transform, opacity;
-        animation-name: cardEditorZoomOut;
-        animation-duration: 0.15s;
-        animation-timing-function: ease-in;
-    }
-
     .card-editor-fade-enter,
     .card-editor-fade-appear {
+        will-change: opacity;
         animation-name: cardEditorFadeIn;
         animation-duration: 0.15s;
         animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
     }
 
     .card-editor-fade-leave {
+        will-change: opacity;
         animation-name: cardEditorFadeOut;
         animation-duration: 0.15s;
         animation-timing-function: ease-in;

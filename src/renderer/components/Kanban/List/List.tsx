@@ -5,7 +5,9 @@ import React, { FC, useRef, useState } from 'react';
 import { ListActionTypes } from './action';
 import styled from 'styled-components';
 import Card from '../Card';
-import { Button, Dropdown, Icon, Input, Menu, Tooltip } from 'antd';
+import { Button, Dropdown, Input, Tooltip } from 'antd';
+import type { MenuProps } from 'antd';
+import { AntdIcon as Icon, IconComponent } from '../../antdIcon';
 import { ConfirmPopover, feedback, FEEDBACK_MESSAGES } from '../../feedback';
 import { KanbanActionTypes } from '../action';
 import { CardsState } from '../Card/action';
@@ -260,7 +262,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
     const cardCount = props.cards?.length ?? 0;
     const [isEditing, setIsEditing] = useState(false);
     const [value, setValue] = useState('');
-    const inputRef = useRef<Input>();
+    const inputRef = useRef<any>();
 
     const addCard = () => {
         props.setEditCard(true, props.listId, undefined);
@@ -302,28 +304,40 @@ export const List: FC<Props> = React.memo((props: Props) => {
         }
     }, []);
 
-    const menu = React.useMemo(
+    const menu: MenuProps = React.useMemo(
         () =>
-            !focused && !done ? (
-                <Menu>
-                    <Menu.Item key="1" onClick={onEdit}>
-                        <Icon type={'setting'} /> Edit
-                    </Menu.Item>
-                    <Menu.Divider />
-                    <Menu.Item key="3" onClick={onPreDelete}>
-                        <ConfirmPopover onConfirm={onDelete} ref={popConfirmRef as any}>
-                            <Icon type={'delete'} /> Delete
-                        </ConfirmPopover>
-                    </Menu.Item>
-                </Menu>
-            ) : (
-                <Menu>
-                    <Menu.Item key="1" onClick={onEdit}>
-                        <Icon type={'setting'} /> Edit
-                    </Menu.Item>
-                </Menu>
-            ),
-        [onDelete, focused, done, onPreDelete]
+            !focused && !done
+                ? {
+                      items: [
+                          {
+                              key: '1',
+                              icon: <Icon type={'setting'} />,
+                              label: 'Edit',
+                              onClick: onEdit,
+                          },
+                          { type: 'divider' },
+                          {
+                              key: '3',
+                              icon: <Icon type={'delete'} />,
+                              label: (
+                                  <ConfirmPopover onConfirm={onDelete} ref={popConfirmRef as any}>
+                                      Delete
+                                  </ConfirmPopover>
+                              ),
+                          },
+                      ],
+                  }
+                : {
+                      items: [
+                          {
+                              key: '1',
+                              icon: <Icon type={'setting'} />,
+                              label: 'Edit',
+                              onClick: onEdit,
+                          },
+                      ],
+                  },
+        [onDelete, focused, done, onPreDelete, onEdit]
     );
 
     return (
@@ -370,18 +384,18 @@ export const List: FC<Props> = React.memo((props: Props) => {
                                         {focused ? (
                                             <Tooltip title={'Focused List'}>
                                                 <span style={{ color: 'red', marginRight: 8 }}>
-                                                    <Icon component={FocusIcon} />
+                                                    <IconComponent component={FocusIcon} />
                                                 </span>
                                             </Tooltip>
                                         ) : undefined}
                                         {done ? (
                                             <Tooltip title={'Done List'}>
                                                 <span style={{ color: 'green', marginRight: 8 }}>
-                                                    <Icon component={DoneIcon} />
+                                                    <IconComponent component={DoneIcon} />
                                                 </span>
                                             </Tooltip>
                                         ) : undefined}
-                                        <Dropdown overlay={menu} trigger={['click']}>
+                                        <Dropdown menu={menu} trigger={['click']}>
                                             <Icon type="menu" />
                                         </Dropdown>
                                     </div>
@@ -423,7 +437,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
                             <Button
                                 onClick={addCard}
                                 shape={'circle'}
-                                icon="plus"
+                                icon={<Icon type="plus" />}
                                 id={'create-card-button'}
                             />
                         </ButtonWrapper>

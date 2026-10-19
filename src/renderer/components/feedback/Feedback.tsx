@@ -106,14 +106,14 @@ export const notice = ({
 }: NoticeOptions): void => {
     getFeedbackAppApi().notification.open({
         key,
-        message: title,
+        title,
         description:
             description === undefined ? undefined : (
                 <div className={FEEDBACK_TEXT_CLASS}>{description}</div>
             ),
         icon: kindIcon(kind),
         duration,
-        btn: actions,
+        actions,
         placement,
         onClose,
     });

@@ -582,7 +582,7 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                                     getPopupContainer={getEditDropdownContainer}
                                     onSelect={onEditNameSelect}
                                     onChange={(value: any) => setEditName(value)}
-                                    filterOption={false}
+                                    showSearch={{ filterOption: false }}
                                 >
                                     <Input onPressEnter={onEditNamePressEnter} />
                                 </AutoComplete>
@@ -641,7 +641,7 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                     getPopupContainer={getPopupContainer}
                     onSelect={onNewNameSelect}
                     onChange={(value: any) => setNewName(value)}
-                    filterOption={false}
+                    showSearch={{ filterOption: false }}
                 >
                     <Input placeholder={'Label name'} onPressEnter={onNewNamePressEnter} />
                 </AutoComplete>

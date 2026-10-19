@@ -200,15 +200,12 @@ export const GlobalStyle = createGlobalStyle`
         .ant-table-tbody > tr > td {
             border-bottom-color: var(--pl-border);
         }
-        /* antd's row-hover rule carries two extra :not(...) guards
-           (.ant-table-tbody > tr:hover:not(...):not(...) > td, 0-4-2), so a
-           plain tr:hover selector loses the cascade and the row keeps antd's
-           #e6f7ff -- a light-blue block the night theme's light text cannot
-           be read on. Mirror the guards (and the JS-toggled
-           ant-table-row-hover class) so the themed hover background wins. */
-        .ant-table-tbody > tr.ant-table-row-hover:not(.ant-table-expanded-row):not(.ant-table-row-selected) > td,
+        /* v6: hover is painted on the cells themselves
+           (.ant-table-cell-row-hover, set by JS alongside tr:hover), not on
+           the row. Keep guarding expanded/selected rows out like antd does. */
+        .ant-table-tbody > tr:not(.ant-table-expanded-row):not(.ant-table-row-selected) > td.ant-table-cell-row-hover,
         .ant-table-tbody > tr:hover:not(.ant-table-expanded-row):not(.ant-table-row-selected) > td,
-        .ant-table-thead > tr.ant-table-row-hover:not(.ant-table-expanded-row):not(.ant-table-row-selected) > th,
+        .ant-table-thead > tr:not(.ant-table-expanded-row):not(.ant-table-row-selected) > th.ant-table-cell-row-hover,
         .ant-table-thead > tr:hover:not(.ant-table-expanded-row):not(.ant-table-row-selected) > th {
             background-color: var(--pl-bg-hover);
         }
@@ -227,8 +224,10 @@ export const GlobalStyle = createGlobalStyle`
             border-color: var(--pl-border);
         }
 
-        /* ---------- modal ---------- */
-        .ant-modal-content {
+        /* ---------- modal ----------
+           v6: the surface wrapper was renamed '.ant-modal-content' ->
+           '.ant-modal-container' (header/body/footer/title/close unchanged). */
+        .ant-modal-container {
             background-color: var(--pl-bg-elevated);
             color: var(--pl-text);
         }
@@ -253,8 +252,11 @@ export const GlobalStyle = createGlobalStyle`
             background-color: var(--pl-mask);
         }
 
-        /* ---------- popover / popconfirm ---------- */
-        .ant-popover-inner {
+        /* ---------- popover / popconfirm ----------
+           v6: '.ant-popover-inner' -> '.ant-popover-container',
+           '.ant-popover-inner-content' -> '.ant-popover-content',
+           popconfirm message rows moved to '.ant-popconfirm-message(-title)'. */
+        .ant-popover-container {
             background-color: var(--pl-bg-elevated);
             box-shadow: 0 2px 8px var(--pl-shadow);
         }
@@ -262,8 +264,9 @@ export const GlobalStyle = createGlobalStyle`
             border-bottom-color: var(--pl-border);
             color: var(--pl-text);
         }
-        .ant-popover-inner-content,
-        .ant-popover-message {
+        .ant-popover-content,
+        .ant-popconfirm-message,
+        .ant-popconfirm-title {
             color: var(--pl-text);
         }
         /* ---------- tooltip ---------- */
@@ -306,30 +309,35 @@ export const GlobalStyle = createGlobalStyle`
             color: var(--pl-primary);
         }
 
-        /* ---------- select ---------- */
+        /* ---------- select ----------
+           v6: the field is '.ant-select-content' (was '.ant-select-selector');
+           value text sits directly inside it, the editor is 'input'
+           '.ant-select-input', the arrow is '.ant-select-suffix';
+           '.ant-select-clear' / '.ant-select-placeholder' / option classes
+           are unchanged. */
         .ant-select,
-        .ant-select-selector {
+        .ant-select-content {
             color: var(--pl-text);
         }
-        .ant-select-selector {
+        .ant-select {
             background-color: var(--pl-bg-elevated);
             border-color: var(--pl-border);
         }
-        .ant-select:hover .ant-select-selector,
-        .ant-select-focused .ant-select-selector {
+        .ant-select:hover,
+        .ant-select-focused {
             border-color: var(--pl-primary);
         }
-        .ant-select-arrow,
+        .ant-select-suffix,
         .ant-select-clear {
             color: var(--pl-text-secondary);
             background-color: transparent;
         }
-        .ant-select-selection-placeholder,
-        .ant-select-selection-search-input::placeholder {
+        .ant-select-placeholder,
+        .ant-select-input::placeholder {
             color: var(--pl-text-tertiary);
         }
-        .ant-select-selection-item,
-        .ant-select-selection-search-input,
+        .ant-select-content,
+        .ant-select-input,
         .ant-select-item-option {
             color: var(--pl-text);
         }
@@ -366,7 +374,7 @@ export const GlobalStyle = createGlobalStyle`
         }
         .ant-input::placeholder,
         .ant-input-number-input::placeholder,
-        .ant-select-selection-search-input::placeholder {
+        .ant-select-input::placeholder {
             color: var(--pl-text-tertiary);
         }
         .ant-input-affix-wrapper:hover .ant-input:not(.ant-input-disabled) {
@@ -445,18 +453,15 @@ export const GlobalStyle = createGlobalStyle`
             background-color: var(--pl-text-tertiary);
         }
 
-        /* ---------- divider ---------- */
+        /* ---------- divider ----------
+           v6 renders text dividers as explicit '.ant-divider-rail' nodes
+           (start/end), not ::before/::after on the root. */
         .ant-divider {
             background-color: var(--pl-border);
             border-top-color: var(--pl-border);
             color: var(--pl-text);
         }
-        .ant-divider-horizontal.ant-divider-with-text-center::before,
-        .ant-divider-horizontal.ant-divider-with-text-left::before,
-        .ant-divider-horizontal.ant-divider-with-text-right::before,
-        .ant-divider-horizontal.ant-divider-with-text-center::after,
-        .ant-divider-horizontal.ant-divider-with-text-left::after,
-        .ant-divider-horizontal.ant-divider-with-text-right::after {
+        .ant-divider-rail {
             border-top-color: var(--pl-border);
         }
 
@@ -483,10 +488,10 @@ export const GlobalStyle = createGlobalStyle`
         }
 
         /* ---------- spin / progress ---------- */
-        .ant-spin-dot i {
+        .ant-spin-dot-item {
             background-color: var(--pl-primary);
         }
-        .ant-spin-text {
+        .ant-spin-description {
             color: var(--pl-text-secondary);
         }
         .ant-progress-text {
@@ -495,14 +500,14 @@ export const GlobalStyle = createGlobalStyle`
         /* NOTE: the circle trail is NOT themed here on purpose.
            rc-progress writes the trail color as inline style (builtin default
            D9D9D9 gray), which beats any non-important CSS rule. The themed
-           color is therefore passed via the trailColor prop in
+           color is therefore passed via the railColor prop in
            Timer/Progress.tsx (a live var in inline style). */
 
         /* ---------- timeline ---------- */
-        .ant-timeline-item-tail {
+        .ant-timeline-item-rail {
             border-left-color: var(--pl-border);
         }
-        .ant-timeline-item-head {
+        .ant-timeline-item-header {
             background-color: var(--pl-bg);
             border-color: var(--pl-primary);
         }
@@ -526,13 +531,6 @@ export const GlobalStyle = createGlobalStyle`
         /* ---------- empty ---------- */
         .ant-empty-description {
             color: var(--pl-text-secondary);
-        }
-        .ant-empty-img-simple-ellipse,
-        .ant-empty-img-simple-g {
-            fill: var(--pl-bg-elevated);
-        }
-        .ant-empty-img-simple-path {
-            fill: var(--pl-bg-sunken);
         }
 
         /* ---------- pagination ---------- */
@@ -563,7 +561,7 @@ export const GlobalStyle = createGlobalStyle`
         }
 
         /* ---------- message ---------- */
-        .ant-message-notice-content {
+        .ant-message-notice {
             background-color: var(--pl-bg-elevated);
             box-shadow: 0 4px 12px var(--pl-shadow);
             color: var(--pl-text);
@@ -662,7 +660,7 @@ export const GlobalStyle = createGlobalStyle`
     }
 
     /* toast (antd message) */
-    html[data-theme] .ant-message-notice-content {
+    html[data-theme] .ant-message-notice {
         background-color: var(--pl-bg-elevated);
         border: 1px solid var(--pl-border);
         border-radius: 8px;
@@ -699,7 +697,7 @@ export const GlobalStyle = createGlobalStyle`
     html[data-theme] .ant-modal {
         max-width: calc(100vw - 32px);
     }
-    html[data-theme] .ant-modal-content {
+    html[data-theme] .ant-modal-container {
         border-radius: 8px;
         user-select: text;
     }
@@ -716,12 +714,12 @@ export const GlobalStyle = createGlobalStyle`
     }
 
     /* popconfirm / popover */
-    html[data-theme] .ant-popover-inner {
+    html[data-theme] .ant-popover-container {
         border-radius: 8px;
         border: 1px solid var(--pl-border);
     }
-    html[data-theme] .ant-popover-inner-content,
-    html[data-theme] .ant-popover-message-title {
+    html[data-theme] .ant-popover-content,
+    html[data-theme] .ant-popconfirm-message {
         user-select: text;
     }
 `;

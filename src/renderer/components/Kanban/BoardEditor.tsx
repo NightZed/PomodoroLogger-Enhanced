@@ -3,7 +3,6 @@ import { Button, Form, Input, Modal, Tabs } from 'antd';
 import type { RuleObject } from 'antd/es/form';
 import { ConfirmPopover } from '../feedback';
 import { getPopupContainer } from '../popupLayer';
-import TextArea from 'antd/es/input/TextArea';
 import { DistractingListModalButton } from '../Setting/DistractingList';
 import { EditorContainer } from './style/editorStyle';
 import { CreatedTime } from './style/CreatedTime';
@@ -121,7 +120,7 @@ export const EditKanbanForm = (props: FormProps) => {
                                     label: 'Edit',
                                     children: (
                                         <Form.Item name="description">
-                                            <TextArea
+                                            <Input.TextArea
                                                 autoSize={{ minRows: 3, maxRows: 5 }}
                                                 onKeyDown={onKeydown}
                                             />

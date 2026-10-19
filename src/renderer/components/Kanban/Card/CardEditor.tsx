@@ -9,7 +9,6 @@ import { Button, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Tabs, To
 import { AntdIcon as Icon } from '../../antdIcon';
 import { ConfirmPopover } from '../../feedback';
 import { getPopupContainer } from '../../popupLayer';
-import TextArea from 'antd/es/input/TextArea';
 import { uid } from '../../../../utils/uid';
 import dayjs, { Dayjs } from 'dayjs';
 import { Card, CardLabel } from '../type';
@@ -655,7 +654,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                                 </Tooltip>
                                             </div>
                                             <Form.Item name="content" noStyle>
-                                                <TextArea
+                                                <Input.TextArea
                                                     ref={contentRef}
                                                     autoSize={{ minRows: 6, maxRows: 16 }}
                                                     style={{ transition: 'none' }}

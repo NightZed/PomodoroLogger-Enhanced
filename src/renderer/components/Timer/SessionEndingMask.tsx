@@ -1,4 +1,4 @@
-import { Button, ConfigProvider, List, Popover, Row } from 'antd';
+import { Button, ConfigProvider, Listy, Popover, Row } from 'antd';
 import { actions, LONG_BREAK_INTERVAL } from './action';
 import { PomodoroNumView } from './PomodoroNumView';
 import React from 'react';
@@ -120,25 +120,33 @@ const _TimerMask = (props: MaskProps) => {
     // Pass board objects (not their names) so the click handler can dispatch
     // the board `_id`. `timer.boardId` must always be a `_id` — `Timer` looks
     // it up in `kanban.boards` when rendering.
+    // antd v6: List is removed in favor of Listy (`dataSource` -> `items`,
+    // `renderItem` -> `itemRender`; `List.Item` is gone, the item wrapper is
+    // rendered by Listy itself). The old small + bordered look is reproduced
+    // with Listy's semantic styles.
     const renderItem = (item: KanbanBoard) => {
         const onClick = (event: React.MouseEvent) => {
             setBoard(item._id);
             event.stopPropagation();
             event.preventDefault();
         };
-        return (
-            <List.Item>
-                <ListItem onClick={onClick}>{item.name}</ListItem>
-            </List.Item>
-        );
+        return <ListItem onClick={onClick}>{item.name}</ListItem>;
     };
 
     const content = boards.length ? (
-        <List
-            size="small"
-            bordered={true}
-            dataSource={Object.values(boards)}
-            renderItem={renderItem}
+        <Listy
+            items={Object.values(boards)}
+            rowKey="_id"
+            itemRender={renderItem}
+            styles={{
+                root: {
+                    border: '1px solid var(--pl-border, #d9d9d9)',
+                    borderRadius: 2,
+                },
+                item: {
+                    padding: '8px 16px',
+                },
+            }}
         />
     ) : undefined;
 

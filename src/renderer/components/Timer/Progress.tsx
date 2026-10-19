@@ -87,7 +87,9 @@ export default class Progress extends React.Component<ProgressProps> {
             // ('#D9D9D9', written as inline style so CSS cannot override it).
             // var() is legal inside inline styles and resolves live, so the
             // ring follows the active theme without any JS-side sync. An
-            // explicit trailColor prop still takes precedence.
+            // explicit trailColor prop still takes precedence. In antd v6 the
+            // prop is called railColor (trailColor is deprecated); this wrapper
+            // keeps its own `trailColor` prop name and forwards it as railColor.
             trailColor = 'var(--pl-border)',
             size,
             successPercent,
@@ -109,10 +111,12 @@ export default class Progress extends React.Component<ProgressProps> {
             <Circle
                 prefixCls={prefixCls}
                 progressStatus={progressStatus}
-                trailColor={trailColor}
+                railColor={trailColor}
+                classNames={{}}
+                styles={{}}
                 type={type}
                 percent={percent}
-                successPercent={successPercent}
+                success={successPercent !== undefined ? { percent: successPercent } : undefined}
                 strokeWidth={strokeWidth}
                 strokeLinecap={strokeLinecap}
                 strokeColor={strokeColor}

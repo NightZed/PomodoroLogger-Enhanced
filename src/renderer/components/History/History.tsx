@@ -401,13 +401,13 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                     title={title}
                     value={loaded.count}
                     precision={0}
-                    valueStyle={{ color }}
+                    styles={{ content: { color } }}
                 />
             );
         }
 
         return status === 'error' ? (
-            <Statistic title={title} value={'-'} valueStyle={{ color }} />
+            <Statistic title={title} value={'-'} styles={{ content: { color } }} />
         ) : (
             <Loading hideBackground={true} />
         );

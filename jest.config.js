@@ -24,7 +24,14 @@ module.exports = {
         '\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga|dat)$':
             '<rootDir>/__mocks__/fileMock.js',
         '\\.(s?css|sass)$': '<rootDir>/__mocks__/styleMock.js',
-        '^worker-loader!': '<rootDir>/__mocks__/workerMock.js'
+        '^worker-loader!': '<rootDir>/__mocks__/workerMock.js',
+        // @ant-design/icons@6 ships dual ESM/CJS; force the CJS 'lib/' entry so
+        // Jest's CommonJS runtime does not try to require() its ESM 'es/'
+        // build (breaks under customExportConditions: ['node']).
+        '^@ant-design/icons$': '<rootDir>/node_modules/@ant-design/icons/lib/index.js',
+        // @ant-design/colors@v8 ships ESM 'es/'; icons@6 CJS build requires
+        // '@ant-design/colors/es/generate', which breaks under Jest CJS.
+        '^@ant-design/colors/es/generate$': '<rootDir>/node_modules/@ant-design/colors/lib/generate.js',
     },
     // nedb-based action tests are I/O heavy; give them room so a loaded machine
     // does not trip the default 5s per-test timeout

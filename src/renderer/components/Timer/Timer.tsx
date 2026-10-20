@@ -71,7 +71,7 @@ const KanbanName = styled.h1`
     transition: color 0.2s;
     user-select: none;
     cursor: pointer;
-    :hover {
+    &:hover {
         color: rgb(85, 87, 240);
     }
     .kanban-name-arrow {
@@ -210,7 +210,7 @@ const ThemeToggle = styled(Icon)`
     cursor: pointer;
     transition: color 0.2s, transform 0.2s;
 
-    :hover {
+    &:hover {
         color: var(--pl-primary);
         transform: scale(1.15);
     }

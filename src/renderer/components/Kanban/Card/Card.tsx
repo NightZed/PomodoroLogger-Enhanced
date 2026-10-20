@@ -36,7 +36,7 @@ const CardContainer = styled.div`
         z-index: 1;
         box-shadow: 0 0 18px 8px var(--pl-shadow);
     }
-    :hover {
+    &:hover {
         z-index: 5;
         box-shadow: 0 0 18px 8px var(--pl-shadow);
     }

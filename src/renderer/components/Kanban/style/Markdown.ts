@@ -10,7 +10,7 @@ export const Markdown = styled.div`
     line-height: 1.4;
     ${thinScrollBar};
 
-    ::before {
+    &::before {
         content: '';
         top: 0px;
         position: sticky;
@@ -24,7 +24,7 @@ export const Markdown = styled.div`
         pointer-events: none;
     }
 
-    ::after {
+    &::after {
         content: '';
         bottom: -4px;
         position: sticky;

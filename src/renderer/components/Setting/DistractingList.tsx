@@ -14,16 +14,16 @@ const { useForm } = Form;
 const Container = styled.div`
     max-height: calc(100vh - 300px);
     overflow-y: auto;
-    ::-webkit-scrollbar {
+    &::-webkit-scrollbar {
         width: 4px;
         height: 4px;
         background-color: rgba(0, 0, 0, 0);
     }
-    ::-webkit-scrollbar-track {
+    &::-webkit-scrollbar-track {
         width: 4px;
         background-color: rgba(0, 0, 0, 0);
     }
-    ::-webkit-scrollbar-thumb {
+    &::-webkit-scrollbar-thumb {
         width: 4px;
         background-color: rgba(0, 0, 0, 0.2);
         border-radius: 4px;

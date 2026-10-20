@@ -9,7 +9,7 @@ const Container = styled.div`
     position: relative;
     transition: background-color 1s;
     background-color: rgba(255, 255, 223, 0);
-    :hover {
+    &:hover {
         background-color: rgba(23, 43, 223, 0.1);
         h1 {
             opacity: 1;

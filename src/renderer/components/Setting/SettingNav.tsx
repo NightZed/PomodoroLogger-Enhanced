@@ -49,7 +49,7 @@ const NavItem = styled.button<{ $active: boolean }>`
         margin-right: 8px;
     }
 
-    :hover {
+    &:hover {
         background-color: var(--pl-bg-hover);
         color: var(--pl-text);
     }

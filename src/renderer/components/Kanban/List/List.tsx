@@ -133,18 +133,22 @@ const Cards = styled.div<CardsProps>`
         color: var(--pl-text);
     }
 
-    ${displayScrollbarFn} ::-webkit-scrollbar {
+    /* The "&" matters here: styled-components v6 no longer turns a nested
+       scrollbar pseudo-element selector into a self selector, so without it
+       these rules would style the scrollbars of *descendants* (the card
+       bodies) instead of the list column itself. */
+    ${displayScrollbarFn} &::-webkit-scrollbar {
         width: 4px;
         height: 4px;
         background-color: rgba(0, 0, 0, 0);
     }
 
-    ::-webkit-scrollbar-track {
+    &::-webkit-scrollbar-track {
         width: 4px;
         background-color: rgba(0, 0, 0, 0);
     }
 
-    ::-webkit-scrollbar-thumb {
+    &::-webkit-scrollbar-thumb {
         background-color: transparent;
         box-shadow: inset 0 0 0 10px;
         width: 4px;

@@ -64,7 +64,7 @@ const ProjectName = styled.h1<{ $compact: boolean }>`
     margin: 0;
     width: 100%;
     text-align: center;
-    :hover {
+    &:hover {
         color: white;
     }
 `;
@@ -81,7 +81,7 @@ const ListItem = styled.span`
     cursor: pointer;
     color: #0074d9;
     transition: color 0.3s;
-    :hover {
+    &:hover {
         color: #000088;
     }
 `;

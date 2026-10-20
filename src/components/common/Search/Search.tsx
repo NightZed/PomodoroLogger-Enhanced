@@ -105,10 +105,10 @@ const StyledSearch = styled.div<StyledProps>`
         }
     }
 
-    :focus {
+    &:focus {
         border: 1px solid var(--pl-primary);
     }
-    :hover {
+    &:hover {
         border: 1px solid var(--pl-primary);
     }
 `;

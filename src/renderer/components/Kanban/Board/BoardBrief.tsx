@@ -38,7 +38,7 @@ const BriefCard = styled.div`
     cursor: pointer;
     transition: box-shadow 0.5s, transform 0.5s;
 
-    :hover {
+    &:hover {
         box-shadow: 2px 2px 4px 4px var(--pl-shadow);
         transform: translate(-3px -3px);
         z-index: 100;

@@ -76,10 +76,10 @@ const ColorInput = styled.input`
     cursor: pointer;
     vertical-align: middle;
 
-    ::-webkit-color-swatch-wrapper {
+    &::-webkit-color-swatch-wrapper {
         padding: 0;
     }
-    ::-webkit-color-swatch {
+    &::-webkit-color-swatch {
         border: 1px solid var(--pl-border);
         border-radius: 2px;
     }
@@ -151,7 +151,7 @@ const StyledIcon = styled(GithubOutlined)`
     color: var(--pl-text);
     transition: color 0.1s;
     margin: 0 0.3rem;
-    :hover {
+    &:hover {
         color: var(--pl-primary);
     }
 `;
@@ -181,7 +181,7 @@ const ThemeButton = styled.button<ThemeButtonProps>`
     border: 1px solid ${({ $active }) => ($active ? 'var(--pl-primary)' : 'var(--pl-border)')};
     color: ${({ $active }) => ($active ? 'var(--pl-primary)' : 'var(--pl-text)')};
 
-    :hover {
+    &:hover {
         border-color: var(--pl-primary);
     }
 `;

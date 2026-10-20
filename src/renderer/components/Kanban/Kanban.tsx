@@ -30,16 +30,16 @@ const { Option } = Select;
 const Content = styled.main`
     margin: 0;
     overflow: auto;
-    ::-webkit-scrollbar {
+    &::-webkit-scrollbar {
         width: 8px;
         height: 8px;
         background-color: var(--pl-bg-sunken);
     }
-    ::-webkit-scrollbar-thumb {
+    &::-webkit-scrollbar-thumb {
         border-radius: 8px;
         background-color: var(--pl-scrollbar-thumb);
     }
-    ::-webkit-scrollbar-track {
+    &::-webkit-scrollbar-track {
         border-radius: 8px;
         background-color: var(--pl-scrollbar-track);
     }

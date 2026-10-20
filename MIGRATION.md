@@ -1,7 +1,7 @@
 # 依赖迁移纲要
 
 > 生成日期：2026-10-20
-> 状态：规划稿，尚未开始实施
+> 状态：B0 / B1.5 已完成；B1 及后续批次待实施
 > 适用版本：当前 `package.json`（React 19.3 / antd 6 / webpack 5.111 / Jest 30）
 
 本文档列出项目中已停止维护、已被弃用、已过 EOL，或已经确定要替换的依赖，并给出迁移顺序、改动范围、验收标准和回滚方式。每完成一项，直接勾选对应条目并补充实际使用的版本与迁移日期。
@@ -55,7 +55,7 @@ yarn pack          # 至少在一个平台上做一次解包冒烟
 ### 1.5.1 当前基线（2026-10-20 实测）
 
 - 57 个测试套件、444 个测试全部通过。
-- 完整测试输出约 112 条 `console.error` / `console.warn`，主要构成：
+- B0 开始时完整测试输出约 112 条 `console.error` / `console.warn`，主要构成：
 
 | 数量 | 内容 | 归类 |
 | --- | --- | --- |
@@ -67,7 +67,10 @@ yarn pack          # 至少在一个平台上做一次解包冒烟
 
 > 开发模式下的 Electron 控制台还会额外出现 `nodeIntegration` / `contextIsolation` 的安全建议，这是当前架构的已知状态，不在 B0 处理；不要把它和迁移 bug 混在一起。
 
-**首轮修复结果（2026-10-20）**：测试输出从 112 条降到 105 条；React 未知 DOM prop 与 antd `maskClosable` 告警已归零。剩余 74 + 7 条属于 B1.5，其他为 D 类预期/环境输出。
+**治理结果（2026-10-20）**：
+
+- B0 首轮：112 → 105 条；React 未知 DOM prop 与 antd `maskClosable` 归零。
+- B1.5 + D 类 allowlist 完成后：**105 → 0 条**。`react-test-renderer` / `act`、active-win 预期失败、updater 预期错误、jsdom `getComputedStyle`、dataMerger 的预期警告均已消除或显式静默。
 
 ### 1.5.2 分类规则
 
@@ -84,9 +87,9 @@ yarn pack          # 至少在一个平台上做一次解包冒烟
 - [x] `SessionEndingMask.tsx`、`AppTitleBar.tsx` 中同类自定义 prop 一并改为 `$` 前缀。
 - [x] 同时处理了其他会向 DOM 透传的 styled-components prop：`Search`、`MiniLogger`、`LabelEditor`、`Kanban/List`、`Setting`、`SettingNav`。
 - [x] `feedback/Feedback.tsx`：antd 6 的 `maskClosable: false` → `mask={{ closable: false }}`（`modal.confirm` / `modal.info` 两处）。
-- [ ] 测试中需要挂载 `Application` 的地方显式 mock `active-win`（B4 后改为 `get-windows`），避免原生模块加载失败污染输出。
-- [ ] 对 updater 的预期错误、jsdom 的 `getComputedStyle` 限制，在测试里加窄范围 allowlist，而不是全局静默。
-- [ ] 可选：基线干净后，在 Jest setup 中增加“未声明的 `console.error` 视为失败”的保护，防止后续迁移重新引入噪声。
+- [x] 主动失败路径的预期日志改为窄范围 allowlist：`activeWin.test.ts`、`AutoUpdater.test.ts`、`dataMerger.test.ts`。
+- [x] `test/jsdom-compat.js` 去掉 jsdom 不支持的 `getComputedStyle(el, pseudoElt)` 第二参数，消除 antd 滚动条测量的 “Not implemented” 噪声。
+- [ ] 可选：基线干净后，在 Jest setup 中增加“未声明的 `console.error` 视为失败”的保护，防止后续迁移重新引入噪声。当前基线已为 0 条，建议在 B2 开始前加。
 
 ---
 
@@ -131,9 +134,11 @@ yarn pack          # 至少在一个平台上做一次解包冒烟
 
 ## 2.5 B1.5：`react-test-renderer` → React Testing Library
 
-React 官方已将 `react-test-renderer` 标记为 deprecated（每个测试用例都会打印一条 `console.error`）。当前完整测试输出里 74 条弃用告警 + 7 条 `act` 告警都来自它，是本项目最大的一类控制台噪声。
+React 官方已将 `react-test-renderer` 标记为 deprecated（每个测试用例都会打印一条 `console.error`）。迁移前完整测试输出里的 74 条弃用告警 + 7 条 `act` 告警都来自它，是本项目最大的一类控制台噪声。
 
 这一批只改测试，不改产品代码，风险低；建议紧接 B1 完成，并且**必须在 B5 的 `react-hot-keys` 替换之前完成**。
+
+**实施结果（2026-10-20）**：9 个文件全部迁移完成，`react-test-renderer` 与 `@types/react-test-renderer` 已从直接依赖中删除。完整测试仍为 57 suites / 444 tests 通过，控制台告警为 0。AppTitleBar 使用 rc-tabs 的 `data-node-key` / `role="tab"` 查询；History 与 Setting 分别用原生 `select` / `range` 替身隔离 antd 的弹层与滑块实现。
 
 ### 2.5.1 涉及文件（9 个）
 
@@ -168,11 +173,11 @@ React 官方已将 `react-test-renderer` 标记为 deprecated（每个测试用�
 
 ### 2.5.3 验收
 
-- [ ] 9 个文件全部改用 RTL，测试数量和断言覆盖不减少。
-- [ ] `yarn test` 输出中 `react-test-renderer is deprecated` 和 `not wrapped in act` 归零。
-- [ ] 删除 `react-test-renderer`、`@types/react-test-renderer`。
-- [ ] `jest.config.js` 不需要新增特殊配置；如确实需要，优先用 `setupFilesAfterEach` 的 `cleanup`。
-- [ ] 为 B5 的 `Hotkeys` 重写保留一份可用的 RTL 测试基线。
+- [x] 9 个文件全部改用 RTL，测试数量和断言覆盖不减少。
+- [x] `yarn test` 输出中 `react-test-renderer is deprecated` 和 `not wrapped in act` 归零。
+- [x] 删除 `react-test-renderer`、`@types/react-test-renderer`（`react-styleguidist` 的传递类型仍留在 lockfile，随 B5.5 处理）。
+- [x] `jest.config.js` 新增 `test/jsdom-compat.js`（仅处理 jsdom 的 `getComputedStyle` 限制），不使用全局静默。
+- [x] 为 B5 的 `Hotkeys` 重写保留一份可用的 RTL 测试基线。
 
 ---
 
@@ -602,9 +607,9 @@ Electron 39 的官方 EOL 是 **2026-05-05**，已经不再收到安全更新。
 
 ## 11. 进度勾选
 
-- [ ] B0 控制台基线与降噪
+- [x] B0 控制台基线与降噪
 - [ ] B1 低风险清理
-- [ ] B1.5 react-test-renderer → React Testing Library
+- [x] B1.5 react-test-renderer → React Testing Library
 - [ ] B2 nedb → SQLite
 - [ ] B3 worker-loader / marked
 - [ ] B4 active-win → get-windows + Electron 44

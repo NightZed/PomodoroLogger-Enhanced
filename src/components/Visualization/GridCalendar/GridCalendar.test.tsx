@@ -1,5 +1,5 @@
 import React from 'react';
-import TestRenderer, { act } from 'react-test-renderer';
+import { render } from '@testing-library/react';
 import { GridCalendar, monthList } from './GridCalendar';
 
 // Window anchored to the end of 2020: the overlap-avoidance in getMonthText()
@@ -7,40 +7,33 @@ import { GridCalendar, monthList } from './GridCalendar';
 // label unambiguously identifies the highlighted month.
 const till = new Date(2020, 11, 31).getTime();
 
-const render = (highlightMonth?: number) => {
-    let renderer!: TestRenderer.ReactTestRenderer;
-    act(() => {
-        renderer = TestRenderer.create(
-            <GridCalendar data={{}} width={800} till={till} highlightMonth={highlightMonth} />
-        );
-    });
-    return renderer;
-};
+const renderCalendar = (highlightMonth?: number) =>
+    render(<GridCalendar data={{}} width={800} till={till} highlightMonth={highlightMonth} />)
+        .container;
 
 /** The column headers, i.e. the month names, skipping the weekday axis. */
-const monthLabels = (renderer: TestRenderer.ReactTestRenderer) =>
-    renderer.root
-        .findAllByType('text')
-        .filter((n) => monthList.includes(n.props.children as string))
+const monthLabels = (container: HTMLElement) =>
+    Array.from(container.querySelectorAll('text'))
+        .filter((n) => monthList.includes(n.textContent as string))
         .map((n) => ({
-            label: n.props.children as string,
-            bold: n.props.style?.fontWeight === 700,
+            label: n.textContent as string,
+            bold: n.style.fontWeight === '700',
         }));
 
 describe('GridCalendar month highlight', () => {
     it('bolds exactly the requested month', () => {
-        const labels = monthLabels(render(3));
+        const labels = monthLabels(renderCalendar(3));
         expect(labels.filter((v) => v.bold).map((v) => v.label)).toEqual(['Mar']);
     });
 
     it('bolds nothing when no month is highlighted', () => {
-        const labels = monthLabels(render(undefined));
+        const labels = monthLabels(renderCalendar(undefined));
         expect(labels.length).toBeGreaterThan(0);
         expect(labels.some((v) => v.bold)).toBe(false);
     });
 
     it('labels December exactly once across the year boundary', () => {
-        const labels = monthLabels(render(12));
+        const labels = monthLabels(renderCalendar(12));
         expect(labels.filter((v) => v.bold)).toEqual([{ label: 'Dec', bold: true }]);
     });
 });

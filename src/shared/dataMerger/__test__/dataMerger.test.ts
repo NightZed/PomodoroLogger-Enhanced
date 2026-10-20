@@ -47,6 +47,18 @@ const cardWith = (completedTime?: number): Card => {
 };
 
 describe('Data Merger', () => {
+    let consoleWarn: jest.SpyInstance;
+
+    beforeEach(() => {
+        // The fixtures intentionally contain dangling cards; the merger reports
+        // them on the console. The merged data is what these tests assert.
+        consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+        consoleWarn.mockRestore();
+    });
+
     it('merges case 0', () => {
         const merger = new DataMerger();
         const output = merger.merge(case0.a, case0.b);

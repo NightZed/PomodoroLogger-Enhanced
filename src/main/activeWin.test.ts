@@ -22,10 +22,19 @@ function loadModule(): { activeWinMock: jest.Mock } & ActiveWinModule {
 }
 
 describe('active-win status log', () => {
+    let consoleError: jest.SpyInstance;
+
     beforeEach(() => {
         if (existsSync(statusLogPath)) {
             unlinkSync(statusLogPath);
         }
+        // The failed-init test exercises the error path; the log file, not the
+        // console, is what it asserts.
+        consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+        consoleError.mockRestore();
     });
 
     it('records a successful init so packaged runs can be verified', async () => {

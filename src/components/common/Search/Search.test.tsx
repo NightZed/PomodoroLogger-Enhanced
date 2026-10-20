@@ -12,7 +12,7 @@
  * returned first (typing).
  */
 import React from 'react';
-import TestRenderer, { act } from 'react-test-renderer';
+import { act, render } from '@testing-library/react';
 import { Search } from './Search';
 
 /** Dispatch a real Ctrl+F keydown on `target`; false = the handler ran. */
@@ -31,33 +31,23 @@ const pressCtrlF = (target: EventTarget): boolean => {
     return notPrevented;
 };
 
-const mount = (enabled?: boolean) => {
-    let renderer!: TestRenderer.ReactTestRenderer;
-    act(() => {
-        renderer = TestRenderer.create(<Search enabled={enabled} setSearchStr={jest.fn()} />);
-    });
-    return renderer;
-};
+const mount = (enabled?: boolean) => render(<Search enabled={enabled} setSearchStr={jest.fn()} />);
 
 describe('Search Ctrl+F scoping', () => {
-    afterEach(() => {
-        document.body.innerHTML = '';
-    });
-
     it('handles Ctrl+F while its page is active', () => {
-        const renderer = mount(true);
+        const view = mount(true);
         expect(pressCtrlF(window)).toBe(false);
-        act(() => renderer.unmount());
+        view.unmount();
     });
 
     it('registers nothing while its page is not active (grace residue)', () => {
-        const renderer = mount(false);
+        const view = mount(false);
         expect(pressCtrlF(window)).toBe(true);
-        act(() => renderer.unmount());
+        view.unmount();
     });
 
     it('does not hijack Ctrl+F while the user is typing', () => {
-        const renderer = mount(true);
+        const view = mount(true);
         const textarea = document.createElement('textarea');
         document.body.appendChild(textarea);
 
@@ -66,6 +56,7 @@ describe('Search Ctrl+F scoping', () => {
         // Positive control: the same render still handles a free target.
         expect(pressCtrlF(window)).toBe(false);
 
-        act(() => renderer.unmount());
+        view.unmount();
+        textarea.remove();
     });
 });

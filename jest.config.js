@@ -2,7 +2,10 @@ module.exports = {
     collectCoverage: true,
     // nedb@1.8.0 relies on util.isDate/util.isRegExp, which Node 23+ removed.
     setupFiles: ['<rootDir>/test/util-legacy-shim.js'],
-    setupFilesAfterEnv: ['<rootDir>/test/react-act-environment.js'],
+    setupFilesAfterEnv: [
+        '<rootDir>/test/react-act-environment.js',
+        '<rootDir>/test/jsdom-compat.js',
+    ],
     // jest 27+ defaults to the node environment, but the component tests need a DOM.
     testEnvironment: 'jsdom',
     // jest-environment-jsdom resolves package "exports" with the "browser"

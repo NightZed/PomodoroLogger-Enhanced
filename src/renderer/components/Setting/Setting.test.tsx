@@ -67,10 +67,11 @@ jest.mock('electron', () => ({
 }));
 
 const mockRefreshDbs = jest.fn().mockResolvedValue(undefined);
-jest.mock('../../../main/db', () => ({
+jest.mock('../../dbs', () => ({
+    __esModule: true,
     refreshDbs: () => mockRefreshDbs(),
     loadDBs: jest.fn(),
-    DBs: {},
+    dbs: {},
 }));
 
 // The three slider tests care about the values Setting hands to antd, not the

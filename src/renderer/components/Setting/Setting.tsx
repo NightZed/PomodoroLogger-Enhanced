@@ -12,7 +12,7 @@ import { isShallowEqualByKeys } from '../../utils';
 import pkg from '../../../../package.json';
 import { IpcEventName, UpdateErrorPayload, UpdateEventName } from '../../../main/ipc/type';
 import type { ExportResult, ImportResult } from '../../../main/ipc/type';
-import { refreshDbs } from '../../../main/db';
+import { refreshDbs } from '../../dbs';
 import { BUILTIN_THEMES, ThemeDefinition } from '../../theme/tokens';
 import SettingNav from './SettingNav';
 import { DEFAULT_SECTION, SectionId, SHORTCUTS, SHORTCUT_DISCLAIMER } from './sections';

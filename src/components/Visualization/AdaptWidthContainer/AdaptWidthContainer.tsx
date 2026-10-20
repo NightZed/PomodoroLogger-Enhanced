@@ -3,12 +3,12 @@ import React from 'react';
 import styled from 'styled-components';
 
 interface StyleProps {
-    strictInside?: boolean;
+    $strictInside?: boolean;
 }
 
 const Container = styled.div<StyleProps>`
     width: 100%;
-    ${({ strictInside = true }) => (strictInside ? `overflow: hidden;` : 'overflow: auto;')}
+    ${({ $strictInside = true }) => ($strictInside ? `overflow: hidden;` : 'overflow: auto;')}
 `;
 
 interface Props extends StyleProps {

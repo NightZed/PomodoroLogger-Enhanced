@@ -62,10 +62,12 @@ yarn pack          # 至少在一个平台上做一次解包冒烟
 | 74 | `react-test-renderer is deprecated` | C：测试基础设施 |
 | 7 | `An update to Root inside a test was not wrapped in act(...)` | C：测试基础设施 |
 | 2 | `[antd: Modal] maskClosable is deprecated` | B：迁移遗留告警 |
-| 4 类 | React 19 未知 DOM prop：`contentOpacity`、`sessionEnding`、`compact`、`minimize`/`minimized` | A：真实代码问题（styled-components 透传） |
+| 4 类 | React 19 未知 DOM prop：`contentOpacity`、`sessionEnding`、`compact`、`maximized`、`minimize` | A：真实代码问题（styled-components 透传） |
 | 若干 | `activeWin init error: Cannot find module '@mapbox/node-pre-gyp'`、updater 测试的预期错误、jsdom `getComputedStyle` 未实现 | D：预期/环境限制 |
 
 > 开发模式下的 Electron 控制台还会额外出现 `nodeIntegration` / `contextIsolation` 的安全建议，这是当前架构的已知状态，不在 B0 处理；不要把它和迁移 bug 混在一起。
+
+**首轮修复结果（2026-10-20）**：测试输出从 112 条降到 105 条；React 未知 DOM prop 与 antd `maskClosable` 告警已归零。剩余 74 + 7 条属于 B1.5，其他为 D 类预期/环境输出。
 
 ### 1.5.2 分类规则
 
@@ -76,11 +78,12 @@ yarn pack          # 至少在一个平台上做一次解包冒烟
 
 ### 1.5.3 B0 的具体修复项
 
-- [ ] `Application.tsx` 的 `Main` / `Content`：把 `minimize`、`compact`、`contentOpacity` 改为 styled-components 的 transient props（`$minimize`、`$compact`、`$contentOpacity`），同步更新所有调用点。
-- [ ] `WindowControls.tsx` 的 `Controls`：`compact` → `$compact`。
-- [ ] `Timer.tsx` 的 `CompactModeIcon`、`TimerLayout`、`TimerInnerLayout` 等：`compact` → `$compact`。
-- [ ] `SessionEndingMask.tsx`、`AppTitleBar.tsx` 中同类自定义 prop 一并改为 `$` 前缀。
-- [ ] `feedback/Feedback.tsx`：antd 6 的 `maskClosable: false` → `mask={{ closable: false }}`（`modal.confirm` / `modal.info` 两处）。
+- [x] `Application.tsx` 的 `Main` / `Content` / `Wallpaper`：把 `minimize`、`compact`、`contentOpacity`、`path`、`opacity` 改为 styled-components 的 transient props。
+- [x] `WindowControls.tsx` 的 `Controls`：`compact` → `$compact`。
+- [x] `Timer.tsx` 的 `CompactModeIcon`、`TimerLayout`、`TimerInnerLayout`：`compact` → `$compact`。
+- [x] `SessionEndingMask.tsx`、`AppTitleBar.tsx` 中同类自定义 prop 一并改为 `$` 前缀。
+- [x] 同时处理了其他会向 DOM 透传的 styled-components prop：`Search`、`MiniLogger`、`LabelEditor`、`Kanban/List`、`Setting`、`SettingNav`。
+- [x] `feedback/Feedback.tsx`：antd 6 的 `maskClosable: false` → `mask={{ closable: false }}`（`modal.confirm` / `modal.info` 两处）。
 - [ ] 测试中需要挂载 `Application` 的地方显式 mock `active-win`（B4 后改为 `get-windows`），避免原生模块加载失败污染输出。
 - [ ] 对 updater 的预期错误、jsdom 的 `getComputedStyle` 限制，在测试里加窄范围 allowlist，而不是全局静默。
 - [ ] 可选：基线干净后，在 Jest setup 中增加“未声明的 `console.error` 视为失败”的保护，防止后续迁移重新引入噪声。

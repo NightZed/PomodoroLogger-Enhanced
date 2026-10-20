@@ -91,10 +91,10 @@ const KanbanName = styled.h1`
     }
 `;
 
-const CompactModeIcon = styled.span<{ compact: boolean }>`
+const CompactModeIcon = styled.span<{ $compact: boolean }>`
     display: inline-block;
-    width: ${({ compact }) => (compact ? '14px' : '8px')};
-    height: ${({ compact }) => (compact ? '8px' : '14px')};
+    width: ${({ $compact }) => ($compact ? '14px' : '8px')};
+    height: ${({ $compact }) => ($compact ? '8px' : '14px')};
     border: 1px solid currentColor;
     border-radius: 1px;
     vertical-align: middle;
@@ -111,14 +111,14 @@ const ProgressTextContainer = styled.div`
     justify-content: center;
 `;
 
-const TimerLayout = styled.div<{ compact: boolean }>`
+const TimerLayout = styled.div<{ $compact: boolean }>`
     position: relative;
     padding: 0 24px 0 24px;
-    overflow-y: ${({ compact }) => (compact ? 'hidden' : 'auto')};
+    overflow-y: ${({ $compact }) => ($compact ? 'hidden' : 'auto')};
     width: 100%;
     height: calc(100vh - 44px);
-    ${({ compact }) =>
-        compact
+    ${({ $compact }) =>
+        $compact
             ? `
                 height: calc(100vh - 32px);
                 padding: 0 8px;
@@ -127,14 +127,14 @@ const TimerLayout = styled.div<{ compact: boolean }>`
     ${thinScrollBar}
 `;
 
-const TimerInnerLayout = styled.div<{ compact: boolean }>`
+const TimerInnerLayout = styled.div<{ $compact: boolean }>`
     overflow-x: hidden;
     min-width: 350px;
     max-width: 850px;
     margin: 0 auto;
-    padding-top: ${({ compact }) => (compact ? '16px' : '32px')};
-    ${({ compact }) =>
-        compact
+    padding-top: ${({ $compact }) => ($compact ? '16px' : '32px')};
+    ${({ $compact }) =>
+        $compact
             ? `
                 min-width: 0;
                 max-width: 380px;
@@ -1489,7 +1489,7 @@ class Timer extends Component<Props, State> {
                             />
                         </MySider>
                     ))}
-                <TimerLayout compact={compact} ref={this.mainDiv}>
+                <TimerLayout $compact={compact} ref={this.mainDiv}>
                     <Tooltip title={compact ? 'Normal (F11)' : 'Compact (F11)'} placement="bottom">
                         <Button
                             onClick={() => this.props.setCompact(!compact)}
@@ -1501,7 +1501,7 @@ class Timer extends Component<Props, State> {
                                 right: 52,
                             }}
                         >
-                            <CompactModeIcon compact={compact} />
+                            <CompactModeIcon $compact={compact} />
                         </Button>
                     </Tooltip>
                     <Tooltip title="Minimize (F12)" placement="bottom">
@@ -1529,7 +1529,7 @@ class Timer extends Component<Props, State> {
                             }}
                         />
                     )}
-                    <TimerInnerLayout compact={compact}>
+                    <TimerInnerLayout $compact={compact}>
                         <ProgressContainer>
                             <Progress
                                 type="circle"

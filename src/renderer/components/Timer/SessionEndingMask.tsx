@@ -17,7 +17,7 @@ const ButtonContainer = styled.div`
     right: 16px;
 `;
 
-const Mask = styled.div<{ nightTheme: boolean }>`
+const Mask = styled.div<{ $nightTheme: boolean }>`
     left: 0;
     top: 0;
     height: 100%;
@@ -27,8 +27,8 @@ const Mask = styled.div<{ nightTheme: boolean }>`
        follows the background opacity so the desktop still shows through, but
        the value is floored so the alert can never be tuned away into white text
        floating over the desktop. */
-    background-color: ${({ nightTheme }) =>
-        nightTheme
+    background-color: ${({ $nightTheme }) =>
+        $nightTheme
             ? 'color-mix(in srgb, #27323a max(var(--pl-theme-bg-opacity), 60%), transparent)'
             : 'color-mix(in srgb, #dd5339 max(var(--pl-theme-bg-opacity), 60%), transparent)'};
     text-align: center;
@@ -44,9 +44,9 @@ const Mask = styled.div<{ nightTheme: boolean }>`
        own -- the one added when the window got rounded corners was a patch. */
 `;
 
-const MaskInnerContainer = styled.div<{ compact: boolean }>`
+const MaskInnerContainer = styled.div<{ $compact: boolean }>`
     max-width: 500px;
-    width: ${({ compact }) => (compact ? 'calc(100% - 24px)' : '100%')};
+    width: ${({ $compact }) => ($compact ? 'calc(100% - 24px)' : '100%')};
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -55,8 +55,8 @@ const MaskInnerContainer = styled.div<{ compact: boolean }>`
     user-select: text;
 `;
 
-const ProjectName = styled.h1<{ compact: boolean }>`
-    font-size: ${({ compact }) => (compact ? '2em' : '4em')};
+const ProjectName = styled.h1<{ $compact: boolean }>`
+    font-size: ${({ $compact }) => ($compact ? '2em' : '4em')};
     transition: color 0.4s;
     color: black;
     cursor: pointer;
@@ -175,22 +175,22 @@ const _TimerMask = (props: MaskProps) => {
 
     return (
         <Mask
-            nightTheme={props.nightTheme}
+            $nightTheme={props.nightTheme}
             style={{ display: props.showMask ? 'flex' : 'none' }}
             onClick={props.onCancel}
         >
-            <MaskInnerContainer compact={props.compact}>
+            <MaskInnerContainer $compact={props.compact}>
                 <Row onClick={onProjectClick} justify="center" style={{ width: '100%' }}>
                     {props.isFocusing ? (
                         <Popover title="Project Name" content={content}>
-                            <ProjectName compact={props.compact}>
+                            <ProjectName $compact={props.compact}>
                                 {shownProjectId === undefined
                                     ? undefined
                                     : props.boards[shownProjectId]?.name}
                             </ProjectName>
                         </Popover>
                     ) : (
-                        <ProjectName compact={props.compact}>Break</ProjectName>
+                        <ProjectName $compact={props.compact}>Break</ProjectName>
                     )}
                     <h1
                         style={{

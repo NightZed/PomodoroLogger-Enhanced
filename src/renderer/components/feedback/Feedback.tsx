@@ -175,7 +175,7 @@ export const confirm = ({
         cancelText,
         width,
         centered: true,
-        maskClosable: false,
+        mask: { closable: false },
         onOk,
         onCancel,
         getContainer: getPopupContainer,
@@ -199,7 +199,7 @@ export const alert = ({
         okText,
         width,
         centered: true,
-        maskClosable: false,
+        mask: { closable: false },
         onOk,
         getContainer: getPopupContainer,
     });

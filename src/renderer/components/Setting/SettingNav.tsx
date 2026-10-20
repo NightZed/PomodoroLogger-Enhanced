@@ -30,7 +30,7 @@ const NavList = styled.ul`
     top: 0;
 `;
 
-const NavItem = styled.button<{ active: boolean }>`
+const NavItem = styled.button<{ $active: boolean }>`
     display: flex;
     align-items: center;
     width: 100%;
@@ -42,8 +42,8 @@ const NavItem = styled.button<{ active: boolean }>`
     text-align: left;
     cursor: pointer;
     transition: background-color 0.15s, color 0.15s;
-    background-color: ${({ active }) => (active ? 'var(--pl-bg-hover)' : 'transparent')};
-    color: ${({ active }) => (active ? 'var(--pl-primary)' : 'var(--pl-text-secondary)')};
+    background-color: ${({ $active }) => ($active ? 'var(--pl-bg-hover)' : 'transparent')};
+    color: ${({ $active }) => ($active ? 'var(--pl-primary)' : 'var(--pl-text-secondary)')};
 
     .anticon {
         margin-right: 8px;
@@ -67,7 +67,7 @@ const SettingNav: React.FC<Props> = ({ active, onChange }) => (
                 <li key={section.id}>
                     <NavItem
                         type="button"
-                        active={active === section.id}
+                        $active={active === section.id}
                         aria-current={active === section.id}
                         onClick={() => onChange(section.id)}
                     >

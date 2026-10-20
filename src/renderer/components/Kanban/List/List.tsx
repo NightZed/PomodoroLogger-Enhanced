@@ -99,14 +99,14 @@ const AfterPlaceHolder = styled.div`
 `;
 
 interface CardsProps {
-    displayScrollbar: boolean;
+    $displayScrollbar: boolean;
 }
 
 // The thumb of `Cards` paints itself with `box-shadow: inset 0 0 0 10px`, i.e.
 // with `currentColor`, so `color` *is* the scrollbar color here and has to come
 // from the theme: a fixed dark color is invisible on a dark list body.
-const displayScrollbarFn = ({ displayScrollbar }: CardsProps) => {
-    if (displayScrollbar) {
+const displayScrollbarFn = ({ $displayScrollbar }: CardsProps) => {
+    if ($displayScrollbar) {
         return `
             color: var(--pl-scrollbar-thumb);
             transition: color 250ms;
@@ -411,7 +411,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
                                 return (
                                     <Cards
                                         ref={mergedRef}
-                                        displayScrollbar={showScrollBar}
+                                        $displayScrollbar={showScrollBar}
                                         {...provided.droppableProps}
                                     >
                                         <BeforePlaceHolder />

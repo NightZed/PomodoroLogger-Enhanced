@@ -164,7 +164,7 @@ const ThemeOptions = styled.div`
 `;
 
 interface ThemeButtonProps {
-    active: boolean;
+    $active: boolean;
 }
 
 const ThemeButton = styled.button<ThemeButtonProps>`
@@ -176,9 +176,10 @@ const ThemeButton = styled.button<ThemeButtonProps>`
     font-size: 13px;
     cursor: pointer;
     transition: border-color 0.15s, color 0.15s, background-color 0.15s;
-    background-color: ${({ active }) => (active ? 'var(--pl-bg-hover)' : 'var(--pl-bg-elevated)')};
-    border: 1px solid ${({ active }) => (active ? 'var(--pl-primary)' : 'var(--pl-border)')};
-    color: ${({ active }) => (active ? 'var(--pl-primary)' : 'var(--pl-text)')};
+    background-color: ${({ $active }) =>
+        $active ? 'var(--pl-bg-hover)' : 'var(--pl-bg-elevated)'};
+    border: 1px solid ${({ $active }) => ($active ? 'var(--pl-primary)' : 'var(--pl-border)')};
+    color: ${({ $active }) => ($active ? 'var(--pl-primary)' : 'var(--pl-text)')};
 
     :hover {
         border-color: var(--pl-primary);
@@ -752,7 +753,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                     {themes.map((theme: ThemeDefinition) => (
                                         <ThemeButton
                                             key={theme.id}
-                                            active={
+                                            $active={
                                                 !props.followSystemTheme &&
                                                 props.themeId === theme.id
                                             }

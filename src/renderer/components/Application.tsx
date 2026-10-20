@@ -52,8 +52,8 @@ import { FeedbackContextBridge } from './feedback/Feedback';
  * `ThemeController`, the other two are plain element opacities.
  */
 interface StyledProps {
-    minimize: boolean;
-    compact: boolean;
+    $minimize: boolean;
+    $compact: boolean;
 }
 
 const Main = styled.div<StyledProps>`
@@ -66,8 +66,8 @@ const Main = styled.div<StyledProps>`
     /* Single source of truth for the window corner radius: consumers that have
        to match it (MiniLogger, any future full-bleed layer) read the variable
        instead of copying the number. */
-    --pl-window-radius: ${({ minimize, compact }) =>
-        minimize ? '10px' : compact ? '16px' : '12px'};
+    --pl-window-radius: ${({ $minimize, $compact }) =>
+        $minimize ? '10px' : $compact ? '16px' : '12px'};
     border-radius: var(--pl-window-radius);
     border: 1px solid var(--pl-border);
     box-sizing: border-box;
@@ -88,7 +88,8 @@ const Main = styled.div<StyledProps>`
        title bar. Mini mode hides that bar, so the band collapses and the whole
        window is page surface. The numbers come from AppTitleBar/tokens.ts so
        the band and the bar can never disagree. */
-    --pl-titlebar-height: ${({ minimize, compact }) => titleBarBandHeight({ minimize, compact })};
+    --pl-titlebar-height: ${({ $minimize, $compact }) =>
+        titleBarBandHeight({ minimize: $minimize, compact: $compact })};
     --pl-header-surface: color-mix(
         in srgb,
         var(--pl-bg-elevated) var(--pl-theme-bg-opacity),
@@ -118,7 +119,8 @@ const Main = styled.div<StyledProps>`
         );
     }
 
-    ${({ minimize, compact }) => (minimize || compact ? 'overflow: hidden; height: 100vh;' : '')}
+    ${({ $minimize, $compact }) =>
+        $minimize || $compact ? 'overflow: hidden; height: 100vh;' : ''}
     /* While minimized the window is a 90px strip; dialogs are now mounted
        inside this container (see popupLayer.ts), so they have to be hidden
        while the strip is up -- otherwise a blocking dialog (maskClosable is
@@ -131,7 +133,7 @@ const Main = styled.div<StyledProps>`
        content size exactly (see ipc.ts setContentSize). */
     .ant-tabs-nav,
     .ant-modal-root {
-        ${({ minimize }) => (minimize ? 'display: none;' : '')}
+        ${({ $minimize }) => ($minimize ? 'display: none;' : '')}
     }
     .ant-btn-icon-only .anticon {
         transform: translateY(-0.5px);
@@ -142,7 +144,7 @@ const Main = styled.div<StyledProps>`
     }
 `;
 
-const Wallpaper = styled.div<{ path?: string; opacity: number }>`
+const Wallpaper = styled.div<{ $path?: string; $opacity: number }>`
     position: absolute;
     inset: 0;
     z-index: 1;
@@ -152,19 +154,19 @@ const Wallpaper = styled.div<{ path?: string; opacity: number }>`
         content: '';
         position: absolute;
         inset: 0;
-        background-image: ${({ path }) => (path ? `url("${path}")` : 'none')};
+        background-image: ${({ $path }) => ($path ? `url("${$path}")` : 'none')};
         background-position: center;
         background-size: cover;
         background-repeat: no-repeat;
-        opacity: ${({ opacity }) => opacity};
+        opacity: ${({ $opacity }) => $opacity};
     }
 `;
 
-const Content = styled.div<{ contentOpacity: number }>`
+const Content = styled.div<{ $contentOpacity: number }>`
     position: relative;
     z-index: 2;
     height: 100%;
-    opacity: ${({ contentOpacity }) => contentOpacity};
+    opacity: ${({ $contentOpacity }) => $contentOpacity};
 `;
 
 interface Props extends TimerActionTypes, HistoryActionCreatorTypes {
@@ -360,9 +362,9 @@ class Application extends React.Component<Props, State> {
             // with the page instead of escaping to <body> (popupLayer.ts).
             // An explicit container/getContainer prop on any of them still
             // wins over this default.
-            <Main minimize={minimize} compact={compact}>
-                <Wallpaper path={wallpaperDataUrl} opacity={wallpaperOpacity} />
-                <Content contentOpacity={contentOpacity}>
+            <Main $minimize={minimize} $compact={compact}>
+                <Wallpaper $path={wallpaperDataUrl} $opacity={wallpaperOpacity} />
+                <Content $contentOpacity={contentOpacity}>
                     {/* Mount point of every antd overlay (dialogs, toasts,
                         notifications, popovers). It lives inside the content
                         layer so those surfaces fade with the page instead of

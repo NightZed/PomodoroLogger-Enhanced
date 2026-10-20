@@ -23,11 +23,11 @@ const confirmSpin = keyframes`
  * a quartz movement: each frame holds a tick position, no in-between
  * interpolation frames.
  */
-const ConfirmSweep = styled.g<{ frozen: boolean }>`
+const ConfirmSweep = styled.g<{ $frozen: boolean }>`
     transform-box: view-box;
     transform-origin: center;
     animation: ${confirmSpin} 1s steps(18) infinite;
-    animation-play-state: ${({ frozen }) => (frozen ? 'paused' : 'running')};
+    animation-play-state: ${({ $frozen }) => ($frozen ? 'paused' : 'running')};
     @media (prefers-reduced-motion: reduce) {
         animation: none;
     }
@@ -51,10 +51,10 @@ const Line = styled.line`
  * pause/resume and only flips opacity, so React never remounts the node
  * mid-session.
  */
-const SecondHand = styled.g<{ hidden: boolean }>`
+const SecondHand = styled.g<{ $hidden: boolean }>`
     transform-box: view-box;
     transform-origin: center;
-    opacity: ${({ hidden }) => (hidden ? 0 : 1)};
+    opacity: ${({ $hidden }) => ($hidden ? 0 : 1)};
     transition: opacity 180ms ease-out;
     @media (prefers-reduced-motion: reduce) {
         transition: none;
@@ -556,7 +556,7 @@ export class MiniLogger extends React.Component<Props> {
                         </g>
                     ))}
                 {isConfirming && (
-                    <ConfirmSweep frozen={this.state.confirmSweepFrozen} className="timer-confirm">
+                    <ConfirmSweep $frozen={this.state.confirmSweepFrozen} className="timer-confirm">
                         {/* One bright tick on a 1s/round rotation: the chase
                             read without eighteen simultaneous animations. */}
                         <line
@@ -574,7 +574,7 @@ export class MiniLogger extends React.Component<Props> {
                 </text>
                 {showSecondHand && (
                     <SecondHand
-                        hidden={isPausedWithSession}
+                        $hidden={isPausedWithSession}
                         className="timer-orbit"
                         style={{
                             // Cumulative clockwise angle (see above): never

@@ -48,14 +48,14 @@ const LabelCloud = styled.div`
  * ellipsis keep long names from blowing up a cloud row; the cross lives in
  * its own flex child so it stays visible regardless of the name length.
  */
-const LabelChip = styled.span<{ color: string }>`
+const LabelChip = styled.span<{ $color: string }>`
     display: inline-flex;
     align-items: stretch;
     border-radius: 1em;
     font-size: 0.9em;
     line-height: 1.7;
     color: #fff;
-    background-color: ${(props) => props.color};
+    background-color: ${(props) => props.$color};
     white-space: nowrap;
     max-width: 160px;
     overflow: hidden;
@@ -105,19 +105,19 @@ const ChipRemove = styled.span`
     }
 `;
 
-const ColorDot = styled.span<{ color: string; selected: boolean }>`
+const ColorDot = styled.span<{ $color: string; $selected: boolean }>`
     display: inline-block;
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background-color: ${(props) => props.color};
+    background-color: ${(props) => props.$color};
     cursor: pointer;
     margin-right: 4px;
     /* Selection ring follows the theme: the old hard-coded #333 was invisible
        on the night theme (#1f1f1f) popover surface. The --pl-text token keeps
        the old dark look in the day theme (rgba(0,0,0,0.85)) and turns it into
        a light ring at night (rgba(255,255,255,0.85)). */
-    border: ${(props) => (props.selected ? '2px solid var(--pl-text)' : '2px solid transparent')};
+    border: ${(props) => (props.$selected ? '2px solid var(--pl-text)' : '2px solid transparent')};
     box-sizing: border-box;
 `;
 
@@ -184,13 +184,13 @@ const EditActions = styled.div`
     margin-top: 10px;
 `;
 
-const SuggestionChip = styled.span<{ color: string }>`
+const SuggestionChip = styled.span<{ $color: string }>`
     display: inline-block;
     border-radius: 1em;
     padding: 1px 0.6em;
     font-size: 0.85em;
     color: #fff;
-    background-color: ${(props) => props.color};
+    background-color: ${(props) => props.$color};
     margin-right: 0;
     white-space: nowrap;
     max-width: 110px;
@@ -527,7 +527,7 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
         getLabelSuggestions(suggestions ?? [], excludeLabels, input).map(({ name, color }) => ({
             value: name,
             label: (
-                <SuggestionChip className="pl-suggest-chip" color={color}>
+                <SuggestionChip className="pl-suggest-chip" $color={color}>
                     {name}
                 </SuggestionChip>
             ),
@@ -591,8 +591,8 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                                     {LABEL_COLORS.map((c) => (
                                         <ColorDot
                                             key={c}
-                                            color={c}
-                                            selected={c === editColor}
+                                            $color={c}
+                                            $selected={c === editColor}
                                             onClick={() => {
                                                 setEditColor(c);
                                                 setEditColorTouched(true);
@@ -608,7 +608,7 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                             </EditPanel>
                         }
                     >
-                        <LabelChip color={label.color}>
+                        <LabelChip $color={label.color}>
                             <ChipName title={label.name}>{label.name}</ChipName>
                             <ChipRemove
                                 title="Remove label"
@@ -662,8 +662,8 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                     {LABEL_COLORS.map((c) => (
                         <ColorDot
                             key={c}
-                            color={c}
-                            selected={c === newColor}
+                            $color={c}
+                            $selected={c === newColor}
                             onClick={() => {
                                 setNewColor(c);
                                 setColorTouched(true);

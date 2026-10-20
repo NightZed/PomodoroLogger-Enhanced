@@ -22,8 +22,8 @@ export interface SearchProps {
 }
 
 interface StyledProps {
-    isSearching: boolean;
-    showPanel: boolean;
+    $isSearching: boolean;
+    $showPanel: boolean;
 }
 
 const fadeIn = keyframes`
@@ -49,8 +49,8 @@ const StyledSearch = styled.div<StyledProps>`
     color: var(--pl-text);
     z-index: 5;
 
-    ${({ isSearching }) =>
-        isSearching
+    ${({ $isSearching }) =>
+        $isSearching
             ? `
         width: 250px; 
         padding: 5px 12px;
@@ -60,7 +60,7 @@ const StyledSearch = styled.div<StyledProps>`
         input, .close { display: none;}
     `}
 
-    ${({ showPanel, isSearching }) => (isSearching && showPanel ? `height: auto;` : ``)}
+    ${({ $showPanel, $isSearching }) => ($isSearching && $showPanel ? `height: auto;` : ``)}
 
     header {
         display: flex;
@@ -236,8 +236,8 @@ export const Search = ({
     return (
         <StyledSearch
             onKeyDown={onKeydown}
-            isSearching={isSearching}
-            showPanel={showPanel}
+            $isSearching={isSearching}
+            $showPanel={showPanel}
             onClick={onClick}
             ref={selfRef}
         >

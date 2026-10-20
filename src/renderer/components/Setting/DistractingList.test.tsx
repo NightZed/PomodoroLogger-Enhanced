@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { cleanup, render } from '@testing-library/react';
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { createStore } from 'redux';
 import { Provider } from 'react-redux';
 
@@ -96,6 +96,45 @@ describe('DistractingList', () => {
             cleanup();
             errors.mockRestore();
             warnings.mockRestore();
+        }
+    });
+
+    it('re-renders rows after adding and removing a rule', async () => {
+        const container = document.createElement('div');
+        const store = createStore(
+            (
+                state = {
+                    timer: { distractingList: [{ app: 'Chrome', title: 'YouTube' }] },
+                    kanban: { boards: {} },
+                }
+            ) => state
+        );
+        const appInputs = () => container.querySelectorAll('[placeholder="App RegExp"]');
+
+        try {
+            render(
+                <Provider store={store}>
+                    <DistractingList registerSubmit={() => undefined} onSaved={() => undefined} />
+                </Provider>,
+                { container }
+            );
+
+            await waitFor(() => expect(appInputs()).toHaveLength(1));
+
+            const addButton = Array.from(container.querySelectorAll('button')).find((button) =>
+                button.textContent?.includes('Add field')
+            );
+            expect(addButton).not.toBeUndefined();
+            fireEvent.click(addButton!);
+            await waitFor(() => expect(appInputs()).toHaveLength(2));
+
+            const removeButton = container.querySelector('.dynamic-delete-button');
+            expect(removeButton).not.toBeNull();
+            fireEvent.click(removeButton!);
+            await waitFor(() => expect(appInputs()).toHaveLength(1));
+            expect(container.querySelector('.dynamic-delete-button')).toBeNull();
+        } finally {
+            cleanup();
         }
     });
 });

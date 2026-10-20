@@ -81,33 +81,30 @@ const DynamicFieldSet: React.FC<DynamicFieldSetProps> = ({
     registerSubmit,
 }) => {
     const [form] = useForm();
-    const [idCounter, setIdCounter] = React.useState(0);
+    const initialKeys = initialApps.map((_, i) => i);
+    const [keys, setKeys] = React.useState<number[]>(initialKeys);
+    const [idCounter, setIdCounter] = React.useState(Math.max(-1, ...initialKeys) + 1);
 
     React.useEffect(() => {
-        const keys = initialApps.map((_, i) => i);
-        form.setFieldsValue({ keys, apps: initialApps, titles: initialTitles });
-        setIdCounter(Math.max(-1, ...keys) + 1);
+        form.setFieldsValue({ keys: initialKeys, apps: initialApps, titles: initialTitles });
         registerSubmit(() => form.submit());
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const remove = (k: number) => {
-        const keys = form.getFieldValue('keys');
         if (keys.length === 1) {
             return;
         }
-        form.setFieldsValue({
-            keys: keys.filter((key: number) => key !== k),
-        });
+        const nextKeys = keys.filter((key) => key !== k);
+        setKeys(nextKeys);
+        form.setFieldsValue({ keys: nextKeys });
     };
 
     const add = () => {
-        const keys = form.getFieldValue('keys');
-        const nextKeys = keys.concat(idCounter);
+        const nextKeys = [...keys, idCounter];
         setIdCounter(idCounter + 1);
-        form.setFieldsValue({
-            keys: nextKeys,
-        });
+        setKeys(nextKeys);
+        form.setFieldsValue({ keys: nextKeys });
     };
 
     const handleSubmit = async () => {
@@ -116,6 +113,7 @@ const DynamicFieldSet: React.FC<DynamicFieldSetProps> = ({
             const { apps, titles } = values;
             let { keys } = values;
             keys = keys.filter((key: any) => apps[key] || titles[key]);
+            setKeys(keys);
             form.setFieldsValue({ keys });
 
             const ans: any[] = [];
@@ -131,7 +129,6 @@ const DynamicFieldSet: React.FC<DynamicFieldSetProps> = ({
         }
     };
 
-    const keys = form.getFieldValue('keys') ?? [];
     const formItemLayout = {
         labelCol: { xs: { span: 24 }, sm: { span: 4 } },
         wrapperCol: { xs: { span: 24 }, sm: { span: 20 } },

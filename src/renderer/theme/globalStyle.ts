@@ -701,6 +701,25 @@ export const GlobalStyle = createGlobalStyle`
         border-radius: 8px;
         user-select: text;
     }
+    /* antd 5/6 dropped the header and footer rulings that antd 3 drew on every
+       dialog. Without them the title sits only 8px above the first form row
+       (the Distracting App Setting form looked cramped and borderless), so put
+       the lines and the old 24px body gap back. The surface container is
+       padded 24px horizontally; the negative margins let both lines span the
+       full dialog width like they used to. */
+    html[data-theme] .ant-modal-header {
+        margin-left: -24px;
+        margin-right: -24px;
+        margin-bottom: 24px;
+        padding: 0 24px 16px;
+        border-bottom: 1px solid var(--pl-border);
+    }
+    html[data-theme] .ant-modal-footer {
+        margin-left: -24px;
+        margin-right: -24px;
+        padding: 12px 24px 0;
+        border-top: 1px solid var(--pl-border);
+    }
     /* Confirm title and body use explicit colors instead of inheriting from the
        modal, so override both for the night theme. */
     html[data-theme] .ant-modal-confirm-title {

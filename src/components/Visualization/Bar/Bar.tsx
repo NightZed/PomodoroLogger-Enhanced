@@ -33,12 +33,26 @@ interface BarProps {
     height?: number | string;
 }
 
+const MIN_HEIGHT_IN_PIXEL = 4;
+
 export const Bar: React.FC<BarProps> = (props: BarProps) => {
     const { height = '100%' } = props;
     const ref = useRef<any>(null);
-    const [maxItemInCol, setMaxItemInCol] = useState(20);
+    // The first render is the expensive one: every layer is a separate SVG
+    // rect. Starting at the old default of 20 drew up to 20 layers per column
+    // before the mount effect below read the real height and re-rendered with
+    // the correct (much smaller) count. The overview mounts one of these per
+    // board, so that wasted first pass dominated opening it. When the caller
+    // already knows the pixel height (the board briefs do), start with the
+    // count the effect would compute anyway; string heights keep the old
+    // fallback and get corrected after layout.
+    const initialMaxItemInCol =
+        typeof height === 'number' && height > 0
+            ? Math.max(1, Math.floor(height / MIN_HEIGHT_IN_PIXEL))
+            : 20;
+    const [maxItemInCol, setMaxItemInCol] = useState(initialMaxItemInCol);
     const [w2h, setW2H] = useState(1);
-    const minHeightInPixel = 4;
+    const minHeightInPixel = MIN_HEIGHT_IN_PIXEL;
     useEffect(() => {
         if (ref.current == null) return;
         const lis = () => {

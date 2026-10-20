@@ -19,7 +19,7 @@ import { BadgeHolder } from '../style/Badge';
 import { Markdown } from '../style/Markdown';
 import { ListsCountBar } from '../../Visualization/Bar';
 import { PomodoroDot } from '../../Visualization/PomodoroDot';
-import { Card, KanbanBoard, ListsState } from '../type';
+import { KanbanBoard, ListsState } from '../type';
 import { memorizeDispatchToProps } from '../../../utils';
 import { PlayPauseButton } from './PlayPauseButton';
 import { Pin } from '../../../../components/common/Pin/Pin';
@@ -111,7 +111,9 @@ const Header = styled.div`
 `;
 
 interface InputProps {
-    onClick?: () => void;
+    // Receives the board id so the overview can pass one stable callback for
+    // every card instead of a fresh closure per card and render.
+    onClick?: (boardId: string) => void;
 }
 
 interface Props extends KanbanBoard, InputProps {
@@ -125,7 +127,6 @@ interface Props extends KanbanBoard, InputProps {
     isFocusingOnThisBoard: boolean;
 }
 
-type NewCard = Card & { isDone?: boolean };
 const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
     if (props._id === undefined) {
         return <></>;
@@ -142,38 +143,70 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
         isTimerRunning,
     } = props;
     const [hover, setHover] = useState(false);
+    // The trend chart is only visible while the card is hovered, but it used
+    // to mount (and issue its per-board session query) for every brief card as
+    // soon as the overview opened. Mount it on the first hover instead, then
+    // keep it so later hovers are instant.
+    const [showTrend, setShowTrend] = useState(false);
     const onMouseEnter = () => {
         setHover(true);
+        setShowTrend(true);
     };
     const onMouseLeave = () => {
         setHover(false);
     };
-    const cards: NewCard[] = lists.reduce((l: NewCard[], listId) => {
-        for (const cardId of listsById[listId].cards) {
-            const card: NewCard = cardsById[cardId];
-            card.isDone = listId === doneList;
-            l.push(card);
-        }
-        return l;
-    }, []);
-    let showErr = false;
-    const [estimatedLeftTimeSum, actualTimeSum, errorSum, n] = cards.reduce(
-        (l: number[], r: NewCard) => {
-            let err = 0;
-            const { actual, estimated } = r.spentTimeInHour;
-            if (r.isDone && actual !== 0 && estimated !== 0) {
-                err = (Math.abs(estimated - actual) / actual) * 100;
-                showErr = true;
+
+    // Aggregating every card of this board ran on each render (including the
+    // hover state updates below). It only depends on the board's own lists and
+    // cards, so memoize it and avoid mutating the store's card objects.
+    const { estimatedLeftTimeSum, actualTimeSum, errorSum, n, showErr } = React.useMemo(() => {
+        let estimatedLeft = 0;
+        let actualSum = 0;
+        let errorSum_ = 0;
+        let doneCount = 0;
+        let showErr_ = false;
+
+        for (const listId of lists) {
+            const list = listsById[listId];
+            if (list === undefined) {
+                continue;
             }
 
-            return [
-                l[0] + (r.isDone ? 0 : Math.max(0, estimated - actual)),
-                l[1] + actual,
-                l[2] + err,
-                l[3] + (r.isDone ? 1 : 0),
-            ];
-        },
-        [0, 0, 0, 0]
+            const isDone = listId === doneList;
+            for (const cardId of list.cards) {
+                const card = cardsById[cardId];
+                if (card === undefined) {
+                    continue;
+                }
+
+                const { actual, estimated } = card.spentTimeInHour;
+                let err = 0;
+                if (isDone && actual !== 0 && estimated !== 0) {
+                    err = (Math.abs(estimated - actual) / actual) * 100;
+                    showErr_ = true;
+                }
+
+                estimatedLeft += isDone ? 0 : Math.max(0, estimated - actual);
+                actualSum += actual;
+                errorSum_ += err;
+                if (isDone) {
+                    doneCount += 1;
+                }
+            }
+        }
+
+        return {
+            estimatedLeftTimeSum: estimatedLeft,
+            actualTimeSum: actualSum,
+            errorSum: errorSum_,
+            n: doneCount,
+            showErr: showErr_,
+        };
+    }, [lists, listsById, cardsById, doneList]);
+
+    const descriptionHtml = React.useMemo(
+        () => (props.description ? formatMarkdown(props.description) : undefined),
+        [props.description]
     );
 
     const avgErr = errorSum / n;
@@ -200,7 +233,7 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
         event.preventDefault();
         event.stopPropagation();
         props.configure();
-        props.onSettingClick!();
+        props.onSettingClick?.(props._id);
     };
 
     const onStartFocusingClick = React.useCallback(
@@ -227,7 +260,7 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
 
     return (
         <BriefCard
-            onClick={onClick}
+            onClick={onClick ? () => onClick(props._id) : undefined}
             onMouseLeave={onMouseLeave}
             onMouseEnter={onMouseEnter}
             className={'kanban-brief-card'}
@@ -271,16 +304,14 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
                 </span>
             </Header>
             <Content>
-                {props.description ? (
-                    <Markdown
-                        dangerouslySetInnerHTML={{ __html: formatMarkdown(props.description) }}
-                    />
+                {descriptionHtml ? (
+                    <Markdown dangerouslySetInnerHTML={{ __html: descriptionHtml }} />
                 ) : undefined}
                 <ListsCountBar
                     boardId={props._id}
                     height={props.createdTime !== undefined ? 26 : 40}
                 />
-                {props.relatedSessions.length ? (
+                {props.relatedSessions.length && showTrend ? (
                     <AnimTrend style={{ display: hover ? undefined : 'none' }}>
                         <IdTrend boardId={props._id} />
                     </AnimTrend>
@@ -307,7 +338,7 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
 
 interface InputProps {
     boardId: string;
-    onSettingClick?: () => void;
+    onSettingClick?: (boardId: string) => void;
 }
 
 const memorizedMapping = memorizeDispatchToProps(

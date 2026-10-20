@@ -197,7 +197,10 @@ export const List: FC<Props> = React.memo((props: Props) => {
             hideScrollBar();
         }, 30);
 
-        cardListRef.current.addEventListener('scroll', onScroll);
+        // Passive: the handler only toggles the scrollbar visibility and never
+        // prevents scrolling, so the browser can keep scrolling off the main
+        // thread instead of waiting for this listener.
+        cardListRef.current.addEventListener('scroll', onScroll, { passive: true });
         hideScrollBar();
         return () => {
             cardListRef.current?.removeEventListener('scroll', onScroll);
@@ -237,8 +240,16 @@ export const List: FC<Props> = React.memo((props: Props) => {
     }, [props._id, searchReg, props.cardsState, cards]);
 
     React.useEffect(() => {
+        // Opening a board mounts every list, and this used to dispatch a
+        // "visible cards = undefined" action for each one even when the store
+        // already held the same value. Each dispatch notified every connected
+        // card, so a board with many lists/cards paid that cost on open. Only
+        // write when the filter actually changed.
+        if (visibleCards === props.visibleCards) {
+            return;
+        }
         props.setVisibleCards(props._id, visibleCards);
-    }, [props._id, visibleCards]);
+    }, [props._id, visibleCards, props.visibleCards]);
 
     const filteredCards = visibleCards || props.cards || [];
     const [estimatedTimeSum, actualTimeSum] = React.useMemo(

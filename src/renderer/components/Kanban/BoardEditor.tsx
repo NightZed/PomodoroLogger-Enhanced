@@ -77,6 +77,8 @@ export const EditKanbanForm = (props: FormProps) => {
         [form]
     );
 
+    const descriptionHtml = React.useMemo(() => formatMarkdown(description), [description]);
+
     return (
         <Modal
             open={visible}
@@ -108,8 +110,11 @@ export const EditKanbanForm = (props: FormProps) => {
                             Created: {formatTimeYmdHm(createdTime)}
                         </CreatedTime>
                     ) : undefined}
-                    {/* Avoid leaving Tabs' resize observers active inside a closed modal. */}
-                    {visible ? (
+                    {/* Mounted with the (force-rendered) dialog so opening the
+                        editor only has to run the fade-in: mounting Tabs and
+                        the auto-sizing textarea inside the click handler made
+                        the first click on a board feel frozen. */}
+                    {
                         <Tabs
                             onChange={onTabChange}
                             type="card"
@@ -141,14 +146,14 @@ export const EditKanbanForm = (props: FormProps) => {
                                                 minHeight: 120,
                                             }}
                                             dangerouslySetInnerHTML={{
-                                                __html: formatMarkdown(description),
+                                                __html: descriptionHtml,
                                             }}
                                         />
                                     ),
                                 },
                             ]}
                         />
-                    ) : null}
+                    }
                     {!isCreating ? (
                         <>
                             <Form.Item>

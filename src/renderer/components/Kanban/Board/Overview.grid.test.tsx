@@ -8,6 +8,11 @@ jest.mock('./BoardBrief', () => ({ BoardBrief: () => null }));
 const originalClientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth');
 const originalOffsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
 
+// Counts layout reads of the test cards (the grid measures them through
+// `offsetHeight`). Re-rendering the grid with unchanged cards must not read
+// layout again -- that is what used to force a reflow per overview render.
+let heightReads = 0;
+
 const card = (key: string, height: number) => (
     <div key={key} data-board-height={height}>
         {key}
@@ -38,6 +43,9 @@ describe('ResponsiveBoardGrid', () => {
             configurable: true,
             get() {
                 const content = this.firstElementChild?.firstElementChild as HTMLElement | null;
+                if (content?.dataset.boardHeight !== undefined) {
+                    heightReads += 1;
+                }
                 return Number(content?.dataset.boardHeight ?? 0);
             },
         });
@@ -78,5 +86,22 @@ describe('ResponsiveBoardGrid', () => {
             b: { left: 543, top: 0 },
             a: { left: 3, top: 90 },
         });
+    });
+
+    it('reuses measured heights when only the parent re-renders', () => {
+        const { rerender } = render(
+            <ResponsiveBoardGrid>
+                {[card('a', 100), card('b', 150), card('c', 120)]}
+            </ResponsiveBoardGrid>
+        );
+
+        heightReads = 0;
+        rerender(
+            <ResponsiveBoardGrid>
+                {[card('a', 100), card('b', 150), card('c', 120)]}
+            </ResponsiveBoardGrid>
+        );
+
+        expect(heightReads).toBe(0);
     });
 });

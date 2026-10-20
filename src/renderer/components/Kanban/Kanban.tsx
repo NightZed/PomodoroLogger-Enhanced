@@ -150,20 +150,33 @@ export const Kanban: FunctionComponent<Props> = React.memo(
             props.fetchBoards();
         }, []);
 
-        const showConfigById = (id?: string) => {
-            setEditingBoardId(id);
-            setVisible(true);
-            if (id === undefined) {
-                boardForm.setFieldsValue({ name: '', description: '' });
-            } else {
-                const board = props.boards[id];
-                boardForm.setFieldsValue({ name: board.name, description: board.description });
-            }
-        };
+        // Read the boards through a ref so this callback stays stable: it is
+        // passed down to the memoized overview, and a new identity used to
+        // re-render every board brief whenever the page rendered.
+        const boardsRef = React.useRef(props.boards);
+        boardsRef.current = props.boards;
+        const showConfigById = useCallback(
+            (id?: string) => {
+                setEditingBoardId(id);
+                setVisible(true);
+                if (id === undefined) {
+                    boardForm.setFieldsValue({ name: '', description: '' });
+                } else {
+                    const board = boardsRef.current[id];
+                    if (board !== undefined) {
+                        boardForm.setFieldsValue({
+                            name: board.name,
+                            description: board.description,
+                        });
+                    }
+                }
+            },
+            [boardForm]
+        );
 
         const addBoard = useCallback(() => {
             showConfigById();
-        }, []);
+        }, [showConfigById]);
 
         const showBoardSettingMenu = () => {
             showConfigById(props.kanban.chosenBoardId);
@@ -393,9 +406,22 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                         height: 'calc(100vh - 45px)',
                     }}
                 >
-                    {props.kanban.chosenBoardId === undefined ? (
+                    {/* Keep the overview mounted while a board is open. Going
+                        back used to remount every brief card (13 boards = a
+                        fresh waterfall measurement, one SVG chart per board,
+                        antd buttons/badges, ...), which was the visible freeze
+                        before the overview appeared. Hiding it keeps the board
+                        view itself unchanged and makes "back" a display swap.
+                        The grid ignores the 0-width measurements of a hidden
+                        pane (see ResponsiveBoardGrid). */}
+                    <div
+                        style={{
+                            display: props.kanban.chosenBoardId === undefined ? undefined : 'none',
+                        }}
+                    >
                         <Overview showConfigById={showConfigById} showTable={showTable} />
-                    ) : (
+                    </div>
+                    {props.kanban.chosenBoardId === undefined ? null : (
                         <Board
                             boardId={props.kanban.chosenBoardId}
                             key={props.kanban.chosenBoardId}

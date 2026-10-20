@@ -38,7 +38,25 @@ export function parseTag(
     });
 }
 
+/**
+ * Rendering a board mounts one `Card` per card, and every card parses its
+ * markdown (`marked` + the tag/checkbox passes) during that commit. Revisiting
+ * a board or a card re-parsed the same strings again. The default-context
+ * result is a pure function of the markdown, so cache it; custom contexts
+ * (extractTags registers tags as a side effect) bypass the cache.
+ */
+const MARKDOWN_CACHE_LIMIT = 512;
+const markdownHtmlCache = new Map<string, string>();
+
 export const formatMarkdown = (markdown: string, context: MarkdownContext = defaultContext) => {
+    const cacheable = context === defaultContext;
+    if (cacheable) {
+        const cached = markdownHtmlCache.get(markdown);
+        if (cached !== undefined) {
+            return cached;
+        }
+    }
+
     let i = 0;
     const html = marked(markdown, { gfm: true, breaks: true })
         .replace(/<a/g, '<a target="_blank"')
@@ -74,7 +92,18 @@ export const formatMarkdown = (markdown: string, context: MarkdownContext = defa
             }
         );
 
-    return parseTag(html, context);
+    const result = parseTag(html, context);
+    if (cacheable) {
+        if (markdownHtmlCache.size >= MARKDOWN_CACHE_LIMIT) {
+            const oldest = markdownHtmlCache.keys().next().value;
+            if (oldest !== undefined) {
+                markdownHtmlCache.delete(oldest);
+            }
+        }
+        markdownHtmlCache.set(markdown, result);
+    }
+
+    return result;
 };
 
 const contentTagCache = new Map<string, string[]>();

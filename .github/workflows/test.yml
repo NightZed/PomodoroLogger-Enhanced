@@ -45,5 +45,10 @@ jobs:
       - name: Lint
         run: yarn lint
 
+      # Type-checking is no longer part of the Jest transform (ts-jest is gone
+      # with TypeScript 7), so run the native compiler explicitly.
+      - name: Typecheck
+        run: yarn typecheck
+
       - name: Test
         run: yarn test -- --ci --runInBand

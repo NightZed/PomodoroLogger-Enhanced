@@ -13,9 +13,31 @@ module.exports = merge(baseConfig, {
     module: {
         rules: [
             {
-                test: [/\.jsx?$/, /\.tsx?$/],
+                // TypeScript 7 ships the native compiler without the JavaScript
+                // compiler API that ts-loader depends on. Strip types with Babel
+                // (like the renderer build) and type-check separately through
+                // `yarn typecheck` (tsc --noEmit).
+                test: /\.(jsx?|tsx?)$/,
                 exclude: /node_modules/,
-                loader: 'ts-loader',
+                use: {
+                    loader: 'babel-loader',
+                    options: {
+                        cacheDirectory: true,
+                        babelrc: false,
+                        presets: [
+                            ['@babel/preset-env', {
+                                targets: { electron: '39' },
+                                modules: false
+                            }],
+                            '@babel/preset-typescript',
+                            '@babel/preset-react'
+                        ],
+                        plugins: [
+                            '@babel/plugin-transform-runtime',
+                            ['@babel/plugin-proposal-class-properties', { loose: true }]
+                        ]
+                    }
+                }
             },
             // Images and .dat files are emitted next to `main.js` and resolved at
             // runtime through `path.join(__dirname, ...)` (asset modules replace

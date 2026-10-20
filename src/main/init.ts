@@ -17,13 +17,16 @@ import logo from '../res/icon_sm.png';
 import fs from 'fs';
 import { dbPaths } from '../config';
 import { DAY_THEME_ID } from '../renderer/theme/tokens';
-import { build } from '../../package.json';
+import packageJson from '../../package.json';
 import { AutoUpdater } from './AutoUpdater';
 import { initialize } from './ipc/ipc';
 import { IpcEventName, UpdateEventName, WindowEventName } from './ipc/type';
 import { stopWindowDrag } from './ipc/windowDrag';
 import * as remoteMain from '@electron/remote/main';
 import { initActiveWin } from './activeWin';
+
+const { build } = packageJson;
+
 remoteMain.initialize();
 
 protocol.registerSchemesAsPrivileged([

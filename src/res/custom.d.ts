@@ -1,3 +1,9 @@
+// TypeScript 7 enables `noUncheckedSideEffectImports` by default, so these
+// stylesheet imports need an explicit module declaration.
+declare module '*.css';
+declare module '*.scss';
+declare module '*.sass';
+
 declare module '*.svg' {
     import { FunctionComponent } from 'react';
     const _: FunctionComponent<any>;

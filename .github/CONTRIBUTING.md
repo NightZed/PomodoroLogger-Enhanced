@@ -12,6 +12,14 @@ This project is built by [Electron](https://electronjs.org).
 
 You only need to install the latest version of node.js and node-gyp to build this project.
 
+> **TypeScript 7 toolchain**: `@typescript/native` installs the native `tsc`
+> (TypeScript 7), which provides `yarn typecheck` and the type-check step of
+> `yarn build`. The `typescript` package is deliberately aliased to
+> `@typescript/typescript6`: typescript-eslint and react-docgen-typescript still
+> need the TypeScript 6 JavaScript compiler API, which TypeScript 7.0 does not
+> ship. Transpilation is handled by Babel in webpack and Jest, so `ts-loader`
+> and `ts-jest` are intentionally absent.
+
 > **Note on Node 22+**: the embedded database (`nedb@1.8.0`) still calls the legacy
 > `util.isDate` / `util.isRegExp` helpers that Node removed in v22. Jest therefore loads
 > [`test/util-legacy-shim.js`](../test/util-legacy-shim.js) through `setupFiles` in

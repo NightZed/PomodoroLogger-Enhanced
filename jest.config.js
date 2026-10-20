@@ -15,8 +15,22 @@ module.exports = {
         customExportConditions: ['node']
     },
     testMatch: ['**/*.(spec|test).[jt]s?(x)'],
+    // TypeScript 7 has no JavaScript compiler API, so ts-jest cannot be used.
+    // Babel strips the types for Jest; `yarn typecheck` is the type-checking
+    // step (the previous ts-jest setup already had diagnostics disabled).
     transform: {
-        '^.+\\.tsx?$': ['ts-jest', { diagnostics: false }]
+        '^.+\\.tsx?$': [
+            'babel-jest',
+            {
+                babelrc: false,
+                configFile: false,
+                presets: [
+                    ['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }],
+                    '@babel/preset-typescript',
+                    '@babel/preset-react'
+                ]
+            }
+        ]
     },
     transformIgnorePatterns: [],
     moduleFileExtensions: ['ts', 'tsx', 'js', 'json', 'node'],
@@ -36,10 +50,9 @@ module.exports = {
     // nedb-based action tests are I/O heavy; give them room so a loaded machine
     // does not trip the default 5s per-test timeout
     testTimeout: 30000,
-    // ts-jest source maps report sources as `file:/D:/...` URLs on Windows, and
-    // the default `lcov` reporter (lcov + html) then tries to create directories
-    // containing `:` and fails with "Path contains invalid characters".
-    // Nothing consumes the HTML report (locally or in CI), so emit flat files only.
+    // Nothing consumes the HTML coverage report (locally or in CI), so emit flat
+    // files only. This also avoids Windows-specific problems in reporters that
+    // turn source paths into directories.
     coverageReporters: ['text', 'lcovonly', 'json-summary'],
     roots: ['<rootDir>'],
     modulePaths: ['<rootDir>'],

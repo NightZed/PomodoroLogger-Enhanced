@@ -27,7 +27,7 @@ import { Pin } from '../../../../components/common/Pin/Pin';
 const BriefCard = styled.div`
     word-break: break-word;
     position: relative;
-    display: inline-block;
+    display: block;
     padding: 6px;
     background-color: var(--pl-bg-elevated);
     color: var(--pl-text);

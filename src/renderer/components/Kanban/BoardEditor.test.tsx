@@ -32,6 +32,50 @@ const createBoardForm = (
     return formRef.current!;
 };
 
+describe('EditKanbanForm board editor tab', () => {
+    const EditorHarness = (props: { visible: boolean; isCreating: boolean }) => {
+        const [form] = Form.useForm();
+        return (
+            <EditKanbanForm
+                boardId=""
+                form={form}
+                visible={props.visible}
+                isCreating={props.isCreating}
+                onSave={jest.fn()}
+                onCancel={jest.fn()}
+                onDelete={jest.fn()}
+                nameValidator={() => true}
+            />
+        );
+    };
+
+    const activeTabLabel = () =>
+        document.body.querySelector('.ant-tabs-tab-active')?.textContent?.trim();
+
+    afterEach(() => {
+        cleanup();
+        document.body.innerHTML = '';
+    });
+
+    it.each([true, false])(
+        'reopens on the Edit tab instead of Preview (isCreating=%s)',
+        (isCreating) => {
+            const { rerender } = render(<EditorHarness visible={true} isCreating={isCreating} />);
+
+            const previewTab = Array.from(document.body.querySelectorAll('[role="tab"]')).find(
+                (tab) => tab.textContent?.trim() === 'Preview'
+            );
+            expect(previewTab).toBeDefined();
+            fireEvent.click(previewTab!);
+            expect(activeTabLabel()).toBe('Preview');
+
+            rerender(<EditorHarness visible={false} isCreating={isCreating} />);
+            rerender(<EditorHarness visible={true} isCreating={isCreating} />);
+            expect(activeTabLabel()).toBe('Edit');
+        }
+    );
+});
+
 describe('EditKanbanForm board name validation', () => {
     let container: HTMLDivElement;
     let warn: jest.SpyInstance;

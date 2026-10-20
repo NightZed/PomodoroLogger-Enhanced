@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Table } from 'antd';
 import { RootState } from '../../../reducers';
 import { Dispatch } from 'redux';
@@ -6,21 +6,54 @@ import { KanbanBoardState } from './action';
 import { connect } from 'react-redux';
 import { CardsState } from '../Card/action';
 import { IdTrend } from '../../Visualization/ProjectTrend';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 import { formatTimeWithoutZero } from '../../../utils';
 import { BoardBrief } from './BoardBrief';
 import { actions, SortDirection, SortType } from '../action';
 import { Card, KanbanBoard, ListsState } from '../type';
 
 const Container = styled.div``;
-const BoardGrid = styled.div`
-    column-width: 265px;
-    column-gap: 5px;
 
-    > * {
-        break-inside: avoid;
-        margin-bottom: 5px;
+// Waterfall geometry, matching what react-stack-grid used before the React 19
+// migration removed it: fixed-width columns, a 5px gutter, and cards placed in
+// the currently shortest column (left to right on equal heights).
+const BOARD_COLUMN_WIDTH = 265;
+const BOARD_GUTTER = 5;
+const BOARD_APPEAR_DURATION = 320;
+const BOARD_APPEAR_DELAY = 20;
+const BOARD_APPEAR_MAX_STAGGER = 12;
+const BOARD_EASING = 'cubic-bezier(0.165, 0.84, 0.44, 1)';
+
+const boardAppear = keyframes`
+    0% {
+        opacity: 0;
+        transform: translateY(10px);
     }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+`;
+
+const BoardGrid = styled.div`
+    position: relative;
+`;
+
+// Positions are applied instantly. Transitioning every card's transform made
+// a sort/resize slide cards across each other while the columns were being
+// recomputed (which read as uneven gaps), and it kept dozens of composited
+// layers animating at once. Only the one-shot appear animation below remains.
+const BoardGridItem = styled.div`
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: ${BOARD_COLUMN_WIDTH}px;
+`;
+
+const BoardGridItemInner = styled.div<{ $delay: number }>`
+    display: flow-root;
+    animation: ${boardAppear} ${BOARD_APPEAR_DURATION}ms ${BOARD_EASING}
+        ${({ $delay }) => `${$delay}ms`} both;
 `;
 
 interface Props {
@@ -231,11 +264,275 @@ interface OverviewCardsProps {
     showConfigById?: (boardId: string) => void;
 }
 
-const ResponsiveBoardGrid: FC<{ children: React.ReactNode; suspended?: boolean }> = ({
+interface BoardRect {
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+}
+
+interface BoardLayout {
+    rects: { [key: string]: BoardRect };
+    height: number;
+    measured: boolean;
+}
+
+const getChildKey = (child: React.ReactNode, index: number): string =>
+    React.isValidElement(child) && child.key != null ? String(child.key) : `board-${index}`;
+
+/**
+ * Height occupied by a card in a column: its border box plus the margins it
+ * renders with. Measuring the card itself (instead of the absolutely
+ * positioned wrapper) keeps animated/overflowing descendants and inline-block
+ * line boxes out of the result -- those could otherwise add a few pixels to
+ * `scrollHeight` and leave uneven gaps after a reorder.
+ */
+const measureItemHeight = (item: HTMLElement): number => {
+    const card = item.querySelector<HTMLElement>('.kanban-brief-card');
+    if (!card) {
+        return Math.round(Math.max(item.scrollHeight, item.clientHeight, item.offsetHeight, 0));
+    }
+    const style = window.getComputedStyle(card);
+    const margin = (parseFloat(style.marginTop) || 0) + (parseFloat(style.marginBottom) || 0);
+    return Math.round(card.offsetHeight + margin);
+};
+
+const sameRects = (a: { [key: string]: BoardRect }, b: { [key: string]: BoardRect }): boolean => {
+    const aKeys = Object.keys(a);
+    if (aKeys.length !== Object.keys(b).length) {
+        return false;
+    }
+    return aKeys.every((key) => {
+        const ra = a[key];
+        const rb = b[key];
+        return (
+            rb !== undefined &&
+            ra.top === rb.top &&
+            ra.left === rb.left &&
+            ra.width === rb.width &&
+            ra.height === rb.height
+        );
+    });
+};
+
+/**
+ * Pinterest-like waterfall grid with the ordering of the removed
+ * `react-stack-grid` dependency: items fill the leftmost shortest column, so
+ * equal-height cards run left-to-right and then top-to-bottom. Positions use
+ * transforms (animated on reorder) and new items fade up with the old stagger.
+ *
+ * The elements stay in the DOM while their heights are measured, which keeps
+ * later content growth (the nested list-count chart) from being laid out
+ * against stale card heights -- the reason the old grid needed an explicit
+ * `updateLayout()` on every frame.
+ */
+export const ResponsiveBoardGrid: FC<{ children: React.ReactNode; suspended?: boolean }> = ({
     children,
     suspended = false,
 }) => {
-    return suspended ? null : <BoardGrid>{children}</BoardGrid>;
+    const containerRef = useRef<HTMLDivElement>(null);
+    const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+    const measuredHeights = useRef<Map<string, number>>(new Map());
+    const [width, setWidth] = useState<number | null>(null);
+    const [layout, setLayout] = useState<BoardLayout>({
+        rects: {},
+        height: 0,
+        measured: false,
+    });
+    const [measureVersion, setMeasureVersion] = useState(0);
+    const measureRaf = useRef<number | null>(null);
+
+    const scheduleMeasure = useCallback(() => {
+        if (measureRaf.current !== null) {
+            cancelAnimationFrame(measureRaf.current);
+        }
+        measureRaf.current = requestAnimationFrame(() => {
+            measureRaf.current = null;
+            setMeasureVersion((v) => v + 1);
+        });
+    }, []);
+
+    useEffect(() => {
+        const el = containerRef.current;
+        if (!el) {
+            return;
+        }
+
+        let widthRaf: number | null = null;
+        const measureWidth = () => {
+            if (widthRaf !== null) {
+                cancelAnimationFrame(widthRaf);
+            }
+            widthRaf = requestAnimationFrame(() => {
+                widthRaf = null;
+                if (!el.isConnected) {
+                    return;
+                }
+                const nextWidth = el.clientWidth;
+                setWidth((prev) => (prev === nextWidth ? prev : nextWidth));
+            });
+        };
+
+        measureWidth();
+        if (typeof ResizeObserver !== 'undefined') {
+            const observer = new ResizeObserver(measureWidth);
+            observer.observe(el);
+            return () => {
+                observer.disconnect();
+                if (widthRaf !== null) {
+                    cancelAnimationFrame(widthRaf);
+                }
+            };
+        }
+        window.addEventListener('resize', measureWidth);
+        return () => {
+            window.removeEventListener('resize', measureWidth);
+            if (widthRaf !== null) {
+                cancelAnimationFrame(widthRaf);
+            }
+        };
+    }, []);
+
+    // Observe every card so a change in its rendered height (chart data
+    // arriving after mount, images/fonts) reflows the columns beneath it.
+    // Below one column the pane is hidden (inactive tab, mini mode) or too
+    // narrow; not rendering the cards mirrors the old StackGrid guard, and
+    // remounts them -- replaying the appear animation -- when it is shown again.
+    const canRenderItems = !suspended && width !== null && width >= BOARD_COLUMN_WIDTH;
+    useEffect(() => {
+        if (typeof ResizeObserver === 'undefined') {
+            return;
+        }
+        const observer = new ResizeObserver(scheduleMeasure);
+        itemRefs.current.forEach((el) => observer.observe(el));
+        // Re-measure once after the commit as well: a reorder never changes a
+        // card's own height, but nested content (the list-count chart) can
+        // settle one frame later and would otherwise leave stale gaps.
+        scheduleMeasure();
+        return () => observer.disconnect();
+    }, [children, canRenderItems, scheduleMeasure]);
+
+    useLayoutEffect(() => {
+        const el = containerRef.current;
+        if (!el) {
+            return;
+        }
+
+        const availableWidth = width ?? el.clientWidth;
+        if (width === null && availableWidth > 0) {
+            setWidth(availableWidth);
+        }
+
+        if (suspended || availableWidth < BOARD_COLUMN_WIDTH) {
+            setLayout((prev) => (prev.measured ? { rects: {}, height: 0, measured: false } : prev));
+            return;
+        }
+
+        const maxColumn = Math.max(
+            1,
+            Math.floor(
+                (availableWidth - (availableWidth / BOARD_COLUMN_WIDTH - 1) * BOARD_GUTTER) /
+                    BOARD_COLUMN_WIDTH
+            )
+        );
+        const actualWidth = maxColumn * BOARD_COLUMN_WIDTH + (maxColumn - 1) * BOARD_GUTTER;
+        const offset = Math.max(0, (availableWidth - actualWidth) / 2);
+        const columnHeights = new Array<number>(maxColumn).fill(0);
+        const rects: { [key: string]: BoardRect } = {};
+
+        React.Children.toArray(children).forEach((child, index) => {
+            const key = getChildKey(child, index);
+            const item = itemRefs.current.get(key);
+            const measuredHeight = item ? measureItemHeight(item) : undefined;
+            if (measuredHeight !== undefined) {
+                measuredHeights.current.set(key, measuredHeight);
+            }
+            // Fall back to the last known height while a card is remounting;
+            // measuring 0 there would stack the whole column on top of itself.
+            const height = measuredHeight ?? measuredHeights.current.get(key) ?? 0;
+
+            let column = 0;
+            for (let i = 1; i < columnHeights.length; i += 1) {
+                if (columnHeights[i] < columnHeights[column]) {
+                    column = i;
+                }
+            }
+
+            const top = columnHeights[column];
+            const left = offset + column * (BOARD_COLUMN_WIDTH + BOARD_GUTTER);
+            // `gutterHeight` was 0 in the old grid: the card itself carries its
+            // vertical margins, so only the measured height is accumulated.
+            columnHeights[column] += height;
+
+            rects[key] = { top, left, width: BOARD_COLUMN_WIDTH, height };
+        });
+
+        const height = Math.max(...columnHeights);
+        setLayout((prev) => {
+            if (prev.measured && prev.height === height && sameRects(prev.rects, rects)) {
+                return prev;
+            }
+            return { rects, height, measured: true };
+        });
+    }, [children, width, measureVersion, suspended]);
+
+    useEffect(
+        () => () => {
+            if (measureRaf.current !== null) {
+                cancelAnimationFrame(measureRaf.current);
+            }
+        },
+        []
+    );
+
+    const visible = canRenderItems && layout.measured;
+    const items = React.Children.toArray(children);
+
+    return (
+        <BoardGrid
+            ref={containerRef}
+            style={{
+                height: layout.height,
+                visibility: visible ? 'visible' : 'hidden',
+            }}
+        >
+            {canRenderItems
+                ? items.map((child, index) => {
+                      const key = getChildKey(child, index);
+                      const rect = layout.rects[key];
+                      return (
+                          <BoardGridItem
+                              key={key}
+                              ref={(el) => {
+                                  if (el) {
+                                      itemRefs.current.set(key, el);
+                                  } else {
+                                      itemRefs.current.delete(key);
+                                  }
+                              }}
+                              style={
+                                  rect
+                                      ? {
+                                            transform: `translate3d(${Math.round(
+                                                rect.left
+                                            )}px, ${Math.round(rect.top)}px, 0)`,
+                                        }
+                                      : undefined
+                              }
+                          >
+                              <BoardGridItemInner
+                                  $delay={
+                                      Math.min(index, BOARD_APPEAR_MAX_STAGGER) * BOARD_APPEAR_DELAY
+                                  }
+                              >
+                                  {child}
+                              </BoardGridItemInner>
+                          </BoardGridItem>
+                      );
+                  })
+                : null}
+        </BoardGrid>
+    );
 };
 
 const OverviewCards = connect(

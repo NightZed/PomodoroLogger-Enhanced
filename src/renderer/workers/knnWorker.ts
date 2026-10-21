@@ -18,7 +18,7 @@ export class KnnWorker extends BaseWorker {
      * repository and sends them with the request.
      */
     private async getRecords(): Promise<PomodoroRecord[]> {
-        return dbs.sessionDB.find({}, {});
+        return dbs.sessionDB.find({}, { apps: 1, boardId: 1 });
     }
 
     async train(onDone: (accuracy: number) => void, onProgress: (progress: number) => void) {

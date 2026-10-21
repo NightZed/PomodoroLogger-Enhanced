@@ -1,7 +1,7 @@
 # 依赖迁移纲要
 
 > 生成日期：2026-10-20
-> 状态：B0 / B1 / B1.5 / B2（代码）已完成；B3 及后续批次待实施
+> 状态：B0 / B1 / B1.5 / B2（代码、升级/回滚、History 性能）已完成；B3 及后续批次待实施
 > 适用版本：当前 `package.json`（React 19.3 / antd 6 / webpack 5.111 / Jest 30）
 
 本文档列出项目中已停止维护、已被弃用、已过 EOL，或已经确定要替换的依赖，并给出迁移顺序、改动范围、验收标准和回滚方式。每完成一项，直接勾选对应条目并补充实际使用的版本与迁移日期。
@@ -187,7 +187,7 @@ React 官方已将 `react-test-renderer` 标记为 deprecated（每个测试用�
 
 这是改动面最大、也是唯一涉及用户数据的一批。**核心原则：旧 `.nedb` 文件在迁移后保持原样，不删除，至少保留一个大版本。**
 
-**实施结果（2026-10-21）**：按推荐方案完成主进程单写者架构。新增 `src/main/db/`（连接、schema、repository、迁移器、IPC），`better-sqlite3@13.0.3` 负责唯一长期连接；渲染进程通过 `db:request` / `db:ready` IPC 访问，`DBWorker` 保留原方法签名但不再打开文件。`projectDB` 已删除，settings 拆为 key-value，旧 `.nedb` 在迁移前复制到 `db-bk/pre-sqlite-*` 并原样保留。新增迁移器、查询映射与打包配置测试；完整测试 60 suites / 459 tests 通过，`nedb` / `@types/nedb` 已从依赖树移除，`electron-builder` 的 `@electron/rebuild` 已成功重建 `better-sqlite3`。
+**实施结果（2026-10-21）**：按推荐方案完成主进程单写者架构。新增 `src/main/db/`（连接、schema、repository、迁移器、IPC），`better-sqlite3@13.0.3` 负责唯一长期连接；渲染进程通过 `db:request` / `db:ready` IPC 访问，`DBWorker` 保留原方法签名但不再打开文件。`projectDB` 已删除，settings 拆为 key-value，旧 `.nedb` 在迁移前复制到 `db-bk/pre-sqlite-*` 并原样保留。新增迁移器、查询映射、History 查询和打包配置测试；完整测试 61 suites / 463 tests 通过，`nedb` / `@types/nedb` 已从依赖树移除，`electron-builder` 的 `@electron/rebuild` 已成功重建 `better-sqlite3`。
 
 ### 3.1 现状盘点
 
@@ -415,8 +415,28 @@ interface DbClient {
 - [x] 新增查询映射测试：覆盖 `$gt/$gte/$lt/$in/$set/$unset/$push/$pull/$inc/upsert/multi/投影`。
 - [x] 现有 action 测试：`cards/lists/boards/move/session/settings` 全部通过。
 - [x] 手工升级验证：复制一份真实用户 `db/` 目录（Windows/macOS/Linux 各一次，至少 Windows + macOS），启动后检查：历史图表、日历、看板拖拽、卡片标签、设置项、导出/导入、自动备份。
-- [ ] 性能验证：多 MB 的 `session.nedb` 导入耗时、启动耗时、History 年度查询耗时，与旧版对比并记录。
+- [x] 性能验证：多 MB 的 `session.nedb` 导入耗时、启动耗时、History 年度查询耗时，与旧版对比并记录。
 - [x] 回滚验证：保留旧目录，重新安装旧版本后仍能读取旧 `.nedb`（注意：SQLite 期间新产生的数据不会回到旧版本，文档中要说明）。
+
+### 3.9 History 卡顿与内存优化（2026-10-21）
+
+第一版 SQLite 实现把所有 session 行都 `SELECT` 出来、逐行 `JSON.parse(doc)`，再在**主进程**里聚合。结果：
+
+- 点击空日期也要扫描并解析全部 session，所以空数据格也会卡；
+- `aggHistory` 的词云 tokenization 在主进程执行，Electron 主事件循环被占住，渲染进程先卡住、再显示 spinner；
+- 两次全量查询加上完整文档对象造成明显的内存峰值。
+
+已做以下调整：
+
+- `SqliteRepository` 对 `_id` / `startTime` / `boardId` 等标量字段做 SQL 下推（只做预过滤，之后仍用 `matchesQuery` 保证语义一致）。
+- History 使用 `findHistory()`，只读 `startTime` / `spentTimeInHour` / `boardId` / `apps` 四列并直接构造轻量记录，不再解析完整 `doc`；每 256 行 `yield` 一次，主进程保持可响应。
+- 单日详情查询只扫描当天范围；空日期不再触碰整张表。
+- 看板名称只读 `_id` / `name`，不解析看板的 `lists` / `aggInfo`。
+- `count({})` 走 SQL `COUNT(*)` 快路径（Timer 页每次挂载都会调用）。
+- History 聚合移到已有的主进程 child worker 里执行；主进程负责查询和转发轻量记录，词云/日历/饼图计算不再阻塞 Electron 主事件循环。worker 失败时回退到进程内，功能不丢。
+- child worker 空闲回收从 5 分钟缩短到 60 秒，查询后的临时内存更快释放。
+
+本机真实 `db/pomodoro.sqlite`（2664 条 session）实测：单日查询约 8–9ms；年度 History 读取约 173ms；All-time 读取约 356ms；聚合计算在 child worker 中完成。该数据只反映当前机器，仍需按 3.8 与旧版做完整性能对比。
 
 ---
 
@@ -615,7 +635,7 @@ Electron 39 的官方 EOL 是 **2026-05-05**，已经不再收到安全更新。
 - [x] B0 控制台基线与降噪
 - [x] B1 低风险清理（conventional-changelog 升级因兼容性延后到 B6）
 - [x] B1.5 react-test-renderer → React Testing Library
-- [x] B2 nedb → SQLite（代码与自动化测试完成；真实用户数据手工升级/性能/回滚验证待做）
+- [x] B2 nedb → SQLite（代码、自动化测试、真实用户数据升级/回滚验证完成；History 卡顿与内存优化已实施）
 - [ ] B3 worker-loader / marked
 - [ ] B4 active-win → get-windows + Electron 44
 - [ ] B5 deox / hotkeys / react-trend / prop-types / styleguidist

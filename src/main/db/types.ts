@@ -33,8 +33,17 @@ export interface DbRepository<T = any> {
     count(query?: any): Promise<number>;
 }
 
+export interface HistoryData {
+    arg: HistoryArg;
+    recentRecords?: any[];
+    yearRecords: any[];
+    boards: { _id: string; name: string }[];
+}
+
 export interface SessionRepository extends DbRepository {
     aggHistory(arg: HistoryArg): Promise<any>;
+    /** Read the lightweight History input without aggregating it. */
+    readHistory(arg: HistoryArg): Promise<HistoryData>;
 }
 
 export interface DbRepositories {

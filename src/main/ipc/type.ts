@@ -2,6 +2,8 @@ import type { BaseResult } from 'active-win';
 import { SourceData } from '../../shared/dataMerger/dataMerger';
 import type { ExportMeta } from '../../shared/dataTransfer/payload';
 import type { ValidationIssue, ValidationWarning } from '../../shared/dataTransfer/validate';
+import type { HistoryData } from '../db/types';
+import type { AggPomodoroInfo } from '../../renderer/components/History/op';
 
 export enum IpcEventName {
     Quit = 'quit',
@@ -157,6 +159,7 @@ export type DesktopSourceInfo = {
 
 export enum WorkerMessageType {
     MergeData = 'MergeData',
+    AggregateHistory = 'AggregateHistory',
 }
 
 export type WorkerMessagePayload = {
@@ -164,6 +167,7 @@ export type WorkerMessagePayload = {
         source: 'local' | SourceData;
         external: SourceData;
     };
+    [WorkerMessageType.AggregateHistory]: HistoryData;
 };
 
 export type WorkerResponsePayload = {
@@ -171,6 +175,7 @@ export type WorkerResponsePayload = {
         merged: SourceData;
         warning?: string;
     };
+    [WorkerMessageType.AggregateHistory]: AggPomodoroInfo;
 };
 
 export type WorkerMessage<T extends WorkerMessageType = WorkerMessageType> = {
@@ -183,4 +188,5 @@ export type WorkerResponse<T extends WorkerMessageType = WorkerMessageType> = {
     type: T;
     payload: WorkerResponsePayload[T];
     id: number;
+    error?: string;
 };

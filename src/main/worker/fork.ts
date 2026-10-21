@@ -31,10 +31,19 @@ function ensureWorker() {
 
             clearTimeout(pending.timeout);
             delete pendingMap[msg.id];
+            scheduleIdleShutdown();
+            if (msg.error) {
+                pending.reject(new Error(msg.error));
+                return;
+            }
             pending.resolve(msg);
         });
         workerProcess.on('exit', () => {
             workerProcess = undefined;
+            if (idleTimer) {
+                clearTimeout(idleTimer);
+                idleTimer = undefined;
+            }
             const pendings = pendingMap;
             for (const id in pendings) {
                 const pending = pendings[id];
@@ -49,6 +58,8 @@ function ensureWorker() {
 }
 
 // 空闲回收：worker 长时间无任务时将其终止，进一步降低常驻内存。
+// History aggregation can retain a large year of parsed records, so release the
+// child sooner than the old five-minute default; a new query spawns it again.
 function scheduleIdleShutdown() {
     if (idleTimer) {
         clearTimeout(idleTimer);
@@ -63,7 +74,7 @@ function scheduleIdleShutdown() {
                 // kill may not be available in some runtime
             }
         }
-    }, 5 * 60 * 1000);
+    }, 60 * 1000);
 }
 
 export function sendWorkerMessage<T extends WorkerMessageType>(

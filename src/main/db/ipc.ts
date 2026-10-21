@@ -1,4 +1,6 @@
 import { ipcMain } from 'electron';
+import { WorkerMessageType } from '../ipc/type';
+import { sendWorkerMessage } from '../worker/fork';
 import { DBs, loadDBs } from './index';
 import { DbName } from './types';
 
@@ -23,8 +25,26 @@ export function initializeDbIpc() {
             if (!repository) {
                 throw new Error(`Unknown database: ${name}`);
             }
-            if (operation === 'aggHistory') {
-                return repository.aggHistory(...args);
+            if (name === 'sessionDB' && operation === 'aggHistory') {
+                try {
+                    // Tokenizing every title for the word cloud is CPU-heavy.
+                    // The child process keeps Electron's main event loop free,
+                    // so the renderer can paint its spinner immediately.
+                    const data = await repository.readHistory(args[0]);
+                    const response = await sendWorkerMessage(
+                        {
+                            type: WorkerMessageType.AggregateHistory,
+                            payload: data,
+                        },
+                        120000
+                    );
+                    return response.payload;
+                } catch (error) {
+                    // A worker/package problem must not take History down. The
+                    // in-process path is slower but still correct.
+                    console.error('[db] history aggregate worker failed, falling back', error);
+                    return repository.aggHistory(...args);
+                }
             }
             if (typeof repository[operation] !== 'function') {
                 throw new Error(`Unknown database operation: ${name}.${operation}`);

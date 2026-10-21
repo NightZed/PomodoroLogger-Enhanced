@@ -3,6 +3,7 @@ import { uid } from '../../utils/uid';
 import type {
     DbRepository,
     HistoryArg,
+    HistoryData,
     RemoveOptions,
     SessionRepository,
     UpdateOptions,
@@ -302,16 +303,198 @@ interface RowRecord {
     doc: any;
 }
 
+interface SqlCondition {
+    sql: string;
+    params: any[];
+}
+
+/** How many rows to parse between event-loop yields in the history scan. */
+const HISTORY_YIELD_EVERY = 256;
+
+const yieldToEventLoop = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+function sqlValue(field: FieldSpec | undefined, value: any): any {
+    if (field?.kind === 'boolean') {
+        return value ? 1 : 0;
+    }
+    return value;
+}
+
+/**
+ * Translate the scalar part of a NeDB query to SQL so the history query does
+ * not have to JSON-parse every session in the database. Unknown/JSON fields
+ * and operator combinations are deliberately left to the in-memory matcher;
+ * `matchesQuery` still runs afterwards, so this is only a pre-filter and never
+ * changes semantics.
+ */
+function buildSqlWhere(spec: TableSpec, query: any): SqlCondition | null {
+    if (query == null || typeof query !== 'object' || Array.isArray(query)) {
+        return null;
+    }
+    const keys = Object.keys(query);
+    if (keys.length === 0 || keys.some((key) => key === '$and' || key === '$or')) {
+        return null;
+    }
+
+    const conditions: SqlCondition[] = [];
+    for (const key of keys) {
+        const field =
+            key === '_id' && spec.hasId
+                ? undefined
+                : spec.fields.find((candidate) => candidate.path === key);
+        const column = key === '_id' && spec.hasId ? '_id' : field?.column;
+        if (!column || field?.kind === 'json') {
+            continue;
+        }
+
+        const expected = query[key];
+        if (expected === undefined) {
+            continue;
+        }
+
+        if (expected === null) {
+            conditions.push({ sql: `${column} IS NULL`, params: [] });
+            continue;
+        }
+        if (Array.isArray(expected)) {
+            continue;
+        }
+
+        if (typeof expected === 'object') {
+            const operators = Object.keys(expected);
+            if (operators.length === 0) {
+                continue;
+            }
+            const parts: SqlCondition[] = [];
+            for (const operator of operators) {
+                const value = expected[operator];
+                switch (operator) {
+                    case '$eq':
+                        parts.push(
+                            value === null
+                                ? { sql: `${column} IS NULL`, params: [] }
+                                : { sql: `${column} = ?`, params: [sqlValue(field, value)] }
+                        );
+                        break;
+                    case '$ne':
+                        parts.push(
+                            value === null
+                                ? { sql: `${column} IS NOT NULL`, params: [] }
+                                : {
+                                      sql: `(${column} IS NULL OR ${column} <> ?)`,
+                                      params: [sqlValue(field, value)],
+                                  }
+                        );
+                        break;
+                    case '$gt':
+                    case '$gte':
+                    case '$lt':
+                    case '$lte': {
+                        const sqlOperator = {
+                            $gt: '>',
+                            $gte: '>=',
+                            $lt: '<',
+                            $lte: '<=',
+                        }[operator];
+                        if (value != null) {
+                            parts.push({
+                                sql: `${column} ${sqlOperator} ?`,
+                                params: [sqlValue(field, value)],
+                            });
+                        }
+                        break;
+                    }
+                    case '$in':
+                    case '$nin': {
+                        if (!Array.isArray(value)) {
+                            break;
+                        }
+                        if (value.length === 0) {
+                            parts.push({
+                                sql: operator === '$in' ? '0' : '1',
+                                params: [],
+                            });
+                            break;
+                        }
+                        const nonNullValues = value.filter((item) => item != null);
+                        const params = nonNullValues.map((item) => sqlValue(field, item));
+                        const placeholders = nonNullValues.map(() => '?').join(', ');
+                        const hasNull = value.some((item) => item == null);
+                        if (operator === '$in') {
+                            if (nonNullValues.length === 0) {
+                                parts.push({ sql: `${column} IS NULL`, params: [] });
+                            } else {
+                                parts.push({
+                                    sql: hasNull
+                                        ? `(${column} IN (${placeholders}) OR ${column} IS NULL)`
+                                        : `${column} IN (${placeholders})`,
+                                    params,
+                                });
+                            }
+                        } else if (nonNullValues.length === 0) {
+                            parts.push({ sql: `${column} IS NOT NULL`, params: [] });
+                        } else {
+                            parts.push({
+                                sql: hasNull
+                                    ? `${column} NOT IN (${placeholders})`
+                                    : `(${column} IS NULL OR ${column} NOT IN (${placeholders}))`,
+                                params,
+                            });
+                        }
+                        break;
+                    }
+                    case '$exists':
+                        parts.push({
+                            sql: value ? `${column} IS NOT NULL` : `${column} IS NULL`,
+                            params: [],
+                        });
+                        break;
+                    default:
+                        // Unsupported operator: leave this field to JS.
+                        break;
+                }
+            }
+            if (parts.length === operators.length) {
+                conditions.push({
+                    sql: parts.map((part) => `(${part.sql})`).join(' AND '),
+                    params: parts.flatMap((part) => part.params),
+                });
+            }
+            continue;
+        }
+
+        conditions.push({ sql: `${column} = ?`, params: [sqlValue(field, expected)] });
+    }
+
+    if (conditions.length === 0) {
+        return null;
+    }
+    return {
+        sql: conditions.map((condition) => `(${condition.sql})`).join(' AND '),
+        params: conditions.flatMap((condition) => condition.params),
+    };
+}
+
 export class SqliteRepository<T = any> implements DbRepository<T> {
     constructor(protected readonly db: Database, protected readonly spec: TableSpec) {}
 
-    private selectRows(): RowRecord[] {
-        const rows = this.db
-            .prepare(`SELECT rowid AS _rowid, * FROM ${this.spec.table}`)
-            .all() as any[];
-        return rows.map((row) => ({
+    private rawRows(query?: any, columns?: string[]): any[] {
+        const where = buildSqlWhere(this.spec, query);
+        const selected = columns?.length ? columns.join(', ') : 'rowid AS _rowid, *';
+        const sql = `SELECT ${selected} FROM ${this.spec.table}${
+            where ? ` WHERE ${where.sql}` : ''
+        }`;
+        return this.db.prepare(sql).all(...(where?.params ?? [])) as any[];
+    }
+
+    private rowToDoc(row: any): any {
+        return row.doc != null ? JSON.parse(row.doc) : this.docFromColumns(row);
+    }
+
+    private selectRows(query?: any): RowRecord[] {
+        return this.rawRows(query).map((row) => ({
             row,
-            doc: row.doc != null ? JSON.parse(row.doc) : this.docFromColumns(row),
+            doc: this.rowToDoc(row),
         }));
     }
 
@@ -381,15 +564,117 @@ export class SqliteRepository<T = any> implements DbRepository<T> {
         return doc;
     }
 
+    private simpleProjectionFields(projection?: any): FieldSpec[] | null {
+        if (projection == null) {
+            return null;
+        }
+        const keys = Object.keys(projection);
+        if (keys.length === 0 || keys.some((key) => key !== '_id' && !projection[key])) {
+            return null;
+        }
+        const fields: FieldSpec[] = [];
+        for (const key of keys) {
+            if (key === '_id') {
+                continue;
+            }
+            const field = this.spec.fields.find((candidate) => candidate.path === key);
+            if (!field) {
+                return null;
+            }
+            fields.push(field);
+        }
+        return fields;
+    }
+
     async find<R = T>(query: any = {}, projection?: any): Promise<R[]> {
-        return this.selectRows()
-            .map(({ doc }) => doc)
-            .filter((doc) => matchesQuery(doc, query))
-            .map((doc) => applyProjection(doc, projection)) as R[];
+        const fields = this.simpleProjectionFields(projection);
+        const queryKeys =
+            query != null && typeof query === 'object' && !Array.isArray(query)
+                ? Object.keys(query)
+                : [];
+        const queryFields = queryKeys
+            .filter((key) => key !== '_id' && !key.startsWith('$'))
+            .map((key) => this.spec.fields.find((field) => field.path === key));
+        const canProject =
+            fields != null &&
+            !queryKeys.some((key) => key.startsWith('$')) &&
+            queryFields.every((field): field is FieldSpec => !!field);
+
+        if (canProject) {
+            const paths = Array.from(
+                new Set([
+                    ...fields.map((field) => field.path),
+                    ...queryFields.map((field) => field.path),
+                ])
+            );
+            const docs = await this.findHistory(query, paths);
+            return docs.map((doc) => applyProjection(doc, projection)) as R[];
+        }
+
+        const rows = this.rawRows(query);
+        const result: R[] = [];
+        for (let index = 0; index < rows.length; index += 1) {
+            const doc = this.rowToDoc(rows[index]);
+            if (matchesQuery(doc, query)) {
+                result.push(applyProjection(doc, projection) as R);
+            }
+            if ((index + 1) % HISTORY_YIELD_EVERY === 0) {
+                await yieldToEventLoop();
+            }
+        }
+        return result;
+    }
+
+    /**
+     * History aggregation only needs a few scalar columns plus `apps`. Building
+     * those directly from the columns avoids parsing each full `doc` (which
+     * also contains screenshots and other fields the charts never touch), and
+     * yielding every chunk keeps the main process responsive while a large
+     * All-time/year range is read.
+     */
+    async findHistory(query: any = {}, fields: string[]): Promise<any[]> {
+        const specs = fields
+            .map((path) => this.spec.fields.find((field) => field.path === path))
+            .filter((field): field is FieldSpec => !!field);
+        const selected = Array.from(
+            new Set([...(this.spec.hasId ? ['_id'] : []), ...specs.map((field) => field.column)])
+        );
+        const rows = this.rawRows(query, selected);
+        const result: any[] = [];
+        for (let index = 0; index < rows.length; index += 1) {
+            const row = rows[index];
+            const doc: any = {};
+            if (this.spec.hasId) {
+                doc._id = row._id;
+            }
+            for (const field of specs) {
+                let value = row[field.column];
+                if (value == null) {
+                    continue;
+                }
+                if (field.kind === 'json') {
+                    try {
+                        value = JSON.parse(value);
+                    } catch {
+                        value = field.fallback;
+                    }
+                } else if (field.kind === 'boolean') {
+                    value = !!value;
+                }
+                setPath(doc, field.path, value);
+            }
+            if (matchesQuery(doc, query)) {
+                result.push(doc);
+            }
+            if ((index + 1) % HISTORY_YIELD_EVERY === 0) {
+                await yieldToEventLoop();
+            }
+        }
+        return result;
     }
 
     async findOne<R = T>(query: any = {}, projection?: any): Promise<R | null> {
-        const found = this.selectRows().find(({ doc }) => matchesQuery(doc, query));
+        const found = this.selectRows(query).find(({ doc }) => matchesQuery(doc, query));
         return found ? (applyProjection(found.doc, projection) as R) : null;
     }
 
@@ -409,7 +694,7 @@ export class SqliteRepository<T = any> implements DbRepository<T> {
     }
 
     async update(query: any, update: any, options: UpdateOptions = {}): Promise<number> {
-        const matches = this.selectRows().filter(({ doc }) => matchesQuery(doc, query));
+        const matches = this.selectRows(query).filter(({ doc }) => matchesQuery(doc, query));
         if (matches.length === 0) {
             if (!options.upsert) {
                 return 0;
@@ -445,7 +730,7 @@ export class SqliteRepository<T = any> implements DbRepository<T> {
     }
 
     async remove(query: any = {}, options: RemoveOptions = {}): Promise<number> {
-        const matches = this.selectRows().filter(({ doc }) => matchesQuery(doc, query));
+        const matches = this.selectRows(query).filter(({ doc }) => matchesQuery(doc, query));
         const targets = options.multi ? matches : matches.slice(0, 1);
         if (targets.length === 0) {
             return 0;
@@ -463,7 +748,10 @@ export class SqliteRepository<T = any> implements DbRepository<T> {
     }
 
     async count(query: any = {}): Promise<number> {
-        return this.selectRows().filter(({ doc }) => matchesQuery(doc, query)).length;
+        if (query == null || (typeof query === 'object' && Object.keys(query).length === 0)) {
+            return (this.db.prepare(`SELECT COUNT(*) AS n FROM ${this.spec.table}`).get() as any).n;
+        }
+        return this.selectRows(query).filter(({ doc }) => matchesQuery(doc, query)).length;
     }
 }
 
@@ -581,26 +869,29 @@ export function createSessionRepository(
         boards: any[]
     ) => any
 ): SessionRepository {
-    const historyProjection = {
-        startTime: 1,
-        spentTimeInHour: 1,
-        boardId: 1,
-        apps: 1,
+    const historyFields = ['startTime', 'spentTimeInHour', 'boardId', 'apps'];
+    const readHistory = async (arg: HistoryArg): Promise<HistoryData> => {
+        // Sequence the two scans: both used to run through Promise.all, which
+        // kept two full session arrays alive at the same time.
+        const yearRecords = await base.findHistory(arg.yearQuery, historyFields);
+        const recentRecords = arg.recentQuery
+            ? await base.findHistory(arg.recentQuery, historyFields)
+            : undefined;
+        // The board table is tiny; reading only the two needed columns avoids
+        // parsing lists/aggInfo for every board on every History query. It also
+        // keeps stale board names out of the renderer.
+        const boards = db.prepare('SELECT _id, name FROM boards').all() as {
+            _id: string;
+            name: string;
+        }[];
+        return { arg, recentRecords, yearRecords, boards };
     };
+
     return Object.assign(base, {
+        readHistory,
         async aggHistory(arg: HistoryArg) {
-            const [recentRecords, yearRecords, boards] = await Promise.all([
-                arg.recentQuery
-                    ? base.find(arg.recentQuery, historyProjection)
-                    : Promise.resolve(undefined),
-                base.find(arg.yearQuery, historyProjection),
-                // The board table is tiny; reading it here keeps History from
-                // depending on the renderer's board state and stale names.
-                (db.prepare('SELECT doc FROM boards').all() as { doc: string }[]).map((row) =>
-                    JSON.parse(row.doc)
-                ),
-            ]);
-            return aggregate(arg, recentRecords, yearRecords, boards);
+            const data = await readHistory(arg);
+            return aggregate(arg, data.recentRecords, data.yearRecords, data.boards);
         },
     }) as SessionRepository;
 }

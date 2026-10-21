@@ -1,5 +1,5 @@
 import { openSqlite } from './connection';
-import { cardSpec, createSchema, listSpec, moveSpec } from './schema';
+import { cardSpec, createSchema, listSpec, moveSpec, sessionSpec } from './schema';
 import { SettingsRepository, SqliteRepository } from './repository';
 
 const setup = () => {
@@ -10,6 +10,7 @@ const setup = () => {
         cards: new SqliteRepository(connection, cardSpec),
         lists: new SqliteRepository(connection, listSpec),
         moves: new SqliteRepository(connection, moveSpec),
+        sessions: new SqliteRepository(connection, sessionSpec),
         settings: new SettingsRepository(connection),
     };
 };
@@ -182,6 +183,74 @@ describe('SQLite repository query/update mapping', () => {
                 'future',
                 'name',
                 'themeId',
+            ]);
+        } finally {
+            connection.close();
+        }
+    });
+
+    it('prefilters the History scan and returns only the requested fields', async () => {
+        const { connection, sessions } = setup();
+        try {
+            await sessions.insert([
+                {
+                    _id: 'inside',
+                    startTime: 1000,
+                    spentTimeInHour: 2,
+                    boardId: 'b1',
+                    apps: {
+                        Chrome: {
+                            appName: 'Chrome',
+                            spentTimeInHour: 2,
+                            titleSpentTime: { Docs: { normalizedWeight: 1 } },
+                        },
+                    },
+                    screenshots: [{ time: 1, path: 'large.png' }],
+                },
+                {
+                    _id: 'outside',
+                    startTime: 5000,
+                    spentTimeInHour: 3,
+                    boardId: 'b1',
+                    apps: {},
+                },
+                {
+                    _id: 'other-board',
+                    startTime: 1500,
+                    spentTimeInHour: 4,
+                    boardId: 'b2',
+                    apps: {},
+                },
+            ]);
+
+            const rows = await sessions.findHistory(
+                { boardId: 'b1', startTime: { $gte: 900, $lt: 2000 } },
+                ['startTime', 'spentTimeInHour', 'boardId', 'apps']
+            );
+            expect(rows).toEqual([
+                {
+                    _id: 'inside',
+                    startTime: 1000,
+                    spentTimeInHour: 2,
+                    boardId: 'b1',
+                    apps: {
+                        Chrome: {
+                            appName: 'Chrome',
+                            spentTimeInHour: 2,
+                            titleSpentTime: { Docs: { normalizedWeight: 1 } },
+                        },
+                    },
+                },
+            ]);
+
+            // Full-document finds still get screenshots, but SQL should already
+            // have narrowed the rows before JSON parsing.
+            expect(await sessions.find({ _id: 'inside' })).toHaveLength(1);
+            expect(await sessions.find({ _id: 'inside' })).toEqual([
+                expect.objectContaining({
+                    _id: 'inside',
+                    screenshots: [{ time: 1, path: 'large.png' }],
+                }),
             ]);
         } finally {
             connection.close();

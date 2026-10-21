@@ -150,6 +150,7 @@ export function createSchema(db: Database) {
         );
         CREATE INDEX IF NOT EXISTS idx_sessions_start_time ON sessions(start_time);
         CREATE INDEX IF NOT EXISTS idx_sessions_board_id   ON sessions(board_id);
+        CREATE INDEX IF NOT EXISTS idx_sessions_board_start ON sessions(board_id, start_time);
 
         CREATE TABLE IF NOT EXISTS boards (
             _id               TEXT PRIMARY KEY,

@@ -217,12 +217,12 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         //    the range so those views cover the whole year again;
         //  - with All time no range is sent and a single query covers both the recent
         //    stats and the full view.
-        // The whole aggregation runs inside the db worker (aggHistory op), so raw
-        // records never cross to the main thread and only the small aggregated
-        // result is transferred back. The worker also resolves the project names
-        // from the kanban DB itself, which is why `props.boards` is not part of
-        // the dependency list below: loading/renaming a board must not re-run
-        // the aggregation and throw the page back into its Loading state.
+        // The whole aggregation runs in the main-process aggregation child
+        // (aggHistory op), so raw records never cross to the renderer thread and
+        // only the small aggregated result is transferred back. That child also
+        // resolves project names from the kanban DB, which is why `props.boards`
+        // is not part of the dependency list below: loading/renaming a board
+        // must not re-run the aggregation and throw the page back into Loading.
         const db = workers.dbWorkers.sessionDB;
         const now = new Date();
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();

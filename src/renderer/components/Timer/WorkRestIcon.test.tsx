@@ -31,10 +31,26 @@ describe('WorkRestIcon', () => {
         const { container } = render(<WorkRestIcon isWorking={false} isLongBreak={true} />);
         const [, label] = layers(container);
 
-        // The layer wrapper is 0px wide (both layers are absolutely
-        // positioned), so a wrapping label would shrink to its min-content
-        // width and render "Long" / "Break" on two lines.
+        // The icon and the label share one slot; the label is the in-flow layer
+        // that gives that slot its size, so it must stay on a single line.
         expect(label.textContent).toBe('Long Break');
         expect(window.getComputedStyle(label).whiteSpace).toBe('nowrap');
+    });
+
+    it('uses the same label size in work and break modes', () => {
+        const working = render(<WorkRestIcon isWorking={true} isLongBreak={false} />);
+        const workingLabel = layers(working.container)[1];
+        const workingSize = window.getComputedStyle(workingLabel).fontSize;
+        cleanup();
+
+        const rest = render(<WorkRestIcon isWorking={false} isLongBreak={true} />);
+        const restLabel = layers(rest.container)[1];
+
+        // The label sizes the shared slot. A per-mode label size (the work
+        // label used to have no 0.8em font-size) changes the slot height and
+        // makes the number jump when the session type changes.
+        expect(workingLabel.textContent).toBe('Working');
+        expect(window.getComputedStyle(restLabel).fontSize).toBe(workingSize);
+        expect(restLabel.style.fontSize).toBe(workingLabel.style.fontSize);
     });
 });

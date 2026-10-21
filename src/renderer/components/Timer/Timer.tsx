@@ -198,8 +198,16 @@ const MoreInfo = styled.div`
     max-width: 800px;
 `;
 
-const ThemeToggleRow = styled.div`
-    margin: 0.6em auto 0 auto;
+const ThemeToggleRow = styled.div<{ $compact: boolean }>`
+    /* The bulb sits halfway between the circle and the project selector:
+       symmetric padding around it, and the selector below no longer contributes
+       a top margin (adjacent margins collapse, so the old 0.6em/2em pair put
+       the bulb much closer to the circle than to the selector). The padding
+       keeps the total band height and therefore every element below unchanged. */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: ${({ $compact }) => ($compact ? '0.6em 0' : '1.3em 0')};
     text-align: center;
     line-height: 1;
 `;
@@ -1561,7 +1569,7 @@ class Timer extends Component<Props, State> {
                             </Progress>
                         </ProgressContainer>
 
-                        <ThemeToggleRow>
+                        <ThemeToggleRow $compact={compact}>
                             <Tooltip title={'Switch Theme'}>
                                 <ThemeToggle type="bulb" onClick={this.toggleTheme} />
                             </Tooltip>
@@ -1569,7 +1577,7 @@ class Timer extends Component<Props, State> {
 
                         <div
                             style={{
-                                margin: compact ? '0.6em auto' : '2em auto',
+                                margin: compact ? '0 auto 0.6em auto' : '0 auto 2em auto',
                                 textAlign: 'center',
                             }}
                         >

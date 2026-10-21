@@ -9,7 +9,6 @@
 const js = require('@eslint/js');
 const globals = require('globals');
 const tseslint = require('typescript-eslint');
-const react = require('eslint-plugin-react');
 const reactHooks = require('eslint-plugin-react-hooks');
 const prettier = require('eslint-config-prettier/flat');
 
@@ -38,7 +37,9 @@ module.exports = tseslint.config(
         languageOptions: {
             globals: {
                 ...globals.node,
-                ...globals.commonjs
+                ...globals.commonjs,
+                ...globals.jest,
+                ...globals.browser
             }
         },
         rules: {
@@ -59,11 +60,7 @@ module.exports = tseslint.config(
             }
         },
         plugins: {
-            react,
             'react-hooks': reactHooks
-        },
-        settings: {
-            react: { version: 'detect' }
         },
         rules: {
             // TypeScript takes care of unknown identifiers (and knows the globals

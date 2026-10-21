@@ -1,10 +1,8 @@
-import * as PropTypes from 'prop-types';
 import * as React from 'react';
 import classNames from 'classnames';
 import Circle from 'antd/es/progress/Circle';
 
-const ProgressTypes = ['line', 'circle', 'dashboard'] as const;
-export type ProgressType = typeof ProgressTypes[number];
+export type ProgressType = 'line' | 'circle' | 'dashboard';
 const ProgressStatuses = ['normal', 'exception', 'active', 'success'] as const;
 export type ProgressSize = 'default' | 'small';
 export type StringGradients = { [percentage: string]: string };
@@ -39,20 +37,6 @@ export default class Progress extends React.Component<ProgressProps> {
         size: 'default',
         gapDegree: 0,
         strokeLinecap: 'round',
-    };
-
-    static propTypes = {
-        status: PropTypes.oneOf(ProgressStatuses),
-        type: PropTypes.oneOf(ProgressTypes),
-        showInfo: PropTypes.bool,
-        percent: PropTypes.number,
-        width: PropTypes.number,
-        strokeWidth: PropTypes.number,
-        strokeLinecap: PropTypes.oneOf(['round', 'square']),
-        strokeColor: PropTypes.oneOfType([PropTypes.string, PropTypes.object]),
-        trailColor: PropTypes.string,
-        format: PropTypes.func,
-        gapDegree: PropTypes.number,
     };
 
     getPercentNumber() {

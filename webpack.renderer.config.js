@@ -40,7 +40,6 @@ module.exports = merge(baseConfig, {
                         ],
                         plugins: [
                             '@babel/plugin-transform-runtime',
-                            ['@babel/plugin-proposal-class-properties', { loose: true }],
                             ...(process.env.NODE_ENV === 'development' ? ['react-refresh/babel'] : [])
                         ]
                     }

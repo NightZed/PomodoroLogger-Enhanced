@@ -5,9 +5,6 @@ const baseConfig = require('./webpack.base.config');
 module.exports = merge(baseConfig, {
     mode: process.env.NODE_ENV,
     target: 'web',
-    entry: {
-        app: ['@babel/polyfill'],
-    },
     module: {
         rules: [
             {
@@ -23,9 +20,7 @@ module.exports = merge(baseConfig, {
                             '@babel/preset-typescript',
                         ],
                         plugins: [
-                            '@babel/plugin-proposal-optional-chaining',
                             '@babel/plugin-transform-runtime',
-                            ['@babel/plugin-proposal-class-properties', { loose: true }],
                         ],
                     },
                 },

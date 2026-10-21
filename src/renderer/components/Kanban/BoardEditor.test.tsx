@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { Form, FormInstance } from 'antd';
 import { EditKanbanForm } from './BoardEditor';
 
-jest.mock('antd/es/input/TextArea', () => ({ __esModule: true, default: () => null }));
+jest.mock('antd/lib/input/TextArea', () => ({ __esModule: true, default: () => null }));
 
 const createBoardForm = (
     container: HTMLDivElement,

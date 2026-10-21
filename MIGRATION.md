@@ -1,7 +1,7 @@
 # 依赖迁移纲要
 
 > 生成日期：2026-10-20
-> 状态：B0 / B1.5 已完成；B1 及后续批次待实施
+> 状态：B0 / B1 / B1.5 已完成；B2 及后续批次待实施
 > 适用版本：当前 `package.json`（React 19.3 / antd 6 / webpack 5.111 / Jest 30）
 
 本文档列出项目中已停止维护、已被弃用、已过 EOL，或已经确定要替换的依赖，并给出迁移顺序、改动范围、验收标准和回滚方式。每完成一项，直接勾选对应条目并补充实际使用的版本与迁移日期。
@@ -89,45 +89,47 @@ yarn pack          # 至少在一个平台上做一次解包冒烟
 - [x] `feedback/Feedback.tsx`：antd 6 的 `maskClosable: false` → `mask={{ closable: false }}`（`modal.confirm` / `modal.info` 两处）。
 - [x] 主动失败路径的预期日志改为窄范围 allowlist：`activeWin.test.ts`、`AutoUpdater.test.ts`、`dataMerger.test.ts`。
 - [x] `test/jsdom-compat.js` 去掉 jsdom 不支持的 `getComputedStyle(el, pseudoElt)` 第二参数，消除 antd 滚动条测量的 “Not implemented” 噪声。
-- [ ] 可选：基线干净后，在 Jest setup 中增加“未声明的 `console.error` 视为失败”的保护，防止后续迁移重新引入噪声。当前基线已为 0 条，建议在 B2 开始前加。
+- [x] `test/console-gate.js`：未声明的 `console.error` / `console.warn` 会让当前测试失败；预期错误路径必须在最小范围内 `jest.spyOn` 显式声明。已发现并修复 `BoardEditor.test.tsx` 中 mock 错包名导致 rc-textarea 产生的 `NaN` 高度告警。
 
 ---
 
 ## 2. B1：低风险清理
 
+**实施结果（2026-10-21）**：已删除未使用的类型/ESLint 依赖、`prop-types`、旧 Babel proposal 插件和 Codecov 上传链路；husky 升级到 9 并恢复提交钩子。`conventional-changelog-conventionalcommits` 10.4.1 与 semantic-release 25 当前携带的 `conventional-changelog-writer@8.4.0` 不兼容，保留 9.3.1，留给 B6 与 semantic-release 一起升级。
+
 ### 2.1 直接删除的依赖
 
-- [ ] `@types/classnames`：npm 已标记为 stub，`classnames` 自带类型。
-- [ ] `@types/prop-types` + `prop-types`：仅 `src/renderer/components/Timer/Progress.tsx` 使用，`ProgressProps` 已有完整 TS 类型（见 B5）。
-- [ ] `eslint-plugin-import`：`eslint.config.js` 根本没有加载它。
-- [ ] `eslint-plugin-react`：配置里只注册了插件，没有启用任何 `react/*` 规则；`settings.react` 也只在有 react 规则时才有意义。删除后 ESLint 10 的最大阻碍随之消失（见 B6）。
-- [ ] `@babel/polyfill`：已被 npm 标记 deprecated，且只被 `webpack.style.js` 引用；如果 B5 决定删除 styleguidist，可一并删除。
-- [ ] `@babel/plugin-proposal-optional-chaining`：只被 `webpack.style.js` 使用；optional chaining 已是标准语法，preset-env 会按 target 处理。
-- [ ] `@babel/plugin-proposal-class-properties`：被 `webpack.main.config.js`、`webpack.renderer.config.js`、`webpack.style.js` 使用。改为 `@babel/plugin-transform-class-properties`，或者直接删除并确认 preset-env 的 target 能覆盖。注意现在的 `{ loose: true }` 与标准语义（`[[Define]]`）不同，删除前要确认没有依赖 loose 行为的代码。
+- [x] `@types/classnames`：npm 已标记为 stub，`classnames` 自带类型。
+- [x] `@types/prop-types` + `prop-types`：删除 `Progress.tsx` 的 `static propTypes`，仅保留现有 TS 类型。
+- [x] `eslint-plugin-import`：`eslint.config.js` 根本没有加载它。
+- [x] `eslint-plugin-react`：配置里只注册了插件，没有启用任何 `react/*` 规则；删除插件注册与 `settings.react`，保留 `eslint-plugin-react-hooks` 与 JSX parser 配置（见 B6）。
+- [x] `@babel/polyfill`：从 `webpack.style.js` 的 entry 删除，`style-pack` 改为正确的 `styleguidist build`；Electron / 现代浏览器不需要整包 polyfill。
+- [x] `@babel/plugin-proposal-optional-chaining`：删除；optional chaining 已是标准语法，由 preset-env 按 target 处理。
+- [x] `@babel/plugin-proposal-class-properties`：删除而不是替换。`preset-env` 已按 `electron: 39` / `last 2 versions` 处理 class fields；显式 `{ loose: true }` 反而与 preset-env 的 private 字段插件产生 loose 模式冲突，完整构建已验证无 Babel 告警。
 
 ### 2.2 husky 2.7.0 → 9.1.7
 
 当前 `package.json` 的 `"husky": { "hooks": ... }` 写法在 husky 5+ 已经完全失效，**提交钩子实际上没有运行**。
 
-- [ ] 删除 `package.json` 中的 `"husky"` 字段。
-- [ ] `scripts` 增加 `"prepare": "husky"`。
-- [ ] 新建 `.husky/pre-commit`：`npx lint-staged`
-- [ ] 新建 `.husky/commit-msg`：`npx --no -- commitlint --edit "$1"`
-- [ ] 删除对 `HUSKY_GIT_PARAMS` 的依赖。
-- [ ] 验证：`git commit --allow-empty -m "bad message"` 应被 commitlint 拦截；暂存一个未格式化文件应被 lint-staged 处理。
+- [x] 删除 `package.json` 中的 `"husky"` 字段。
+- [x] `scripts` 增加 `"prepare": "husky"`。
+- [x] 新建 `.husky/pre-commit`：`npx lint-staged`
+- [x] 新建 `.husky/commit-msg`：`npx --no -- commitlint --edit "$1"`
+- [x] 删除对 `HUSKY_GIT_PARAMS` 的依赖。
+- [x] 验证：`git hook run commit-msg` 对 `bad message` 返回 1，对 `chore(test): verify husky hook` 返回 0；`lint-staged` 由同一钩子调用。
 
-### 2.3 codecov 3.8.3 → Codecov CLI
+### 2.3 codecov 3.8.3 → 删除
 
-`codecov` npm 包已被官方标记为弃用（uploader deprecation）。
+项目没有覆盖率门禁，`codecov.yml` 只保存了一个上传 token，CI 也只做无条件上传；继续维护 Codecov 没有收益，因此**删除而不是升级**。
 
-- [ ] `.circleci/config.yml` 中的 `./node_modules/.bin/codecov` 改为官方 Codecov CLI（npm `codecov-cli` 或 CI 中安装 CLI 二进制），使用 `upload-process`，token 走项目环境变量。
-- [ ] 删除 devDependency `codecov`。
-- [ ] 保留 `codecov.yml`，确认覆盖率报告仍能上传。
-- [ ] 若后续迁到 GitHub Actions，可直接使用 Codecov 官方 action。
+- [x] 删除 `.circleci/config.yml` 中的 `./node_modules/.bin/codecov`。
+- [x] 删除 devDependency `codecov`。
+- [x] 删除 `codecov.yml`（含旧 token）及 electron-builder `files` 中的排除项。
+- [ ] 如果以后需要覆盖率门禁，再引入 Codecov CLI / GitHub Action，并把 token 放在 CI secret 中，而不是配置文件里。
 
 ### 2.4 其他小项
 
-- [ ] `conventional-changelog-conventionalcommits` 9.3.1 → 10.4.1（低风险）。
+- [ ] `conventional-changelog-conventionalcommits` 9.3.1 → 10.4.1：**暂缓**。10.x 要求 `conventional-changelog-writer@9+`，而 semantic-release 25 当前依赖 8.4.0，`test/semanticReleaseConfig.test.ts` 会直接失败；待 B6 与 semantic-release 一起升级。
 - [ ] `node-gyp` 9 在 B4 里处理（`get-windows` 要求 ^10；也可能不再需要直接依赖）。
 
 ---
@@ -176,7 +178,7 @@ React 官方已将 `react-test-renderer` 标记为 deprecated（每个测试用�
 - [x] 9 个文件全部改用 RTL，测试数量和断言覆盖不减少。
 - [x] `yarn test` 输出中 `react-test-renderer is deprecated` 和 `not wrapped in act` 归零。
 - [x] 删除 `react-test-renderer`、`@types/react-test-renderer`（`react-styleguidist` 的传递类型仍留在 lockfile，随 B5.5 处理）。
-- [x] `jest.config.js` 新增 `test/jsdom-compat.js`（仅处理 jsdom 的 `getComputedStyle` 限制），不使用全局静默。
+- [x] `jest.config.js` 新增 `test/jsdom-compat.js`（仅处理 jsdom 的 `getComputedStyle` 限制）和 `test/console-gate.js`（未声明 `console.error` / `console.warn` 直接失败），不使用全局静默。
 - [x] 为 B5 的 `Hotkeys` 重写保留一份可用的 RTL 测试基线。
 
 ---
@@ -608,7 +610,7 @@ Electron 39 的官方 EOL 是 **2026-05-05**，已经不再收到安全更新。
 ## 11. 进度勾选
 
 - [x] B0 控制台基线与降噪
-- [ ] B1 低风险清理
+- [x] B1 低风险清理（conventional-changelog 升级因兼容性延后到 B6）
 - [x] B1.5 react-test-renderer → React Testing Library
 - [ ] B2 nedb → SQLite
 - [ ] B3 worker-loader / marked

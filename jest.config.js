@@ -5,6 +5,7 @@ module.exports = {
     setupFilesAfterEnv: [
         '<rootDir>/test/react-act-environment.js',
         '<rootDir>/test/jsdom-compat.js',
+        '<rootDir>/test/console-gate.js',
     ],
     // jest 27+ defaults to the node environment, but the component tests need a DOM.
     testEnvironment: 'jsdom',

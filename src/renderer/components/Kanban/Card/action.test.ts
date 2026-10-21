@@ -9,9 +9,9 @@ const db = new AsyncDB(dbs.cardsDB);
 
 describe("Cards' actions", () => {
     // Clear the table the actions touch by removing documents from the in-memory
-    // nedb instance directly. The old reset (unlink the db file + `refreshDbs()`)
-    // never actually worked: `refreshDbs()` swaps in brand-new instances, while
-    // this file's AsyncDB and the FakeDBWorker behind `workers.dbWorkers.cardsDB`
+    // shared repository directly. The old reset (unlink the db file +
+    // `refreshDbs()`) never actually worked: it swapped in brand-new instances,
+    // while this file's AsyncDB and the worker facade behind `workers.dbWorkers.cardsDB`
     // captured the ORIGINAL instances at import. Worse, deleting the file out
     // from under the open instance's persistence handle intermittently wedged
     // nedb's async write queue under parallel workers, and every later op on the

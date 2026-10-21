@@ -11,6 +11,7 @@ type BuildConfig = {
 
 const pkg = JSON.parse(readFileSync(path.join(rootDir, 'package.json'), 'utf8')) as {
     build: BuildConfig;
+    dependencies: Record<string, string>;
 };
 
 // active-win resolves its native addon through @mapbox/node-pre-gyp when
@@ -136,5 +137,19 @@ describe('electron-builder packaging config', () => {
 
         const bindings = findNativeBindings(path.join(rootDir, 'node_modules', 'active-win'));
         expect(bindings.length).toBeGreaterThan(0);
+    });
+
+    it('ships the better-sqlite3 native prebuild and does not exclude it', () => {
+        expect(pkg.dependencies['better-sqlite3']).toBeTruthy();
+        for (const pattern of pkg.build.files) {
+            expect(excludesWholePackage(pattern, 'better-sqlite3')).toBe(false);
+        }
+
+        // Loading the module in this Node process proves the platform prebuild
+        // exists; electron-builder unpacks the same `.node` through asarUnpack.
+        const Database = require('better-sqlite3');
+        const db = new Database(':memory:');
+        expect(db.prepare('SELECT 1 AS value').get()).toEqual({ value: 1 });
+        db.close();
     });
 });

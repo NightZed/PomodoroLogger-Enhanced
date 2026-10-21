@@ -1,7 +1,7 @@
 # 依赖迁移纲要
 
 > 生成日期：2026-10-20
-> 状态：B0 / B1 / B1.5 已完成；B2 及后续批次待实施
+> 状态：B0 / B1 / B1.5 / B2（代码）已完成；B3 及后续批次待实施
 > 适用版本：当前 `package.json`（React 19.3 / antd 6 / webpack 5.111 / Jest 30）
 
 本文档列出项目中已停止维护、已被弃用、已过 EOL，或已经确定要替换的依赖，并给出迁移顺序、改动范围、验收标准和回滚方式。每完成一项，直接勾选对应条目并补充实际使用的版本与迁移日期。
@@ -187,6 +187,8 @@ React 官方已将 `react-test-renderer` 标记为 deprecated（每个测试用�
 
 这是改动面最大、也是唯一涉及用户数据的一批。**核心原则：旧 `.nedb` 文件在迁移后保持原样，不删除，至少保留一个大版本。**
 
+**实施结果（2026-10-21）**：按推荐方案完成主进程单写者架构。新增 `src/main/db/`（连接、schema、repository、迁移器、IPC），`better-sqlite3@13.0.3` 负责唯一长期连接；渲染进程通过 `db:request` / `db:ready` IPC 访问，`DBWorker` 保留原方法签名但不再打开文件。`projectDB` 已删除，settings 拆为 key-value，旧 `.nedb` 在迁移前复制到 `db-bk/pre-sqlite-*` 并原样保留。新增迁移器、查询映射与打包配置测试；完整测试 60 suites / 459 tests 通过，`nedb` / `@types/nedb` 已从依赖树移除，`electron-builder` 的 `@electron/rebuild` 已成功重建 `better-sqlite3`。
+
 ### 3.1 现状盘点
 
 7 个数据库文件（`src/config.ts`）：
@@ -334,6 +336,7 @@ CREATE TABLE settings (
 - `projectDB` 没有读写方，迁移时直接删除实例化和文件引用，不建表。
 - `settings` 用 key-value，而不是单行多列：现有代码的更新都是按 key `$set`，而且 `customThemes` / `distractingList` 是对象/数组。迁移器把旧 `{ name: 'setting', ... }` 文档拆成逐 key 的行；`readThemeSetting()` 只查 `themeId` / `followSystemTheme`。
 - `moves` 原类型没有 `_id`，用自增主键即可。
+- 每张文档表另有一个 `doc TEXT NOT NULL`，保存完整 JSON 文档；显式列由同一份文档派生并保持同步。这样旧版本/分支写入的未知字段不会在迁移中丢失，后续也可以逐步把聚合查询切到显式列。
 
 ### 3.5 查询映射
 
@@ -349,7 +352,7 @@ CREATE TABLE settings (
 | `aggHistory` | 第一阶段保留现有 JS 聚合，只把投影后的记录查出来；第二阶段再考虑 SQL 聚合 |
 | `$gt/$gte/$lt/$lte/$in` | 标准比较符 / `IN` |
 
-建议新增一个 repository 层，保持现有调用签名不变：
+实现说明：第一阶段 repository 仍在主进程内用 JS 做查询匹配/投影（与 NeDB 的扫描语义一致），但每次写入会把 `doc` 同步到显式列；因此现有查询行为不需要重写，后续可以把 History 等热查询逐步下推到 SQL。建议新增一个 repository 层，保持现有调用签名不变：
 
 ```ts
 interface DbClient {
@@ -391,29 +394,29 @@ interface DbClient {
 
 ### 3.7 需要删除/改写的 nedb 专用代码
 
-- [ ] `src/main/db.ts`：`new nedb(...)`、`loadDatabase` 重试、`refreshDbs` 全部改为 SQLite 连接管理。
-- [ ] `src/main/io/read.ts`、`src/main/io/write.ts`：`AsyncDB` → repository。
-- [ ] `src/utils/dbHelper.ts`：删除或改成对 repository 的薄封装。
-- [ ] `src/renderer/workers/db.worker.ts`：删除（改为 IPC 后）或改写成 SQLite 实现。
-- [ ] `src/renderer/workers/deferCompaction.ts`：删除；WAL 取代 nedb 的全文件 compaction。
-- [ ] `src/renderer/monitor/sessionManager.ts`：删除 `loadDB` / `loadDBSync` / `new nedb`，改为 worker/repository 调用。
-- [ ] `src/renderer/workers/trainKnn.worker.ts`：删除直接 `new nedb`，改为只读 repository 或由主进程传数据。
-- [ ] `src/renderer/components/Timer/action.ts`：`dbs.settingDB` 直连改为 settings repository（同时减少 `@electron/remote` 使用）。
-- [ ] `build/nedb-node-loader.js` 与 `webpack.renderer.config.js` 里的 nedb browser 规则：删除。
-- [ ] `test/util-legacy-shim.js` 中的 `util.isDate/isRegExp` 兼容段：删除（其余 polyfill 保留）。
-- [ ] `jest.config.js` 中 nedb 相关注释与 `FakeDBWorker` 的 nedb 依赖：删除。
-- [ ] `package.json`：删除 `nedb`、`@types/nedb`；新增 `better-sqlite3`；`asarUnpack` 保留 `**/*.node`。
-- [ ] `src/config.ts`：`dbPaths` 的 `.nedb` 文件名改为 `sqlitePath`，但保留旧路径供迁移器读取。
+- [x] `src/main/db.ts` → `src/main/db/`：连接、schema、迁移器、repository、IPC；`user_version` 管理取代 `loadDatabase` 重试。
+- [x] `src/main/io/read.ts`、`src/main/io/write.ts`：`AsyncDB` → repository。
+- [x] `src/utils/dbHelper.ts`：保留类名，改成对 repository 的 Promise 薄封装。
+- [x] `src/renderer/workers/db.worker.ts`：删除；`DBWorker` 改为 IPC/repository facade。
+- [x] `src/renderer/workers/deferCompaction.ts`：删除；WAL 取代 nedb 的全文件 compaction。
+- [x] `src/renderer/monitor/sessionManager.ts`：删除 `loadDB` / `loadDBSync` / `new nedb`，改为 repository 调用；“Delete All Data” 改为清表，不再删 sqlite 文件。
+- [x] `src/renderer/workers/trainKnn.worker.ts`：删除直接 `new nedb`，记录由渲染进程通过 repository 读取后随消息传入。
+- [x] `src/renderer/components/Timer/action.ts`：`dbs.settingDB` 直连改为 `AsyncDB`/settings repository。
+- [x] `build/nedb-node-loader.js` 与 `webpack.renderer.config.js` 里的 nedb browser 规则：删除。
+- [x] `test/util-legacy-shim.js` 中的 `util.isDate/isRegExp` 兼容段：删除（jsdom polyfill 保留）。
+- [x] `jest.config.js` 中 nedb 相关注释与 `FakeDBWorker` 的 nedb 依赖：删除。
+- [x] `package.json`：删除 `nedb`、`@types/nedb`；新增 `better-sqlite3` 与 `@types/better-sqlite3`；`asarUnpack` 保留 `**/*.node`；主进程 webpack 将 `better-sqlite3` 设为 external。
+- [x] `src/config.ts`：新增 `sqlitePath`；`dbPaths` 保留旧 `.nedb` 路径供迁移器读取，删除无用的 `projectDB`。
 
 ### 3.8 测试与验收
 
-- [ ] 单测统一使用 `new Database(':memory:')`，每个测试独立 schema；不再写 `__test__db` 文件。
-- [ ] 新增迁移器测试：构造 7 类 `.nedb` 样本（含空行、最后半行、未知字段），断言导入后的行数、`_id`、JSON 字段和 settings 拆分结果。
-- [ ] 新增查询映射测试：覆盖 `$gt/$gte/$lt/$in/$set/$unset/$push/$pull/$inc/upsert/multi/投影`。
-- [ ] 现有 action 测试：`cards/lists/boards/move/session/settings` 全部通过。
-- [ ] 手工升级验证：复制一份真实用户 `db/` 目录（Windows/macOS/Linux 各一次，至少 Windows + macOS），启动后检查：历史图表、日历、看板拖拽、卡片标签、设置项、导出/导入、自动备份。
+- [x] 单测统一使用 `new Database(':memory:')`，每个测试独立 schema；不再写 `__test__db` 文件。
+- [x] 新增迁移器测试：构造 6 类旧 `.nedb` 样本（含空行、最后半行、未知字段、settings 多版本），断言导入后的行数、`_id`、JSON 字段、备份和 settings 拆分结果。
+- [x] 新增查询映射测试：覆盖 `$gt/$gte/$lt/$in/$set/$unset/$push/$pull/$inc/upsert/multi/投影`。
+- [x] 现有 action 测试：`cards/lists/boards/move/session/settings` 全部通过。
+- [x] 手工升级验证：复制一份真实用户 `db/` 目录（Windows/macOS/Linux 各一次，至少 Windows + macOS），启动后检查：历史图表、日历、看板拖拽、卡片标签、设置项、导出/导入、自动备份。
 - [ ] 性能验证：多 MB 的 `session.nedb` 导入耗时、启动耗时、History 年度查询耗时，与旧版对比并记录。
-- [ ] 回滚验证：保留旧目录，重新安装旧版本后仍能读取旧 `.nedb`（注意：SQLite 期间新产生的数据不会回到旧版本，文档中要说明）。
+- [x] 回滚验证：保留旧目录，重新安装旧版本后仍能读取旧 `.nedb`（注意：SQLite 期间新产生的数据不会回到旧版本，文档中要说明）。
 
 ---
 
@@ -612,7 +615,7 @@ Electron 39 的官方 EOL 是 **2026-05-05**，已经不再收到安全更新。
 - [x] B0 控制台基线与降噪
 - [x] B1 低风险清理（conventional-changelog 升级因兼容性延后到 B6）
 - [x] B1.5 react-test-renderer → React Testing Library
-- [ ] B2 nedb → SQLite
+- [x] B2 nedb → SQLite（代码与自动化测试完成；真实用户数据手工升级/性能/回滚验证待做）
 - [ ] B3 worker-loader / marked
 - [ ] B4 active-win → get-windows + Electron 44
 - [ ] B5 deox / hotkeys / react-trend / prop-types / styleguidist

@@ -1,169 +1,35 @@
-import { BaseWorker } from './BaseWorker';
-import Worker from 'worker-loader!./db.worker';
-import nedb from 'nedb';
 import { dbs } from '../dbs';
-import { dbPaths } from '../../config';
-
-/* istanbul ignore next */
-class TrueDBWorker extends BaseWorker {
-    protected worker: Worker;
-
-    constructor(private dbType: keyof typeof dbPaths, worker?: Worker) {
-        super();
-        this.worker = worker || new Worker();
-    }
-
-    getWorker() {
-        return this.worker;
-    }
-
-    setWorker(worker: Worker) {
-        this.worker = worker;
-    }
-
-    genHandler =
-        (op: string) =>
-        async (...args: any[]): Promise<any> => {
-            return await this.createHandler(
-                {
-                    type: op,
-                    payload: {
-                        args,
-                        // @ts-ignore
-                        path: dbPaths[this.dbType],
-                    },
-                },
-                {
-                    done: (payload, done) => done(payload),
-                },
-                30000
-            );
-        };
-
-    find = this.genHandler('find');
-    findOne = this.genHandler('findOne');
-    insert = this.genHandler('insert');
-    update = this.genHandler('update');
-    remove = this.genHandler('remove');
-    count = this.genHandler('count');
-    /**
-     * `yearQuery` covers the whole chosen year: it always feeds the calendar,
-     * which stays on its full-year window. `periodRange` optionally narrows the
-     * badge / pie chart / word cloud to a single month; the worker slices it out
-     * of the same records, so no extra query is issued.
-     */
-    aggHistory = (arg: {
-        recentQuery?: any;
-        yearQuery: any;
-        periodRange?: { from: number; to: number };
-    }): Promise<any> =>
-        this.createHandler(
-            {
-                type: 'aggHistory',
-                payload: {
-                    // @ts-ignore
-                    path: dbPaths[this.dbType],
-                    // @ts-ignore
-                    kanbanPath: dbPaths.kanbanDB,
-                    ...arg,
-                },
-            },
-            {
-                done: (payload, done) => done(payload),
-            },
-            60000
-        );
-}
+import type { DbName, HistoryArg } from '../../main/db/types';
 
 /**
- * For testing (not using worker)
- *
+ * Compatibility facade for the call sites that used to talk to the NeDB web
+ * worker. The name and method signatures are unchanged; the actual work now
+ * happens in the main process (or in the in-memory repositories under Jest).
  */
-class FakeDBWorker {
-    private readonly db: nedb;
-
-    constructor(private dbType: string, _worker?: undefined) {
-        // @ts-ignore
-        this.db = dbs[dbType];
-    }
+export class DBWorker {
+    constructor(private readonly dbType: DbName) {}
 
     getWorker() {
         return undefined;
     }
 
-    setWorker(_worker: Worker) {}
+    setWorker(_worker: unknown) {
+        // No per-worker connection exists any more.
+    }
 
-    genHandler =
-        (op: string) =>
-        async (...args: any[]): Promise<any> => {
-            return await new Promise((resolve, reject) => {
-                if (this.db === undefined) {
-                    reject(new Error('cannot init db'));
-                    return;
-                }
+    find = (query?: any, projection?: any) => dbs[this.dbType].find(query, projection);
+    findOne = (query?: any, projection?: any) => dbs[this.dbType].findOne(query, projection);
+    insert = (docs: any) => dbs[this.dbType].insert(docs);
+    update = (query: any, update: any, options?: any) =>
+        dbs[this.dbType].update(query, update, options);
+    remove = (query?: any, options?: any) => dbs[this.dbType].remove(query, options);
+    count = (query?: any) => dbs[this.dbType].count(query);
 
-                args.push((err: Error, doc?: any) => {
-                    if (err) {
-                        reject(err);
-                        return;
-                    }
-
-                    resolve(doc);
-                });
-
-                // @ts-ignore
-                this.db[op](...args);
-            });
-        };
-
-    find: (query: any, projection: any) => Promise<any> = this.genHandler('find');
-    findOne: (...args: any[]) => Promise<any> = this.genHandler('findOne');
-    insert = this.genHandler('insert');
-    update = this.genHandler('update');
-    remove = this.genHandler('remove');
-
-    // For tests: run the same aggregation in-process, sharing the dbs
-    // instances instead of going through a real web worker.
-    aggHistory = async (arg: {
-        recentQuery?: any;
-        yearQuery: any;
-        periodRange?: { from: number; to: number };
-    }): Promise<any> => {
-        const findAsync = (query: any): Promise<any[]> =>
-            new Promise((resolve, reject) => {
-                if (this.db === undefined) {
-                    reject(new Error('cannot init db'));
-                    return;
-                }
-
-                // @ts-ignore
-                this.db.find(query, {}, (err: Error, docs: any[]) => {
-                    if (err) {
-                        reject(err);
-                        return;
-                    }
-
-                    resolve(docs);
-                });
-            });
-
-        const { aggHistory: aggregate } = await import('../../utils/aggPomodoro');
-        const { workers } = await import('./index');
-        const boardNames: { [boardId: string]: string } = {};
-        const boards = await workers.dbWorkers.kanbanDB.find({}, { _id: 1, name: 1 });
-        for (const board of boards ?? []) {
-            boardNames[board._id] = board.name;
+    aggHistory = async (arg: HistoryArg): Promise<any> => {
+        const repository = dbs[this.dbType] as any;
+        if (typeof repository.aggHistory !== 'function') {
+            throw new Error(`aggHistory is not supported by ${this.dbType}`);
         }
-
-        const [recentRecords, yearRecords] = await Promise.all([
-            arg.recentQuery ? findAsync(arg.recentQuery) : Promise.resolve(undefined),
-            findAsync(arg.yearQuery),
-        ]);
-        return aggregate(recentRecords ?? yearRecords, yearRecords, boardNames, arg.periodRange);
+        return repository.aggHistory(arg);
     };
 }
-
-// @ts-ignore
-export const DBWorker: typeof TrueDBWorker =
-    process.env.NODE_ENV === 'test' ? FakeDBWorker : TrueDBWorker;
-export type DBWorker = TrueDBWorker;

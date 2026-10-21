@@ -1,23 +1,11 @@
 import { app } from 'electron';
-import fs from 'fs';
-import { dbPaths } from '../config';
+import { readSettingValueSync } from './db';
 import './worker/fork';
 
-let useHardwareAcceleration = false;
-try {
-    const settings = fs.readFileSync(dbPaths.settingDB, { encoding: 'utf-8' });
-    console.log({ settings });
-    if (settings) {
-        const json = JSON.parse(
-            settings
-                .split('\n')
-                .filter((x) => !!x)
-                .slice(-1)[0]
-        );
-        console.log(json);
-        useHardwareAcceleration = json.useHardwareAcceleration;
-    }
-} catch (e) {}
+// Reads SQLite when it exists, or the pre-migration setting.nedb on the first
+// start. This must run before app.ready, so it deliberately does not open the
+// long-lived database connection.
+const useHardwareAcceleration = readSettingValueSync<boolean>('useHardwareAcceleration');
 if (!useHardwareAcceleration) {
     if (process.platform !== 'darwin') {
         app.commandLine.appendSwitch('disable-gpu');

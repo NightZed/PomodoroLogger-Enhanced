@@ -30,8 +30,11 @@ if (!existsSync(screenshotDir)) {
     mkdirSync(screenshotDir);
 }
 
+/**
+ * Legacy NeDB files. They are read once by the migrator and then kept on disk
+ * untouched for at least one major version (see MIGRATION.md).
+ */
 export const dbPaths = {
-    projectDB: join(dbBaseDir, 'projects.nedb'),
     sessionDB: join(dbBaseDir, 'session.nedb'),
     settingDB: join(dbBaseDir, 'setting.nedb'),
     kanbanDB: join(dbBaseDir, 'kanban.nedb'),
@@ -39,6 +42,8 @@ export const dbPaths = {
     listsDB: join(dbBaseDir, 'lists.nedb'),
     moveDB: join(dbBaseDir, 'moveCard.nedb'),
 };
+
+export const sqlitePath = join(dbBaseDir, 'pomodoro.sqlite');
 
 if (process.env.NODE_ENV === 'test') {
     for (const key in dbPaths) {

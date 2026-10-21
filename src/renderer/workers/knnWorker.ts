@@ -2,6 +2,7 @@
 import Worker from 'worker-loader!./trainKnn.worker';
 import { PomodoroRecord } from '../monitor/type';
 import { BaseWorker } from './BaseWorker';
+import { dbs } from '../dbs';
 
 export class KnnWorker extends BaseWorker {
     protected worker?: Worker;
@@ -11,10 +12,20 @@ export class KnnWorker extends BaseWorker {
         super();
     }
 
+    /**
+     * The KNN worker used to open the session NeDB file itself. Now that the
+     * main process owns SQLite, the renderer reads the records through the
+     * repository and sends them with the request.
+     */
+    private async getRecords(): Promise<PomodoroRecord[]> {
+        return dbs.sessionDB.find({}, {});
+    }
+
     async train(onDone: (accuracy: number) => void, onProgress: (progress: number) => void) {
         this.worker ??= new Worker();
+        const records = await this.getRecords();
         return this.createHandler(
-            { type: 'trainModel' },
+            { type: 'trainModel', payload: { records } },
             {
                 setProgress: onProgress,
                 setAcc: (acc, done) => {
@@ -28,8 +39,9 @@ export class KnnWorker extends BaseWorker {
 
     async test(onDone: (accuracy: number) => void, onProgress: (progress: number) => void) {
         this.worker ??= new Worker();
+        const records = await this.getRecords();
         return this.createHandler(
-            { type: 'testModel' },
+            { type: 'testModel', payload: { records } },
             {
                 setProgress: onProgress,
                 setAcc: (acc, done) => {
@@ -64,8 +76,9 @@ export class KnnWorker extends BaseWorker {
 
     async loadModel(dbSize: number) {
         this.worker ??= new Worker();
+        const records = await this.getRecords();
         return this.createHandler(
-            { type: 'loadModel', payload: { dbSize } },
+            { type: 'loadModel', payload: { dbSize, records } },
             {
                 onDone: (payload, done) => done(),
             },

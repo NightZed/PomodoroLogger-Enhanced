@@ -9,13 +9,12 @@ import {
     app,
     nativeTheme,
     shell,
+    dialog,
 } from 'electron';
 import * as path from 'path';
 import * as url from 'url';
 import * as db from './db';
 import logo from '../res/icon_sm.png';
-import fs from 'fs';
-import { dbPaths } from '../config';
 import { DAY_THEME_ID } from '../renderer/theme/tokens';
 import packageJson from '../../package.json';
 import { AutoUpdater } from './AutoUpdater';
@@ -41,7 +40,6 @@ protocol.registerSchemesAsPrivileged([
     },
 ]);
 
-const { refreshDbs, loadDBs } = db;
 export let win: BrowserWindow | undefined;
 
 /**
@@ -188,44 +186,27 @@ if (!gotTheLock) {
 }
 
 const mGlobal: typeof global & {
-    sharedDB?: typeof db.DBs;
-    utils?: {
-        refreshDbs: typeof refreshDbs;
-        loadDBs: typeof loadDBs;
-    };
     tray?: Tray;
     setMenuItems?: any;
     learner?: any;
 } = global;
-mGlobal.sharedDB = db.DBs;
-mGlobal.utils = {
-    refreshDbs,
-    loadDBs,
-};
 if (process.platform === 'win32') {
     app.setAppUserModelId('com.electron.time-logger');
 }
 
 /**
- * Settings live in a single nedb document that is persisted as one JSON object
- * per line, so the last line holds the most recent state. Reading it
- * synchronously lets the window pick the right background color (and the right
- * `prefers-color-scheme`) before anything is painted, which avoids a white
- * flash when the night theme is active.
+ * Settings are synchronously readable before the window exists. On the first
+ * start after the upgrade this falls back to the old NeDB file; once the
+ * migration has run it reads the SQLite settings table. Keeping this sync is
+ * what lets the window pick the right background color (and the right
+ * `prefers-color-scheme`) before anything is painted.
  */
 function readThemeSetting(): { themeId?: string; followSystemTheme?: boolean } {
-    try {
-        const content = fs.readFileSync(dbPaths.settingDB, { encoding: 'utf-8' });
-        const lines = content.split('\n').filter((line) => !!line);
-        if (lines.length === 0) {
-            return {};
-        }
-
-        const latest = JSON.parse(lines[lines.length - 1]);
-        return { themeId: latest.themeId, followSystemTheme: latest.followSystemTheme };
-    } catch (e) {
-        return {};
-    }
+    const settings = db.readSettingsSync();
+    return {
+        themeId: settings.themeId,
+        followSystemTheme: settings.followSystemTheme,
+    };
 }
 
 const createWindow = async () => {
@@ -449,29 +430,41 @@ app.on('ready', async () => {
         }
     }
 
-    await db.loadDBs(['settingDB']);
+    try {
+        await db.loadDBs(['settingDB']);
+    } catch (error) {
+        dialog.showErrorBox(
+            'Database migration failed',
+            'Pomodoro Logger could not migrate the old database.\n\n' +
+                'The original .nedb files were left untouched. Please back up the db folder and report this error:\n\n' +
+                String(error)
+        );
+        app.exit(1);
+        return;
+    }
 
     await createWindow();
 
-    db.DBs.settingDB.findOne({ name: 'setting' }, (err, settings) => {
-        if (err) {
-            console.error(err);
-            return;
-        }
+    void (async () => {
+        try {
+            const settings = await db.DBs.settingDB.findOne({ name: 'setting' });
+            if (settings != null && 'autoUpdate' in settings && !settings.autoUpdate) {
+                return;
+            }
 
-        if (settings != null && 'autoUpdate' in settings && !settings.autoUpdate) {
-            return;
-        }
+            // An unpackaged app cannot install an update and electron-updater
+            // would still hit the network, so only check when running a
+            // packaged build.
+            if (!app.isPackaged) {
+                console.log('[updater] skip update check: application is not packaged');
+                return;
+            }
 
-        // An unpackaged app cannot install an update and electron-updater would
-        // still hit the network, so only check when running a packaged build.
-        if (!app.isPackaged) {
-            console.log('[updater] skip update check: application is not packaged');
-            return;
+            autoUpdaterCheck.checkUpdate();
+        } catch (error) {
+            console.error(error);
         }
-
-        autoUpdaterCheck.checkUpdate();
-    });
+    })();
 });
 
 export function restart(): void {

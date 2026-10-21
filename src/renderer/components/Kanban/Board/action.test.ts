@@ -2,9 +2,6 @@ import { actions, boardReducer, KanbanBoardState, defaultBoard } from './action'
 import { applyMiddleware, createStore, Dispatch } from 'redux';
 import { thunk } from 'redux-thunk';
 import { reducer as kanbanReducer } from '../reducer';
-import { dbBaseDir, dbPaths } from '../../../../config';
-import { existsSync, unlink, mkdir } from 'fs';
-import { promisify } from 'util';
 import { uid } from '../../../../utils/uid';
 import dbs from '../../../dbs';
 import { AsyncDB } from '../../../../utils/dbHelper';
@@ -14,15 +11,6 @@ const db = new AsyncDB(dbs.kanbanDB);
 const listsDB = new AsyncDB(dbs.listsDB);
 const cardsDB = new AsyncDB(dbs.cardsDB);
 const sessionDB = new AsyncDB(dbs.sessionDB);
-beforeEach(async () => {
-    if (existsSync(dbPaths.kanbanDB)) {
-        await promisify(unlink)(dbPaths.kanbanDB).catch(() => {});
-    }
-
-    if (!existsSync(dbBaseDir)) {
-        await promisify(mkdir)(dbBaseDir).catch(() => {});
-    }
-});
 
 describe('boardReducer', () => {
     it('reduce MOVE_LIST', async () => {

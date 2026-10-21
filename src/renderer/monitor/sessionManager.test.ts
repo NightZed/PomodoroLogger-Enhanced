@@ -3,30 +3,19 @@ import {
     removeSession,
     getAllSession,
     renameIllegalName,
-    loadDB,
-    loadDBSync,
     getTodaySessions,
     deleteFolderRecursive,
     deleteScreenshots,
     deleteAllUserData,
 } from './sessionManager';
-import { basename, join } from 'path';
-import { dbBaseDir, dbPaths } from '../../config';
-import { existsSync, unlinkSync, mkdirSync, writeFileSync } from 'fs';
+import { join } from 'path';
+import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { generateRandomName } from '../utils';
 import { PomodoroRecord } from './type';
 import { createRecord } from '../../../test/utils';
-const { sessionDB } = dbPaths;
+import dbs from '../dbs';
 
 describe('sessionManager', () => {
-    beforeAll(() => {
-        if (existsSync(sessionDB)) {
-            try {
-                unlinkSync(sessionDB);
-            } catch (e) {}
-        }
-    });
-
     it('addSession', async () => {
         const record: PomodoroRecord = {
             switchActivities: [],
@@ -119,49 +108,19 @@ describe('sessionManager', () => {
         deleteFolderRecursive(root);
     });
 
-    it('deleteAllUserData clears the data files but keeps the settings', async () => {
-        // A directory of its own: the real dbBaseDir is shared with the other
-        // test files running in parallel jest workers.
-        const root = generateRandomName();
-        const settingFile = join(root, basename(dbPaths.settingDB));
-        mkdirSync(join(root, 'nested'), { recursive: true });
-        writeFileSync(settingFile, '{"name":"setting"}');
-        // nedb keeps a `~` copy next to the file while it compacts.
-        writeFileSync(`${settingFile}~`, 'temp');
-        writeFileSync(join(root, 'session.nedb'), '[]');
-        writeFileSync(join(root, 'modelKnn.json'), '{}');
-        writeFileSync(join(root, 'nested', 'cards.nedb'), '[]');
+    it('deleteAllUserData clears sessions but keeps the settings', async () => {
+        const record = createRecord('delete-all', 0, []);
+        await addSession(record);
+        await dbs.settingDB.update(
+            { name: 'setting' },
+            { $set: { themeId: 'keep-me' } },
+            { upsert: true }
+        );
 
-        await deleteAllUserData(root);
+        await deleteAllUserData();
 
-        // The settings database and its temporary sibling stay untouched.
-        expect(existsSync(settingFile)).toBeTruthy();
-        expect(existsSync(`${settingFile}~`)).toBeTruthy();
-        expect(existsSync(join(root, 'session.nedb'))).toBeFalsy();
-        expect(existsSync(join(root, 'modelKnn.json'))).toBeFalsy();
-        expect(existsSync(join(root, 'nested'))).toBeFalsy();
-        // The directory holds the settings file, so the directory stays too.
-        expect(existsSync(root)).toBeTruthy();
-
-        // A directory that is already gone is not an error.
-        await deleteAllUserData(join(root, 'missing'));
-
-        deleteFolderRecursive(root);
-    });
-
-    it('should load Db', async () => {
-        {
-            await loadDB(join(dbBaseDir, 'test_loading.db'));
-        }
-        {
-            await loadDB(join(dbBaseDir, 'test_loading.db'));
-        }
-        {
-            loadDBSync(join(dbBaseDir, 'test_loading.db'));
-        }
-        {
-            loadDBSync(join(dbBaseDir, 'test_loading.db'));
-        }
+        expect(await getAllSession()).toStrictEqual([]);
+        expect((await dbs.settingDB.findOne({ name: 'setting' }))?.themeId).toBe('keep-me');
     });
 
     it('should return today sessions', async () => {

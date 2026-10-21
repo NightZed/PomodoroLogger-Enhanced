@@ -8,9 +8,9 @@ import { List, ListsState } from '../type';
 
 jest.setTimeout(30000);
 // The old `beforeEach` unlinked the db file and called `refreshDbs()`. That was
-// both pointless and the source of the parallel-run flake: `refreshDbs()` swaps
-// in brand-new nedb instances, but this file's `AsyncDB` handles and the
-// `FakeDBWorker` instances behind `workers.dbWorkers` captured the *original*
+// both pointless and the source of the parallel-run flake: `refreshDbs()` used
+// to swap in brand-new instances, but this file's `AsyncDB` handles and the
+// db-worker facade behind `workers.dbWorkers` captured the *original*
 // instances at import time, so they never saw the replacement. All it did was
 // delete the file out from under the still-open original instance's persistence
 // handle — under 19 concurrent Jest workers that wedged nedb's async write

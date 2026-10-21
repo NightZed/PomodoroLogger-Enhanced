@@ -1,7 +1,5 @@
-import nedb from 'nedb';
 import type { SourceData } from '../../shared/dataMerger/dataMerger';
 import { DBs, loadDBs } from '../db';
-import { AsyncDB } from '../../utils/dbHelper';
 import type { CardsState } from '../../renderer/components/Kanban/Card/action';
 import type { ListsState, MoveInfo } from '../../renderer/components/Kanban/type';
 import type { KanbanBoardState } from '../../renderer/components/Kanban/Board/action';
@@ -12,8 +10,8 @@ export async function readAllData(): Promise<SourceData> {
     const cards: CardsState = await readKanban(DBs.cardsDB);
     const lists: ListsState = await readKanban(DBs.listsDB);
     const boards: KanbanBoardState = await readKanban(DBs.kanbanDB);
-    const move: MoveInfo[] = await new AsyncDB(DBs.moveDB).find();
-    const records: PomodoroRecord[] = await new AsyncDB(DBs.sessionDB).find();
+    const move: MoveInfo[] = await DBs.moveDB.find();
+    const records: PomodoroRecord[] = await DBs.sessionDB.find();
     return {
         boards,
         cards,
@@ -23,8 +21,8 @@ export async function readAllData(): Promise<SourceData> {
     };
 }
 
-async function readKanban(db: nedb) {
-    const cards = await new AsyncDB(db).find();
+async function readKanban(db: typeof DBs['cardsDB']) {
+    const cards = await db.find();
     const cardMap: { [id: string]: any } = {};
     for (const card of cards) {
         cardMap[card._id] = card;

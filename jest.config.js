@@ -1,6 +1,6 @@
 module.exports = {
     collectCoverage: true,
-    // nedb@1.8.0 relies on util.isDate/util.isRegExp, which Node 23+ removed.
+    // Pins NODE_ENV=test and installs jsdom polyfills before any test module.
     setupFiles: ['<rootDir>/test/util-legacy-shim.js'],
     setupFilesAfterEnv: [
         '<rootDir>/test/react-act-environment.js',
@@ -51,8 +51,8 @@ module.exports = {
         // '@ant-design/colors/es/generate', which breaks under Jest CJS.
         '^@ant-design/colors/es/generate$': '<rootDir>/node_modules/@ant-design/colors/lib/generate.js',
     },
-    // nedb-based action tests are I/O heavy; give them room so a loaded machine
-    // does not trip the default 5s per-test timeout
+    // Action tests exercise real SQLite transactions; give them room so a
+    // loaded machine does not trip the default 5s per-test timeout.
     testTimeout: 30000,
     // Nothing consumes the HTML coverage report (locally or in CI), so emit flat
     // files only. This also avoids Windows-specific problems in reporters that

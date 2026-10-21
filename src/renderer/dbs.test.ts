@@ -1,33 +1,29 @@
 /**
- * Regression test for settings not being read from / written to the database.
+ * Renderer database handles.
  *
- * `dbs` must already point at the main process's handles while the module
- * graph evaluates, because `Timer/action.ts` and `Kanban/action.ts` capture
- * `dbs.settingDB` in a module-level `AsyncDB`. When the remote was resolved
- * with a dynamic `import()`, `export default dbs` kept the renderer's own
- * `DBs` instead: those nedb instances are never loaded, so settings reads
- * never called back and writes stayed queued, while the UI still updated.
+ * In Jest they point at the main process's in-memory repositories, so the
+ * module-level `AsyncDB` captures in Timer/Kanban actions keep working. In the
+ * packaged app they are IPC proxies to the single main-process connection.
  */
 describe('renderer database handles', () => {
     const originalNodeEnv = process.env.NODE_ENV;
 
     afterEach(() => {
         process.env.NODE_ENV = originalNodeEnv;
-        jest.dontMock('@electron/remote');
+        jest.dontMock('electron');
         jest.resetModules();
     });
 
-    it('resolves the main process databases synchronously outside jest', () => {
-        const sharedDB = { settingDB: {} };
-        const utils = {
-            refreshDbs: jest.fn(),
-            loadDBs: jest.fn(),
-        };
-        jest.doMock('@electron/remote', () => ({
-            __esModule: true,
-            getGlobal: (name: string) => (name === 'sharedDB' ? sharedDB : utils),
-        }));
+    it('uses the main process repositories synchronously under jest', () => {
+        const exported = require('./dbs');
+        const mainDb = require('../main/db');
+        expect(exported.dbs).toBe(mainDb.DBs);
+        expect(exported.default).toBe(mainDb.DBs);
+    });
 
+    it('forwards repository calls over IPC outside jest', async () => {
+        const invoke = jest.fn().mockResolvedValue([{ _id: 'a' }]);
+        jest.doMock('electron', () => ({ ipcRenderer: { invoke } }));
         process.env.NODE_ENV = 'development';
 
         let exported: any;
@@ -35,9 +31,12 @@ describe('renderer database handles', () => {
             exported = require('./dbs');
         });
 
-        expect(exported.default).toBe(sharedDB);
-        expect(exported.dbs).toBe(sharedDB);
-        expect(exported.loadDBs).toBe(utils.loadDBs);
-        expect(exported.refreshDbs).toBe(utils.refreshDbs);
+        await expect(exported.dbs.sessionDB.find({ _id: 'a' }, { _id: 1 })).resolves.toEqual([
+            { _id: 'a' },
+        ]);
+        expect(invoke).toHaveBeenCalledWith('db:request', 'sessionDB', 'find', [
+            { _id: 'a' },
+            { _id: 1 },
+        ]);
     });
 });

@@ -4,7 +4,6 @@ import { addSession } from '../../monitor/sessionManager';
 import { actions as boardActions } from '../Kanban/Board/action';
 import { actions as kanbanActions } from '../Kanban/action';
 import { actions as historyActions } from '../History/action';
-import { promisify } from 'util';
 import dbs from '../../dbs';
 import { PomodoroRecord } from '../../monitor/type';
 import { workers } from '../../workers';
@@ -396,11 +395,6 @@ export function resolveSessionProjectId(
     return confirmedBoardId !== undefined ? confirmedBoardId : inferredProjectId;
 }
 
-const throwError = (err: Error | null) => {
-    if (err) {
-        throw err;
-    }
-};
 export const actions = {
     pauseTimer,
     continueTimer,
@@ -414,9 +408,7 @@ export const actions = {
     setTimerManager,
     switchFocusRestMode,
     fetchSettings: () => async (dispatch: Dispatch) => {
-        const settings: Partial<Setting> = await promisify(
-            dbs.settingDB.findOne.bind(dbs.settingDB)
-        )({ name: 'setting' });
+        const settings: Partial<Setting> = await settingDB.findOne({ name: 'setting' });
         if (settings == null) {
             return;
         }
@@ -462,21 +454,15 @@ export const actions = {
     },
     setAutoUpdate: (value: boolean) => async (dispatch: Dispatch) => {
         dispatch(setAutoUpdate(value));
-        dbs.settingDB.update(
+        await settingDB.update(
             { name: 'setting' },
             { $set: { autoUpdate: value } },
-            { upsert: true },
-            throwError
+            { upsert: true }
         );
     },
     setFocusDuration: (focusDuration: number) => async (dispatch: Dispatch) => {
         dispatch(setFocusDuration(focusDuration));
-        dbs.settingDB.update(
-            { name: 'setting' },
-            { $set: { focusDuration } },
-            { upsert: true },
-            throwError
-        );
+        await settingDB.update({ name: 'setting' }, { $set: { focusDuration } }, { upsert: true });
     },
     setMinimize: (mini: boolean) => async (dispatch: Dispatch) => {
         dispatch(setMinimize(mini));
@@ -537,111 +523,87 @@ export const actions = {
     },
     setRestDuration: (restDuration: number) => async (dispatch: Dispatch) => {
         dispatch(setRestDuration(restDuration));
-        dbs.settingDB.update(
-            { name: 'setting' },
-            { $set: { restDuration } },
-            { upsert: true },
-            throwError
-        );
+        await settingDB.update({ name: 'setting' }, { $set: { restDuration } }, { upsert: true });
     },
     setLongBreakDuration: (longBreakDuration: number) => async (dispatch: Dispatch) => {
         dispatch(setLongBreakDuration(longBreakDuration));
-        dbs.settingDB.update(
+        await settingDB.update(
             { name: 'setting' },
             { $set: { longBreakDuration } },
-            { upsert: true },
-            throwError
+            { upsert: true }
         );
     },
     setMinFinishDuration: (minFinishDuration: number) => async (dispatch: Dispatch) => {
         dispatch(setMinFinishDuration(minFinishDuration));
-        dbs.settingDB.update(
+        await settingDB.update(
             { name: 'setting' },
             { $set: { minFinishDuration } },
-            { upsert: true },
-            throwError
+            { upsert: true }
         );
     },
     setStartOnBoot: (check: boolean) => async (dispatch: Dispatch) => {
         dispatch(setStartOnBoot(check));
-        dbs.settingDB.update(
+        await settingDB.update(
             { name: 'setting' },
             { $set: { startOnBoot: check } },
-            { upsert: true },
-            throwError
+            { upsert: true }
         );
     },
     setUseHardwareAcceleration: (check: boolean) => async (dispatch: Dispatch) => {
         dispatch(setUseHardwareAcceleration(check));
-        dbs.settingDB.update(
+        await settingDB.update(
             { name: 'setting' },
             { $set: { useHardwareAcceleration: check } },
-            { upsert: true },
-            throwError
+            { upsert: true }
         );
     },
     setMonitorInterval: (monitorInterval: number) => async (dispatch: Dispatch) => {
         dispatch(setMonitorInterval(monitorInterval));
-        dbs.settingDB.update(
+        await settingDB.update(
             { name: 'setting' },
             { $set: { monitorInterval } },
-            { upsert: true },
-            throwError
+            { upsert: true }
         );
     },
     setScreenShotInterval: (screenShotInterval?: number) => async (dispatch: Dispatch) => {
         dispatch(setScreenShotInterval(screenShotInterval));
-        dbs.settingDB.update(
+        await settingDB.update(
             { name: 'setting' },
             { $set: { screenShotInterval } },
-            { upsert: true },
-            throwError
+            { upsert: true }
         );
     },
     setWarnBeforeFocusStart: (warnBeforeFocusStart: boolean) => async (dispatch: Dispatch) => {
         dispatch(setWarnBeforeFocusStart(warnBeforeFocusStart));
-        dbs.settingDB.update(
+        await settingDB.update(
             { name: 'setting' },
             { $set: { warnBeforeFocusStart } },
-            { upsert: true },
-            throwError
+            { upsert: true }
         );
     },
     setCalendarBaseColor: (calendarBaseColor: string) => async (dispatch: Dispatch) => {
         dispatch(setCalendarBaseColor(calendarBaseColor));
-        dbs.settingDB.update(
+        await settingDB.update(
             { name: 'setting' },
             { $set: { calendarBaseColor } },
-            { upsert: true },
-            throwError
+            { upsert: true }
         );
     },
     setThemeId: (themeId: string) => async (dispatch: Dispatch) => {
         dispatch(setThemeId(themeId));
-        dbs.settingDB.update(
-            { name: 'setting' },
-            { $set: { themeId } },
-            { upsert: true },
-            throwError
-        );
+        await settingDB.update({ name: 'setting' }, { $set: { themeId } }, { upsert: true });
     },
     setFollowSystemTheme: (follow: boolean) => async (dispatch: Dispatch) => {
         dispatch(setFollowSystemTheme(follow));
-        dbs.settingDB.update(
+        await settingDB.update(
             { name: 'setting' },
             { $set: { followSystemTheme: follow } },
-            { upsert: true },
-            throwError
+            { upsert: true }
         );
     },
     setCustomThemes: (customThemes: ThemeDefinition[]) => async (dispatch: Dispatch) => {
         dispatch(setCustomThemes(customThemes));
-        dbs.settingDB.update(
-            { name: 'setting' },
-            { $set: { customThemes } },
-            { upsert: true },
-            throwError
-        );
+        await settingDB.update({ name: 'setting' }, { $set: { customThemes } }, { upsert: true });
     },
     timerFinished:
         (sessionData?: PomodoroRecord, cardIds: string[] = [], boardId?: string | undefined) =>

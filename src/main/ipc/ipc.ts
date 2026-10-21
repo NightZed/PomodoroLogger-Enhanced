@@ -22,6 +22,7 @@ import {
     unwrapImportPayload,
 } from '../../shared/dataTransfer/payload';
 import { validateSourceData } from '../../shared/dataTransfer/validate';
+import { initializeDbIpc } from '../db/ipc';
 
 /**
  * token is used to identify the sender of the message
@@ -41,6 +42,7 @@ function handle(name: string, callback: (...args: any[]) => Promise<void> | any)
 }
 
 export function initialize() {
+    initializeDbIpc();
     handle(IpcEventName.ActiveWin, activeWin);
     handle(IpcEventName.FocusOnWindow, () => {
         // Works while the window sits minimized in the tray as well: reveal

@@ -1,50 +1,40 @@
-import nedb from 'nedb';
+import type { DbRepository } from '../main/db/types';
 
+/**
+ * Thin async facade over a repository.
+ *
+ * The class name is kept because action modules and tests already use it. The
+ * NeDB callback plumbing is gone: repositories return promises, and the main
+ * process owns the only SQLite connection.
+ */
 export class AsyncDB {
-    constructor(private db: nedb) {}
-
-    promisify(fn: Function) {
-        return async (...args: any[]) => {
-            return new Promise((resolve, reject) => {
-                args.push((err: Error, ans?: any) => {
-                    if (err) {
-                        reject(err);
-                        return;
-                    }
-
-                    resolve(ans);
-                });
-
-                fn.call(this.db, ...args);
-            });
-        };
-    }
+    constructor(private db: DbRepository) {}
 
     async find(query?: any, projection?: any): Promise<any> {
-        return await this.promisify(this.db.find)(query, projection);
+        return await this.db.find(query, projection);
     }
 
     async update(query: any, updateQuery: any, options: any = {}) {
-        return await this.promisify(this.db.update)(query, updateQuery, options);
+        return await this.db.update(query, updateQuery, options);
     }
 
-    async findOne(...args: any): Promise<any> {
-        return await this.promisify(this.db.findOne)(...args);
+    async findOne(query?: any, projection?: any): Promise<any> {
+        return await this.db.findOne(query, projection);
     }
 
-    async count(...args: any) {
-        return await this.promisify(this.db.count)(...args);
+    async count(query?: any) {
+        return await this.db.count(query);
     }
 
-    async insert(...args: any) {
-        return await this.promisify(this.db.insert)(...args);
+    async insert(docs: any) {
+        return await this.db.insert(docs);
     }
 
-    async remove(...args: any) {
-        return await this.promisify(this.db.remove)(...args);
+    async remove(query?: any, options?: any) {
+        return await this.db.remove(query, options);
     }
 
     async getAll(): Promise<any> {
-        return await this.promisify(this.db.getAllData)();
+        return await this.db.find({});
     }
 }

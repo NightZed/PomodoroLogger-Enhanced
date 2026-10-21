@@ -1,45 +1,58 @@
-/* istanbul ignore file */
+import type { DbName, DbRepositories } from '../main/db/types';
+
 /**
- * The databases live in the main process; the renderer only gets handles to
- * them through `@electron/remote`.
+ * Renderer-side database handles.
  *
- * Those handles have to be resolved SYNCHRONOUSLY while this module evaluates:
- *
- * - importers capture a database at module evaluation time -- `Timer/action.ts`
- *   and `Kanban/action.ts` wrap `dbs.settingDB` in an `AsyncDB` at the top
- *   level, so an assignment that happens later leaves them holding whatever
- *   `dbs` was at that moment;
- * - `export default dbs` exports the value once (it is not a live binding).
- *
- * Resolving the remote asynchronously therefore left the settings code with the
- * renderer's own `DBs` from `main/db` -- nedb instances that are never loaded
- * (only the main process's copies are). Their reads never call back and their
- * writes stay queued forever, while the UI still changes because the actions
- * update the store before touching the database. Session data kept working
- * because it goes through the web workers, which open the files themselves.
- *
- * `require` is used inside the branches so that jest (which has no
- * `@electron/remote`) never loads the remote module.
+ * The main process owns the only SQLite connection. In the app these handles
+ * are small IPC proxies; under Jest they point directly at the in-memory
+ * repositories, so action tests keep using the same module-level captures they
+ * used before (`Timer/action.ts` and `Kanban/action.ts` wrap a handle in an
+ * `AsyncDB` while the module graph evaluates).
  */
+
 type MainDbModule = typeof import('../main/db');
 
-export let refreshDbs: MainDbModule['refreshDbs'];
-export let loadDBs: MainDbModule['loadDBs'];
-export let dbs: MainDbModule['DBs'];
+const dbNames: DbName[] = ['sessionDB', 'settingDB', 'kanbanDB', 'cardsDB', 'listsDB', 'moveDB'];
+
+export let refreshDbs: () => Promise<unknown>;
+export let loadDBs: (names?: DbName[]) => Promise<void>;
+export let dbs: DbRepositories;
+
+function createRemoteRepository(name: DbName, invoke: (...args: any[]) => Promise<any>) {
+    const call =
+        (operation: string) =>
+        (...args: any[]) =>
+            invoke('db:request', name, operation, args);
+    return {
+        find: call('find'),
+        findOne: call('findOne'),
+        insert: call('insert'),
+        update: call('update'),
+        remove: call('remove'),
+        count: call('count'),
+        aggHistory: call('aggHistory'),
+    };
+}
 
 if (process.env.NODE_ENV === 'test') {
-    // Renderer and main share one process under jest: use the real instances.
     const mainDb: MainDbModule = require('../main/db');
     dbs = mainDb.DBs;
     refreshDbs = mainDb.refreshDbs;
     loadDBs = mainDb.loadDBs;
-    loadDBs();
+    void loadDBs();
 } else {
-    const remote: typeof import('@electron/remote') = require('@electron/remote');
-    dbs = remote.getGlobal('sharedDB');
-    const utils: MainDbModule = remote.getGlobal('utils');
-    refreshDbs = utils.refreshDbs;
-    loadDBs = utils.loadDBs;
+    const { ipcRenderer } = require('electron');
+    const invoke = (...args: any[]) => ipcRenderer.invoke(...args);
+    dbs = Object.fromEntries(
+        dbNames.map((name) => [name, createRemoteRepository(name, invoke)])
+    ) as unknown as DbRepositories;
+    loadDBs = async () => {
+        await ipcRenderer.invoke('db:ready');
+    };
+    refreshDbs = async () => {
+        await ipcRenderer.invoke('db:ready');
+        return dbs;
+    };
 }
 
 export default dbs;

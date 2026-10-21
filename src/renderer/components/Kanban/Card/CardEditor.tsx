@@ -299,7 +299,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
         if (!card) {
             // Creating
             const _id = uid();
-            // Await the insert before the follow-up updates: nedb `update`
+            // Await the insert before the follow-up updates: repository `update`
             // without upsert is a no-op for a not-yet-inserted doc, so firing
             // setEstimatedTime/setLabels concurrently with addCard could lose
             // them after a restart.

@@ -5,15 +5,6 @@ const CopyPlugin = require('copy-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const { build } = require('./package');
 const baseConfig = require('./webpack.base.config');
-/**
- * neDB's browser build would store the databases in localStorage instead of on
- * disk, see `build/nedb-node-loader.js`.
- */
-const fixNedbForElectronRenderer = {
-    test: /nedb[\\/]browser-version[\\/]browser-specific[\\/]lib[\\/](storage|customUtils)\.js$/,
-    use: { loader: path.resolve(__dirname, 'build/nedb-node-loader.js') }
-};
-
 
 module.exports = merge(baseConfig, {
     target: 'electron-renderer',
@@ -85,8 +76,7 @@ module.exports = merge(baseConfig, {
             {
                 test: /\.(dat|mp3)$/,
                 type: 'asset/resource'
-            },
-            fixNedbForElectronRenderer
+            }
         ]
         },
     plugins: [

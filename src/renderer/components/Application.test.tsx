@@ -38,7 +38,6 @@ jest.mock('./Timer/iconMaker', () => ({
 }));
 jest.mock('../dbs', () => {
     const dbs = {
-        projectDB: {},
         sessionDB: {},
         settingDB: {},
         kanbanDB: {},
@@ -56,7 +55,6 @@ jest.mock('../dbs', () => {
 jest.mock('../workers', () => ({
     workers: {
         dbWorkers: {
-            projectDB: {},
             sessionDB: {},
             settingDB: {},
             kanbanDB: {},

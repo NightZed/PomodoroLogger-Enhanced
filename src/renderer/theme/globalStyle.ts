@@ -625,9 +625,19 @@ export const GlobalStyle = createGlobalStyle`
         }
     }
 
-    /* The v5 Circle is rendered directly by Timer/Progress.tsx, so provide
-       the positioning normally added by antd's Progress component in both themes. */
-    html[data-theme] .ant-progress-circle .ant-progress-inner {
+    /* Timer/Progress.tsx renders antd's Circle directly instead of going
+       through the Progress component. antd v5+ ships its component CSS through
+       cssinjs, and those styles are only registered when the Progress component
+       itself renders, so none of them exist here. Provide the positioning they
+       would normally add ourselves.
+
+       It must be pinned to the wrapper this app renders (.ant-progress), not
+       to the circle's inner container: antd v5 called it '-inner', v6 renamed
+       it to '-body'. While the selector still said '-inner' it silently stopped
+       matching, so the text lost its 'line-height: 1' (the number's line box
+       grew from 51px to 68px, pushing the mode label further down) and was
+       positioned against ProgressContainer instead of the 300px circle. */
+    html[data-theme] .ant-progress.ant-progress-circle {
         position: relative;
         line-height: 1;
     }
@@ -639,6 +649,7 @@ export const GlobalStyle = createGlobalStyle`
         width: 100%;
         margin: 0;
         padding: 0;
+        line-height: 1;
         transform: translateY(-50%);
         text-align: center;
         white-space: normal;

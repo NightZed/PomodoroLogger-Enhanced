@@ -38,4 +38,24 @@ describe('Timer Progress', () => {
 
         cleanup();
     });
+
+    it('exposes the classes the global circle layout is pinned to', () => {
+        const { container } = render(
+            <Progress type="circle" percent={50} width={300}>
+                Timer
+            </Progress>
+        );
+
+        // The circle is rendered without antd's Progress component, so the
+        // positioning/line-height of the number and mode label comes from
+        // globalStyle. Those rules match the root wrapper (.ant-progress
+        // .ant-progress-circle) and the text span (.ant-progress-text); renaming
+        // either here silently breaks the timer layout again.
+        const root = container.firstElementChild as HTMLElement;
+        expect(root.classList.contains('ant-progress')).toBe(true);
+        expect(root.classList.contains('ant-progress-circle')).toBe(true);
+        expect(container.querySelector('.ant-progress-text')).not.toBeNull();
+
+        cleanup();
+    });
 });

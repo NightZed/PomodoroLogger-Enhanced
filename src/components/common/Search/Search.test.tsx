@@ -12,7 +12,7 @@
  * returned first (typing).
  */
 import React from 'react';
-import { act, render } from '@testing-library/react';
+import { act, fireEvent, render } from '@testing-library/react';
 import { Search } from './Search';
 
 /** Dispatch a real Ctrl+F keydown on `target`; false = the handler ran. */
@@ -58,5 +58,33 @@ describe('Search Ctrl+F scoping', () => {
 
         view.unmount();
         textarea.remove();
+    });
+
+    it('computes the tag panel once per open, not on every keystroke', () => {
+        const tags = jest.fn(() => ['#one']);
+        const view = render(<Search enabled={true} setSearchStr={jest.fn()} tags={tags} />);
+
+        // Expand the bar, then the suggestion panel.
+        act(() => {
+            (view.container.firstElementChild as HTMLElement).click();
+        });
+        act(() => {
+            const arrow = view.container.querySelector(
+                '[aria-label="Expand search panel"]'
+            ) as HTMLElement;
+            arrow.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        });
+
+        expect(tags).toHaveBeenCalledTimes(1);
+
+        fireEvent.change(view.container.querySelector('input') as HTMLInputElement, {
+            target: { value: 'one' },
+        });
+
+        // The board data did not change, so typing must reuse the computed
+        // tag list instead of walking every card again.
+        expect(tags).toHaveBeenCalledTimes(1);
+
+        view.unmount();
     });
 });

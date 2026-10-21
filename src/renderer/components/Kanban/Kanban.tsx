@@ -121,7 +121,10 @@ export const Kanban: FunctionComponent<Props> = React.memo(
             // render-time TagManager registry only ever accumulated, so a
             // deleted tag stayed suggested until an app restart.)
             return getBoardSearchTags(board, props.lists, props.cards);
-        }, [props.cards, props.lists, props.boards, props.kanban]);
+            // Only the chosen id matters here, not every unrelated kanban
+            // update; including the whole slice re-created the callback (and
+            // the Search bar's tag list) on each tick.
+        }, [props.cards, props.lists, props.boards, props.kanban.chosenBoardId]);
         const onShowTableChange = (value: boolean) => {
             setShowTable(value);
         };

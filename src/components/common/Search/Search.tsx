@@ -233,6 +233,27 @@ export const Search = ({
         setShowPanel((v) => !v);
     }, []);
 
+    // `tags()` walks every card of the board and extracts its content tags.
+    // It used to be called from the JSX on every Search render, so each
+    // keystroke in the search box re-parsed every card while the panel was
+    // open. Compute the panel data only when the panel is actually shown and
+    // the underlying board data (the callback identity) changes.
+    const tagList = React.useMemo(
+        () => (showPanel && isSearching && tags ? tags() : undefined),
+        [showPanel, isSearching, tags]
+    );
+    const historyList = React.useMemo(
+        () => (showPanel && isSearching && searchHistory ? searchHistory() : undefined),
+        [showPanel, isSearching, searchHistory]
+    );
+    const panel = React.useMemo(
+        () =>
+            showPanel && isSearching ? (
+                <SearchPanel tags={tagList} history={historyList} search={search} />
+            ) : null,
+        [showPanel, isSearching, tagList, historyList, search]
+    );
+
     return (
         <StyledSearch
             onKeyDown={onKeydown}
@@ -256,13 +277,7 @@ export const Search = ({
                 />
                 <Icon type="close" className="close" aria-label="Clear" onClick={clear} />
             </header>
-            {showPanel && isSearching && (
-                <SearchPanel
-                    tags={tags && tags()}
-                    history={searchHistory && searchHistory()}
-                    search={search}
-                />
-            )}
+            {panel}
         </StyledSearch>
     );
 };

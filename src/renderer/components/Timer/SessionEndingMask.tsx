@@ -124,31 +124,41 @@ const _TimerMask = (props: MaskProps) => {
     // `renderItem` -> `itemRender`; `List.Item` is gone, the item wrapper is
     // rendered by Listy itself). The old small + bordered look is reproduced
     // with Listy's semantic styles.
-    const renderItem = (item: KanbanBoard) => {
-        const onClick = (event: React.MouseEvent) => {
-            setBoard(item._id);
-            event.stopPropagation();
-            event.preventDefault();
-        };
-        return <ListItem onClick={onClick}>{item.name}</ListItem>;
-    };
+    // The mask re-renders with every timer update, but the project list only
+    // changes when boards change. Rebuilding the Listy element on every tick
+    // does not mount it while the Popover is closed, but keep it stable so
+    // opening the popover only has to show the already-built tree.
+    const content = React.useMemo(() => {
+        if (!boards.length) {
+            return undefined;
+        }
 
-    const content = boards.length ? (
-        <Listy
-            items={Object.values(boards)}
-            rowKey="_id"
-            itemRender={renderItem}
-            styles={{
-                root: {
-                    border: '1px solid var(--pl-border, #d9d9d9)',
-                    borderRadius: 2,
-                },
-                item: {
-                    padding: '8px 16px',
-                },
-            }}
-        />
-    ) : undefined;
+        const renderItem = (item: KanbanBoard) => {
+            const onClick = (event: React.MouseEvent) => {
+                setBoard(item._id);
+                event.stopPropagation();
+                event.preventDefault();
+            };
+            return <ListItem onClick={onClick}>{item.name}</ListItem>;
+        };
+
+        return (
+            <Listy
+                items={Object.values(boards)}
+                rowKey="_id"
+                itemRender={renderItem}
+                styles={{
+                    root: {
+                        border: '1px solid var(--pl-border, #d9d9d9)',
+                        borderRadius: 2,
+                    },
+                    item: {
+                        padding: '8px 16px',
+                    },
+                }}
+            />
+        );
+    }, [boards, setBoard]);
 
     const onProjectClick = (event: React.MouseEvent) => {
         event.stopPropagation();

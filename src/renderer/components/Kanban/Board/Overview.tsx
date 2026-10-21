@@ -10,7 +10,8 @@ import styled, { keyframes } from 'styled-components';
 import { formatTimeWithoutZero } from '../../../utils';
 import { BoardBrief } from './BoardBrief';
 import { actions, SortDirection, SortType } from '../action';
-import { Card, KanbanBoard, ListsState } from '../type';
+import { KanbanBoard, ListsState } from '../type';
+import { AggBoardInfo, aggregateBoardRows } from './tableAggregation';
 
 const Container = styled.div``;
 
@@ -60,15 +61,6 @@ interface Props {
     boards: KanbanBoardState;
     lists: ListsState;
     cards: CardsState;
-}
-
-interface AggBoardInfo {
-    _id: string;
-    name: string;
-    estimatedLeftTimeSum: number;
-    actualTimeSum: number;
-    pomodoroCount: number;
-    meanPercentageError?: number;
 }
 
 const columns = [
@@ -126,51 +118,20 @@ const columns = [
     },
 ];
 
-type NewCard = Card & { isDone?: boolean };
 const _OverviewTable: FC<Props> = (props: Props) => {
     const { boards, lists: listsById, cards: cardsById } = props;
-    const boardRows = Object.values(boards);
 
-    const aggInfo: AggBoardInfo[] = boardRows.map((board) => {
-        const { name, lists, relatedSessions, _id } = board;
-        const cards: NewCard[] = lists.reduce((l: NewCard[], listId) => {
-            for (const cardId of listsById[listId].cards) {
-                const card: NewCard = cardsById[cardId];
-                card.isDone = listId === board.doneList;
-                l.push(card);
-            }
-            return l;
-        }, []);
-        const [estimatedLeftTimeSum, actualTimeSum, errorSum, n] = cards.reduce(
-            (l: number[], r: NewCard) => {
-                let err = 0;
-                const { actual, estimated } = r.spentTimeInHour;
-                if (r.isDone && actual !== 0 && estimated !== 0) {
-                    err = (Math.abs(estimated - actual) / actual) * 100;
-                }
-
-                return [
-                    l[0] + (r.isDone ? 0 : Math.max(0, estimated - actual)),
-                    l[1] + actual,
-                    l[2] + err,
-                    l[3] + (r.isDone ? 1 : 0),
-                ];
-            },
-            [0, 0, 0, 0]
-        );
-        return {
-            _id,
-            name,
-            estimatedLeftTimeSum,
-            actualTimeSum,
-            meanPercentageError: n ? errorSum / n : undefined,
-            pomodoroCount: relatedSessions.length,
-        };
-    });
+    // The aggregation walks every card of every board. The table re-renders
+    // when it is sorted, paged or when an IdTrend resolves, so keep the result
+    // stable for the inputs that actually affect it.
+    const aggInfo: AggBoardInfo[] = React.useMemo(
+        () => aggregateBoardRows(boards, listsById, cardsById),
+        [boards, listsById, cardsById]
+    );
 
     return (
         <Container>
-            <Table rowKey={'name'} columns={columns} dataSource={aggInfo} />
+            <Table rowKey={'_id'} columns={columns} dataSource={aggInfo} />
         </Container>
     );
 };

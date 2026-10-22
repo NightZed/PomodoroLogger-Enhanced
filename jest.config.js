@@ -34,9 +34,21 @@ module.exports = {
                     '@babel/preset-react'
                 ]
             }
+        ],
+        // marked 18 is ESM-only (no CJS entry). Jest's VM runtime cannot
+        // require() the ESM file directly, so transpile that one dependency.
+        'node_modules[/\\\\]marked[/\\\\].+\\.js$': [
+            'babel-jest',
+            {
+                babelrc: false,
+                configFile: false,
+                presets: [['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }]]
+            }
         ]
     },
-    transformIgnorePatterns: [],
+    // Keep the default node_modules exclusion, but allow marked through the
+    // transform above. Other dependencies stay untouched.
+    transformIgnorePatterns: ['/node_modules/(?!(marked)/)'],
     moduleFileExtensions: ['ts', 'tsx', 'js', 'json', 'node'],
     moduleNameMapper: {
         '\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga|dat)$':

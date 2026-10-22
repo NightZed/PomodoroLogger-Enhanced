@@ -32,6 +32,18 @@ describe('Markdown tag', () => {
     it('italic', () => {
         expect(formatMarkdown('*hello*').trim()).toEqual('<p><em>hello</em></p>');
     });
+
+    it('keeps GFM breaks enabled', () => {
+        expect(formatMarkdown('first line\nsecond line').trim()).toEqual(
+            '<p>first line<br>second line</p>'
+        );
+    });
+
+    it('marks links to open in a new window', () => {
+        expect(formatMarkdown('[docs](https://example.com)').trim()).toContain(
+            '<a target="_blank" href="https://example.com">docs</a>'
+        );
+    });
 });
 
 describe('task checkbox', () => {

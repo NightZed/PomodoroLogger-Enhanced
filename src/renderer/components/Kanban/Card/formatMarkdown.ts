@@ -58,7 +58,8 @@ export const formatMarkdown = (markdown: string, context: MarkdownContext = defa
     }
 
     let i = 0;
-    const html = marked(markdown, { gfm: true, breaks: true })
+    const html = marked
+        .parse(markdown, { gfm: true, breaks: true, async: false })
         .replace(/<a/g, '<a target="_blank"')
         .replace(/\[(\s|x)\]/g, (match) => {
             let newString;

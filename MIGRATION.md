@@ -1,7 +1,7 @@
 # 依赖迁移纲要
 
 > 生成日期：2026-10-20
-> 状态：B0 / B1 / B1.5 / B2（代码、升级/回滚、History 性能）已完成；B3 及后续批次待实施
+> 状态：B0 / B1 / B1.5 / B2（代码、升级/回滚、History 性能）/ B3 已完成；B4 及后续批次待实施
 > 适用版本：当前 `package.json`（React 19.3 / antd 6 / webpack 5.111 / Jest 30）
 
 本文档列出项目中已停止维护、已被弃用、已过 EOL，或已经确定要替换的依赖，并给出迁移顺序、改动范围、验收标准和回滚方式。每完成一项，直接勾选对应条目并补充实际使用的版本与迁移日期。
@@ -474,11 +474,13 @@ interface DbClient {
 
 ### 4.2 `marked` 4.0.12 → 18.1.1
 
-- [ ] 升级 `marked`，删除 `@types/marked`（marked 5+ 自带类型）。
-- [ ] `src/renderer/components/Kanban/Card/formatMarkdown.ts`：确认 `marked(markdown, { gfm: true, breaks: true })` 仍可用；重点回归 GFM 任务列表的 `<input type="checkbox" disabled>` 结构（现有代码依赖这个结构做二次替换）。
-- [ ] marked 18 是 ESM-only：Jest 需要把 marked 加入 `transformIgnorePatterns` 例外，或用 `moduleNameMapper` 指向 CJS 构建（如果仍提供）。
-- [ ] 回归链接 `target="_blank"`、`#tag` 解析、`extractTags` 缓存。
-- [ ] 若升级成本高于收益，可先停在 4.3.x，仅删除 `@types/marked` 并记录原因；但 marked 4 已不再接收安全修复。
+- [x] 升级 `marked` 到 `18.1.1`，删除 `@types/marked`（marked 5+ 自带类型）。
+- [x] `src/renderer/components/Kanban/Card/formatMarkdown.ts`：改用 `marked.parse(markdown, { gfm: true, breaks: true, async: false })`；`async: false` 让类型收窄为 `string`。GFM 任务列表仍输出 `<input … disabled … type="checkbox">`，现有二次替换逻辑保持不变。
+- [x] marked 18 是 ESM-only：Jest 仅对 `node_modules/marked/**/*.js` 追加 Babel CommonJS 转换，并把 marked 加入 `transformIgnorePatterns` 例外；其他依赖仍走默认的 node_modules 忽略规则。
+- [x] 回归链接 `target="_blank"`、`#tag` 解析、`extractTags` 缓存；`formatMarkdown` / `Card` 测试全部通过。
+- [x] 若升级成本高于收益，可先停在 4.3.x，仅删除 `@types/marked` 并记录原因；但 marked 4 已不再接收安全修复。（本次未采用该退路）
+
+实现说明：marked 18 的 `marked(...)` 调用仍可用，但直接调用时 TypeScript 返回 `string | Promise<string>`；统一改用 `marked.parse()` 并显式传 `async: false`，既符合 v18 API，也避免在同步渲染路径上引入 Promise。
 
 ---
 
@@ -656,7 +658,7 @@ Electron 39 的官方 EOL 是 **2026-05-05**，已经不再收到安全更新。
 - [x] B1 低风险清理（conventional-changelog 升级因兼容性延后到 B6）
 - [x] B1.5 react-test-renderer → React Testing Library
 - [x] B2 nedb → SQLite（代码、自动化测试、真实用户数据升级/回滚验证完成；History 卡顿与内存优化已实施）
-- [ ] B3 marked（worker-loader 已完成）
+- [x] B3 worker-loader → webpack 5 原生 Worker；marked 4 → 18
 - [ ] B4 active-win → get-windows + Electron 44
 - [ ] B5 deox / hotkeys / react-trend / prop-types / styleguidist
 - [ ] B6 prettier / webpack-cli / WDS / ESLint 10 / Babel 8 / nanoid / node-gyp

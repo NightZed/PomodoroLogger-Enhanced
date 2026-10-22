@@ -1,8 +1,8 @@
 /* istanbul ignore file */
-import Worker from 'worker-loader!./tokenizer.worker';
 import { PomodoroRecord } from '../monitor/type';
 import { BaseWorker } from './BaseWorker';
 import { Card } from '../components/Kanban/type';
+import { createTokenizerWorker } from './nativeWorkerFactory';
 
 export class Tokenizer extends BaseWorker {
     protected worker?: Worker;
@@ -13,7 +13,7 @@ export class Tokenizer extends BaseWorker {
             return [];
         }
 
-        this.worker ??= new Worker();
+        this.worker ??= createTokenizerWorker();
         return (await this.createHandler(
             {
                 type: 'tokenize',

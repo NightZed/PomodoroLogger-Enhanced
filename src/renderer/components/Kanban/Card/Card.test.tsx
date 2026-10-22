@@ -33,7 +33,7 @@ jest.mock('@hello-pangea/dnd', () => ({
 }));
 
 // Card only reads `formatTimeYmdHm` from Timeline, but importing the real
-// module pulls in sessionManager -> workers -> worker-loader/nedb, none of
+// module pulls in sessionManager -> workers -> native workers/SQLite, none of
 // which has anything to do with click routing.
 jest.mock('../../Visualization/Timeline', () => ({
     formatTimeYmdHm: (time: number) => `time-${time}`,

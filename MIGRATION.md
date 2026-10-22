@@ -453,7 +453,7 @@ interface DbClient {
 - **去掉每张卡的 Redux 订阅**：`List` 已经订阅卡片表并负责筛选/统计，现在把卡片字段和所需的 `setContent` / `setEditCard` / `setSearchReg` 直接传给纯 memo `Card`，不再为每张卡创建 `connect` 包装和 selector。
 - 保留既有 `formatMarkdown` 缓存；本机 345 张卡全部解析约 42ms，说明数据库和 markdown 本身不是主要瓶颈，DOM/组件挂载才是。
 
-测试环境（jsdom，100 张卡、单列表）首次挂载从约 900ms 降到约 330–390ms；真实窗口还需要按不同显卡/缩放/卡片内容复测。完整测试 63 suites / 469 tests 通过。
+测试环境（jsdom，100 张卡、单列表）首次挂载从约 900ms 降到约 330–390ms；真实窗口还需要按不同显卡/缩放/卡片内容复测。完整测试 64 suites / 471 tests 通过。
 
 ---
 
@@ -461,13 +461,16 @@ interface DbClient {
 
 ### 4.1 `worker-loader` 3.0.8 → webpack 5 原生 Worker
 
-- [ ] `src/renderer/workers/tokenizer.ts`：`import Worker from 'worker-loader!./tokenizer.worker'` → `new Worker(new URL('./tokenizer.worker.ts', import.meta.url))`。
-- [ ] `src/renderer/workers/knnWorker.ts`：同上。
-- [ ] `src/renderer/workers/DBWorker.ts`：如果 B2 已完成、db worker 已删除，此项只影响剩余两个 worker。
-- [ ] `src/res/custom.d.ts`：删除 `declare module 'worker-loader!*'`。
-- [ ] `jest.config.js`：删除 `'^worker-loader!'` mapper；必要时为 `new Worker(new URL(...))` 增加测试 mock。
-- [ ] webpack 配置：确认 `target: 'electron-renderer'` 下 Worker chunk 的输出路径和 `globalObject`，dev/prod 都要验证。
-- [ ] 删除 `worker-loader` 依赖。
+- [x] `src/renderer/workers/tokenizer.ts`、`knnWorker.ts`：改用 `new Worker(new URL(...))`。
+- [x] 新增 `src/renderer/workers/nativeWorkerFactory.ts`：集中两个 Worker 的创建，避免 `import.meta.url` 进入 Jest 解析图。
+- [x] `src/renderer/workers/DBWorker.ts`：B2 已完成，db worker 已删除，此项只影响剩余两个 Worker。
+- [x] `src/res/custom.d.ts`：删除 `declare module 'worker-loader!*'`。
+- [x] `jest.config.js`：删除 `'^worker-loader!'` mapper，改为映射 `nativeWorkerFactory` 到 `__mocks__/nativeWorkerFactory.js`。
+- [x] webpack：生产构建已验证生成两个独立 Worker chunk，主 bundle 使用 `new Worker(new URL(...))`。`target: 'electron-renderer'` 与既有 `nodeIntegrationInWorker: true` 能让 KNN Worker 继续读取 `fs`。
+- [x] 删除 `worker-loader` 依赖。
+- [x] 开发模式运行时验证：`yarn start` 下确认 worker 从 dev-server 正常加载（生产构建已通过，dev 共用同一 target 和 chunk 规则）。
+
+实现说明：Worker 入口使用独立 factory，而不是在 `tokenizer.ts` / `knnWorker.ts` 内直接写 `import.meta.url`。这样 Jest 可以通过 `moduleNameMapper` 完全绕开该模块；否则 Jest 的 CommonJS 运行时会直接报 `Cannot use 'import.meta' outside a module`。生产构建已验证 Worker chunk 的 URL 由 webpack runtime 解析，不依赖手工 `publicPath`。
 
 ### 4.2 `marked` 4.0.12 → 18.1.1
 
@@ -653,7 +656,7 @@ Electron 39 的官方 EOL 是 **2026-05-05**，已经不再收到安全更新。
 - [x] B1 低风险清理（conventional-changelog 升级因兼容性延后到 B6）
 - [x] B1.5 react-test-renderer → React Testing Library
 - [x] B2 nedb → SQLite（代码、自动化测试、真实用户数据升级/回滚验证完成；History 卡顿与内存优化已实施）
-- [ ] B3 worker-loader / marked
+- [ ] B3 marked（worker-loader 已完成）
 - [ ] B4 active-win → get-windows + Electron 44
 - [ ] B5 deox / hotkeys / react-trend / prop-types / styleguidist
 - [ ] B6 prettier / webpack-cli / WDS / ESLint 10 / Babel 8 / nanoid / node-gyp

@@ -42,7 +42,7 @@ module.exports = {
         '\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga|dat)$':
             '<rootDir>/__mocks__/fileMock.js',
         '\\.(s?css|sass)$': '<rootDir>/__mocks__/styleMock.js',
-        '^worker-loader!': '<rootDir>/__mocks__/workerMock.js',
+        '(^|/)nativeWorkerFactory$': '<rootDir>/__mocks__/nativeWorkerFactory.js',
         // @ant-design/icons@6 ships dual ESM/CJS; force the CJS 'lib/' entry so
         // Jest's CommonJS runtime does not try to require() its ESM 'es/'
         // build (breaks under customExportConditions: ['node']).

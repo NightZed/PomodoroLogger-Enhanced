@@ -130,7 +130,7 @@ yarn pack          # 至少在一个平台上做一次解包冒烟
 ### 2.4 其他小项
 
 - [ ] `conventional-changelog-conventionalcommits` 9.3.1 → 10.4.1：**暂缓**。10.x 要求 `conventional-changelog-writer@9+`，而 semantic-release 25 当前依赖 8.4.0，`test/semanticReleaseConfig.test.ts` 会直接失败；待 B6 与 semantic-release 一起升级。
-- [ ] `node-gyp` 9 在 B4 里处理（`get-windows` 要求 ^10；也可能不再需要直接依赖）。
+- [x] `node-gyp` 9 已移除（B4）。它只是 2019 年为旧 GitHub Action 加的直接依赖；现在开发树中由 `@electron/rebuild` / semantic-release 提升的 node-gyp 12.4.0 提供工具链，`get-windows` 保留自己的嵌套 10.3.1，安装不再依赖根目录的 node-gyp 9。
 
 ---
 
@@ -534,6 +534,8 @@ Electron 39 的官方 EOL 是 **2026-05-05**，已经不再收到安全更新。
 - `chrome.log` 只有虚拟机 GPU 初始化失败和空数据库的 KNN 训练提示，没有应用级异常。
 
 Electron 44 只发布 64 位包（Windows x64 / Linux x64+arm64），并要求 macOS 13+；需要相应更新下载页/系统要求说明。macOS 42+ 的通知改用 `UNNotification`，未签名开发包无法显示通知，需在签名后的 macOS 包上验证。
+
+直接依赖 `node-gyp@^9` 已删除：`yarn install --frozen-lockfile` 仍会执行 `electron-builder install-app-deps` 并重建 `better-sqlite3` / `get-windows`，`electron-builder --dir` 打包通过；开发树中保留 node-gyp 12.4.0（由 electron-builder / semantic-release 提升）和 `get-windows` 的嵌套 10.3.1。
 
 待完成：Windows 托盘/通知/开机启动/自动更新的手工回归，macOS/Linux 实机与打包，以及全新安装/覆盖安装验证。
 

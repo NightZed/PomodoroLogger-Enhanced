@@ -348,7 +348,7 @@ export const changeAppTab = createActionCreator(
 /**
  * Predict the project a finished session belongs to, so a session the user did
  * not attribute explicitly still lands on the right project in the statistics
- * (project pies, board hours, cards).
+ * (project treemaps, board hours, cards).
  *
  * Deliberately NOT an action creator: the prediction is a property of the
  * session record, not of the UI. Dispatching `setBoardId` here used to move the
@@ -373,8 +373,8 @@ export async function inferProject(sessionData: PomodoroRecord): Promise<string 
 
     // The prediction label is the board `_id` of the closest historical
     // session, and records must refer to a real board `_id` (`Timer` renders
-    // `kanban.boards[boardId]` directly, and the pies resolve ids through the
-    // kanban DB). Only use the prediction while that board still exists; this
+    // `kanban.boards[boardId]` directly, and the treemaps resolve ids through
+    // the kanban DB). Only use the prediction while that board still exists; this
     // also filters out degenerate predictions such as an empty string.
     const board = await workers.dbWorkers.kanbanDB
         .findOne({ _id: newProjectId })

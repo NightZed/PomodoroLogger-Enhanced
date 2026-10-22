@@ -11,7 +11,7 @@ describe('History aggregating operations', () => {
                 month: { count: 0, hours: 0 },
             },
             wordWeights: [],
-            pieChart: {
+            timeSpent: {
                 projectData: [],
                 appData: [],
             },

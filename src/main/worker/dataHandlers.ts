@@ -50,7 +50,7 @@ function hydrateApps(
             continue;
         }
         // The calendar/total only need startTime/spentTime. When a month is
-        // selected, apps outside that month will never feed the pie/word cloud,
+        // selected, apps outside that month will never feed the treemap/word cloud,
         // so leave them as text and release the strings via `{}`.
         if (range && (record.startTime < range.from || record.startTime >= range.to)) {
             record.apps = {};

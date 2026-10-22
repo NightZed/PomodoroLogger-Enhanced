@@ -971,8 +971,8 @@ class Timer extends Component<Props, State> {
 
     /**
      * Resolve the prediction started when the session ended. `onSessionConfirmed`
-     * awaits it, so which project the record (and therefore the project pies of
-     * the Timer/History pages) gets does not depend on when the user clicked.
+     * awaits it, so which project the record (and therefore the project treemaps
+     * of the Timer/History pages) gets does not depend on when the user clicked.
      */
     private async getInferredProjectId(): Promise<string | undefined> {
         if (!this.projectInference) {

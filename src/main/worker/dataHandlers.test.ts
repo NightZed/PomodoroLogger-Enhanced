@@ -29,7 +29,7 @@ describe('history aggregation worker', () => {
         });
 
         expect(result.total).toEqual({ count: 1, usedTime: 2 });
-        expect(result.pieChart?.projectData).toEqual([{ name: 'Board One', value: 2 }]);
+        expect(result.timeSpent?.projectData).toEqual([{ name: 'Board One', value: 2 }]);
         expect(result.wordWeights).toEqual([['Docs', 56]]);
     });
 
@@ -72,7 +72,7 @@ describe('history aggregation worker', () => {
         });
 
         expect(result.total).toEqual({ count: 1, usedTime: 1 });
-        expect(result.pieChart?.projectData).toEqual([{ name: 'Board One', value: 1 }]);
+        expect(result.timeSpent?.projectData).toEqual([{ name: 'Board One', value: 1 }]);
         expect(Object.keys(result.calendarCount ?? {})).toHaveLength(2);
     });
 
@@ -94,6 +94,6 @@ describe('history aggregation worker', () => {
         });
 
         expect(result.total).toEqual({ count: 1, usedTime: 1 });
-        expect(result.pieChart?.appData).toEqual([]);
+        expect(result.timeSpent?.appData).toEqual([]);
     });
 });

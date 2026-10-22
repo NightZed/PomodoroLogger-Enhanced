@@ -281,7 +281,7 @@ describe('inferProject', () => {
         // made `kanban.boards[boardId]` undefined and crashed `Timer`'s render
         // with "Cannot read properties of undefined (reading 'focusedList')".
         // The prediction is written into the session record, so it must be the
-        // `_id` the project pies resolve through the kanban DB.
+        // `_id` the project treemaps resolve through the kanban DB.
         expect(predicted).not.toBe(boardName);
     });
 

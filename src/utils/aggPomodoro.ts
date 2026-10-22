@@ -123,7 +123,7 @@ export function getTokenWeights(records: PomodoroRecord[]): [string, number][] {
  * highlighted.
  *
  * `periodRange`, when given, slices those same records down to the chosen month
- * and feeds the badge / pie chart / word cloud. The caller may also pass those
+ * and feeds the badge / treemap / word cloud. The caller may also pass those
  * records directly (`periodRecords`): the SQL repository queries the month with
  * `apps` separately, so the full-year scan can stay scalar-only for the
  * calendar/total. Without `periodRecords`, the range is applied here.
@@ -151,7 +151,7 @@ export function aggHistory(
             usedTime: period.reduce((a, b) => a + b.spentTimeInHour, 0),
         },
         wordWeights: getTokenWeights(period),
-        pieChart: getTimeSpentDataFromRecordsSync(period, boardNames),
+        timeSpent: getTimeSpentDataFromRecordsSync(period, boardNames),
         calendarCount: getPomodoroCalendarData(yearRecords),
     };
 }

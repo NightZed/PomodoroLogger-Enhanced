@@ -71,7 +71,7 @@ const AGG: AggPomodoroInfo = {
     },
     total: { count: 3, usedTime: 3 },
     calendarCount: {},
-    pieChart: { projectData: [{ name: 'Board One', value: 3 }], appData: [] },
+    timeSpent: { projectData: [{ name: 'Board One', value: 3 }], appData: [] },
     wordWeights: [],
 };
 

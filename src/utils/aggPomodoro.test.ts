@@ -43,17 +43,20 @@ describe('aggPomodoro shared core', () => {
             createRecord('b1', 10, [['chrome', 10]]),
             createRecord('b2', 5, [['code', 5]]),
         ];
-        const pie = getTimeSpentDataFromRecordsSync(records, { b1: 'Work', b2: 'Side' });
-        expect(pie.projectData).toEqual([
+        const timeSpent = getTimeSpentDataFromRecordsSync(records, { b1: 'Work', b2: 'Side' });
+        expect(timeSpent.projectData).toEqual([
             { name: 'Work', value: 10 },
             { name: 'Side', value: 5 },
         ]);
-        expect(pie.appData[0].name).toBe('Chrome');
+        expect(timeSpent.appData[0].name).toBe('Chrome');
     });
 
     it('marks unknown boards', () => {
-        const pie = getTimeSpentDataFromRecordsSync([createRecord('zz', 3, [['app', 3]])], {});
-        expect(pie.projectData).toEqual([{ name: 'Unknown', value: 3 }]);
+        const timeSpent = getTimeSpentDataFromRecordsSync(
+            [createRecord('zz', 3, [['app', 3]])],
+            {}
+        );
+        expect(timeSpent.projectData).toEqual([{ name: 'Unknown', value: 3 }]);
     });
 
     it('aggregates everything in one call', async () => {
@@ -67,7 +70,7 @@ describe('aggPomodoro shared core', () => {
         const ans = aggHistory([record], [record], { b1: 'Work' });
         expect(ans.agg.day).toEqual({ count: 1, hours: 1.5 });
         expect(ans.total).toEqual({ count: 1, usedTime: 1.5 });
-        expect(ans.pieChart.projectData).toEqual([{ name: 'Work', value: 1.5 }]);
+        expect(ans.timeSpent.projectData).toEqual([{ name: 'Work', value: 1.5 }]);
         expect(ans.wordWeights).toEqual([]);
         expect(Object.keys(ans.calendarCount).length).toBe(1);
     });
@@ -89,9 +92,9 @@ describe('aggPomodoro shared core', () => {
             }
         );
 
-        // Badge / pie chart describe March only...
+        // Badge / treemap describe March only...
         expect(ans.total).toEqual({ count: 1, usedTime: 1 });
-        expect(ans.pieChart.projectData).toEqual([{ name: 'Work', value: 1 }]);
+        expect(ans.timeSpent.projectData).toEqual([{ name: 'Work', value: 1 }]);
         // ...while the heat map still has both days.
         expect(Object.keys(ans.calendarCount).length).toBe(2);
     });

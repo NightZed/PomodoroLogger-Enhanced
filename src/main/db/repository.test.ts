@@ -1,6 +1,6 @@
 import { openSqlite } from './connection';
 import { cardSpec, createSchema, listSpec, moveSpec, sessionSpec } from './schema';
-import { SettingsRepository, SqliteRepository } from './repository';
+import { createSessionRepository, SettingsRepository, SqliteRepository } from './repository';
 
 const setup = () => {
     const connection = openSqlite(':memory:');
@@ -227,6 +227,13 @@ describe('SQLite repository query/update mapping', () => {
                 { boardId: 'b1', startTime: { $gte: 900, $lt: 2000 } },
                 ['startTime', 'spentTimeInHour', 'boardId', 'apps']
             );
+            const rawRows = await sessions.findHistory(
+                { boardId: 'b1', startTime: { $gte: 900, $lt: 2000 } },
+                ['startTime', 'spentTimeInHour', 'boardId', 'apps'],
+                false
+            );
+            expect(typeof rawRows[0].apps).toBe('string');
+            expect(JSON.parse(rawRows[0].apps)).toEqual(rows[0].apps);
             expect(rows).toEqual([
                 {
                     _id: 'inside',
@@ -251,6 +258,56 @@ describe('SQLite repository query/update mapping', () => {
                     _id: 'inside',
                     screenshots: [{ time: 1, path: 'large.png' }],
                 }),
+            ]);
+        } finally {
+            connection.close();
+        }
+    });
+
+    it('reads a scalar year plus a raw month projection for History', async () => {
+        const { connection, sessions } = setup();
+        try {
+            await sessions.insert([
+                {
+                    _id: 'month',
+                    startTime: 1500,
+                    spentTimeInHour: 2,
+                    boardId: 'b1',
+                    apps: { Chrome: { appName: 'Chrome', spentTimeInHour: 2 } },
+                },
+                {
+                    _id: 'other-month',
+                    startTime: 5000,
+                    spentTimeInHour: 3,
+                    boardId: 'b1',
+                    apps: { Chrome: { appName: 'Chrome', spentTimeInHour: 3 } },
+                },
+                {
+                    _id: 'other-board',
+                    startTime: 1600,
+                    spentTimeInHour: 4,
+                    boardId: 'b2',
+                    apps: { Chrome: { appName: 'Chrome', spentTimeInHour: 4 } },
+                },
+            ]);
+
+            const repository = createSessionRepository(connection, sessions, () => undefined);
+            const data = await repository.readHistory(
+                {
+                    yearQuery: { boardId: 'b1', startTime: { $gte: 0, $lt: 10000 } },
+                    recentQuery: { boardId: 'b1', startTime: { $gte: 1000 } },
+                    periodRange: { from: 1000, to: 2000 },
+                },
+                false
+            );
+
+            expect(data.yearRecords.map((record) => record._id)).toEqual(['month', 'other-month']);
+            expect(data.yearRecords[0].apps).toBeUndefined();
+            expect(data.periodRecords?.map((record) => record._id)).toEqual(['month']);
+            expect(typeof data.periodRecords?.[0].apps).toBe('string');
+            expect(data.recentRecords?.map((record) => record._id)).toEqual([
+                'month',
+                'other-month',
             ]);
         } finally {
             connection.close();

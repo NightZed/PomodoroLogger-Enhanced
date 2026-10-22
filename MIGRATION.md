@@ -187,7 +187,7 @@ React 官方已将 `react-test-renderer` 标记为 deprecated（每个测试用�
 
 这是改动面最大、也是唯一涉及用户数据的一批。**核心原则：旧 `.nedb` 文件在迁移后保持原样，不删除，至少保留一个大版本。**
 
-**实施结果（2026-10-21）**：按推荐方案完成主进程单写者架构。新增 `src/main/db/`（连接、schema、repository、迁移器、IPC），`better-sqlite3@13.0.3` 负责唯一长期连接；渲染进程通过 `db:request` / `db:ready` IPC 访问，`DBWorker` 保留原方法签名但不再打开文件。`projectDB` 已删除，settings 拆为 key-value，旧 `.nedb` 在迁移前复制到 `db-bk/pre-sqlite-*` 并原样保留。新增迁移器、查询映射、History 查询和打包配置测试；完整测试 61 suites / 463 tests 通过，`nedb` / `@types/nedb` 已从依赖树移除，`electron-builder` 的 `@electron/rebuild` 已成功重建 `better-sqlite3`。
+**实施结果（2026-10-21）**：按推荐方案完成主进程单写者架构。新增 `src/main/db/`（连接、schema、repository、迁移器、IPC），`better-sqlite3@13.0.3` 负责唯一长期连接；渲染进程通过 `db:request` / `db:ready` IPC 访问，`DBWorker` 保留原方法签名但不再打开文件。`projectDB` 已删除，settings 拆为 key-value，旧 `.nedb` 在迁移前复制到 `db-bk/pre-sqlite-*` 并原样保留。新增迁移器、查询映射、History 查询和打包配置测试；完整测试 62 suites / 467 tests 通过，`nedb` / `@types/nedb` 已从依赖树移除，`electron-builder` 的 `@electron/rebuild` 已成功重建 `better-sqlite3`。
 
 ### 3.1 现状盘点
 
@@ -435,8 +435,12 @@ interface DbClient {
 - `count({})` 走 SQL `COUNT(*)` 快路径（Timer 页每次挂载都会调用）。
 - History 聚合移到已有的主进程 child worker 里执行；主进程负责查询和转发轻量记录，词云/日历/饼图计算不再阻塞 Electron 主事件循环。worker 失败时回退到进程内，功能不丢。
 - child worker 空闲回收从 5 分钟缩短到 60 秒，查询后的临时内存更快释放。
+- 主进程不再 `JSON.parse` `apps`，而是把 JSON 文本直接转发给 child；child 解析一次，避免主进程同时持有对象图和 IPC 序列化副本。
+- 选择具体月份时拆成两次查询：全年只读 `startTime` / `spentTimeInHour` / `boardId` 供日历和总数使用，月份单独读取带 `apps` 的记录。未选中的月份不再解析/保留 `apps`。
+- 词云先按标题合并权重，再对去重后的标题做 tokenization。本机 88,488 个 session-title 对只有 38,491 个唯一标题，正则 tokenization 次数约减少 56%。
+- 主进程把 History payload 发出后立即释放数组引用；`findHistory` 每处理一行也释放 SQLite row 包装对象，降低 All-time 查询的峰值内存。
 
-本机真实 `db/pomodoro.sqlite`（2664 条 session）实测：单日查询约 8–9ms；年度 History 读取约 173ms；All-time 读取约 356ms；聚合计算在 child worker 中完成。该数据只反映当前机器，仍需按 3.8 与旧版做完整性能对比。
+本机真实 `db/pomodoro.sqlite`（2664 条 session）实测：单日查询约 8–9ms；年度 History 读取约 60–82ms（raw）；All-time raw 读取约 253–257ms；具体月份读取约 74ms，其中全年标量约 0.1MB、月份 `apps` 约 1.9MB。child worker 聚合：月份约 173ms、全年约 327ms、All-time 约 817ms。该数据只反映当前机器，仍需按 3.8 与旧版做完整性能对比。
 
 ---
 

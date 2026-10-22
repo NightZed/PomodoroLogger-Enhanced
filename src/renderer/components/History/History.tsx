@@ -211,10 +211,10 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         //  - records since the week/month boundary feed the Today/Week/Month stats;
         //  - records of the chosen year (or All time) feed the calendar, which keeps
         //    its full-year window whatever month is picked;
-        //  - `periodRange` narrows the same year records down to the chosen month for
-        //    the badge / pie chart / word cloud, so the badge follows project + month
-        //    without the calendar losing the rest of the year; picking `All` months drops
-        //    the range so those views cover the whole year again;
+        //  - `periodRange` asks the repository for a separate month query with `apps`
+        //    for the badge / pie chart / word cloud, while the year scan stays scalar
+        //    for the calendar; picking `All` months drops the range so those views
+        //    cover the whole year again;
         //  - with All time no range is sent and a single query covers both the recent
         //    stats and the full view.
         // The whole aggregation runs in the main-process aggregation child

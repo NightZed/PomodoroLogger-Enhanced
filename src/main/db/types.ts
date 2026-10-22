@@ -37,13 +37,23 @@ export interface HistoryData {
     arg: HistoryArg;
     recentRecords?: any[];
     yearRecords: any[];
+    /**
+     * When a month is selected this is a separate query with `apps`, so the
+     * full-year scan can stay scalar-only (calendar/total do not need apps).
+     */
+    periodRecords?: any[];
     boards: { _id: string; name: string }[];
 }
 
 export interface SessionRepository extends DbRepository {
     aggHistory(arg: HistoryArg): Promise<any>;
-    /** Read the lightweight History input without aggregating it. */
-    readHistory(arg: HistoryArg): Promise<HistoryData>;
+    /**
+     * Read the lightweight History input without aggregating it.
+     * `parseApps = false` leaves the `apps` column as a JSON string, so the
+     * main process can forward it to the aggregation child without building the
+     * full object graph twice.
+     */
+    readHistory(arg: HistoryArg, parseApps?: boolean): Promise<HistoryData>;
 }
 
 export interface DbRepositories {

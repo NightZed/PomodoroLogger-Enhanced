@@ -30,14 +30,24 @@ export function initializeDbIpc() {
                     // Tokenizing every title for the word cloud is CPU-heavy.
                     // The child process keeps Electron's main event loop free,
                     // so the renderer can paint its spinner immediately.
-                    const data = await repository.readHistory(args[0]);
-                    const response = await sendWorkerMessage(
+                    // Keep `apps` as JSON text in the main process. The child
+                    // parses it once; previously main parsed it and then IPC
+                    // serialized the whole object graph again.
+                    const data = await repository.readHistory(args[0], false);
+                    const request = sendWorkerMessage(
                         {
                             type: WorkerMessageType.AggregateHistory,
                             payload: data,
                         },
                         120000
                     );
+                    // `sendWorkerMessage` serializes synchronously before
+                    // returning; drop the main-process references so a large
+                    // All-time payload is not kept alive while the child works.
+                    data.yearRecords = [];
+                    data.periodRecords = undefined;
+                    data.recentRecords = undefined;
+                    const response = await request;
                     return response.payload;
                 } catch (error) {
                     // A worker/package problem must not take History down. The

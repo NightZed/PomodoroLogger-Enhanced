@@ -49,17 +49,30 @@ export const getWeightsFromPomodoros = (
 ): [string, number][] => {
     const tokenWeights = new Counter();
     const tokenizer = new Tokenizer();
+
+    // The same window title recurs across many sessions, and a long session DB
+    // has far more (record, title) pairs than distinct titles. Tokenizing each
+    // distinct title once is linear-algebraically identical to the old
+    // per-record loop, but avoids repeating the regex tokenization thousands of
+    // times.
+    const titleWeights = new Map<string, number>();
     for (const record of records) {
         for (const app in record.apps) {
             const appRecord = record.apps[app];
             for (const title in appRecord.titleSpentTime) {
                 const weight =
                     appRecord.titleSpentTime[title].normalizedWeight * record.spentTimeInHour;
-                const tokens = tokenizer.tokenize(title);
-                for (const token of tokens) {
-                    tokenWeights.add(token, weight);
+                if (!Number.isFinite(weight) || weight === 0) {
+                    continue;
                 }
+                titleWeights.set(title, (titleWeights.get(title) ?? 0) + weight);
             }
+        }
+    }
+
+    for (const [title, weight] of titleWeights) {
+        for (const token of tokenizer.tokenize(title)) {
+            tokenWeights.add(token, weight);
         }
     }
 

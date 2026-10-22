@@ -33,7 +33,7 @@ function makeRepositories(db: Database.Database): DbRepositories {
         sessionDB: createSessionRepository(
             db,
             sessions,
-            (arg, recentRecords, yearRecords, boards) => {
+            (arg, recentRecords, yearRecords, boards, periodRecords) => {
                 const boardNames: { [boardId: string]: string } = {};
                 for (const board of boards) {
                     boardNames[board._id] = board.name;
@@ -42,7 +42,8 @@ function makeRepositories(db: Database.Database): DbRepositories {
                     recentRecords ?? yearRecords,
                     yearRecords,
                     boardNames,
-                    arg.periodRange
+                    arg.periodRange,
+                    periodRecords
                 );
             }
         ),

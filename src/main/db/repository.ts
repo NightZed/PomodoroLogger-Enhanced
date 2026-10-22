@@ -632,7 +632,7 @@ export class SqliteRepository<T = any> implements DbRepository<T> {
      * yielding every chunk keeps the main process responsive while a large
      * All-time/year range is read.
      */
-    async findHistory(query: any = {}, fields: string[]): Promise<any[]> {
+    async findHistory(query: any = {}, fields: string[], parseJson = true): Promise<any[]> {
         const specs = fields
             .map((path) => this.spec.fields.find((field) => field.path === path))
             .filter((field): field is FieldSpec => !!field);
@@ -652,7 +652,7 @@ export class SqliteRepository<T = any> implements DbRepository<T> {
                 if (value == null) {
                     continue;
                 }
-                if (field.kind === 'json') {
+                if (field.kind === 'json' && parseJson) {
                     try {
                         value = JSON.parse(value);
                     } catch {
@@ -666,6 +666,10 @@ export class SqliteRepository<T = any> implements DbRepository<T> {
             if (matchesQuery(doc, query)) {
                 result.push(doc);
             }
+            // The result documents share the SQLite strings (not copies), so
+            // dropping the row wrapper lets V8 reclaim one object per row while
+            // a large All-time scan is still building the result.
+            rows[index] = undefined as any;
             if ((index + 1) % HISTORY_YIELD_EVERY === 0) {
                 await yieldToEventLoop();
             }
@@ -866,16 +870,41 @@ export function createSessionRepository(
         arg: HistoryArg,
         recentRecords: any[] | undefined,
         yearRecords: any[],
-        boards: any[]
+        boards: any[],
+        periodRecords?: any[]
     ) => any
 ): SessionRepository {
     const historyFields = ['startTime', 'spentTimeInHour', 'boardId', 'apps'];
-    const readHistory = async (arg: HistoryArg): Promise<HistoryData> => {
-        // Sequence the two scans: both used to run through Promise.all, which
-        // kept two full session arrays alive at the same time.
-        const yearRecords = await base.findHistory(arg.yearQuery, historyFields);
+    // `boardId` stays in the scalar projection because `findHistory` also runs
+    // the in-memory query matcher after SQL prefilters; without it a project
+    // filter would see a missing field and drop every row.
+    const scalarFields = ['startTime', 'spentTimeInHour', 'boardId'];
+    const readHistory = async (arg: HistoryArg, parseApps = true): Promise<HistoryData> => {
+        let yearRecords: any[];
+        let periodRecords: any[] | undefined;
+        if (arg.periodRange) {
+            // Calendar/total only need startTime/spentTime. Querying the month's
+            // apps separately keeps the full-year result tiny and means the
+            // worker never parses apps for the other eleven months.
+            yearRecords = await base.findHistory(arg.yearQuery, scalarFields);
+            periodRecords = await base.findHistory(
+                {
+                    ...arg.yearQuery,
+                    startTime: {
+                        $gte: arg.periodRange.from,
+                        $lt: arg.periodRange.to,
+                    },
+                },
+                historyFields,
+                parseApps
+            );
+        } else {
+            yearRecords = await base.findHistory(arg.yearQuery, historyFields, parseApps);
+        }
+
+        // Today/Week/Month badges never inspect apps.
         const recentRecords = arg.recentQuery
-            ? await base.findHistory(arg.recentQuery, historyFields)
+            ? await base.findHistory(arg.recentQuery, scalarFields)
             : undefined;
         // The board table is tiny; reading only the two needed columns avoids
         // parsing lists/aggInfo for every board on every History query. It also
@@ -884,14 +913,20 @@ export function createSessionRepository(
             _id: string;
             name: string;
         }[];
-        return { arg, recentRecords, yearRecords, boards };
+        return { arg, recentRecords, yearRecords, periodRecords, boards };
     };
 
     return Object.assign(base, {
         readHistory,
         async aggHistory(arg: HistoryArg) {
             const data = await readHistory(arg);
-            return aggregate(arg, data.recentRecords, data.yearRecords, data.boards);
+            return aggregate(
+                arg,
+                data.recentRecords,
+                data.yearRecords,
+                data.boards,
+                data.periodRecords
+            );
         },
     }) as SessionRepository;
 }

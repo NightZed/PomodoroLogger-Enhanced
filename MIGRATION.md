@@ -187,7 +187,7 @@ React 官方已将 `react-test-renderer` 标记为 deprecated（每个测试用�
 
 这是改动面最大、也是唯一涉及用户数据的一批。**核心原则：旧 `.nedb` 文件在迁移后保持原样，不删除，至少保留一个大版本。**
 
-**实施结果（2026-10-21）**：按推荐方案完成主进程单写者架构。新增 `src/main/db/`（连接、schema、repository、迁移器、IPC），`better-sqlite3@13.0.3` 负责唯一长期连接；渲染进程通过 `db:request` / `db:ready` IPC 访问，`DBWorker` 保留原方法签名但不再打开文件。`projectDB` 已删除，settings 拆为 key-value，旧 `.nedb` 在迁移前复制到 `db-bk/pre-sqlite-*` 并原样保留。新增迁移器、查询映射、History 查询和打包配置测试；完整测试 62 suites / 467 tests 通过，`nedb` / `@types/nedb` 已从依赖树移除，`electron-builder` 的 `@electron/rebuild` 已成功重建 `better-sqlite3`。
+**实施结果（2026-10-21）**：按推荐方案完成主进程单写者架构。新增 `src/main/db/`（连接、schema、repository、迁移器、IPC），`better-sqlite3@13.0.3` 负责唯一长期连接；渲染进程通过 `db:request` / `db:ready` IPC 访问，`DBWorker` 保留原方法签名但不再打开文件。`projectDB` 已删除，settings 拆为 key-value，旧 `.nedb` 在迁移前复制到 `db-bk/pre-sqlite-*` 并原样保留。新增迁移器、查询映射、History 查询和打包配置测试；完整测试 63 suites / 469 tests 通过，`nedb` / `@types/nedb` 已从依赖树移除，`electron-builder` 的 `@electron/rebuild` 已成功重建 `better-sqlite3`。
 
 ### 3.1 现状盘点
 
@@ -441,6 +441,19 @@ interface DbClient {
 - 主进程把 History payload 发出后立即释放数组引用；`findHistory` 每处理一行也释放 SQLite row 包装对象，降低 All-time 查询的峰值内存。
 
 本机真实 `db/pomodoro.sqlite`（2664 条 session）实测：单日查询约 8–9ms；年度 History 读取约 60–82ms（raw）；All-time raw 读取约 253–257ms；具体月份读取约 74ms，其中全年标量约 0.1MB、月份 `apps` 约 1.9MB。child worker 聚合：月份约 173ms、全年约 327ms、All-time 约 817ms。该数据只反映当前机器，仍需按 3.8 与旧版做完整性能对比。
+
+### 3.10 看板打开卡顿优化（2026-10-22）
+
+100+ 张卡片时，点击看板会先顿一下再出现全部卡片。排查结果不是 SQLite 查询：看板、列表、卡片在应用启动时已经一次性读入 Redux，点击只是切换 `chosenBoardId`；真正卡住的是 React 首次挂载整列卡片，包括每张卡的 markdown 解析/HTML、antd badge、`@hello-pangea/dnd` draggable 注册，以及每张卡各自的 react-redux 订阅。
+
+已做以下调整：
+
+- **渐进挂载卡片**：列表首次只同步挂载 6 张，之后每个 `requestAnimationFrame` 追加 12 张；首屏先出现、其余卡片逐帧补齐。加载期间暂时禁用拖拽，避免 DnD 只看到部分卡片时产生错误索引；全部挂载后恢复。
+- **卡片内容懒渲染**：用 `IntersectionObserver` 把 markdown 解析推迟到卡片接近视口时；每个列表前 3 张（通常首屏可见）仍然同步渲染。视口外的卡片先显示标题、标签、统计和截断的文本预览，避免一次性解析并提交 100 份 markdown HTML。
+- **去掉每张卡的 Redux 订阅**：`List` 已经订阅卡片表并负责筛选/统计，现在把卡片字段和所需的 `setContent` / `setEditCard` / `setSearchReg` 直接传给纯 memo `Card`，不再为每张卡创建 `connect` 包装和 selector。
+- 保留既有 `formatMarkdown` 缓存；本机 345 张卡全部解析约 42ms，说明数据库和 markdown 本身不是主要瓶颈，DOM/组件挂载才是。
+
+测试环境（jsdom，100 张卡、单列表）首次挂载从约 900ms 降到约 330–390ms；真实窗口还需要按不同显卡/缩放/卡片内容复测。完整测试 63 suites / 469 tests 通过。
 
 ---
 

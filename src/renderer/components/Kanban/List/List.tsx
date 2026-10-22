@@ -4,16 +4,36 @@ import DoneIcon from '../../../../res/done.svg';
 import React, { FC, useRef, useState } from 'react';
 import { ListActionTypes } from './action';
 import styled from 'styled-components';
-import Card from '../Card';
+import { Card } from '../Card';
 import { Button, Dropdown, Input, Tooltip } from 'antd';
 import type { MenuProps } from 'antd';
 import { AntdIcon as Icon, IconComponent } from '../../antdIcon';
 import { ConfirmPopover, feedback, FEEDBACK_MESSAGES } from '../../feedback';
 import { KanbanActionTypes } from '../action';
-import { CardsState } from '../Card/action';
+import { actions as cardActions, CardActionTypes, CardsState } from '../Card/action';
 import { List as ListType } from '../type';
 import { mergeRefs } from '../../../utils';
 import { throttle, debounce } from 'lodash';
+
+// First page is deliberately small: each Card is a dnd draggable with markdown
+// and badges. Subsequent turns add a screenful at a time.
+const PROGRESSIVE_INITIAL_CARDS = 6;
+const PROGRESSIVE_CARD_BATCH = 12;
+
+// A frame boundary matters here: the point is to let the browser paint the
+// first page before mounting the next batch. A plain setTimeout can run
+// back-to-back in the same event-loop turn on some platforms.
+const scheduleFrame = (callback: () => void) =>
+    typeof window.requestAnimationFrame === 'function'
+        ? window.requestAnimationFrame(callback)
+        : window.setTimeout(callback, 0);
+const cancelFrame = (handle: number) => {
+    if (typeof window.cancelAnimationFrame === 'function') {
+        window.cancelAnimationFrame(handle);
+    } else {
+        window.clearTimeout(handle);
+    }
+};
 
 const Container = styled.div`
     padding: 4px;
@@ -177,6 +197,8 @@ export interface InputProps {
 interface Props extends ListType, InputProps, ListActionTypes, KanbanActionTypes {
     searchReg?: string;
     cardsState: CardsState;
+    collapsed: boolean;
+    setContent: CardActionTypes['setContent'];
 }
 
 export const List: FC<Props> = React.memo((props: Props) => {
@@ -252,6 +274,33 @@ export const List: FC<Props> = React.memo((props: Props) => {
     }, [props._id, visibleCards, props.visibleCards]);
 
     const filteredCards = visibleCards || props.cards || [];
+
+    // Opening a board used to mount every card in one commit. With a long list
+    // (100+ cards) that blocks the first paint even though only the first few
+    // cards are on screen. Mount a small first page synchronously, then append
+    // the rest in short timer turns so the board opens and remains scrollable.
+    // The cap resets on list/search changes, not on reorder, so dragging does
+    // not collapse an already fully rendered list back to the first page.
+    const [renderLimit, setRenderLimit] = React.useState(() =>
+        Math.min(PROGRESSIVE_INITIAL_CARDS, filteredCards.length)
+    );
+    React.useEffect(() => {
+        setRenderLimit(Math.min(PROGRESSIVE_INITIAL_CARDS, filteredCards.length));
+    }, [props._id, searchReg]);
+    React.useEffect(() => {
+        if (renderLimit >= filteredCards.length) {
+            return;
+        }
+
+        const handle = scheduleFrame(() => {
+            setRenderLimit((current) =>
+                Math.min(current + PROGRESSIVE_CARD_BATCH, filteredCards.length)
+            );
+        });
+        return () => cancelFrame(handle);
+    }, [renderLimit, filteredCards.length]);
+
+    const renderedCards = filteredCards.slice(0, renderLimit);
     const [estimatedTimeSum, actualTimeSum] = React.useMemo(
         () =>
             filteredCards.reduce(
@@ -430,18 +479,37 @@ export const List: FC<Props> = React.memo((props: Props) => {
                                         {...provided.droppableProps}
                                     >
                                         <BeforePlaceHolder />
-                                        {filteredCards.map((cardId, index) => (
-                                            <Card
-                                                boardId={props.boardId}
-                                                cardId={cardId}
-                                                index={index}
-                                                key={cardId}
-                                                listId={props.listId}
-                                                isInDoneList={done}
-                                                isDraggingOver={isDraggingOver}
-                                                searchReg={searchReg}
-                                            />
-                                        ))}
+                                        {renderedCards.map((cardId, index) => {
+                                            const card = cardsState[cardId];
+                                            // The card may already be gone while
+                                            // this list is still mounted (e.g.
+                                            // its board was just deleted).
+                                            if (card === undefined) {
+                                                return null;
+                                            }
+
+                                            return (
+                                                <Card
+                                                    {...card}
+                                                    boardId={props.boardId}
+                                                    cardId={cardId}
+                                                    index={index}
+                                                    key={cardId}
+                                                    listId={props.listId}
+                                                    isInDoneList={done}
+                                                    isDraggingOver={isDraggingOver}
+                                                    searchReg={searchReg}
+                                                    initiallyVisible={index < 3}
+                                                    isDragDisabled={
+                                                        renderLimit < filteredCards.length
+                                                    }
+                                                    collapsed={props.collapsed}
+                                                    setEditCard={props.setEditCard}
+                                                    setSearchReg={props.setSearchReg}
+                                                    setContent={props.setContent}
+                                                />
+                                            );
+                                        })}
                                         {provided.placeholder}
                                         <AfterPlaceHolder />
                                     </Cards>

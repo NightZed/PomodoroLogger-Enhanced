@@ -1,19 +1,9 @@
-import { connect } from 'react-redux';
-import { Card, InputProps } from './Card';
-import { RootState } from '../../../reducers';
-import { CardActionTypes, actions } from './action';
-import { KanbanActionTypes, actions as kanbanActions } from '../action';
-import { genMapDispatchToProp } from '../../../utils';
-
-const mapStateToProps = (state: RootState, props: InputProps) => {
-    return {
-        ...state.kanban.cards[props.cardId],
-        collapsed: state.kanban.boards[props.boardId].collapsed,
-    };
-};
-
-const mapDispatchToProps = genMapDispatchToProp<CardActionTypes & KanbanActionTypes>({
-    ...actions,
-    ...kanbanActions,
-});
-export default connect(mapStateToProps, mapDispatchToProps)(Card);
+/**
+ * Cards are rendered as plain memoized components: the owning list already
+ * subscribes to the card map (it needs it for filtering and time totals), so
+ * giving every card its own react-redux subscription only added selector and
+ * subscription work when a large board mounted. The list passes the card's
+ * fields and the dispatch actions down instead.
+ */
+export { Card } from './Card';
+export type { InputProps } from './Card';

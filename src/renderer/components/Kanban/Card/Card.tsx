@@ -52,6 +52,23 @@ const CardContent = styled.div`
     }
 `;
 
+/**
+ * Lightweight stand-in for cards outside the list viewport. The full markdown
+ * body is what makes opening a 100-card board expensive: every card mounts its
+ * rendered HTML, badges and dnd measurements at once. Keeping the metadata and
+ * a clipped text preview preserves the card's shape while the real markdown is
+ * only produced when the card gets near the visible area.
+ */
+const CardPreview = styled.div`
+    margin: 6px 0;
+    max-height: 180px;
+    overflow: hidden;
+    white-space: pre-wrap;
+    opacity: 0.55;
+    font-size: 13px;
+    line-height: 1.4;
+`;
+
 const CardLabels = styled.div`
     display: flex;
     flex-wrap: wrap;
@@ -99,9 +116,59 @@ export interface InputProps {
     boardId: string;
     isDraggingOver: boolean;
     searchReg?: string;
+    /** Render the markdown body immediately instead of waiting for visibility. */
+    initiallyVisible?: boolean;
+    /** The list is still mounting its progressive first pages. */
+    isDragDisabled?: boolean;
 }
 
-interface Props extends CardType, InputProps, CardActionTypes, KanbanActionTypes {
+const canObserve = () => typeof IntersectionObserver !== 'undefined';
+
+/**
+ * Wait until the card is close to the viewport before parsing/committing its
+ * markdown. `initiallyVisible` keeps the first few cards of each list (the ones
+ * normally on screen when a board opens) synchronous, so a board never flashes
+ * blank content at the top.
+ */
+function useNearViewport(
+    ref: React.RefObject<HTMLDivElement | null>,
+    initiallyVisible: boolean
+): boolean {
+    const [visible, setVisible] = React.useState(initiallyVisible || !canObserve());
+
+    React.useEffect(() => {
+        if (visible) {
+            return;
+        }
+        const element = ref.current;
+        if (!element || !canObserve()) {
+            setVisible(true);
+            return;
+        }
+
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry?.isIntersecting) {
+                    setVisible(true);
+                    observer.disconnect();
+                }
+            },
+            { rootMargin: '400px 0px 400px 0px' }
+        );
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, [ref, visible]);
+
+    return visible;
+}
+
+interface CardDispatchProps {
+    setContent: CardActionTypes['setContent'];
+    setEditCard: KanbanActionTypes['setEditCard'];
+    setSearchReg: KanbanActionTypes['setSearchReg'];
+}
+
+interface Props extends CardType, InputProps, CardDispatchProps {
     collapsed?: boolean;
     // whether this card currently lives in the done list of its board
     isInDoneList?: boolean;
@@ -109,7 +176,19 @@ interface Props extends CardType, InputProps, CardActionTypes, KanbanActionTypes
 
 export const Card: FC<Props> = React.memo((props: Props) => {
     const markdownRef = React.useRef<HTMLDivElement>(null);
+    const cardRef = React.useRef<HTMLDivElement>(null);
+    const providedInnerRef = React.useRef<any>(null);
+    const setCardRef = React.useCallback((element: HTMLDivElement | null) => {
+        cardRef.current = element;
+        const ref = providedInnerRef.current;
+        if (typeof ref === 'function') {
+            ref(element);
+        } else if (ref != null) {
+            ref.current = element;
+        }
+    }, []);
     const { index, _id, isDraggingOver, listId } = props;
+    const shouldRenderContent = useNearViewport(cardRef, props.initiallyVisible === true);
     const onClick = React.useCallback(
         (e: React.MouseEvent<HTMLDivElement>) => {
             const target = e.nativeEvent.target as HTMLElement;
@@ -184,19 +263,24 @@ export const Card: FC<Props> = React.memo((props: Props) => {
     // Parsing markdown on every render is expensive, and with a frequently
     // updating store (e.g. the Timer's 500ms tick) every dispatch used to
     // re-parse the markdown of every mounted card. Memoize the parse so it
-    // only re-runs when the (highlighted) content changes. (Content tags for
-    // the search panel are no longer registered here: they are extracted on
+    // only re-runs when the (highlighted) content changes. Off-screen cards
+    // skip the parse entirely until they approach the viewport. (Content tags
+    // for the search panel are no longer registered here: they are extracted on
     // demand from the store -- see extractTags / getBoardSearchTags.)
-    const renderedMarkdown = React.useMemo(() => formatMarkdown(content), [content]);
+    const renderedMarkdown = React.useMemo(
+        () => (shouldRenderContent ? formatMarkdown(content) : ''),
+        [content, shouldRenderContent]
+    );
 
     return (
         <>
-            <Draggable draggableId={_id} index={index}>
+            <Draggable draggableId={_id} index={index} isDragDisabled={props.isDragDisabled}>
                 {(provided, snapshot) => {
+                    providedInnerRef.current = provided.innerRef;
                     return (
                         <>
                             <CardContainer
-                                ref={provided.innerRef}
+                                ref={setCardRef}
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
                                 onClick={onClick}
@@ -264,11 +348,19 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                                             isInDoneList={props.isInDoneList === true}
                                         />
                                         {renderLabels(props.labels)}
-                                        <Markdown
-                                            dangerouslySetInnerHTML={{ __html: renderedMarkdown }}
-                                            style={{ maxHeight: 250 }}
-                                            ref={markdownRef}
-                                        />
+                                        {shouldRenderContent ? (
+                                            <Markdown
+                                                dangerouslySetInnerHTML={{
+                                                    __html: renderedMarkdown,
+                                                }}
+                                                style={{ maxHeight: 250 }}
+                                                ref={markdownRef}
+                                            />
+                                        ) : (
+                                            <CardPreview>
+                                                {(props.content ?? '').slice(0, 600)}
+                                            </CardPreview>
+                                        )}
                                         <Divider style={{ margin: '0 0 4px 0' }} />
                                         <BadgeHolder>
                                             {props.sessionIds.length > 0 ? (

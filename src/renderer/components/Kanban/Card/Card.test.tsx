@@ -60,7 +60,7 @@ describe('Card content clicks', () => {
         document.body.innerHTML = '';
     });
 
-    const renderCard = (content: string) => {
+    const renderCard = (content: string, extraProps: any = {}) => {
         const actions = {
             setEditCard: jest.fn(),
             setSearchReg: jest.fn(),
@@ -79,6 +79,7 @@ describe('Card content clicks', () => {
             boardId: 'board-1',
             isDraggingOver: false,
             ...actions,
+            ...extraProps,
         };
 
         render(
@@ -171,5 +172,33 @@ describe('Card content clicks', () => {
 
         expect(actions.setContent).toHaveBeenCalledWith('card-1', '- [x] todo');
         expect(actions.setEditCard).not.toHaveBeenCalled();
+    });
+
+    it('defers markdown for off-screen cards until they intersect the viewport', () => {
+        const original = (globalThis as any).IntersectionObserver;
+        const callbacks: Array<(entries: any[]) => void> = [];
+        class MockIntersectionObserver {
+            constructor(callback: (entries: any[]) => void) {
+                callbacks.push(callback);
+            }
+            observe() {}
+            disconnect() {}
+        }
+        (globalThis as any).IntersectionObserver = MockIntersectionObserver;
+
+        try {
+            renderCard('**deferred body**', { initiallyVisible: false });
+            // The lightweight preview exists, but marked has not produced a
+            // paragraph from the markdown yet.
+            expect(container.querySelector('p')).toBeNull();
+            expect(container.textContent).toContain('deferred body');
+
+            act(() => {
+                callbacks.forEach((callback) => callback([{ isIntersecting: true }]));
+            });
+            expect(container.querySelector('p')?.textContent).toBe('deferred body');
+        } finally {
+            (globalThis as any).IntersectionObserver = original;
+        }
     });
 });

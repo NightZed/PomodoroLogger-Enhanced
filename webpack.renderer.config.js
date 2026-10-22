@@ -23,7 +23,19 @@ module.exports = merge(baseConfig, {
                         babelrc: false,
                         presets: [
                             ['@babel/preset-env', {
-                                targets: { browsers: 'last 2 versions' },
+                                // This config builds `target: 'electron-renderer'`
+                                // only, so the code never runs in a browser.
+                                // `last 2 versions` made preset-env downlevel for
+                                // browsers the app cannot run in, pulling in
+                                // transform-async-to-generator / transform-classes.
+                                // Those modern helpers call NodePath APIs that a
+                                // stale nested @babel/traverse (7.17, installed
+                                // under @babel/core) does not have, which made any
+                                // re-transpiled file fail with
+                                // "path.ensureFunctionName is not a function".
+                                // Name the actual runtime instead: Electron 39
+                                // (see devDependencies.electron).
+                                targets: { electron: '39' },
                                 modules: false
                             }],
                             '@babel/preset-typescript',

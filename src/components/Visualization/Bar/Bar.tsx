@@ -54,24 +54,23 @@ export const Bar: React.FC<BarProps> = (props: BarProps) => {
     const [w2h, setW2H] = useState(1);
     const minHeightInPixel = MIN_HEIGHT_IN_PIXEL;
     useEffect(() => {
-        if (ref.current == null) return;
+        const element = ref.current;
+        if (element == null) return;
         const lis = () => {
-            if (ref.current == null) return;
-            const h = ref.current.clientHeight;
+            const h = element.clientHeight;
             // h is 0 before layout (and always under jsdom): keep the aspect
             // ratio at its initial 1 instead of poisoning the `text` y with
             // NaN, and clamp the column count to >= 1 so the layer maths
             // below can never divide by zero.
             setMaxItemInCol(Math.max(1, Math.floor(h / minHeightInPixel)));
-            setW2H(h > 0 ? ref.current.clientWidth / h : 1);
+            setW2H(h > 0 ? element.clientWidth / h : 1);
         };
-        ref.current.addEventListener('resize', lis);
+        element.addEventListener('resize', lis);
         lis();
         return () => {
-            if (ref.current == null) return;
-            ref.current.removeEventListener('resize', lis);
+            element.removeEventListener('resize', lis);
         };
-    }, []);
+    }, [minHeightInPixel]);
     const { names, values } = props;
     if (names.length !== values.length) {
         throw new Error();

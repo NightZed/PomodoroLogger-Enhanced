@@ -4,12 +4,12 @@ import { Card } from '../renderer/components/Kanban/type';
 
 export class Tokenizer {
     private rules: [string, RegExp][] = [
-        ['appWithSuffix', /^((\w[\.-])?\w)+/],
+        ['appWithSuffix', /^((\w[.-])?\w)+/],
         ['word', /^\w[\w-]*/],
         ['number', /^\d\d*\.?\d*/],
     ];
 
-    private unwantedSymbol = /[%&\(\)（）,\{\}=+\!@#\$\^\*;:'"<>|\\\/]/;
+    private unwantedSymbol = /[%&()（）,{}=+!@#$^*;:'"<>|\\/]/;
 
     public tokenize(s: string): string[] {
         const ans = [];

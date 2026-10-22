@@ -14,7 +14,7 @@ interface Props {
     setId: (id?: string) => any;
 }
 
-const mFocusSelector: FunctionComponent<Props> = (props: Props) => {
+const FocusSelectorInner: FunctionComponent<Props> = (props: Props) => {
     const onChange = (value: string) => {
         props.setId(value || undefined);
     };
@@ -83,4 +83,4 @@ export const FocusSelector = connect(
     (dispatch: Dispatch) => ({
         setId: (id?: string) => dispatch(timerActions.setBoardId(id)),
     })
-)(mFocusSelector);
+)(FocusSelectorInner);

@@ -131,8 +131,8 @@ export const Kanban: FunctionComponent<Props> = React.memo(
         // Recreating the debounced function on every render leaves a pending
         // timer behind each time and never cancels the previous one; keep a
         // single instance and cancel it on unmount instead.
-        const search = React.useMemo(() => debounce(props.setSearchReg, 200), []);
-        useEffect(() => () => search.cancel(), []);
+        const search = React.useMemo(() => debounce(props.setSearchReg, 200), [props.setSearchReg]);
+        useEffect(() => () => search.cancel(), [search]);
         const valueHandler: (values: FormValue) => void = ({ name, description }: FormValue) => {
             if (editingBoardId === undefined) {
                 props.addBoard(uid(), name, description);
@@ -151,7 +151,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
         };
         useEffect(() => {
             props.fetchBoards();
-        }, []);
+        }, [props.fetchBoards]);
 
         // Read the boards through a ref so this callback stays stable: it is
         // passed down to the memoized overview, and a new identity used to

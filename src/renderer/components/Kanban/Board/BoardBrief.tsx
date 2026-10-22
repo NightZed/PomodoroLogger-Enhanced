@@ -1,4 +1,4 @@
-import React, { useCallback, useState, MouseEvent } from 'react';
+import React, { useState, MouseEvent } from 'react';
 import { actions as timerActions, TimerManager } from '../../Timer/action';
 import { connect } from 'react-redux';
 import { RootState } from '../../../reducers';
@@ -128,20 +128,22 @@ interface Props extends KanbanBoard, InputProps {
 }
 
 const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
-    if (props._id === undefined) {
-        return <></>;
-    }
-
     const {
         name,
-        lists,
-        listsById,
         doneList,
-        cardsById,
         onClick,
         isFocusingOnThisBoard,
         isTimerRunning,
+        relatedSessions = [],
+        _id,
+        timerManager,
+        setCurrentBoardAsFocusingTarget,
+        setPin,
+        pin,
     } = props;
+    // Keep the hook order stable even while a removed board is still being
+    // rendered with an undefined id. The early return now happens after every
+    // hook below.
     const [hover, setHover] = useState(false);
     // The trend chart is only visible while the card is hovered, but it used
     // to mount (and issue its per-board session query) for every brief card as
@@ -165,6 +167,9 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
         let errorSum_ = 0;
         let doneCount = 0;
         let showErr_ = false;
+        const lists = props.lists ?? [];
+        const listsById = props.listsById ?? {};
+        const cardsById = props.cardsById ?? {};
 
         for (const listId of lists) {
             const list = listsById[listId];
@@ -202,7 +207,7 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
             n: doneCount,
             showErr: showErr_,
         };
-    }, [lists, listsById, cardsById, doneList]);
+    }, [props.lists, props.listsById, props.cardsById, doneList]);
 
     const descriptionHtml = React.useMemo(
         () => (props.description ? formatMarkdown(props.description) : undefined),
@@ -239,24 +244,29 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
     const onStartFocusingClick = React.useCallback(
         (event: MouseEvent) => {
             event.stopPropagation();
-            props.setCurrentBoardAsFocusingTarget();
-            if (!props.timerManager) {
+            setCurrentBoardAsFocusingTarget();
+            if (!timerManager) {
                 return;
             }
 
             if (isFocusingOnThisBoard && isTimerRunning) {
-                props.timerManager.pause();
+                timerManager.pause();
                 feedback.toast({ kind: 'info', content: FEEDBACK_MESSAGES.kanban.paused });
             } else {
-                props.timerManager.start(props._id);
+                timerManager.start(_id);
                 feedback.toast({
                     kind: 'success',
                     content: FEEDBACK_MESSAGES.kanban.startFocusing,
                 });
             }
         },
-        [props._id, isFocusingOnThisBoard, isTimerRunning, props.timerManager]
+        [_id, isFocusingOnThisBoard, isTimerRunning, timerManager, setCurrentBoardAsFocusingTarget]
     );
+    const onPinClick = React.useCallback(() => setPin(!pin), [setPin, pin]);
+
+    if (props._id === undefined) {
+        return <></>;
+    }
 
     return (
         <BriefCard
@@ -274,10 +284,7 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
                         </span>
                         <Pin
                             isPin={!!props.pin}
-                            onClick={useCallback(
-                                () => props.setPin(!props.pin),
-                                [props._id, props.pin]
-                            )}
+                            onClick={onPinClick}
                             isHover={hover}
                             style={{ marginLeft: 4 }}
                         />
@@ -311,7 +318,7 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
                     boardId={props._id}
                     height={props.createdTime !== undefined ? 26 : 40}
                 />
-                {props.relatedSessions.length && showTrend ? (
+                {relatedSessions.length && showTrend ? (
                     <AnimTrend style={{ display: hover ? undefined : 'none' }}>
                         <IdTrend boardId={props._id} />
                     </AnimTrend>
@@ -319,7 +326,7 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
             </Content>
             <Divider style={{ margin: '6px 0' }} />
             <BadgeHolder>
-                <PomodoroDot num={props.relatedSessions.length} />
+                <PomodoroDot num={relatedSessions.length} />
                 {actualTimeSum + estimatedLeftTimeSum ? (
                     <TimeBadge spentTime={actualTimeSum} leftTime={estimatedLeftTimeSum} />
                 ) : undefined}

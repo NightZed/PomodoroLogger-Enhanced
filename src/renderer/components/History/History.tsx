@@ -373,7 +373,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
             }
         }
         return ans;
-    }, [aggInfo.calendarCount, chosenYear]);
+    }, [aggInfo, chosenYear]);
 
     // All time shows the full current-year calendar, so anchor the window to the year end.
     // Picking a month never moves this window: the heat map stays on the whole year,

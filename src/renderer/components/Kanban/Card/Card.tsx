@@ -187,7 +187,7 @@ export const Card: FC<Props> = React.memo((props: Props) => {
             ref.current = element;
         }
     }, []);
-    const { index, _id, isDraggingOver, listId } = props;
+    const { index, _id, listId, setContent, setEditCard, setSearchReg } = props;
     const shouldRenderContent = useNearViewport(cardRef, props.initiallyVisible === true);
     const onClick = React.useCallback(
         (e: React.MouseEvent<HTMLDivElement>) => {
@@ -197,10 +197,10 @@ export const Card: FC<Props> = React.memo((props: Props) => {
             const checkbox = matchParent(target, '[type="checkbox"]');
             const link = matchParent(target, 'a');
             if (cardLabel && cardLabel.textContent) {
-                props.setSearchReg('#' + cardLabel.textContent);
+                setSearchReg('#' + cardLabel.textContent);
                 e.stopPropagation();
             } else if (tag && tag.textContent) {
-                props.setSearchReg(tag.textContent);
+                setSearchReg(tag.textContent);
                 e.stopPropagation();
             } else if (checkbox) {
                 if (!markdownRef.current) {
@@ -210,7 +210,7 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                 const checkboxIndex = getCheckboxIndex(markdownRef.current, checkbox);
                 const nextContent = toggleNthCheckbox(props.content, checkboxIndex);
                 if (nextContent !== undefined) {
-                    props.setContent(_id, nextContent);
+                    setContent(_id, nextContent);
                 }
             } else if (link) {
                 // Opening the link is entirely the anchor's default action:
@@ -223,10 +223,10 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                 // no preventDefault, so the browser keeps opening the URL.
                 e.stopPropagation();
             } else {
-                props.setEditCard(true, props.listId, props._id);
+                setEditCard(true, listId, _id);
             }
         },
-        [listId, _id, props.content, props.setSearchReg]
+        [listId, _id, props.content, setSearchReg, setContent, setEditCard]
     );
     const content = React.useMemo(() => {
         if (!props.searchReg) {

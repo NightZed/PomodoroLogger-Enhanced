@@ -118,7 +118,7 @@ const columns = [
     },
 ];
 
-const _OverviewTable: FC<Props> = (props: Props) => {
+const OverviewTableInner: FC<Props> = (props: Props) => {
     const { boards, lists: listsById, cards: cardsById } = props;
 
     // The aggregation walks every card of every board. The table re-renders
@@ -145,7 +145,7 @@ const OverviewTable = connect((state: RootState) => ({
     boards: state.kanban.boards,
     lists: state.kanban.lists,
     cards: state.kanban.cards,
-}))(_OverviewTable);
+}))(OverviewTableInner);
 
 const getPinScore = ({ pin: aPin }: KanbanBoard, { pin: bPin }: KanbanBoard) => {
     const a = aPin ? 1 : 0;
@@ -158,6 +158,9 @@ const applyDirection = (value: number, desc?: boolean) => (desc ? -value : value
 // Sort board names so that (ascending) English names come first (a-z), then Chinese names
 // by pinyin; descending reverses the whole order, like Windows Explorer.
 const pinyinCollator = new Intl.Collator('zh-Hans-CN');
+// The control range is intentional: this only classifies the first character
+// as ASCII, and a leading NUL should still be treated as a non-ASCII name.
+// eslint-disable-next-line no-control-regex
 const isAscii = (s: string) => /^[\x00-\x7F]/.test(s); // first char ASCII => English group
 const compareName = (a: string, b: string): number => {
     const aAscii = isAscii(a);

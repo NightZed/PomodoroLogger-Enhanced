@@ -10,7 +10,7 @@ import type { MenuProps } from 'antd';
 import { AntdIcon as Icon, IconComponent } from '../../antdIcon';
 import { ConfirmPopover, feedback, FEEDBACK_MESSAGES } from '../../feedback';
 import { KanbanActionTypes } from '../action';
-import { actions as cardActions, CardActionTypes, CardsState } from '../Card/action';
+import { CardActionTypes, CardsState } from '../Card/action';
 import { List as ListType } from '../type';
 import { mergeRefs } from '../../../utils';
 import { throttle, debounce } from 'lodash';
@@ -202,11 +202,23 @@ interface Props extends ListType, InputProps, ListActionTypes, KanbanActionTypes
 }
 
 export const List: FC<Props> = React.memo((props: Props) => {
-    const { focused = false, searchReg, cards, cardsState, done = false } = props;
+    const {
+        focused = false,
+        searchReg,
+        cards,
+        cardsState,
+        done = false,
+        setVisibleCards,
+        visibleCards: storedVisibleCards,
+        _id,
+        boardId,
+        deleteList,
+    } = props;
     const cardListRef = React.useRef<HTMLElement>(null);
     const [showScrollBar, setShowScrollBar] = useState(true);
     React.useEffect(() => {
-        if (!cardListRef.current) {
+        const cardList = cardListRef.current;
+        if (!cardList) {
             return;
         }
 
@@ -222,10 +234,10 @@ export const List: FC<Props> = React.memo((props: Props) => {
         // Passive: the handler only toggles the scrollbar visibility and never
         // prevents scrolling, so the browser can keep scrolling off the main
         // thread instead of waiting for this listener.
-        cardListRef.current.addEventListener('scroll', onScroll, { passive: true });
+        cardList.addEventListener('scroll', onScroll, { passive: true });
         hideScrollBar();
         return () => {
-            cardListRef.current?.removeEventListener('scroll', onScroll);
+            cardList.removeEventListener('scroll', onScroll);
             // Pending debounced/throttled callbacks would still call
             // `setShowScrollBar` after unmount ("state update on an unmounted
             // component" warning + a leaked timer per mount/unmount cycle),
@@ -259,7 +271,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
             );
         });
         return visibleCards_;
-    }, [props._id, searchReg, props.cardsState, cards]);
+    }, [searchReg, cardsState, cards]);
 
     React.useEffect(() => {
         // Opening a board mounts every list, and this used to dispatch a
@@ -267,13 +279,16 @@ export const List: FC<Props> = React.memo((props: Props) => {
         // already held the same value. Each dispatch notified every connected
         // card, so a board with many lists/cards paid that cost on open. Only
         // write when the filter actually changed.
-        if (visibleCards === props.visibleCards) {
+        if (visibleCards === storedVisibleCards) {
             return;
         }
-        props.setVisibleCards(props._id, visibleCards);
-    }, [props._id, visibleCards, props.visibleCards]);
+        setVisibleCards(_id, visibleCards);
+    }, [_id, visibleCards, storedVisibleCards, setVisibleCards]);
 
-    const filteredCards = visibleCards || props.cards || [];
+    const filteredCards = React.useMemo(
+        () => visibleCards ?? props.cards ?? [],
+        [visibleCards, props.cards]
+    );
 
     // Opening a board used to mount every card in one commit. With a long list
     // (100+ cards) that blocks the first paint even though only the first few
@@ -286,7 +301,11 @@ export const List: FC<Props> = React.memo((props: Props) => {
     );
     React.useEffect(() => {
         setRenderLimit(Math.min(PROGRESSIVE_INITIAL_CARDS, filteredCards.length));
-    }, [props._id, searchReg]);
+        // Reset only when the list identity or search filter changes. Adding a
+        // card must not send an already fully loaded list back to page one; the
+        // second effect below extends the limit when the array grows.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [_id, searchReg]);
     React.useEffect(() => {
         if (renderLimit >= filteredCards.length) {
             return;
@@ -332,14 +351,14 @@ export const List: FC<Props> = React.memo((props: Props) => {
         props.setEditCard(true, props.listId, undefined);
     };
 
-    const onDelete = () => {
+    const onDelete = React.useCallback(() => {
         if (focused || done) {
             feedback.toast({ kind: 'warning', content: FEEDBACK_MESSAGES.kanban.cannotDeleteList });
             return;
         }
 
-        props.deleteList(props._id, props.boardId);
-    };
+        deleteList(_id, boardId);
+    }, [focused, done, _id, boardId, deleteList]);
 
     const onSave = () => {
         props.renameList(props._id, value);
@@ -350,7 +369,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
         setValue(e.target.value);
     };
 
-    const onEdit = () => {
+    const onEdit = React.useCallback(() => {
         setValue(props.title);
         setIsEditing(true);
         if (!inputRef.current) {
@@ -358,15 +377,10 @@ export const List: FC<Props> = React.memo((props: Props) => {
         }
 
         inputRef.current.focus();
-    };
+    }, [props.title]);
 
     /** The shared popover forwards the antd instance, so the menu can open it. */
     const popConfirmRef = useRef<{ setVisible: (visible: boolean) => void } | null>(null);
-    const onPreDelete = React.useCallback(() => {
-        if (popConfirmRef.current) {
-            popConfirmRef.current.setVisible(true);
-        }
-    }, []);
 
     const menu: MenuProps = React.useMemo(
         () =>
@@ -401,7 +415,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
                           },
                       ],
                   },
-        [onDelete, focused, done, onPreDelete, onEdit]
+        [onDelete, focused, done, onEdit]
     );
 
     return (

@@ -1,7 +1,7 @@
 import { Button } from 'antd';
 import { AntdIcon as Icon } from '../../../renderer/components/antdIcon';
 import React from 'react';
-import styled, { keyframes, css } from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 import { PomodoroRecord } from '../../../renderer/monitor/type';
 
 const confirmSpin = keyframes`

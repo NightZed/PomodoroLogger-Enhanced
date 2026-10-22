@@ -145,40 +145,49 @@ export const Search = ({
         setIsSearching(true);
     }, [searchStr]);
 
-    const clear = useCallback((event: React.MouseEvent) => {
-        event.stopPropagation();
-        setIsSearching(false);
-        setShowPanel(false);
-        setText('');
-        textRef.current = '';
-        setSearchStr('');
-    }, []);
+    const clear = useCallback(
+        (event: React.MouseEvent) => {
+            event.stopPropagation();
+            setIsSearching(false);
+            setShowPanel(false);
+            setText('');
+            textRef.current = '';
+            setSearchStr('');
+        },
+        [setSearchStr]
+    );
 
-    const search = useCallback((value: string) => {
-        setText(value);
-        textRef.current = value;
-        setSearchStr(value);
-    }, []);
+    const search = useCallback(
+        (value: string) => {
+            setText(value);
+            textRef.current = value;
+            setSearchStr(value);
+        },
+        [setSearchStr]
+    );
 
     const onChange = useCallback(
         (v: React.ChangeEvent<HTMLInputElement>) => {
             const value = v.target.value;
             search(value);
         },
-        [setSearchStr]
+        [search]
     );
 
-    const onKeydown = useCallback((event: React.KeyboardEvent) => {
-        if (event.key === 'Escape' || event.keyCode === 27) {
-            setText('');
-            textRef.current = '';
-            setSearchStr('');
-            setIsSearching(false);
-            setShowPanel(false);
-        } else if (event.key === 'Enter' || event.keyCode === 13) {
-            inputRef.current?.blur();
-        }
-    }, []);
+    const onKeydown = useCallback(
+        (event: React.KeyboardEvent) => {
+            if (event.key === 'Escape' || event.keyCode === 27) {
+                setText('');
+                textRef.current = '';
+                setSearchStr('');
+                setIsSearching(false);
+                setShowPanel(false);
+            } else if (event.key === 'Enter' || event.keyCode === 13) {
+                inputRef.current?.blur();
+            }
+        },
+        [setSearchStr]
+    );
 
     useEffect(() => {
         if (!enabled) {

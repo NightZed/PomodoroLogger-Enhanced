@@ -29,7 +29,7 @@ export const AdaptWidthContainer: React.FC<Props> = ({ children, ...style }) => 
                 observer.disconnect();
             };
         }
-    }, [selfRef.current]);
+    }, [setW]);
     return (
         <Container ref={selfRef} {...style}>
             {children && children(w)}

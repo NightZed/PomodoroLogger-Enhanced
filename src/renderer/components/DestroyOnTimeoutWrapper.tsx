@@ -25,7 +25,7 @@ export const DestroyOnTimeoutWrapper: React.FC<Props> = React.memo((props: Props
                 clearTimeout(timeout);
             }
         };
-    }, [props.isVisible]);
+    }, [props.isVisible, props.timeout]);
 
     if (hide) {
         return <></>;

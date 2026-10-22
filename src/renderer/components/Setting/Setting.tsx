@@ -3,7 +3,6 @@ import { TimerActionTypes, TimerState } from '../Timer/action';
 import styled from 'styled-components';
 import { GithubOutlined } from '@ant-design/icons';
 import { Button, Slider, Switch } from 'antd';
-import { AntdIcon as Icon } from '../antdIcon';
 import { deleteAllUserData } from '../../monitor/sessionManager';
 import { shell, ipcRenderer } from 'electron';
 import { feedback, FEEDBACK_MESSAGES } from '../feedback';

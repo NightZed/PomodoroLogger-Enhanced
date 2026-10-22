@@ -111,8 +111,8 @@ export interface MaskProps extends InputProps {
     nightTheme: boolean;
 }
 
-const _TimerMask = (props: MaskProps) => {
-    const { boards = [], setBoard = () => {} } = props;
+const TimerMaskInner = (props: MaskProps) => {
+    const { boards = [], setBoard = () => {}, extendCurrentSession } = props;
     // An explicit choice (timer page or the popover below) wins. Otherwise the
     // session is going to be credited to the predicted project, so showing it
     // here lets the user notice a wrong guess before confirming.
@@ -171,16 +171,16 @@ const _TimerMask = (props: MaskProps) => {
     const extend10 = React.useCallback(
         (event: any) => {
             event.stopPropagation();
-            props.extendCurrentSession(10);
+            extendCurrentSession(10);
         },
-        [props.extendCurrentSession]
+        [extendCurrentSession]
     );
     const extend5 = React.useCallback(
         (event: any) => {
             event.stopPropagation();
-            props.extendCurrentSession(5);
+            extendCurrentSession(5);
         },
-        [props.extendCurrentSession]
+        [extendCurrentSession]
     );
 
     return (
@@ -260,4 +260,4 @@ export const TimerMask = connect(
     (dispatch: Dispatch) => ({
         setBoard: (_id?: string) => dispatch(actions.setBoardId(_id)),
     })
-)(_TimerMask);
+)(TimerMaskInner);

@@ -27,7 +27,7 @@ export const WordCloud: React.FC<MProps> = (props: MProps) => {
         if (context) {
             context.clearRect(0, 0, canvasElement.width, canvasElement.height);
         }
-        if (props.weights.length === 0) {
+        if (weights.length === 0) {
             return;
         }
 
@@ -47,7 +47,7 @@ export const WordCloud: React.FC<MProps> = (props: MProps) => {
             // Transparent so the canvas follows the active theme background.
             backgroundColor: 'transparent',
         });
-    }, [weights]);
+    }, [weights, props.width]);
 
     // @ts-ignore
     return <canvas ref={canvas} {...restProps} />;

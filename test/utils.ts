@@ -7,16 +7,13 @@ export function createRecord(
     appData: [string, number][]
 ): PomodoroRecord {
     const apps: Record<string, ApplicationSpentTime> = {};
-    let index = 0;
     for (const [appName, value] of appData) {
         apps[appName] = {
             appName,
             screenStaticDuration: 0,
             spentTimeInHour: value,
-            titleSpentTime: {}
+            titleSpentTime: {},
         };
-
-        index += 1;
     }
 
     return {
@@ -28,6 +25,6 @@ export function createRecord(
         startTime: new Date().getTime(),
         boardId: name,
         spentTimeInHour: time,
-        switchTimes: 0
+        switchTimes: 0,
     };
 }

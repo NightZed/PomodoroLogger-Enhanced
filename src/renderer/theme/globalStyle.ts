@@ -74,15 +74,19 @@ export const GlobalStyle = createGlobalStyle`
         background-color: var(--pl-scrollbar-track);
     }
 
-    html[data-theme] .ant-select-dropdown .rc-virtual-list-holder::-webkit-scrollbar {
+    /* v6: the option list moved from rc-virtual-list to
+       @rc-component/virtual-list and is now prefixed with the select's
+       -dropdown-list (antd styles the -dropdown-list-scrollbar node), so the
+       old rc-virtual-list-* names no longer match. */
+    html[data-theme] .ant-select-dropdown .ant-select-dropdown-list-holder::-webkit-scrollbar {
         width: 6px;
     }
 
-    html[data-theme] .ant-select-dropdown .rc-virtual-list-scrollbar-vertical {
+    html[data-theme] .ant-select-dropdown .ant-select-dropdown-list-scrollbar-vertical {
         width: 6px !important;
     }
 
-    html[data-theme] .ant-select-dropdown .rc-virtual-list-holder-inner {
+    html[data-theme] .ant-select-dropdown .ant-select-dropdown-list-holder-inner {
         padding-inline-end: 6px;
     }
 

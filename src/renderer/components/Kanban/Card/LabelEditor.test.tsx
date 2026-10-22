@@ -106,6 +106,23 @@ describe('LabelEditor suggestion input value', () => {
         expect(dropdown).not.toBeNull();
         expect(document.getElementById(POPUP_CONTAINER_ID)!.contains(dropdown)).toBe(true);
     });
+
+    it('renders the option list in the container the chip-cloud CSS targets', () => {
+        // The wrapping chip cloud (LabelSuggestDropdownStyle) turns antd's
+        // vertical option list into a flex-wrap cloud by overriding
+        // `flex-direction` on the virtual list's inner container. antd 6
+        // renamed that container from `.rc-virtual-list-holder-inner` to
+        // `.ant-select-dropdown-list-holder-inner`, which silently broke the
+        // layout: the selectors kept matching nothing and every chip went back
+        // to its own row. Pin the class names the CSS depends on so the next
+        // antd bump cannot regress it unnoticed.
+        type('bu');
+        expect(
+            document.querySelector(
+                '.pl-label-suggest-dropdown .ant-select-dropdown-list-holder-inner'
+            )
+        ).not.toBeNull();
+    });
 });
 
 describe('LabelEditor chip editing', () => {

@@ -207,18 +207,24 @@ const SuggestionChip = styled.span<{ $color: string }>`
  * (SearchPanel's Group), instead of antd's vertical list. Ant Design injects
  * component styles at runtime, so the rules that fight its `:not(.…-disabled)`
  * hover/active selectors carry the `html` prefix to stay specific enough.
+ *
+ * The scrolling holder and its flex container are addressed by antd's own
+ * class names, which the v6 migration renamed: the option list moved from
+ * `rc-virtual-list` to `@rc-component/virtual-list`, and antd now prefixes it
+ * with the select's `-dropdown-list` (`Select.style` styles
+ * `${componentCls}-dropdown-list-scrollbar`). The old `rc-virtual-list-*`
+ * selectors matched nothing under v6, so `-holder-inner` kept rc-virtual-list's
+ * inline `flex-direction: column` and the chips collapsed back into one
+ * option per row. Keep these in sync with `@rc-component/virtual-list`
+ * (List/Filler) when antd changes its list prefix again.
  */
 const LabelSuggestDropdownStyle = createGlobalStyle`
-    html .pl-label-suggest-dropdown .ant-select-dropdown {
-        padding: 0;
-    }
-
-    html .pl-label-suggest-dropdown .rc-virtual-list-holder {
+    html .pl-label-suggest-dropdown .ant-select-dropdown-list-holder {
         max-height: 240px;
         overflow-y: auto;
     }
 
-    html .pl-label-suggest-dropdown .rc-virtual-list-holder-inner {
+    html .pl-label-suggest-dropdown .ant-select-dropdown-list-holder-inner {
         display: flex;
         flex-direction: row !important;
         flex-wrap: wrap !important;

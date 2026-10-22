@@ -403,7 +403,7 @@ interface DbClient {
 - [x] `src/renderer/workers/trainKnn.worker.ts`：删除直接 `new nedb`，记录由渲染进程通过 repository 读取后随消息传入。
 - [x] `src/renderer/components/Timer/action.ts`：`dbs.settingDB` 直连改为 `AsyncDB`/settings repository。
 - [x] `build/nedb-node-loader.js` 与 `webpack.renderer.config.js` 里的 nedb browser 规则：删除。
-- [x] `test/util-legacy-shim.js` 中的 `util.isDate/isRegExp` 兼容段：删除（jsdom polyfill 保留）。
+- [x] `test/util-legacy-shim.js`（已更名为 `test/setup-env.js`）中的 `util.isDate/isRegExp` 兼容段：删除（jsdom polyfill 保留）。
 - [x] `jest.config.js` 中 nedb 相关注释与 `FakeDBWorker` 的 nedb 依赖：删除。
 - [x] `package.json`：删除 `nedb`、`@types/nedb`；新增 `better-sqlite3` 与 `@types/better-sqlite3`；`asarUnpack` 保留 `**/*.node`；主进程 webpack 将 `better-sqlite3` 设为 external。
 - [x] `src/config.ts`：新增 `sqlitePath`；`dbPaths` 保留旧 `.nedb` 路径供迁移器读取，删除无用的 `projectDB`。

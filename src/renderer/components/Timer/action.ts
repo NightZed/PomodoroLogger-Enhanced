@@ -18,9 +18,9 @@ const settingDB = new AsyncDB(dbs.settingDB);
  * Pending writes of the drag-driven settings, keyed by setting name.
  *
  * The opacity sliders dispatch on every `onChange`, i.e. dozens of times while
- * a thumb is being dragged, and each dispatch would otherwise be its own NeDB
- * write. Writes are debounced per key, so dragging one slider never cancels the
- * pending write of another one.
+ * a thumb is being dragged, and each dispatch would otherwise be its own
+ * SQLite write. Writes are debounced per key, so dragging one slider never
+ * cancels the pending write of another one.
  */
 const pendingSettingWrites: { [name: string]: ReturnType<typeof setTimeout> } = {};
 

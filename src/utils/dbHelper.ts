@@ -4,7 +4,7 @@ import type { DbRepository } from '../main/db/types';
  * Thin async facade over a repository.
  *
  * The class name is kept because action modules and tests already use it. The
- * NeDB callback plumbing is gone: repositories return promises, and the main
+ * callback-based API is gone: repositories return promises, and the main
  * process owns the only SQLite connection.
  */
 export class AsyncDB {

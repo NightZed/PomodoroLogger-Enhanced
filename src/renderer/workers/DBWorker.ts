@@ -2,8 +2,8 @@ import { dbs } from '../dbs';
 import type { DbName, HistoryArg } from '../../main/db/types';
 
 /**
- * Compatibility facade for the call sites that used to talk to the NeDB web
- * worker. The name and method signatures are unchanged; the actual work now
+ * Compatibility facade for the call sites that used to talk to the database
+ * web worker. The name and method signatures are unchanged; the actual work now
  * happens in the main process (or in the in-memory repositories under Jest).
  */
 export class DBWorker {

@@ -20,12 +20,11 @@ You only need to install the latest version of node.js and node-gyp to build thi
 > ship. Transpilation is handled by Babel in webpack and Jest, so `ts-loader`
 > and `ts-jest` are intentionally absent.
 
-> **Note on Node 22+**: the embedded database (`nedb@1.8.0`) still calls the legacy
-> `util.isDate` / `util.isRegExp` helpers that Node removed in v22. Jest therefore loads
-> [`test/util-legacy-shim.js`](../test/util-legacy-shim.js) through `setupFiles` in
-> `jest.config.js` to restore them for the test process only. The shim is a no-op on
-> older Node versions and can be deleted once `nedb` is replaced by a maintained fork
-> such as `@seald-io/nedb`.
+> **Test environment**: Jest loads [`test/setup-env.js`](../test/setup-env.js) through
+> `setupFiles` in `jest.config.js` before any test module. It pins `NODE_ENV=test` so
+> suites use the in-memory SQLite repositories and the test-only wiring instead of the
+> Electron IPC proxies, and it polyfills the few jsdom APIs antd needs (`matchMedia`,
+> `MessageChannel`, `ResizeObserver`).
 
 Issue the following commands to make sure you are ready to go,
 

@@ -268,18 +268,3 @@ interface ResizeObserverEntryBoxSize {
 interface Window {
     ResizeObserver: typeof ResizeObserver;
 }
-
-declare namespace Nedb {
-    interface Persistence {
-        persistCachedDatabase(cb: () => void): void;
-        closeDatabase(cb: () => void): void;
-    }
-
-    interface Datastore {
-        closeDatabase(cb: () => void): void;
-    }
-}
-
-declare interface Nedb {
-    closeDatabase(cb: () => void): void;
-}

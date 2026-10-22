@@ -1,7 +1,7 @@
 module.exports = {
     collectCoverage: true,
     // Pins NODE_ENV=test and installs jsdom polyfills before any test module.
-    setupFiles: ['<rootDir>/test/util-legacy-shim.js'],
+    setupFiles: ['<rootDir>/test/setup-env.js'],
     setupFilesAfterEnv: [
         '<rootDir>/test/react-act-environment.js',
         '<rootDir>/test/jsdom-compat.js',

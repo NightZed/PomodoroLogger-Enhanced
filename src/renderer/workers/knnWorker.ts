@@ -13,8 +13,8 @@ export class KnnWorker extends BaseWorker {
     }
 
     /**
-     * The KNN worker used to open the session NeDB file itself. Now that the
-     * main process owns SQLite, the renderer reads the records through the
+     * The KNN worker used to open the session database file itself. Now that
+     * the main process owns SQLite, the renderer reads the records through the
      * repository and sends them with the request.
      */
     private async getRecords(): Promise<PomodoroRecord[]> {

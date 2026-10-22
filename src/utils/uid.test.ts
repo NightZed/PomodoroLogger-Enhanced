@@ -1,7 +1,7 @@
 import { uid } from './uid';
 
 describe('util.uid', () => {
-    it('generates 9-character ids, like the shortid ids already in the nedb files', () => {
+    it('generates 9-character ids, like the shortid ids found in existing data', () => {
         const n = 1e3;
         for (let i = 0; i < n; i += 1) {
             expect(uid()).toHaveLength(9);

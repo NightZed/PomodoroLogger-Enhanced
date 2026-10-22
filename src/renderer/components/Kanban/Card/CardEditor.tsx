@@ -891,7 +891,17 @@ export const CardInDetail = connect(
     mapCardEditorState,
     genMapDispatchToProp<CardActionTypes>({
         ...actions,
-        onCancel: () => (dispatch: any) =>
-            dispatch(kanbanActions.setEditCard(false, '', undefined)),
+        // Close the editor but KEEP `_id`/`listId`: the dialog is force-rendered,
+        // so it stays mounted for the whole fade-out and keeps rendering this
+        // card. Clearing the id here made `card` undefined in the very first
+        // closing render -- the `Created: ...` line (gated on `card`) vanished
+        // while the dialog was still visible, so the editor shrank during its
+        // own close, and `isCreating` flipped to true. The id is replaced by
+        // the next setEditCard anyway (a card click or the create action), so
+        // nothing stale leaks into the next open.
+        onCancel: () => (dispatch: any, getState: any) => {
+            const { editCard } = getState().kanban.kanban;
+            dispatch(kanbanActions.setEditCard(false, editCard.listId, editCard._id));
+        },
     })
 )(_CardInDetail);

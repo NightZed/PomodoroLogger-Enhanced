@@ -40,6 +40,9 @@ export const EditorAnimation = createGlobalStyle`
         animation-name: cardEditorFadeIn;
         animation-duration: 0.15s;
         animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
+        /* Hold the start/end state between commits, like antd's own motion
+           styles (theme initMotion sets animationFillMode: 'both'). */
+        animation-fill-mode: both;
     }
 
     .card-editor-fade-leave {
@@ -47,5 +50,12 @@ export const EditorAnimation = createGlobalStyle`
         animation-name: cardEditorFadeOut;
         animation-duration: 0.15s;
         animation-timing-function: ease-in;
+        /* Without fill-mode the panel is back at its base opacity (1) in the
+           frame between the end of the 150ms leave animation and rc-motion
+           removing the leave class + applying display:none. The dialog then
+           blinks fully visible for a frame -- it reads as "reopened and
+           instantly closed again". Keep the final opacity 0 until the panel is
+           hidden. (Verified with per-frame computed styles in Chromium.) */
+        animation-fill-mode: both;
     }
 `;

@@ -33,8 +33,13 @@ module.exports = merge(baseConfig, {
                                 // under @babel/core) does not have, which made any
                                 // re-transpiled file fail with
                                 // "path.ensureFunctionName is not a function".
-                                // Name the actual runtime instead: Electron 39
-                                // (see devDependencies.electron).
+                                // Compile for Electron instead. The value is a
+                                // minimum, not the exact bundled version: the
+                                // app ships its own Electron, so there is no
+                                // older runtime to support, and a future
+                                // Electron upgrade does not require touching
+                                // this line (it only means a few features stay
+                                // transpiled a little longer than necessary).
                                 targets: { electron: '39' },
                                 modules: false
                             }],

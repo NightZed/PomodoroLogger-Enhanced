@@ -230,7 +230,7 @@ These raw records are aggregated into the time proportion chart and word cloud i
 
 ## 🚀 Quick Start
 
-Platforms: **Windows 10 / macOS 12+ / Linux**.
+Platforms: **Windows 10 / macOS 13+ / Linux**.
 Download: [release page](https://github.com/NightZed/PomodoroLogger-Enhanced/releases).
 
 ## 🤝 CONTRIBUTING

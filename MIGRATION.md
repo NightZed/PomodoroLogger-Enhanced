@@ -521,7 +521,7 @@ Electron 39 的官方 EOL 是 **2026-05-05**，已经不再收到安全更新。
 - [x] `webpack.main.config.js` 的 Babel target：`electron: '39'` → `'44'`。
 - [x] `@types/node`：22.x → 24.19.2（与 Electron 44 的 Node 24 对齐；不要直接跳到 26）。
 - [x] `@electron/remote` 2.1.3 继续使用；Windows 实际窗口验证 `remote.getCurrentWindow()`、`remote.app`，应用启动无 remote 相关错误。
-- [ ] 回归所有原生能力：窗口拖拽、托盘、截图（`desktopCapturer`）、通知、开机启动、自动更新。
+- [x] 回归所有原生能力：窗口拖拽、托盘、截图（`desktopCapturer`）、通知、开机启动、自动更新。
 - [ ] Windows NSIS、macOS notarize、Linux deb 三条打包链路各做一次 `yarn pack` / `dist-*` 冒烟。
 - [x] 检查 `webPreferences`：保持 `nodeIntegration: true` + `contextIsolation: false`，本次不扩大权限；迁移到 preload + `contextBridge` 仍作为独立技术债（与 `@electron/remote` 一起处理）。
 

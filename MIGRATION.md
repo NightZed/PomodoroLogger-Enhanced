@@ -1,7 +1,7 @@
 # 依赖迁移纲要
 
 > 生成日期：2026-10-20
-> 状态：B0 / B1 / B1.5 / B2（代码、升级/回滚、History 性能）/ B3 已完成；B4 的 `get-windows` 迁移已完成，Electron 44 待实施
+> 状态：B0 / B1 / B1.5 / B2（代码、升级/回滚、History 性能）/ B3 已完成；B4 代码迁移完成（`get-windows` + Electron 44.9.3）
 > 适用版本：当前 `package.json`（React 19.3 / antd 6 / webpack 5.111 / Jest 30）
 
 本文档列出项目中已停止维护、已被弃用、已过 EOL，或已经确定要替换的依赖，并给出迁移顺序、改动范围、验收标准和回滚方式。每完成一项，直接勾选对应条目并补充实际使用的版本与迁移日期。
@@ -517,13 +517,25 @@ import { activeWindow, activeWindowSync, openWindows } from 'get-windows';
 
 Electron 39 的官方 EOL 是 **2026-05-05**，已经不再收到安全更新。Electron 44 内置 Node 24，和 `better-sqlite3` 13 的 Node 要求一致。
 
-- [ ] 升级 `electron` 到 `^44.9.1`，`electron-builder` 保持 26.x 并验证兼容性。
-- [ ] `webpack.main.config.js` 的 Babel target：`electron: '39'` → `'44'`。
-- [ ] `@types/node`：22.x → 24.x（与 Electron 44 的 Node 对齐；不要直接跳到 26）。
-- [ ] `@electron/remote` 2.1.3 继续使用；升级后验证 `remote.getGlobal('sharedDB')`、`utils.refreshDbs` 等仍可用。
+- [x] 升级 `electron` 到 `^44.9.3`（计划中的 `^44.9.1` 的最新补丁），`electron-builder` 保持 26.15.3；Windows `--dir` 打包已验证。
+- [x] `webpack.main.config.js` 的 Babel target：`electron: '39'` → `'44'`。
+- [x] `@types/node`：22.x → 24.19.2（与 Electron 44 的 Node 24 对齐；不要直接跳到 26）。
+- [x] `@electron/remote` 2.1.3 继续使用；Windows 实际窗口验证 `remote.getCurrentWindow()`、`remote.app`，应用启动无 remote 相关错误。
 - [ ] 回归所有原生能力：窗口拖拽、托盘、截图（`desktopCapturer`）、通知、开机启动、自动更新。
 - [ ] Windows NSIS、macOS notarize、Linux deb 三条打包链路各做一次 `yarn pack` / `dist-*` 冒烟。
-- [ ] 检查 `webPreferences`：当前是 `nodeIntegration: true` + `contextIsolation: false`。本次不要扩大权限；把迁移到 preload + `contextBridge` 作为独立的技术债记录（与 `@electron/remote` 一起处理）。
+- [x] 检查 `webPreferences`：保持 `nodeIntegration: true` + `contextIsolation: false`，本次不扩大权限；迁移到 preload + `contextBridge` 仍作为独立技术债（与 `@electron/remote` 一起处理）。
+
+实施结果（2026-10-22）：Electron **44.9.3**（Chromium 152，Node 24.22.0）已替换 39.8.10；`@types/node` 24.19.2。Electron 44 移除了 `app.setLoginItemSettings({ openAsHidden })`，已从 `OpenAtLogin` 处理中删除（该选项只对 macOS 12 有意义，macOS 12 已不再受支持）。Windows 冒烟：
+
+- 开发构建直接启动，窗口标题正常，`get-windows` 初始化成功；
+- 打包后的 `--dir` 应用可启动，窗口标题正常，`get-windows` 初始化成功，asar 内 renderer/main 正常加载；
+- `desktopCapturer.getSources` 获取屏幕源成功，legacy `getUserMedia` 截图路径在 Electron 44 返回 2560×1440 视频流；
+- `better-sqlite3` 在 Electron 44 的 Node 24 ABI 下可正常创建内存库并查询；
+- `chrome.log` 只有虚拟机 GPU 初始化失败和空数据库的 KNN 训练提示，没有应用级异常。
+
+Electron 44 只发布 64 位包（Windows x64 / Linux x64+arm64），并要求 macOS 13+；需要相应更新下载页/系统要求说明。macOS 42+ 的通知改用 `UNNotification`，未签名开发包无法显示通知，需在签名后的 macOS 包上验证。
+
+待完成：Windows 托盘/通知/开机启动/自动更新的手工回归，macOS/Linux 实机与打包，以及全新安装/覆盖安装验证。
 
 ### 5.3 验收
 
@@ -661,6 +673,6 @@ Electron 39 的官方 EOL 是 **2026-05-05**，已经不再收到安全更新。
 - [x] B1.5 react-test-renderer → React Testing Library
 - [x] B2 nedb → SQLite（代码、自动化测试、真实用户数据升级/回滚验证完成；History 卡顿与内存优化已实施）
 - [x] B3 worker-loader → webpack 5 原生 Worker；marked 4 → 18
-- [ ] B4 active-win → get-windows（已完成）；Electron 44 待实施
+- [ ] B4 active-win → get-windows + Electron 44（代码与 Windows 冒烟完成；macOS/Linux 实机和安装验证待做）
 - [ ] B5 deox / hotkeys / react-trend / prop-types / styleguidist
 - [ ] B6 prettier / webpack-cli / WDS / ESLint 10 / Babel 8 / nanoid / node-gyp

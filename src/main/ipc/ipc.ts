@@ -156,9 +156,10 @@ export function initialize() {
     handle(IpcEventName.WindowState, () => ({ maximized: win ? win.isMaximized() : false }));
     handle(IpcEventName.OpenAtLogin, (on) => {
         if (on) {
+            // Electron 44 removed openAsHidden (it only worked on macOS 12);
+            // login launches now use the platform default visibility.
             app.setLoginItemSettings({
                 openAtLogin: true,
-                openAsHidden: true,
             });
         } else {
             app.setLoginItemSettings({

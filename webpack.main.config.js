@@ -26,7 +26,7 @@ module.exports = merge(baseConfig, {
                         babelrc: false,
                         presets: [
                             ['@babel/preset-env', {
-                                targets: { electron: '39' },
+                                targets: { electron: '44' },
                                 modules: false
                             }],
                             '@babel/preset-typescript',

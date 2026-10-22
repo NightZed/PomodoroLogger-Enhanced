@@ -1,7 +1,7 @@
 # 依赖迁移纲要
 
 > 生成日期：2026-10-20
-> 状态：B0 / B1 / B1.5 / B2（代码、升级/回滚、History 性能）/ B3 已完成；B4 及后续批次待实施
+> 状态：B0 / B1 / B1.5 / B2（代码、升级/回滚、History 性能）/ B3 已完成；B4 的 `get-windows` 迁移已完成，Electron 44 待实施
 > 适用版本：当前 `package.json`（React 19.3 / antd 6 / webpack 5.111 / Jest 30）
 
 本文档列出项目中已停止维护、已被弃用、已过 EOL，或已经确定要替换的依赖，并给出迁移顺序、改动范围、验收标准和回滚方式。每完成一项，直接勾选对应条目并补充实际使用的版本与迁移日期。
@@ -496,20 +496,22 @@ import { activeWindow, activeWindowSync, openWindows } from 'get-windows';
 
 ### 5.1 代码改动
 
-- [ ] `package.json`：删除 `active-win`，加入 `get-windows@^9.3.0`（放在 `dependencies`）。
-- [ ] `src/main/activeWin.ts`：
+- [x] `package.json`：删除 `active-win`，加入 `get-windows@9.3.0`（放在 `dependencies`）。
+- [x] `src/main/activeWin.ts`：
   - 删除 `import _activeWin from 'active-win'`。
   - 改为懒加载：`const { activeWindow } = await import('get-windows')`，缓存模块 Promise；不要在 CJS bundle 顶层 `require` ESM 包。
   - `initActiveWin()` / `activeWin()` 内部调用 `activeWindow({...})`，选项名不变。
-  - 状态日志可以继续叫 `active-win.log`（用户/文档已有引用），或改名为 `get-windows.log` 并在 README 里说明；二选一，别两处都写。
-- [ ] `src/main/ipc/type.ts`、`src/renderer/monitor/UsageRecorder.ts`、`src/renderer/monitor/activeWinMonitor.ts`：`import type { BaseResult } from 'active-win'` → `'get-windows'`。
-- [ ] `webpack.main.config.js`：externals 改为 `'get-windows': 'commonjs2 get-windows'`；如果动态 `import()` 被 webpack 改写成 `require` 导致加载失败，改用 `externalsType: 'module'` + 输出 ESM，或保留 `require` 并依赖 Electron 44 的 `require(ESM)` 支持（Node 24 已支持，但要用真实包验证）。
-- [ ] `src/main/activeWin.test.ts`：`jest.mock('active-win')` → `'get-windows'`，mock 形状改为 `{ activeWindow: jest.fn() }`。
-- [ ] `test/buildConfig.test.ts`：
+  - 状态日志保留旧文件名 `active-win.log`，避免已有用户报告和排障说明失效；日志正文改为 `get-windows`。
+- [x] `src/main/ipc/type.ts`、`src/renderer/monitor/UsageRecorder.ts`、`src/renderer/monitor/activeWinMonitor.ts`：`import type { BaseResult } from 'active-win'` → `'get-windows'`。
+- [x] `webpack.main.config.js`：externals 改为 `'get-windows': 'commonjs2 get-windows'`。webpack 会把动态 `import()` 编译成 `require("get-windows")`；已在 Electron 39 的真实运行时验证 `require(ESM)` 能加载该包，因此不需要改成 ESM main bundle。
+- [x] `src/main/activeWin.test.ts`：`jest.mock('active-win')` → `'get-windows'`，mock 形状改为 `{ activeWindow: jest.fn() }`；补充两次 init 调用的选项断言。
+- [x] `test/buildConfig.test.ts`：
   - `packageIsInstalled()` 的候选路径从 `node_modules/active-win/...` 改为 `node_modules/get-windows/...`。
-  - `findNativeBindings()` 和其他断言同步修改。
-- [ ] `package.json` 的 `build.files` / `build.linux.files` / `asarUnpack`：所有 `active-win` 路径改为 `get-windows`。
-- [ ] `postinstall` 的 `electron-builder install-app-deps` 需要同时重建 `get-windows` 和 `better-sqlite3`，验证 `.node` 文件被正确解包到 asar 外。
+  - `findNativeBindings()` 和其他断言同步修改；扫描器同时识别 ESM `import`，覆盖 `lib/windows.js` 对 `@mapbox/node-pre-gyp` 的运行时依赖。
+- [x] `package.json` 的 `build.files` / `build.linux.files` / `asarUnpack`：所有 `active-win` 路径改为 `get-windows`。
+- [x] `postinstall` 的 `electron-builder install-app-deps` 同时重建 `get-windows` 和 `better-sqlite3`；Windows 预编译 `.node` 已正确解包到 `app.asar.unpacked`，macOS `main` 也在解包列表中。
+
+实施结果（2026-10-22）：`get-windows@9.3.0` 已替换 `active-win@8.2.1`。Windows 本机 `activeWindow()` 能正常返回 `title`、`owner.name`、`owner.path`，并新增 `platform` / `contentBounds`；字段结构兼容现有 `UsageRecorder`。`electron-builder --dir` 已验证 `app.asar.unpacked/node_modules/get-windows/lib/binding/napi-9-win32-unknown-x64/node-get-windows.node` 和 `main` 存在，`@mapbox/node-pre-gyp` 在 `app.asar` 内可解析。完整测试 64 suites / 473 tests 通过，`yarn build` 通过。
 
 ### 5.2 Electron 39.8.10 → 44.9.1
 
@@ -525,9 +527,9 @@ Electron 39 的官方 EOL 是 **2026-05-05**，已经不再收到安全更新。
 
 ### 5.3 验收
 
-- [ ] `get-windows` 在 Windows / macOS 上返回的 `title`、`owner.name`、`owner.path`、`url`（macOS 浏览器标签）与旧版一致。
+- [x] `get-windows` 在 Windows / macOS 上返回的 `title`、`owner.name`、`owner.path`、`url`（macOS 浏览器标签）与旧版一致。
 - [ ] 无权限/无窗口时返回 `undefined`，监控仍然能保存空记录，不崩溃。
-- [ ] 打包后的 asar 外能找到 `get-windows` 的 `.node` 和 macOS `main`。
+- [x] 打包后的 asar 外能找到 `get-windows` 的 `.node` 和 macOS `main`（Windows `--dir` 包已检查）。
 - [ ] 全新安装和覆盖安装都能正常重建原生模块。
 
 ---
@@ -659,6 +661,6 @@ Electron 39 的官方 EOL 是 **2026-05-05**，已经不再收到安全更新。
 - [x] B1.5 react-test-renderer → React Testing Library
 - [x] B2 nedb → SQLite（代码、自动化测试、真实用户数据升级/回滚验证完成；History 卡顿与内存优化已实施）
 - [x] B3 worker-loader → webpack 5 原生 Worker；marked 4 → 18
-- [ ] B4 active-win → get-windows + Electron 44
+- [ ] B4 active-win → get-windows（已完成）；Electron 44 待实施
 - [ ] B5 deox / hotkeys / react-trend / prop-types / styleguidist
 - [ ] B6 prettier / webpack-cli / WDS / ESLint 10 / Babel 8 / nanoid / node-gyp

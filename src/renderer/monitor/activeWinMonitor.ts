@@ -1,4 +1,4 @@
-import type { BaseResult } from 'active-win';
+import type { BaseResult } from 'get-windows';
 import { getScreen } from './screenshot';
 export type ActiveWinListener = (result?: BaseResult, screenshot?: string) => void;
 export class Monitor {

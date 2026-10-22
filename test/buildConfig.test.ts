@@ -14,9 +14,9 @@ const pkg = JSON.parse(readFileSync(path.join(rootDir, 'package.json'), 'utf8'))
     dependencies: Record<string, string>;
 };
 
-// active-win resolves its native addon through @mapbox/node-pre-gyp when
-// `lib/windows-binding.js` is loaded. That require is a *runtime* dependency of
-// the packaged app, so `build.files` must not exclude it.
+// get-windows resolves its native addon through @mapbox/node-pre-gyp when
+// `lib/windows.js` is loaded. That import is a *runtime* dependency of the
+// packaged app, so `build.files` must not exclude it.
 //
 // Regression: v0.17.0 added the exclusion glob for node_modules/@mapbox while
 // slimming the package (see build.files in package.json). The installed app
@@ -30,29 +30,35 @@ function collectRuntimeDependencies(): string[] {
     const sources = [
         'index.js',
         path.join('lib', 'windows.js'),
-        path.join('lib', 'windows-binding.js'),
+        path.join('lib', 'macos.js'),
+        path.join('lib', 'linux.js'),
     ];
-    const requirePattern = /require\(\s*(['"])([^'"]+)\1\s*\)/g;
+    const dependencyPatterns = [
+        /require\(\s*(['"])([^'"]+)\1\s*\)/g,
+        /(?:from\s+|import\s+)['"]([^'"]+)['"]/g,
+    ];
 
     for (const file of sources) {
-        const fullPath = path.join(rootDir, 'node_modules', 'active-win', file);
+        const fullPath = path.join(rootDir, 'node_modules', 'get-windows', file);
         const source = readFileSync(fullPath, 'utf8');
-        let match: RegExpExecArray | null;
-        while ((match = requirePattern.exec(source)) !== null) {
-            const request = match[2];
-            if (request.startsWith('.') || request.startsWith('node:')) {
-                continue;
-            }
+        for (const pattern of dependencyPatterns) {
+            let match: RegExpExecArray | null;
+            while ((match = pattern.exec(source)) !== null) {
+                const request = match[2] ?? match[1];
+                if (request.startsWith('.') || request.startsWith('node:')) {
+                    continue;
+                }
 
-            const segments = request.split('/');
-            const packageName = request.startsWith('@')
-                ? segments.slice(0, 2).join('/')
-                : segments[0];
-            if (builtinModules.includes(packageName)) {
-                continue;
-            }
+                const segments = request.split('/');
+                const packageName = request.startsWith('@')
+                    ? segments.slice(0, 2).join('/')
+                    : segments[0];
+                if (builtinModules.includes(packageName)) {
+                    continue;
+                }
 
-            names.add(packageName);
+                names.add(packageName);
+            }
         }
     }
 
@@ -79,7 +85,7 @@ function excludesWholePackage(pattern: string, packageName: string): boolean {
 function packageIsInstalled(packageName: string): boolean {
     const candidates = [
         path.join(rootDir, 'node_modules', packageName),
-        path.join(rootDir, 'node_modules', 'active-win', 'node_modules', packageName),
+        path.join(rootDir, 'node_modules', 'get-windows', 'node_modules', packageName),
     ];
     return candidates.some((dir) => {
         try {
@@ -106,8 +112,8 @@ function findNativeBindings(dir: string, found: string[] = []): string[] {
 describe('electron-builder packaging config', () => {
     const runtimeDependencies = collectRuntimeDependencies();
 
-    it('loads every runtime dependency of active-win', () => {
-        // windows-binding.js must find @mapbox/node-pre-gyp both in the working
+    it('loads every runtime dependency of get-windows', () => {
+        // lib/windows.js must find @mapbox/node-pre-gyp both in the working
         // tree and in the shipped package.
         expect(runtimeDependencies).toContain('@mapbox/node-pre-gyp');
 
@@ -119,7 +125,7 @@ describe('electron-builder packaging config', () => {
         }
     });
 
-    it('does not exclude active-win runtime dependencies from the package', () => {
+    it('does not exclude get-windows runtime dependencies from the package', () => {
         for (const dependency of runtimeDependencies) {
             const exclusions = pkg.build.files.filter((pattern) =>
                 excludesWholePackage(pattern, dependency)
@@ -130,12 +136,12 @@ describe('electron-builder packaging config', () => {
 
     it('keeps the native addon loadable from the asar', () => {
         // `.node` files live outside the asar so process.dlopen can map them,
-        // and active-win's platform binary (`main` on macOS) is spawned as a
+        // and get-windows' platform binary (`main` on macOS) is spawned as a
         // separate process, so it cannot run from inside the archive either.
         expect(pkg.build.asarUnpack).toContain('**/*.node');
-        expect(pkg.build.asarUnpack).toContain('**/node_modules/active-win/main');
+        expect(pkg.build.asarUnpack).toContain('**/node_modules/get-windows/main');
 
-        const bindings = findNativeBindings(path.join(rootDir, 'node_modules', 'active-win'));
+        const bindings = findNativeBindings(path.join(rootDir, 'node_modules', 'get-windows'));
         expect(bindings.length).toBeGreaterThan(0);
     });
 

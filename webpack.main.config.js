@@ -57,7 +57,7 @@ module.exports = merge(baseConfig, {
         }),
     ],
     externals: {
-        'active-win': 'commonjs2 active-win',
+        'get-windows': 'commonjs2 get-windows',
         'better-sqlite3': 'commonjs2 better-sqlite3',
         'electron-updater': 'commonjs2 electron-updater',
         'builder-util-runtime': 'commonjs2 builder-util-runtime',

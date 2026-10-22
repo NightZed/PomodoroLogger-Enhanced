@@ -1,4 +1,4 @@
-import type { BaseResult } from 'active-win';
+import type { BaseResult } from 'get-windows';
 import { SourceData } from '../../shared/dataMerger/dataMerger';
 import type { ExportMeta } from '../../shared/dataTransfer/payload';
 import type { ValidationIssue, ValidationWarning } from '../../shared/dataTransfer/validate';

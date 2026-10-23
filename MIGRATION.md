@@ -2,7 +2,7 @@
 
 > 生成日期：2026-10-20
 > 最近更新：2026-10-23
-> 状态：B0 / B1 / B1.5 / B2（代码、升级/回滚、History 性能）/ B3 / B5 已完成；B4 代码迁移完成（`get-windows` + Electron 44.9.3）；B6 核心工具链迁移完成，手工验收待做；B7 Electron 安全架构进行中，B7.1（移除 `@electron/remote`）/ B7.2（preload 桥接层）/ B7.3（移除 renderer Node 能力）已完成，B7.4-B7.5 待做
+> 状态：B0 / B1 / B1.5 / B2（代码、升级/回滚、History 性能）/ B3 / B5 已完成；B4 代码迁移完成（`get-windows` + Electron 44.9.3）；B6 核心工具链迁移完成，手工验收待做；B7 Electron 安全架构进行中，B7.1-B7.4 已完成，B7.5 待做
 > 适用版本：当前 `package.json`（React 19.3 / antd 6 / webpack 5.111 / Jest 30）
 
 本文档列出项目中已停止维护、已被弃用、已过 EOL，或已经确定要替换的依赖，并给出迁移顺序、改动范围、验收标准和回滚方式。每完成一项，直接勾选对应条目并补充实际使用的版本与迁移日期。
@@ -707,13 +707,15 @@ renderer 只通过 preload + `contextBridge` 暴露的窄 API 访问主进程；
 
 实施结果（2026-10-23）：生产构建不再把 `fs` / `path` 作为 renderer external；`yarn lint` 为 0 errors / 0 warnings，`yarn typecheck` 通过，`yarn test --runInBand` 为 66 suites / 480 tests，`yarn build` 通过。截图写入/删除、KNN 模型复用、主题切换仍需 Windows 实机冒烟。
 
-### 8.5 B7.4 切换安全开关（待做）
+### 8.5 B7.4 切换安全开关（已完成）
 
 - `nodeIntegration: false`
 - `contextIsolation: true`
 - `sandbox: true`（preload 只使用 `contextBridge` / `ipcRenderer`）
 - `nodeIntegrationInWorker: false`
-- 确认 dev（`webpack serve`）和 production（`file://`）两种加载方式下 preload 路径都正确。
+- `preload` 仍使用 `path.join(__dirname, 'preload.js')`；主进程 webpack 输出到 `dist/preload.js`，dev 与 production 使用同一路径。
+
+实施结果（2026-10-23）：生产 `file://` 构建已实机启动。通过 CDP 检查确认 `typeof require === 'undefined'`、`typeof process === 'undefined'`，`window.api` 的完整窄接口已注入；`dbRequest('settingDB', 'find')`、`windowState()` 和事件取消订阅均实际返回成功，worker target 也正常创建。`yarn lint` / `yarn typecheck` / 66 suites / 480 tests / `yarn build` 全部通过。启动时 Electron 仍提示缺少 CSP（预期，B7.5 处理）；`webpack serve` 的 dev 加载方式还需单独冒烟。
 
 ### 8.6 B7.5 防御性加固（待做）
 
@@ -791,5 +793,5 @@ renderer 只通过 preload + `contextBridge` 暴露的窄 API 访问主进程；
 - [x] B7.1 移除 `@electron/remote`：托盘菜单/截图改为 IPC，`remoteMain` 与依赖已删除
 - [x] B7.2 建立 preload + `contextBridge` 桥接层，删除 renderer 自建 `window.api`
 - [x] B7.3 移除 renderer 的 `fs` / `path` / `os` / `nativeTheme` 依赖
-- [ ] B7.4 切换 `nodeIntegration: false`、`contextIsolation: true`、`sandbox: true`、`nodeIntegrationInWorker: false`
+- [x] B7.4 切换 `nodeIntegration: false`、`contextIsolation: true`、`sandbox: true`、`nodeIntegrationInWorker: false`
 - [ ] B7.5 Markdown 净化、CSP、IPC 参数/sender 校验

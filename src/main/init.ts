@@ -232,11 +232,13 @@ const createWindow = async () => {
         icon: nativeImage.createFromPath(path.join(__dirname, logo)),
         title: 'Pomodoro Logger',
         webPreferences: {
-            nodeIntegrationInWorker: true,
-            nodeIntegration: true,
-            // The preload bridge is enabled now; node access is still available
-            // until B7.3 has moved the remaining filesystem work to main.
+            // Renderer code only reaches the main process through the narrow
+            // preload bridge (see src/main/preload.ts). Workers are pure web
+            // workers now; no Node globals are available to either side.
+            nodeIntegration: false,
+            nodeIntegrationInWorker: false,
             contextIsolation: true,
+            sandbox: true,
             preload: path.join(__dirname, 'preload.js'),
         },
     });

@@ -564,15 +564,15 @@ export const actions = {
     },
 };
 
-export type TimerActionTypes = { [key in keyof typeof actions]: typeof actions[key] };
+export type TimerActionTypes = { [key in keyof typeof actions]: (typeof actions)[key] };
 export const reducer = createReducer<TimerState>(defaultState, (builder) => {
     builder
         .addCase(startTimer, (state: TimerState) => {
             const duration: number = state.isFocusing
                 ? state.focusDuration
                 : state.iBreak % LONG_BREAK_INTERVAL === 0
-                ? state.longBreakDuration
-                : state.restDuration;
+                  ? state.longBreakDuration
+                  : state.restDuration;
             const now = new Date().getTime();
             // `scaleMs` is the identity in production and divides by
             // DEBUG_TIME_SCALE elsewhere -- the very branch this used to spell out
@@ -627,8 +627,8 @@ export const reducer = createReducer<TimerState>(defaultState, (builder) => {
                 payload == null
                     ? payload
                     : process.env.NODE_ENV !== 'development'
-                    ? payload
-                    : payload / DEBUG_TIME_SCALE,
+                      ? payload
+                      : payload / DEBUG_TIME_SCALE,
         }))
         .addCase(setCalendarBaseColor, (state, { payload }) => ({
             ...state,

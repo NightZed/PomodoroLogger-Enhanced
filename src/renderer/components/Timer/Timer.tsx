@@ -216,7 +216,9 @@ const ThemeToggle = styled(Icon)`
     font-size: 18px;
     color: var(--pl-text-secondary);
     cursor: pointer;
-    transition: color 0.2s, transform 0.2s;
+    transition:
+        color 0.2s,
+        transform 0.2s;
 
     &:hover {
         color: var(--pl-primary);
@@ -819,8 +821,8 @@ class Timer extends Component<Props, State> {
         return isFocusing
             ? this.props.timer.focusDuration
             : isLongBreak
-            ? this.props.timer.longBreakDuration
-            : this.props.timer.restDuration;
+              ? this.props.timer.longBreakDuration
+              : this.props.timer.restDuration;
     };
 
     private defaultLeftTime = (isFocusing?: boolean) => {

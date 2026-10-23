@@ -68,7 +68,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
     } = props;
     const isCreating = !card;
     const lastIsCreating = React.useRef<boolean | null>(null);
-    const thisIsCreating = visible ? isCreating : lastIsCreating.current ?? isCreating;
+    const thisIsCreating = visible ? isCreating : (lastIsCreating.current ?? isCreating);
     const { setFieldsValue, setFields, getFieldsValue, validateFields, resetFields } = form;
     useEffect(() => {
         lastIsCreating.current = isCreating;

@@ -138,8 +138,10 @@ export function aggHistory(
     const period = periodRecords
         ? periodRecords
         : periodRange
-        ? yearRecords.filter((v) => v.startTime >= periodRange.from && v.startTime < periodRange.to)
-        : yearRecords;
+          ? yearRecords.filter(
+                (v) => v.startTime >= periodRange.from && v.startTime < periodRange.to
+            )
+          : yearRecords;
     return {
         agg: {
             day: getPomodoroAgg(0, recentRecords),

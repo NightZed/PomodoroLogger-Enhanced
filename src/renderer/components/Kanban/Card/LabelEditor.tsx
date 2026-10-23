@@ -97,7 +97,9 @@ const ChipRemove = styled.span`
     align-items: center;
     padding: 2px 0.6em 2px 0.15em;
     opacity: 0.75;
-    transition: background-color 0.15s ease, opacity 0.15s ease;
+    transition:
+        background-color 0.15s ease,
+        opacity 0.15s ease;
 
     &:hover {
         background-color: rgba(0, 0, 0, 0.3);

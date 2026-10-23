@@ -548,8 +548,8 @@ export class MiniLogger extends React.Component<Props> {
                                     stroke: isConfirming
                                         ? 'rgb(99, 99, 99)'
                                         : (i / 18) * 100 < percentage
-                                        ? 'rgb(200, 200, 200)'
-                                        : 'rgb(99,99,99)',
+                                          ? 'rgb(200, 200, 200)'
+                                          : 'rgb(99,99,99)',
                                     strokeWidth: 12,
                                 }}
                             />

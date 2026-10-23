@@ -64,8 +64,8 @@ export class UpdateController extends React.Component<any> {
                 payload?.phase === 'download'
                     ? update.phase.download
                     : payload?.phase === 'install'
-                    ? update.phase.install
-                    : update.phase.check;
+                      ? update.phase.install
+                      : update.phase.check;
             feedback.closeNotice(PROGRESS_NOTIFICATION_KEY);
             feedback.notice({
                 key: ERROR_NOTIFICATION_KEY,

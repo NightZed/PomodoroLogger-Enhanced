@@ -41,7 +41,9 @@ const NavItem = styled.button<{ $active: boolean }>`
     font-size: 13px;
     text-align: left;
     cursor: pointer;
-    transition: background-color 0.15s, color 0.15s;
+    transition:
+        background-color 0.15s,
+        color 0.15s;
     background-color: ${({ $active }) => ($active ? 'var(--pl-bg-hover)' : 'transparent')};
     color: ${({ $active }) => ($active ? 'var(--pl-primary)' : 'var(--pl-text-secondary)')};
 

@@ -100,7 +100,7 @@ export const actions = {
     },
 };
 
-export type KanbanActionTypes = { [key in keyof typeof actions]: typeof actions[key] };
+export type KanbanActionTypes = { [key in keyof typeof actions]: (typeof actions)[key] };
 export const reducer = createReducer<KanbanState>(defaultState, (builder) => {
     builder
         .addCase(setChosenBoardId, (state, { payload: { _id } }) => {

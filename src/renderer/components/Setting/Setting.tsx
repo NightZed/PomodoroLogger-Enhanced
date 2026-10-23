@@ -174,7 +174,10 @@ const ThemeButton = styled.button<ThemeButtonProps>`
     border-radius: 4px;
     font-size: 13px;
     cursor: pointer;
-    transition: border-color 0.15s, color 0.15s, background-color 0.15s;
+    transition:
+        border-color 0.15s,
+        color 0.15s,
+        background-color 0.15s;
     background-color: ${({ $active }) =>
         $active ? 'var(--pl-bg-hover)' : 'var(--pl-bg-elevated)'};
     border: 1px solid ${({ $active }) => ($active ? 'var(--pl-primary)' : 'var(--pl-border)')};
@@ -1056,7 +1059,7 @@ function restartApp() {
 
 /** The rejection of an IPC call is whatever the main process threw: a string. */
 function errorText(e: any): string {
-    return typeof e === 'string' ? e : e?.message ?? String(e);
+    return typeof e === 'string' ? e : (e?.message ?? String(e));
 }
 
 /** `C:\Users\me\Downloads\pomodoro-logger-data-...json` -> the file name. */

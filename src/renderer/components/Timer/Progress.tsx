@@ -15,7 +15,7 @@ export interface ProgressProps {
     percent?: number;
     successPercent?: number;
     format?: (percent?: number, successPercent?: number) => React.ReactNode;
-    status?: typeof ProgressStatuses[number];
+    status?: (typeof ProgressStatuses)[number];
     showInfo?: boolean;
     strokeWidth?: number;
     strokeLinecap?: 'butt' | 'square' | 'round';

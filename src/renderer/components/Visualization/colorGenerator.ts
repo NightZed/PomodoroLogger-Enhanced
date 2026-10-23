@@ -26,7 +26,7 @@ function convertToStringColor(color: [number, number, number]) {
         base[Math.floor(color[1] / 16)],
         base[Math.floor(color[1] % 16)],
         base[Math.floor(color[2] / 16)],
-        base[Math.floor(color[2] % 16)]
+        base[Math.floor(color[2] % 16)],
     ].join('')}`;
 }
 

@@ -176,7 +176,7 @@ export class AutoUpdater {
             phase: this.phase,
             message: isChannelFileMissing
                 ? 'The release artifacts are still being uploaded, please try again later'
-                : err?.message ?? String(err),
+                : (err?.message ?? String(err)),
         };
         this.sendStatusToWindow(UpdateEventName.Error, payload);
     }

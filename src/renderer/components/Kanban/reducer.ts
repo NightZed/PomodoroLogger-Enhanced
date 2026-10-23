@@ -47,4 +47,6 @@ export const kanbanActions = {
     overallActions,
 };
 
-export type KanbanActionTypes = { [key in keyof typeof kanbanActions]: typeof kanbanActions[key] };
+export type KanbanActionTypes = {
+    [key in keyof typeof kanbanActions]: (typeof kanbanActions)[key];
+};

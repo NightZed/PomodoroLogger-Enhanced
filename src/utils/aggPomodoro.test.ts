@@ -77,7 +77,7 @@ describe('aggPomodoro shared core', () => {
 
     it('narrows the badge and charts to the month while the calendar keeps the year', () => {
         const rec = (startTime: number) =>
-            ({ startTime, spentTimeInHour: 1, apps: {}, boardId: 'b1' } as any);
+            ({ startTime, spentTimeInHour: 1, apps: {}, boardId: 'b1' }) as any;
         const yearRecords = [
             rec(new Date(2020, 2, 15, 10).getTime()),
             rec(new Date(2020, 5, 15, 10).getTime()),
@@ -101,7 +101,7 @@ describe('aggPomodoro shared core', () => {
 
     it('keeps the whole year when no period range is given (All time)', () => {
         const rec = (startTime: number) =>
-            ({ startTime, spentTimeInHour: 1, apps: {}, boardId: 'b1' } as any);
+            ({ startTime, spentTimeInHour: 1, apps: {}, boardId: 'b1' }) as any;
         const yearRecords = [
             rec(new Date(2020, 2, 15, 10).getTime()),
             rec(new Date(2020, 5, 15, 10).getTime()),

@@ -35,8 +35,7 @@ const colorTokenKeys = Object.keys(CSS_VAR_NAMES) as ColorTokenKey[];
  * degrade to a DOM-only theme switch.
  */
 export function getNativeTheme():
-    | { themeSource?: ThemeSource; shouldUseDarkColors?: boolean }
-    | undefined {
+    { themeSource?: ThemeSource; shouldUseDarkColors?: boolean } | undefined {
     try {
         return require('electron').nativeTheme;
     } catch (e) {

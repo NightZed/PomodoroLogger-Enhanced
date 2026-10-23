@@ -84,8 +84,7 @@ export type UpdateErrorPayload = {
  * anything.
  */
 export type ExportResult =
-    | { status: 'cancelled' }
-    | { status: 'written'; filePath: string; meta: ExportMeta };
+    { status: 'cancelled' } | { status: 'written'; filePath: string; meta: ExportMeta };
 
 /**
  * What an import actually did.

@@ -21,7 +21,7 @@ export async function readAllData(): Promise<SourceData> {
     };
 }
 
-async function readKanban(db: typeof DBs['cardsDB']) {
+async function readKanban(db: (typeof DBs)['cardsDB']) {
     const cards = await db.find();
     const cardMap: { [id: string]: any } = {};
     for (const card of cards) {

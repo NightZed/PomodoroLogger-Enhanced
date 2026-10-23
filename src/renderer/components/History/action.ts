@@ -22,7 +22,7 @@ export const actions = {
     setExpiringKey,
 };
 
-export type HistoryActionCreatorTypes = { [key in keyof typeof actions]: typeof actions[key] };
+export type HistoryActionCreatorTypes = { [key in keyof typeof actions]: (typeof actions)[key] };
 export const reducer = createReducer(defaultState, (builder) => {
     builder
         .addCase(setChosenProjectId, (state, { payload }) => ({

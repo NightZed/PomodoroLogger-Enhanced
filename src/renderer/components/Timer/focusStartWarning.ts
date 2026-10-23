@@ -56,7 +56,7 @@ export function getFocusStartWarning(
         return { kind: 'no-project', ...NO_PROJECT_WARNING };
     }
 
-    const cardIds = board.focusedList ? lists[board.focusedList]?.cards ?? [] : [];
+    const cardIds = board.focusedList ? (lists[board.focusedList]?.cards ?? []) : [];
     // Stale card ids (cards deleted after the list was saved) do not count.
     const hasFocusCards = cardIds.some((cardId) => cards[cardId] !== undefined);
     if (!hasFocusCards) {

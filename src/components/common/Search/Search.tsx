@@ -43,7 +43,9 @@ const StyledSearch = styled.div<StyledProps>`
     padding: 5px;
     height: 32px;
     border-radius: 16px;
-    transition: width 200ms, padding 200ms;
+    transition:
+        width 200ms,
+        padding 200ms;
     border: 1px solid var(--pl-border);
     outline: none;
     color: var(--pl-text);
@@ -83,7 +85,9 @@ const StyledSearch = styled.div<StyledProps>`
             cursor: pointer;
             border-radius: 10px;
             z-index: 6;
-            transition: background-color 300ms, opacity 200ms;
+            transition:
+                background-color 300ms,
+                opacity 200ms;
             animation: ${fadeIn} 300ms ease;
 
             &:hover {

@@ -514,4 +514,4 @@ export const actions = {
     },
 };
 
-export type BoardActionTypes = { [key in keyof typeof actions]: typeof actions[key] };
+export type BoardActionTypes = { [key in keyof typeof actions]: (typeof actions)[key] };

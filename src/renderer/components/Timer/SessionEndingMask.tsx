@@ -219,8 +219,8 @@ const TimerMaskInner = (props: MaskProps) => {
                         {!props.isFocusing
                             ? ' Focusing'
                             : props.isLongBreak
-                            ? ' Long Break'
-                            : ' Short Break'}
+                              ? ' Long Break'
+                              : ' Short Break'}
                     </Button>
                 </ConfigProvider>
                 <PomodoroSummary>

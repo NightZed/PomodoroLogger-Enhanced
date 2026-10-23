@@ -29,10 +29,10 @@ const press = async (key: string, init: KeyboardEventInit = {}) => {
     const modifiers = init.ctrlKey
         ? ['Control']
         : init.shiftKey
-        ? ['Shift']
-        : init.altKey
-        ? ['Alt']
-        : [];
+          ? ['Shift']
+          : init.altKey
+            ? ['Alt']
+            : [];
     await act(async () => {
         dispatch('keydown', key, init);
     });

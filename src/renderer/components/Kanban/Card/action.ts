@@ -258,4 +258,4 @@ export const cardReducer = createReducer<CardsState>({}, (builder) => {
         });
 });
 
-export type CardActionTypes = { [key in keyof typeof actions]: typeof actions[key] };
+export type CardActionTypes = { [key in keyof typeof actions]: (typeof actions)[key] };

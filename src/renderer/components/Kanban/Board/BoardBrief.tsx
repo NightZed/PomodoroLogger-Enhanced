@@ -36,7 +36,9 @@ const BriefCard = styled.div`
     width: 260px;
     min-height: 100px;
     cursor: pointer;
-    transition: box-shadow 0.5s, transform 0.5s;
+    transition:
+        box-shadow 0.5s,
+        transform 0.5s;
 
     &:hover {
         box-shadow: 2px 2px 4px 4px var(--pl-shadow);

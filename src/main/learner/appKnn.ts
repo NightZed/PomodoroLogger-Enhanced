@@ -58,26 +58,24 @@ export class NameEncoder {
 }
 
 export function getAppProjectPairs(records: PomodoroRecord[]): AppProjectPair[] {
-    return records.map(v => {
+    return records.map((v) => {
         const pairs: { appName: string; time: number }[] = [];
         for (const app in v.apps) {
             pairs.push({
                 appName: app,
-                time: v.apps[app].spentTimeInHour
+                time: v.apps[app].spentTimeInHour,
             });
         }
 
         const project: string | undefined = v.boardId;
         return {
             project,
-            apps: pairs
+            apps: pairs,
         };
     });
 }
 
-export function encodeAppUsage(
-    pairs: AppProjectPair[]
-): {
+export function encodeAppUsage(pairs: AppProjectPair[]): {
     encodings: EncodingProjectPair[];
     encoder: NameEncoder;
 } {
@@ -101,15 +99,15 @@ export function encodeAppUsage(
 
     const encoder = buildEncoder();
     const encoding = pairs.map(
-        pair =>
+        (pair) =>
             ({
                 project: pair.project,
-                encoding: encoder.encode(pair.apps)
-            } as EncodingProjectPair)
+                encoding: encoder.encode(pair.apps),
+            }) as EncodingProjectPair
     );
     return {
         encoder,
-        encodings: encoding
+        encodings: encoding,
     };
 }
 
@@ -174,7 +172,7 @@ export class KNN {
                 topKManager.push([dist(encoding, enc.encoding), enc.project]);
             }
 
-            pred.push(topKManager.vote(x => x[1]));
+            pred.push(topKManager.vote((x) => x[1]));
         }
 
         return pred;
@@ -188,7 +186,7 @@ export class KNN {
         return {
             encoder: this.encoder.toJson(),
             encodings: this.encodings,
-            k: this.k
+            k: this.k,
         };
     }
 
@@ -203,7 +201,10 @@ export class KNN {
 export class TopKManager<T> {
     public arr: T[] = [];
     private maxIndex: number | undefined = undefined;
-    public constructor(public k: number, private compare: (a: T, b: T) => number) {
+    public constructor(
+        public k: number,
+        private compare: (a: T, b: T) => number
+    ) {
         if (process.env.NODE_ENV !== 'production' && k > 100) {
             throw new Error('You should use a better data structure');
         }

@@ -224,4 +224,4 @@ export const actions = {
     },
 };
 
-export type ListActionTypes = { [key in keyof typeof actions]: typeof actions[key] };
+export type ListActionTypes = { [key in keyof typeof actions]: (typeof actions)[key] };

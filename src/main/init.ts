@@ -214,8 +214,8 @@ const createWindow = async () => {
     nativeTheme.themeSource = followSystemTheme
         ? 'system'
         : themeId === DAY_THEME_ID
-        ? 'light'
-        : 'dark';
+          ? 'light'
+          : 'dark';
 
     win = new BrowserWindow({
         width: 1440,

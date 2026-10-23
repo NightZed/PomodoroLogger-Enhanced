@@ -502,7 +502,7 @@ import { activeWindow, activeWindowSync, openWindows } from 'get-windows';
   - 删除 `import _activeWin from 'active-win'`。
   - 改为懒加载：`const { activeWindow } = await import('get-windows')`，缓存模块 Promise；不要在 CJS bundle 顶层 `require` ESM 包。
   - `initActiveWin()` / `activeWin()` 内部调用 `activeWindow({...})`，选项名不变。
-  - 状态日志保留旧文件名 `active-win.log`，避免已有用户报告和排障说明失效；日志正文改为 `get-windows`。
+  - 状态日志保留旧文件名 `active-win.log`，避免已有用户报告和排障说明失效；日志正文改为 `get-windows`，成功行也带上 `backend=get-windows`，这样打包版正常启动时也能从日志确认实际使用的后端。
 - [x] `src/main/ipc/type.ts`、`src/renderer/monitor/UsageRecorder.ts`、`src/renderer/monitor/activeWinMonitor.ts`：`import type { BaseResult } from 'active-win'` → `'get-windows'`。
 - [x] `webpack.main.config.js`：externals 改为 `'get-windows': 'commonjs2 get-windows'`。webpack 会把动态 `import()` 编译成 `require("get-windows")`；已在 Electron 39 的真实运行时验证 `require(ESM)` 能加载该包，因此不需要改成 ESM main bundle。
 - [x] `src/main/activeWin.test.ts`：`jest.mock('active-win')` → `'get-windows'`，mock 形状改为 `{ activeWindow: jest.fn() }`；补充两次 init 调用的选项断言。

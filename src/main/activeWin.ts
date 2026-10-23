@@ -80,7 +80,12 @@ export async function initActiveWin() {
     console.log('Initialized with get-windows title permission?', hasPermission);
     // The line to look for first when activity data is missing: `available=false`
     // means nothing will be recorded for the rest of this run.
-    appendStatus(`initialized: available=${available}, titlePermission=${hasPermission}`);
+    // Name the backend here as well: this is the only line a packaged build
+    // writes on a healthy start, so it is what tells a bug report which
+    // package actually ran (and that the migration took effect).
+    appendStatus(
+        `initialized: backend=get-windows, available=${available}, titlePermission=${hasPermission}`
+    );
 }
 
 export async function activeWin() {

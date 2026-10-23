@@ -58,7 +58,7 @@ describe('get-windows status log', () => {
         // The decisive line when activity data is missing: a packaged build
         // with `available=false` records nothing at all.
         expect(readFileSync(statusLogPath, 'utf8')).toContain(
-            'initialized: available=true, titlePermission=true'
+            'initialized: backend=get-windows, available=true, titlePermission=true'
         );
     });
 
@@ -71,7 +71,9 @@ describe('get-windows status log', () => {
         expect(await activeWin()).toBeUndefined();
         const log = readFileSync(statusLogPath, 'utf8');
         expect(log).toContain("init failed: Error: Cannot find module '@mapbox/node-pre-gyp'");
-        expect(log).toContain('initialized: available=false, titlePermission=false');
+        expect(log).toContain(
+            'initialized: backend=get-windows, available=false, titlePermission=false'
+        );
         expect(log).toContain('skipped: get-windows is unavailable');
     });
 

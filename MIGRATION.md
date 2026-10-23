@@ -637,6 +637,14 @@ Electron 44 只发布 64 位包（Windows x64 / Linux x64+arm64），并要求 m
 - **WDS 6**：包本身是 ESM，但通过 webpack-cli 7 加载 CommonJS 的 `webpack.renderer.dev.config.js` 仍正常；现有 `setupMiddlewares` / `historyApiFallback` / Electron renderer 配置无需改写。
 - 如果未来考虑 Vite/Rspack，建议在 B4/B6 手工验收完成后再评估；当前 webpack 5 仍在维护，不需要为了“新”而换构建器。
 
+### 7.3 构建/测试告警清理
+
+- **`DEP0169`（`url.parse()`）**：构建和测试时该警告来自 Yarn 1.22.22 自身，不是应用代码或 webpack 依赖。Yarn 1 在规范化根 `package.json` 时会用 `url.parse()` 处理字符串形式的 `homepage` 字段。项目没有消费 `homepage`，但保留了 `repository` / `bugs`，因此移除了该字段；`electron-builder` 会从 `repository` 推导打包元数据，不受影响。现在 `yarn typecheck`、`yarn test`、`yarn build` 不再输出 `DEP0169`。
+- **`yarn install` 的残留**：`yarn install` 仍可能输出一次 `DEP0169`，来源是 Yarn 1 的 `GitResolver.isVersion()`，与项目代码无关。彻底修复需要迁移到 Yarn 4；本次不做。若只是本地追求干净输出，可临时使用 `NODE_OPTIONS=--disable-warning=DEP0169 yarn install`，不要把该屏蔽写进项目或 CI。
+- **webpack-bundle-analyzer**：两个生产配置里的 `logLevel: 'warn'` 已弃用，改用 webpack 的 infrastructure logger；删除该选项后 `yarn build` 不再出现该 `<w>` 警告。
+- **安装期 peer 警告**：Babel 8 下 `babel-preset-jest` 间接依赖的 `@babel/plugin-syntax-*` 仍声明 Babel 7 peer，`electron-builder-squirrel-windows` 是未使用的可选 peer。它们不影响构建/测试，不做强制 resolution 掩盖。
+- **Lint**：仍保留 26 个 `react-hooks/exhaustive-deps` 警告，均为既有代码且与 memoization 相关；本次不为了清零而改动运行行为。
+
 ---
 
 ## 8. 明确保持不动的依赖

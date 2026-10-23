@@ -15,8 +15,7 @@ module.exports = merge(baseConfig, {
         new BundleAnalyzerPlugin({
             analyzerMode: 'static',
             reportFilename: path.resolve(__dirname, 'webpack-visualization/renderer.html'),
-            openAnalyzer: false,
-            logLevel: 'warn'
+            openAnalyzer: false
         })
     ]
 });

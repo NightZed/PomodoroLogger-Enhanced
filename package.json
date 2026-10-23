@@ -128,7 +128,6 @@
     "bugs": {
         "url": "https://github.com/NightZed/PomodoroLogger-Enhanced/issues"
     },
-    "homepage": "https://github.com/NightZed/PomodoroLogger-Enhanced",
     "devDependencies": {
         "@ant-design/icons": "^6",
         "@babel/core": "^8.0.7",

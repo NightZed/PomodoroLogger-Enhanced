@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { dbBkBaseDir, dbBaseDir, dbPaths, sqlitePath } from '../../config';
+import { dbBkBaseDir, dbBaseDir, dbPaths, sqlitePath } from '../config';
 import { aggHistory } from '../../utils/aggPomodoro';
 import { openSqlite } from './connection';
 import { migrateNedbToSqlite } from './migrate';

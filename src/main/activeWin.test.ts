@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, unlinkSync } from 'fs';
 import path from 'path';
-import { dbBaseDir } from '../config';
+import { dbBaseDir } from './config';
 
 // get-windows is ESM-only and loads a native addon; jest runs in plain Node,
 // so the module is replaced by a controllable stub.

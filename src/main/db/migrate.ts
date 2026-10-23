@@ -10,7 +10,7 @@ import {
     writeFileSync,
 } from 'fs';
 import { basename, dirname, join } from 'path';
-import { dbPaths } from '../../config';
+import { dbPaths } from '../config';
 import { openSqlite } from './connection';
 import {
     boardSpec,

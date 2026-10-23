@@ -3,6 +3,7 @@ import { SourceData } from '../../shared/dataMerger/dataMerger';
 import type { ExportMeta } from '../../shared/dataTransfer/payload';
 import type { ValidationIssue, ValidationWarning } from '../../shared/dataTransfer/validate';
 import type { DbName, HistoryData } from '../db/types';
+import type { KnnModel } from '../learner/appKnn';
 import type { AggPomodoroInfo } from '../../renderer/components/History/op';
 import type { TrayActionKey, TrayMenuItem } from '../../renderer/components/Timer/sessionState';
 
@@ -29,6 +30,12 @@ export enum IpcEventName {
     FocusOnWindow = 'focusOnWindow',
     DesktopSource = 'desktopSource',
     OpenExternal = 'openExternal',
+    SaveScreenshot = 'saveScreenshot',
+    DeleteScreenshots = 'deleteScreenshots',
+    ClearUserFiles = 'clearUserFiles',
+    LoadKnnModel = 'loadKnnModel',
+    SaveKnnModel = 'saveKnnModel',
+    SetNativeTheme = 'setNativeTheme',
     WindowAction = 'windowAction',
     /** Renderer driven move of the maximized title bar, see `WindowDragPhase`. */
     WindowDrag = 'windowDrag',
@@ -123,6 +130,9 @@ export type TrayIconPayload = {
     scaleFactor: number;
 };
 
+/** Values accepted by Electron's `nativeTheme.themeSource`. */
+export type NativeThemeSource = 'light' | 'dark' | 'system';
+
 /**
  * What an export actually did.
  *
@@ -183,6 +193,13 @@ export type ExposedAPI = {
     installUpdate(): void;
     setTrayImage(payload: TrayIconPayload): void;
     openExternal(url: string): void;
+    setNativeTheme(source: NativeThemeSource): void;
+
+    saveScreenshot(dataUrl: string): Promise<string>;
+    deleteScreenshots(paths: string[]): Promise<void>;
+    clearUserFiles(): Promise<void>;
+    loadKnnModel(): Promise<KnnModel | undefined>;
+    saveKnnModel(model: KnnModel): Promise<void>;
 
     dbReady(): Promise<void>;
     dbRequest(name: DbName, operation: string, args: unknown[]): Promise<unknown>;

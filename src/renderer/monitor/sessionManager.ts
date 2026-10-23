@@ -1,7 +1,5 @@
 import { workers } from '../workers';
 import { PomodoroRecord } from './type';
-import { modelPath, screenshotDir } from '../../config';
-import * as fs from 'fs';
 
 const dbWorkers = workers.dbWorkers;
 export function renameIllegalName(record: PomodoroRecord) {
@@ -82,22 +80,6 @@ export async function getAllSession(): Promise<PomodoroRecord[]> {
     return (await dbWorkers.sessionDB.find({}, {})) as PomodoroRecord[];
 }
 
-export const deleteFolderRecursive = (path: string) => {
-    if (fs.existsSync(path)) {
-        fs.readdirSync(path).forEach((file) => {
-            const curPath = path + '/' + file;
-            if (fs.lstatSync(curPath).isDirectory()) {
-                // recurse
-                deleteFolderRecursive(curPath);
-            } else {
-                // delete file
-                fs.unlinkSync(curPath);
-            }
-        });
-        fs.rmdirSync(path);
-    }
-};
-
 /**
  * Delete the screenshot files a discarded session had recorded. Called when a
  * record is thrown away whole (Stop, mode switch, unmount -- see
@@ -105,19 +87,17 @@ export const deleteFolderRecursive = (path: string) => {
  * would be orphans on disk. A SAVED record's files must stay -- `clear()`
  * alone never deletes anything.
  *
- * A file that is already gone (or locked) is skipped: cleanup must never fail
- * the session flow that triggered it.
+ * The main process validates every path against `screenshotDir`; cleanup must
+ * never fail the session flow that triggered it, so the rejection is logged.
  */
 export function deleteScreenshots(paths: string[]) {
-    for (const p of paths) {
-        try {
-            if (fs.existsSync(p)) {
-                fs.unlinkSync(p);
-            }
-        } catch (e) {
-            console.error('[sessionManager] failed to delete screenshot', p, e);
-        }
+    if (paths.length === 0) {
+        return;
     }
+
+    void window.api
+        .deleteScreenshots(paths)
+        .catch((e) => console.error('[sessionManager] failed to delete screenshots', e));
 }
 
 /**
@@ -139,22 +119,9 @@ export async function deleteAllUserData() {
         dbWorkers.moveDB.remove({}, { multi: true }),
     ]);
 
-    try {
-        if (fs.existsSync(modelPath.knnPath)) {
-            fs.unlinkSync(modelPath.knnPath);
-        }
-    } catch (e) {
-        console.error('[sessionManager] failed to delete the KNN model', e);
-    }
-
-    try {
-        if (fs.existsSync(screenshotDir)) {
-            deleteFolderRecursive(screenshotDir);
-        }
-        fs.mkdirSync(screenshotDir, { recursive: true });
-    } catch (e) {
-        console.error('[sessionManager] failed to clear the screenshots', e);
-    }
+    // The derived model and the screenshots are main-process files; the
+    // renderer only names the operation, never a path.
+    await window.api.clearUserFiles();
 }
 
 export function getIndexToTitleApp(record: PomodoroRecord): [string, string][] {

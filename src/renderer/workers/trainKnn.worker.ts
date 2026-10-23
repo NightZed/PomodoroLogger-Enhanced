@@ -1,8 +1,7 @@
-import { modelPath } from '../../config';
 import { PomodoroRecord } from '../monitor/type';
 import { KNN } from '../../main/learner/appKnn';
+import type { KnnModel } from '../../main/learner/appKnn';
 import { sample } from '../../utils/random';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
 
 const ctx: Worker = self as any;
 
@@ -72,12 +71,13 @@ async function train(isTest: boolean, code: number, records: PomodoroRecord[]) {
 }
 
 function saveModel(code: number) {
-    const json = knn.toJson();
     try {
-        writeFileSync(modelPath.knnPath, JSON.stringify(json), { encoding: 'utf-8' });
+        // Persistence belongs to the main process; the worker only serializes
+        // the model it already holds.
         ctx.postMessage({
             code,
-            type: 'onDone',
+            type: 'saved',
+            payload: knn.toJson(),
         });
     } catch (e) {
         ctx.postMessage({
@@ -88,23 +88,29 @@ function saveModel(code: number) {
     }
 }
 
-async function loadModel(dbSize: number, code: number, records: PomodoroRecord[]) {
-    if (!existsSync(modelPath.knnPath)) {
-        await train(false, code, records);
-        saveModel(code);
-    } else {
-        const json = JSON.parse(readFileSync(modelPath.knnPath, { encoding: 'utf-8' }));
-        knn = KNN.fromJson(json);
-    }
+async function loadModel(
+    dbSize: number,
+    code: number,
+    records: PomodoroRecord[],
+    model: KnnModel | undefined
+) {
+    knn = model ? KNN.fromJson(model) : new KNN();
+    let retrained = !model;
 
     if (!knn.isTrained || dbSize - knn.length > 20 || dbSize / knn.length > 1.5) {
+        retrained = true;
         await train(false, code, records);
-        saveModel(code);
     }
 
     ctx.postMessage({
         code,
-        type: 'onDone',
+        type: 'loaded',
+        payload: {
+            model: knn.toJson(),
+            // Only write when there was nothing usable: an unchanged model is
+            // read and used without touching the disk again.
+            save: retrained,
+        },
     });
 }
 
@@ -129,7 +135,7 @@ ctx.addEventListener('message', async ({ data: { type, payload, code } }) => {
         } else if (type === 'saveModel') {
             saveModel(code);
         } else if (type === 'loadModel') {
-            await loadModel(payload.dbSize, code, payload.records);
+            await loadModel(payload.dbSize, code, payload.records, payload.model);
         } else if (type === 'predict') {
             predict(payload, code);
         }

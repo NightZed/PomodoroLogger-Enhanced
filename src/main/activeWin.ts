@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { dbBaseDir } from '../config';
+import { dbBaseDir } from './config';
 
 let hasPermission = false;
 let available = false;

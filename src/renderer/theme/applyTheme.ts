@@ -29,20 +29,6 @@ export type ThemeSource = ThemeBase | 'system';
 
 const colorTokenKeys = Object.keys(CSS_VAR_NAMES) as ColorTokenKey[];
 
-/**
- * `electron` is not available when the theme module is imported outside of the
- * Electron runtime (unit tests), so it is resolved lazily and the callers
- * degrade to a DOM-only theme switch.
- */
-export function getNativeTheme():
-    { themeSource?: ThemeSource; shouldUseDarkColors?: boolean } | undefined {
-    try {
-        return require('electron').nativeTheme;
-    } catch (e) {
-        return undefined;
-    }
-}
-
 export function systemPrefersDark(): boolean {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
         return false;
@@ -76,9 +62,10 @@ export function applyTheme(tokens: ThemeTokens, themeSource: ThemeSource): void 
         root.setAttribute('data-theme', tokens.base);
     }
 
-    const nativeTheme = getNativeTheme();
-    if (nativeTheme) {
-        nativeTheme.themeSource = themeSource;
+    // Chromium's own surfaces (scrollbars, native controls, media queries) are
+    // switched by the main process; the renderer only paints the CSS tokens.
+    if (typeof window !== 'undefined' && window.api?.setNativeTheme) {
+        window.api.setNativeTheme(themeSource);
     }
 }
 

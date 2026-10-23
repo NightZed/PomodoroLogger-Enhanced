@@ -6,10 +6,21 @@ interface AppProjectPair {
     project?: string;
 }
 
-interface EncodingProjectPair {
+export interface EncodingProjectPair {
     encoding: number[];
     project: string;
 }
+
+/**
+ * Serialized form of `KNN`. It travels through IPC and is written to
+ * `modelKnn.json` by the main process; the training worker itself no longer
+ * touches the filesystem.
+ */
+export type KnnModel = {
+    encoder: { [appName: string]: number };
+    encodings: EncodingProjectPair[];
+    k: number;
+};
 
 export class NameEncoder {
     public encodingLength: number;
@@ -178,7 +189,7 @@ export class KNN {
         return pred;
     };
 
-    public toJson() {
+    public toJson(): KnnModel {
         if (!this.encoder || !this.encodings) {
             throw new Error('Must fit before saving');
         }
@@ -190,9 +201,12 @@ export class KNN {
         };
     }
 
-    public static fromJson(json: { encoder: any; encoding: any; k: number }) {
+    public static fromJson(json: KnnModel | (Omit<KnnModel, 'encodings'> & { encoding: any })) {
         const knn = new KNN(json.k);
-        knn.encodings = json.encoding;
+        // `encoding` is the field the old serializer accidentally wrote; accept
+        // it so a model saved by an older build can still be reused instead of
+        // being retrained on every start.
+        knn.encodings = 'encodings' in json ? json.encodings : json.encoding;
         knn.encoder = NameEncoder.fromJson(json.encoder);
         return knn;
     }

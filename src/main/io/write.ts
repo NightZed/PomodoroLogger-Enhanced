@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, writeFile } from 'fs';
 import path from 'path';
-import { dbBkBaseDir } from '../../config';
+import { dbBkBaseDir } from '../config';
 import type { SourceData } from '../../shared/dataMerger/dataMerger';
 import { DBs, loadDBs, runInTransaction } from '../db';
 import { SqliteRepository } from '../db/repository';

@@ -2,7 +2,7 @@
 
 > 生成日期：2026-10-20
 > 最近更新：2026-10-23
-> 状态：B0 / B1 / B1.5 / B2（代码、升级/回滚、History 性能）/ B3 / B5 已完成；B4 代码迁移完成（`get-windows` + Electron 44.9.3）；B6 核心工具链迁移完成，手工验收待做；B7 Electron 安全架构进行中，B7.1（移除 `@electron/remote`）与 B7.2（preload 桥接层）已完成，B7.3-B7.5 待做
+> 状态：B0 / B1 / B1.5 / B2（代码、升级/回滚、History 性能）/ B3 / B5 已完成；B4 代码迁移完成（`get-windows` + Electron 44.9.3）；B6 核心工具链迁移完成，手工验收待做；B7 Electron 安全架构进行中，B7.1（移除 `@electron/remote`）/ B7.2（preload 桥接层）/ B7.3（移除 renderer Node 能力）已完成，B7.4-B7.5 待做
 > 适用版本：当前 `package.json`（React 19.3 / antd 6 / webpack 5.111 / Jest 30）
 
 本文档列出项目中已停止维护、已被弃用、已过 EOL，或已经确定要替换的依赖，并给出迁移顺序、改动范围、验收标准和回滚方式。每完成一项，直接勾选对应条目并补充实际使用的版本与迁移日期。
@@ -695,14 +695,17 @@ renderer 只通过 preload + `contextBridge` 暴露的窄 API 访问主进程；
 
 实施结果（2026-10-23）：`nodeIntegration` 暂未关闭；`yarn lint` 为 0 errors / 0 warnings，`yarn typecheck` 通过，`yarn test --runInBand` 为 65 suites / 476 tests，`yarn build` 通过。preload 桥接层与窗口状态/更新事件仍需在 Windows 实机做手工冒烟。
 
-### 8.4 B7.3 移除 renderer 的 Node 能力（待做）
+### 8.4 B7.3 移除 renderer 的 Node 能力（已完成）
 
-- 截图写文件：renderer 只生成 data URL/ArrayBuffer，主进程写入 `screenshotDir` 并返回路径。
-- `sessionManager` 的目录删除/创建、模型文件清理改为明确的主进程命令（不要暴露通用 `fs`）。
-- KNN worker 的模型 load/save：由主进程持久化，worker 只做纯计算；或将训练移到主进程 utility process。
-- `nativeTheme` 改为主进程 IPC 设置，或使用 `matchMedia` + 主进程同步。
-- `shell.openExternal` 改为主进程 IPC，并限制为 `http/https`。
-- 目标是把 `nodeIntegrationInWorker` 也设为 `false`，让 tokenizer/KNN worker 成为纯浏览器 worker。
+- 路径配置拆成两份：`src/config.ts` 只保留时间缩放等纯常量，`src/main/config.ts` 独占 `fs` / `path` / appdata / SQLite / 截图目录 / 模型路径。
+- 截图写文件：renderer 只生成 JPEG data URL，主进程 `saveScreenshot` 写入 `screenshotDir` 并返回路径；路径由主进程生成，renderer 不再持有目录。
+- `sessionManager` 的目录删除/创建、模型清理改为主进程 `deleteScreenshots` / `clearUserFiles`；删除截图时校验目标必须位于 `screenshotDir` 内。
+- KNN worker 变成纯计算 worker：模型 JSON 通过 `loadKnnModel` / `saveKnnModel` 在主进程持久化；同时修正并兼容旧模型里误写的 `encoding` 字段。
+- `nativeTheme` 改为主进程 `SetNativeTheme`，renderer 只写 CSS tokens。
+- `shell.openExternal` 已由 B7.2 的 `openExternal` 接管，并限制为 `http:` / `https:`。
+- renderer 已无 `fs` / `path` / `os` / `nativeTheme` / `shell` / `__dirname` / `process.platform` 直接依赖；`nodeIntegrationInWorker` 仍留到 B7.4 关闭。
+
+实施结果（2026-10-23）：生产构建不再把 `fs` / `path` 作为 renderer external；`yarn lint` 为 0 errors / 0 warnings，`yarn typecheck` 通过，`yarn test --runInBand` 为 66 suites / 480 tests，`yarn build` 通过。截图写入/删除、KNN 模型复用、主题切换仍需 Windows 实机冒烟。
 
 ### 8.5 B7.4 切换安全开关（待做）
 
@@ -787,6 +790,6 @@ renderer 只通过 preload + `contextBridge` 暴露的窄 API 访问主进程；
 - [x] B6 核心工具链（prettier 3 / webpack-cli 7 / WDS 6 / ESLint 10 / Babel 8）；`nanoid`、`conventional-changelog` 延后
 - [x] B7.1 移除 `@electron/remote`：托盘菜单/截图改为 IPC，`remoteMain` 与依赖已删除
 - [x] B7.2 建立 preload + `contextBridge` 桥接层，删除 renderer 自建 `window.api`
-- [ ] B7.3 移除 renderer 的 `fs` / `path` / `os` / `nativeTheme` 依赖
+- [x] B7.3 移除 renderer 的 `fs` / `path` / `os` / `nativeTheme` 依赖
 - [ ] B7.4 切换 `nodeIntegration: false`、`contextIsolation: true`、`sandbox: true`、`nodeIntegrationInWorker: false`
 - [ ] B7.5 Markdown 净化、CSP、IPC 参数/sender 校验

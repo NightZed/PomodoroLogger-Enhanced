@@ -1,4 +1,13 @@
-import { ipcMain, dialog, app, nativeImage, Notification, desktopCapturer, screen } from 'electron';
+import {
+    ipcMain,
+    dialog,
+    app,
+    nativeImage,
+    Notification,
+    desktopCapturer,
+    nativeTheme,
+    screen,
+} from 'electron';
 import {
     DesktopSourceInfo,
     ExportResult,
@@ -8,7 +17,8 @@ import {
     WorkerMessageType,
     WindowAction,
 } from './type';
-import type { TrayMenuItem } from './type';
+import type { NativeThemeSource, TrayMenuItem } from './type';
+import type { KnnModel } from '../learner/appKnn';
 import { sendWorkerMessage } from '../worker/fork';
 import { promisify } from 'util';
 import { readFile, writeFile } from 'fs';
@@ -27,6 +37,13 @@ import {
 import { validateSourceData } from '../../shared/dataTransfer/validate';
 import { initializeDbIpc } from '../db/ipc';
 import { openExternalUrl } from '../openExternal';
+import {
+    clearUserFiles,
+    deleteScreenshots,
+    loadKnnModel,
+    saveKnnModel,
+    saveScreenshot,
+} from '../userFiles';
 
 /**
  * Registers a request/response channel. `ipcMain.handle` + `ipcRenderer.invoke`
@@ -56,6 +73,16 @@ export function initialize() {
     ipcMain.on(IpcEventName.OpenExternal, (_event, url: string) => {
         openExternalUrl(url);
     });
+    ipcMain.on(IpcEventName.SetNativeTheme, (_event, source: NativeThemeSource) => {
+        if (source === 'light' || source === 'dark' || source === 'system') {
+            nativeTheme.themeSource = source;
+        }
+    });
+    handle(IpcEventName.SaveScreenshot, (dataUrl: string) => saveScreenshot(dataUrl));
+    handle(IpcEventName.DeleteScreenshots, (paths: string[]) => deleteScreenshots(paths));
+    handle(IpcEventName.ClearUserFiles, () => clearUserFiles());
+    handle(IpcEventName.LoadKnnModel, () => loadKnnModel());
+    handle(IpcEventName.SaveKnnModel, (model: KnnModel) => saveKnnModel(model));
     /**
      * The renderer owns the timer actions, but the native tray menu lives in
      * the main process. Only serializable entries cross this boundary; a click

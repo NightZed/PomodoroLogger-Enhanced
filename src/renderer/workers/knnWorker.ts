@@ -77,10 +77,16 @@ export class KnnWorker extends BaseWorker {
     async loadModel(dbSize: number) {
         this.worker ??= createKnnWorker();
         const records = await this.getRecords();
+        const model = await window.api.loadKnnModel();
         return this.createHandler(
-            { type: 'loadModel', payload: { dbSize, records } },
+            { type: 'loadModel', payload: { dbSize, records, model } },
             {
-                onDone: (payload, done) => done(),
+                loaded: async (payload: { model: any; save: boolean }, done) => {
+                    if (payload.save) {
+                        await window.api.saveKnnModel(payload.model);
+                    }
+                    done();
+                },
             },
             // Loading (and possibly retraining, which reads the whole session
             // DB) outlasts the 10s default. Without a real budget the request
@@ -95,7 +101,10 @@ export class KnnWorker extends BaseWorker {
         return this.createHandler(
             { type: 'saveModel' },
             {
-                onDone: (payload, done) => done(),
+                saved: async (model: any, done) => {
+                    await window.api.saveKnnModel(model);
+                    done();
+                },
             }
         );
     }

@@ -22,6 +22,7 @@ import type {
 } from './ipc/type';
 import type { BaseResult } from 'get-windows';
 import type { DbName } from './db/types';
+import type { KnnModel } from './learner/appKnn';
 import type { TrayActionKey } from '../renderer/components/Timer/sessionState';
 
 const invoke = <T>(channel: string, ...args: unknown[]): Promise<T> =>
@@ -96,6 +97,13 @@ const api: ExposedAPI = {
     installUpdate: () => send(IpcEventName.InstallUpdate),
     setTrayImage: (payload: TrayIconPayload) => send(IpcEventName.SetTray, payload),
     openExternal: (url: string) => send(IpcEventName.OpenExternal, url),
+    setNativeTheme: (source) => send(IpcEventName.SetNativeTheme, source),
+
+    saveScreenshot: (dataUrl: string) => invoke<string>(IpcEventName.SaveScreenshot, dataUrl),
+    deleteScreenshots: (paths: string[]) => invoke<void>(IpcEventName.DeleteScreenshots, paths),
+    clearUserFiles: () => invoke<void>(IpcEventName.ClearUserFiles),
+    loadKnnModel: () => invoke<KnnModel | undefined>(IpcEventName.LoadKnnModel),
+    saveKnnModel: (model: KnnModel) => invoke<void>(IpcEventName.SaveKnnModel, model),
 
     dbReady: () => invoke<void>(DbEventName.Ready),
     dbRequest: (name: DbName, operation: string, args: unknown[]) =>

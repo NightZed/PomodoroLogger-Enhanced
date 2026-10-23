@@ -4,12 +4,9 @@ import {
     getAllSession,
     renameIllegalName,
     getTodaySessions,
-    deleteFolderRecursive,
     deleteScreenshots,
     deleteAllUserData,
 } from './sessionManager';
-import { join } from 'path';
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { generateRandomName } from '../utils';
 import { PomodoroRecord } from './type';
 import { createRecord } from '../../../test/utils';
@@ -71,44 +68,20 @@ describe('sessionManager', () => {
         }
     });
 
-    it('should rm folder recursively', () => {
-        const root = generateRandomName();
-        let child = root;
-        let index = 0;
-        while (index < 20) {
-            mkdirSync(child);
-            writeFileSync(join(child, generateRandomName()), 'hello');
-            child = join(child, generateRandomName());
-            index += 1;
-        }
+    it('forwards the screenshots of a discarded session to the main process', () => {
+        const deleteScreenshotsApi = jest.fn().mockResolvedValue(undefined);
+        (window as any).api = { ...(window as any).api, deleteScreenshots: deleteScreenshotsApi };
 
-        deleteFolderRecursive(root);
-        expect(existsSync(root)).toBeFalsy();
-    });
+        const paths = ['drop1.jpg', 'drop2.jpg', 'missing.jpg'];
+        deleteScreenshots(paths);
 
-    it('should delete the screenshots of a discarded session', () => {
-        const root = generateRandomName();
-        mkdirSync(root);
-        const keep = join(root, 'keep.jpg');
-        const drop1 = join(root, 'drop1.jpg');
-        const drop2 = join(root, 'drop2.jpg');
-        const missing = join(root, 'missing.jpg');
-        writeFileSync(keep, 'keep');
-        writeFileSync(drop1, 'drop1');
-        writeFileSync(drop2, 'drop2');
-
-        deleteScreenshots([drop1, drop2, missing]);
-        // A file that never existed (already deleted, or the write failed) is
-        // skipped without throwing.
-        expect(existsSync(drop1)).toBeFalsy();
-        expect(existsSync(drop2)).toBeFalsy();
-        // Files of a session that was NOT discarded stay untouched.
-        expect(existsSync(keep)).toBeTruthy();
-
-        deleteFolderRecursive(root);
+        expect(deleteScreenshotsApi).toHaveBeenCalledWith(paths);
     });
 
     it('deleteAllUserData clears sessions but keeps the settings', async () => {
+        const clearUserFiles = jest.fn().mockResolvedValue(undefined);
+        (window as any).api = { ...(window as any).api, clearUserFiles };
+
         const record = createRecord('delete-all', 0, []);
         await addSession(record);
         await dbs.settingDB.update(
@@ -119,6 +92,7 @@ describe('sessionManager', () => {
 
         await deleteAllUserData();
 
+        expect(clearUserFiles).toHaveBeenCalledTimes(1);
         expect(await getAllSession()).toStrictEqual([]);
         expect((await dbs.settingDB.findOne({ name: 'setting' }))?.themeId).toBe('keep-me');
     });

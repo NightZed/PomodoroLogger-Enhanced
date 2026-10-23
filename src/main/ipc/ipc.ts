@@ -8,11 +8,12 @@ import {
     WorkerMessageType,
     WindowAction,
 } from './type';
+import type { TrayMenuItem } from './type';
 import { sendWorkerMessage } from '../worker/fork';
 import { promisify } from 'util';
 import { readFile, writeFile } from 'fs';
 import { writeAllFile } from '../io/write';
-import { revealWindow, setSkipTaskbar, win } from '../init';
+import { revealWindow, setMenuItems, setSkipTaskbar, win } from '../init';
 import { readAllData } from '../io/read';
 import { activeWin } from '../activeWin';
 import { startWindowDrag, stopWindowDrag } from './windowDrag';
@@ -50,35 +51,42 @@ export function initialize() {
         revealWindow();
     });
     /**
+     * The renderer owns the timer actions, but the native tray menu lives in
+     * the main process. Only serializable entries cross this boundary; a click
+     * is sent back as `TrayEventName.Action`, see `init.ts setMenuItems`.
+     */
+    handle(IpcEventName.SetTrayMenu, (items: TrayMenuItem[]) => {
+        if (!Array.isArray(items)) {
+            return;
+        }
+
+        setMenuItems(items);
+    });
+    /**
      * `desktopCapturer` and `screen` are main-process only since Electron 17,
      * so the renderer asks here for the capture source of the display that
      * currently hosts its window.
      *
+     * The window bounds are read here, not supplied by the renderer: they used
+     * to come from `@electron/remote.getCurrentWindow()` in `screenshot.ts`.
      * Only the string fields are returned: `DesktopCapturerSource.thumbnail` is
      * a `NativeImage`, which the IPC structured clone cannot serialize.
      */
-    handle(
-        IpcEventName.DesktopSource,
-        async (x: number, y: number): Promise<DesktopSourceInfo | undefined> => {
-            const displays = screen.getAllDisplays();
-            const display =
-                displays.find(
-                    (d) =>
-                        x >= d.bounds.x &&
-                        x <= d.bounds.x + d.bounds.width &&
-                        y >= d.bounds.y &&
-                        y <= d.bounds.y + d.bounds.height
-                ) || screen.getPrimaryDisplay();
-
-            const sources = await desktopCapturer.getSources({
-                types: ['screen'],
-                thumbnailSize: { width: 0, height: 0 },
-            });
-
-            const source = sources.find((s) => `${s.display_id}` === `${display.id}`);
-            return source ? { id: source.id, display_id: source.display_id } : undefined;
+    handle(IpcEventName.DesktopSource, async (): Promise<DesktopSourceInfo | undefined> => {
+        if (!win || win.isDestroyed()) {
+            return undefined;
         }
-    );
+
+        const display = screen.getDisplayMatching(win.getBounds());
+
+        const sources = await desktopCapturer.getSources({
+            types: ['screen'],
+            thumbnailSize: { width: 0, height: 0 },
+        });
+
+        const source = sources.find((s) => `${s.display_id}` === `${display.id}`);
+        return source ? { id: source.id, display_id: source.display_id } : undefined;
+    });
     handle(IpcEventName.Notify, (title, body, iconPath) => {
         const notification = new Notification({
             title,

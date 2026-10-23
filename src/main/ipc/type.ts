@@ -4,11 +4,16 @@ import type { ExportMeta } from '../../shared/dataTransfer/payload';
 import type { ValidationIssue, ValidationWarning } from '../../shared/dataTransfer/validate';
 import type { HistoryData } from '../db/types';
 import type { AggPomodoroInfo } from '../../renderer/components/History/op';
+import type { TrayMenuItem } from '../../renderer/components/Timer/sessionState';
+
+export type { TrayMenuItem };
 
 export enum IpcEventName {
     Quit = 'quit',
     Restart = 'restart-app',
     SetTray = 'set-tray',
+    /** Rebuilds the tray context menu from serializable entries, see `TrayMenuItem`. */
+    SetTrayMenu = 'setTrayMenu',
     DownloadUpdate = 'download-update',
     CheckUpdate = 'check-update',
     InstallUpdate = 'install-update',
@@ -62,6 +67,18 @@ export enum WindowEventName {
     MaximizedChanged = 'window-maximized-changed',
 }
 
+/**
+ * Events pushed from the main process when the user clicks a tray entry.
+ *
+ * The renderer used to hand main a set of click callbacks through
+ * `@electron/remote`. IPC cannot serialize functions, so the menu now carries
+ * only a `TrayActionKey` and the click comes back here; the Timer still owns
+ * the action itself.
+ */
+export enum TrayEventName {
+    Action = 'tray-action',
+}
+
 /** Phase of the update flow the error occurred in. */
 export type UpdatePhase = 'check' | 'download' | 'install';
 
@@ -113,7 +130,8 @@ export type ExposedAPI = {
     [IpcEventName.OpenDevTools](): void;
     [IpcEventName.Notify](title: string, body: string, iconPath: string): void;
     [IpcEventName.FocusOnWindow](): void;
-    [IpcEventName.DesktopSource](x: number, y: number): Promise<DesktopSourceInfo | undefined>;
+    [IpcEventName.DesktopSource](): Promise<DesktopSourceInfo | undefined>;
+    [IpcEventName.SetTrayMenu](items: TrayMenuItem[]): void;
     [IpcEventName.WindowAction](action: WindowAction): void;
     [IpcEventName.WindowDrag](phase: WindowDragPhase): void;
     [IpcEventName.WindowState](): Promise<WindowState>;
@@ -146,7 +164,10 @@ export type WindowState = {
 
 /**
  * Identifiers of the `desktopCapturer` source that belongs to the display which
- * hosts the window at `(x, y)`.
+ * hosts the app window.
+ *
+ * The main process derives the window bounds itself; the renderer no longer
+ * sends coordinates (it used `@electron/remote` for that).
  *
  * Only the string fields are sent over IPC: `thumbnail` is a `NativeImage` and
  * cannot be structured-cloned by the IPC layer.

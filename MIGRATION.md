@@ -2,7 +2,7 @@
 
 > 生成日期：2026-10-20
 > 最近更新：2026-10-23
-> 状态：B0 / B1 / B1.5 / B2（代码、升级/回滚、History 性能）/ B3 / B5 已完成；B4 代码迁移完成（`get-windows` + Electron 44.9.3）；B6 核心工具链迁移完成，手工验收待做
+> 状态：B0 / B1 / B1.5 / B2（代码、升级/回滚、History 性能）/ B3 / B5 已完成；B4 代码迁移完成（`get-windows` + Electron 44.9.3）；B6 核心工具链迁移完成，手工验收待做；B7 Electron 安全架构计划已写入，B7.1（移除 `@electron/remote`）已完成，B7.2-B7.5 待做
 > 适用版本：当前 `package.json`（React 19.3 / antd 6 / webpack 5.111 / Jest 30）
 
 本文档列出项目中已停止维护、已被弃用、已过 EOL，或已经确定要替换的依赖，并给出迁移顺序、改动范围、验收标准和回滚方式。每完成一项，直接勾选对应条目并补充实际使用的版本与迁移日期。
@@ -27,8 +27,9 @@
 | B4 | `active-win` → `get-windows`；Electron 39 → 44 | P0 | 一起做 | 高（原生模块 / 打包） |
 | B5 | 状态与 UI 库替换（`deox`、`react-hot-keys`、`react-trend`、`prop-types`、`react-styleguidist`） | P1 | 可分多次 | 中 |
 | B6 | 工具链大版本（prettier 3、webpack-cli 7 / WDS 6、ESLint 10、Babel 8、nanoid 等） | P2 | 是 | 中 |
+| B7 | Electron 安全架构：移除 `remote`、preload + `contextBridge`、关闭 renderer Node 能力 | P1 | 分阶段 | 高（跨进程边界） |
 
-建议顺序：**B0 → B1 → B1.5 → B2 → B3 → B4 → B5 → B6**。
+建议顺序：**B0 → B1 → B1.5 → B2 → B3 → B4 → B5 → B6 → B7**。
 
 - B0 是短周期（约 1–3 天）的“清基线”，不要求把所有告警修完，只要求把真 bug 和测试噪声分开，并让后续每批都有可对比的基线。
 - B1.5 放在 B5 之前：`react-hot-keys` 替换会重写 `Hotkeys.test.tsx`，先完成 RTL 迁移可以避免同一批测试改两遍。
@@ -521,10 +522,10 @@ Electron 39 的官方 EOL 是 **2026-05-05**，已经不再收到安全更新。
 - [x] 升级 `electron` 到 `^44.9.3`（计划中的 `^44.9.1` 的最新补丁），`electron-builder` 保持 26.15.3；Windows `--dir` 打包已验证。
 - [x] `webpack.main.config.js` 的 Babel target：`electron: '39'` → `'44'`。
 - [x] `@types/node`：22.x → 24.19.2（与 Electron 44 的 Node 24 对齐；不要直接跳到 26）。
-- [x] `@electron/remote` 2.1.3 继续使用；Windows 实际窗口验证 `remote.getCurrentWindow()`、`remote.app`，应用启动无 remote 相关错误。
+- [x] `@electron/remote` 2.1.3 在 B4 阶段继续使用；Windows 实际窗口验证 `remote.getCurrentWindow()`、`remote.app`，应用启动无 remote 相关错误。B7.1 已改为 IPC 并移除该依赖，见 §8。
 - [x] 回归所有原生能力：窗口拖拽、托盘、截图（`desktopCapturer`）、通知、开机启动、自动更新。
 - [x] Windows NSIS、macOS notarize、Linux deb 三条打包链路各做一次 `yarn pack` / `dist-*` 冒烟。
-- [x] 检查 `webPreferences`：保持 `nodeIntegration: true` + `contextIsolation: false`，本次不扩大权限；迁移到 preload + `contextBridge` 仍作为独立技术债（与 `@electron/remote` 一起处理）。
+- [x] 检查 `webPreferences`：B4 阶段保持 `nodeIntegration: true` + `contextIsolation: false`，不扩大权限；迁移到 preload + `contextBridge` 作为 B7 技术债，见 §8。
 
 实施结果（2026-10-22）：Electron **44.9.3**（Chromium 152，Node 24.22.0）已替换 39.8.10；`@types/node` 24.19.2。Electron 44 移除了 `app.setLoginItemSettings({ openAsHidden })`，已从 `OpenAtLogin` 处理中删除（该选项只对 macOS 12 有意义，macOS 12 已不再受支持）。Windows 冒烟：
 
@@ -647,20 +648,95 @@ Electron 44 只发布 64 位包（Windows x64 / Linux x64+arm64），并要求 m
 
 ---
 
-## 8. 明确保持不动的依赖
+## 8. B7：Electron 安全架构迁移（计划）
+
+目标不是单纯把 `remote` 换成 IPC，而是把 Electron 进程边界迁到官方推荐模型：
+
+```ts
+webPreferences: {
+    nodeIntegration: false,
+    contextIsolation: true,
+    sandbox: true,
+    preload: path.join(__dirname, 'preload.js'),
+}
+```
+
+renderer 只通过 preload + `contextBridge` 暴露的窄 API 访问主进程；不向页面暴露 `ipcRenderer`、`require`、通用 `invoke`、任意路径读写或 `shell`。
+
+**本次会话只执行 B7.1；B7.2-B7.5 留到下次会话。**
+
+### 8.1 起点与现状（2026-10-23）
+
+- `src/main/init.ts` 仍是 `nodeIntegration: true`、`contextIsolation: false`，`preload` 未启用；这是 B7 真正要改变的部分。
+- `src/main/preload.ts` 已作为 webpack entry 产出，但当前未使用；即使直接打开也不能工作：`Object.keys(IpcEventName)` 得到的是枚举键而不是 channel 值，且 `ipcRenderer.invoke` 与主进程现有的 `ipcMain.on` + `reply` 协议不一致。
+- `src/renderer/app.tsx` 在页面上下文自行创建 `window.api`；B7.2 必须删除它，改由 preload 暴露。
+- `@electron/remote` 在业务代码里只有两处：托盘菜单函数回调、截图窗口 bounds；B7.1 已全部移除。
+- renderer 仍直接依赖 `fs` / `path` / `os`（截图、`sessionManager`、KNN worker）、`nativeTheme`、`shell` 和 `ipcRenderer`；这些是 B7.2/B7.3 的主要工作量。
+- 现有 IPC 已覆盖数据库、active window、`desktopCapturer`、通知、窗口控制、导入导出和更新事件，可作为桥接层的基础。
+
+### 8.2 B7.1 移除 `@electron/remote`（已完成）
+
+- 托盘菜单：`SetTrayMenu` 只传 `{ key, label, enabled }`，主进程 `init.ts setMenuItems` 构建原生菜单；点击回送 `TrayEventName.Action`，renderer 在 `Timer.onTrayAction` 执行原有动作。函数不再跨进程传递。
+- 截图：`DesktopSource` 改为无参数，主进程用当前 `BrowserWindow.getBounds()` + `screen.getDisplayMatching()` 解析窗口所在显示器；删除 `screenshot.ts` 的 `remote.getCurrentWindow()`。
+- 删除 `remoteMain.initialize()` / `remoteMain.enable()` 和 `@electron/remote` 依赖。
+- B7.1 保持 `nodeIntegration` / `contextIsolation` 不变，先消除已弃用 API；安全边界仍由 B7.2-B7.4 完成。
+
+实施结果（2026-10-23）：`@electron/remote` 已从 `package.json` / `yarn.lock` / `node_modules` 移除；`yarn lint` 为 0 errors / 0 warnings，`yarn typecheck` 通过，`yarn test --runInBand` 为 65 suites / 477 tests，`yarn build` 通过。托盘菜单点击和截图仍需在 Windows 实机做手工冒烟（自动化测试不覆盖原生 tray/desktopCapturer）。
+
+### 8.3 B7.2 建立 preload 桥接层（待做）
+
+- 启用 `webPreferences.preload`；删除 `app.tsx` 中自建的 `window.api`。
+- 把 `src/main/preload.ts` 从“枚举循环”改为显式、可类型化的 API；只暴露 `ExposedAPI` 中的方法，不暴露 `ipcRenderer`。
+- 统一请求/响应协议：推荐把现有 `ipcMain.on` + `reply` 改为 `ipcMain.handle` / `ipcRenderer.invoke`；推送事件单独暴露 `onUpdate` / `onWindowState` / `onTrayAction` 并返回取消订阅函数。
+- 迁移 renderer 中所有直接 `ipcRenderer` / `shell` 使用：`Setting`、`UpdateController`、`Application`、`iconMaker`、`dbs`、`app.tsx`。
+- 补充 preload 测试和 renderer 的 `window.api` mock；确保 Jest 不依赖真实 Electron。
+
+### 8.4 B7.3 移除 renderer 的 Node 能力（待做）
+
+- 截图写文件：renderer 只生成 data URL/ArrayBuffer，主进程写入 `screenshotDir` 并返回路径。
+- `sessionManager` 的目录删除/创建、模型文件清理改为明确的主进程命令（不要暴露通用 `fs`）。
+- KNN worker 的模型 load/save：由主进程持久化，worker 只做纯计算；或将训练移到主进程 utility process。
+- `nativeTheme` 改为主进程 IPC 设置，或使用 `matchMedia` + 主进程同步。
+- `shell.openExternal` 改为主进程 IPC，并限制为 `http/https`。
+- 目标是把 `nodeIntegrationInWorker` 也设为 `false`，让 tokenizer/KNN worker 成为纯浏览器 worker。
+
+### 8.5 B7.4 切换安全开关（待做）
+
+- `nodeIntegration: false`
+- `contextIsolation: true`
+- `sandbox: true`（preload 只使用 `contextBridge` / `ipcRenderer`）
+- `nodeIntegrationInWorker: false`
+- 确认 dev（`webpack serve`）和 production（`file://`）两种加载方式下 preload 路径都正确。
+
+### 8.6 B7.5 防御性加固（待做）
+
+- `marked` 输出净化（DOMPurify 或等价方案）；当前 `formatMarkdown` + `dangerouslySetInnerHTML` 用在卡片和更新说明上。
+- 加 CSP（`script-src 'self'` 等）；保持 `setWindowOpenHandler` / `will-navigate` 的外链策略。
+- 主进程校验 IPC sender、参数类型和长度；禁止通用 `invoke(channel, ...)` 和任意路径 API。
+- 不在 renderer 暴露 `ipcRenderer`、`require`、`process`、`shell` 或 `fs`。
+
+### 8.7 验收与回滚
+
+- 每阶段必须通过：`yarn typecheck`、`yarn lint`、`yarn test --runInBand`、`yarn build`。
+- 手工冒烟：托盘 Start/Pause/Continue/Finish/Stop、关闭到托盘、截图、更新事件、主题切换、窗口控制、导入导出。
+- B7.1 可独立回退到本提交前；B7.2-B7.4 建议分提交，出现问题时先恢复 renderer 的直接 IPC 路径，再逐步重试。
+- 完整切换后至少跑一次 Windows `yarn pack`，并检查 preload 是否在 asar 内可解析。
+
+---
+
+## 9. 明确保持不动的依赖
 
 - `node-ipc` resolution `9.1.1`：这是对 2022 年供应链事件的刻意固定版本，不要随手升级。
 - `typescript`（`npm:@typescript/typescript6`）与 `@typescript/native`（TS 7）双轨：有意为之，和迁移无关。
 - `@types/react` resolution `19.3.0`：与 React 19.3.1 配套的固定版本。
-- `@electron/remote` 2.1.3：已是最新版本；要处理的是 `nodeIntegration/contextIsolation` 架构，而不是版本。
 - `electron-updater` 6.8.9、`electron-builder` 26.15.3：当前已是最新稳定线。
 - `react` / `react-dom` / `antd` / `echarts` / `jest` / `webpack`：当前版本已足够新，不在本纲要范围内。
 
 ---
 
-## 9. 全局验收与回滚
+## 10. 全局验收与回滚
 
-### 9.1 每批的验收
+### 10.1 每批的验收
 
 - [ ] `yarn typecheck` 通过。
 - [ ] `yarn lint` 通过。
@@ -669,7 +745,7 @@ Electron 44 只发布 64 位包（Windows x64 / Linux x64+arm64），并要求 m
 - [ ] 至少一个平台的 `yarn pack` 产物能启动，做完对应的手工冒烟清单。
 - [ ] CHANGELOG / 发布说明中记录破坏性变更和用户数据迁移说明。
 
-### 9.2 回滚策略
+### 10.2 回滚策略
 
 - B1 / B3 / B5 / B6：直接回退提交或回退版本即可。
 - B2（SQLite）：
@@ -683,7 +759,7 @@ Electron 44 只发布 64 位包（Windows x64 / Linux x64+arm64），并要求 m
 
 ---
 
-## 10. 实施前需要拍板的问题
+## 11. 实施前需要拍板的问题
 
 1. SQLite 用 `better-sqlite3` 还是 `node:sqlite`？（推荐 `better-sqlite3`）
 2. 数据库所有权：主进程独占 + IPC（推荐），还是继续放在渲染进程 worker？
@@ -695,7 +771,7 @@ Electron 44 只发布 64 位包（Windows x64 / Linux x64+arm64），并要求 m
 
 ---
 
-## 11. 进度勾选
+## 12. 进度勾选
 
 - [x] B0 控制台基线与降噪
 - [x] B1 低风险清理（conventional-changelog 升级因兼容性延后到 B6）
@@ -705,3 +781,8 @@ Electron 44 只发布 64 位包（Windows x64 / Linux x64+arm64），并要求 m
 - [x] B4 active-win → get-windows + Electron 44（代码与 Windows 冒烟完成；macOS/Linux 实机和安装验证待做）
 - [x] B5 deox / hotkeys / react-trend / prop-types / styleguidist
 - [x] B6 核心工具链（prettier 3 / webpack-cli 7 / WDS 6 / ESLint 10 / Babel 8）；`nanoid`、`conventional-changelog` 延后
+- [x] B7.1 移除 `@electron/remote`：托盘菜单/截图改为 IPC，`remoteMain` 与依赖已删除
+- [ ] B7.2 建立 preload + `contextBridge` 桥接层，删除 renderer 自建 `window.api`
+- [ ] B7.3 移除 renderer 的 `fs` / `path` / `os` / `nativeTheme` / `shell` 依赖
+- [ ] B7.4 切换 `nodeIntegration: false`、`contextIsolation: true`、`sandbox: true`、`nodeIntegrationInWorker: false`
+- [ ] B7.5 Markdown 净化、CSP、IPC 参数/sender 校验

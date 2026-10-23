@@ -1,6 +1,6 @@
 import { Button, Divider, Tooltip } from 'antd';
 import { AntdIcon as Icon, IconComponent } from '../antdIcon';
-import * as remote from '@electron/remote';
+import { ipcRenderer } from 'electron';
 import { debounce } from 'lodash';
 import React, { Component } from 'react';
 import Hotkeys, { shouldPreventTabDefault } from '../Hotkeys';
@@ -33,6 +33,7 @@ import {
     TimerActionTypes as ThisActionTypes,
     uiStateNames,
 } from './action';
+import { TrayEventName } from '../../../main/ipc/type';
 import { FocusSelector } from './FocusSelector';
 import {
     DONT_REMIND_AGAIN_LABEL,
@@ -59,8 +60,6 @@ import {
 import { TimerMask } from './SessionEndingMask';
 import { waitUntil } from './wait';
 import { WorkRestIcon } from './WorkRestIcon';
-
-const setMenuItems: (...args: any) => void = remote.getGlobal('setMenuItems');
 
 const KanbanName = styled.h1`
     position: relative;
@@ -338,6 +337,7 @@ class Timer extends Component<Props, State> {
 
     componentDidMount(): void {
         this.efficiencyAnalyser = new EfficiencyAnalyser(this.props.timer.distractingList);
+        ipcRenderer.addListener(TrayEventName.Action, this.onTrayAction);
         this.interval = setInterval(this.updateLeftTime, 500);
         this.updateLeftTime();
         this.selfRef.current!.addEventListener('resize', this.onResize);
@@ -419,17 +419,12 @@ class Timer extends Component<Props, State> {
     }
 
     /**
-     * (Re)builds the tray menu for the current state.
-     *
-     * The menu is state dependent -- `Pause` becomes `Continue`, and the entries
-     * a session owns are greyed while it runs (the matrix lives in
-     * `sessionState.trayMenuItems`) -- so this runs again whenever that state
-     * changes, see `componentDidUpdate`. Every entry reuses the handler the
-     * window would use, so the tray cannot drift away from the page again.
+     * Handles a tray click sent back by the main process. The menu entry itself
+     * only carries a `TrayActionKey`; functions cannot cross the IPC boundary.
      */
-    addMenuItems(): void {
-        const clickHandlers: { [key in TrayActionKey]: () => void } = {
-            startFocusing: () => {
+    onTrayAction = (_event: any, key: TrayActionKey): void => {
+        switch (key) {
+            case 'startFocusing':
                 // While the ending mask is up, first dismiss the mask and then
                 // start exactly what this label names — not the cycle's next
                 // session. Starting (or resuming the expired timer) before the
@@ -444,32 +439,43 @@ class Timer extends Component<Props, State> {
                 // the request is refused out loud); see `startNamedSession` for
                 // the whole decision table.
                 this.startNamedSession(true);
-            },
-            startBreak: () => {
+                return;
+            case 'startBreak':
                 if (this.props.timer.sessionEnding) {
                     this.confirmMaskAndStart(false);
                     return;
                 }
 
                 this.startNamedSession(false);
-            },
+                return;
             // One handler for both labels: it pauses while the session runs and
             // resumes it while it is paused, exactly like the page's play button.
-            pauseOrContinue: this.onPauseResumeOrStart,
+            case 'pauseOrContinue':
+                this.onPauseResumeOrStart();
+                return;
             // The page's Finish button, as a menu entry: end the session now and
             // keep what it recorded.
-            finish: () => this.onFinishButtonClick(),
-            stop: this.onStop,
-        };
+            case 'finish':
+                this.onFinishButtonClick();
+                return;
+            case 'stop':
+                this.onStop();
+                return;
+        }
+    };
 
-        setMenuItems(
-            trayMenuItems(this.props.timer).map(({ key, label, enabled }) => ({
-                label,
-                type: 'normal',
-                enabled,
-                click: clickHandlers[key],
-            }))
-        );
+    /**
+     * (Re)builds the tray menu for the current state.
+     *
+     * The menu is state dependent -- `Pause` becomes `Continue`, and the entries
+     * a session owns are greyed while it runs (the matrix lives in
+     * `sessionState.trayMenuItems`) -- so this runs again whenever that state
+     * changes, see `componentDidUpdate`. Main builds the native menu from these
+     * serializable entries and sends the chosen key back to `onTrayAction`, so
+     * the tray cannot drift away from the page.
+     */
+    addMenuItems(): void {
+        window.api.setTrayMenu(trayMenuItems(this.props.timer));
     }
 
     componentDidUpdate(prevProps: Props): void {
@@ -496,6 +502,7 @@ class Timer extends Component<Props, State> {
 
     componentWillUnmount(): void {
         this.componentGone = true;
+        ipcRenderer.removeListener(TrayEventName.Action, this.onTrayAction);
         if (this.monitor) {
             // A staged session (ending mask still up) has already snapshotted
             // the record -- and a click on the mask may be pending its

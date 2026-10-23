@@ -69,7 +69,6 @@ jest.mock('../workers', () => ({
 jest.mock('electron', () => ({
     ipcRenderer: { send: jest.fn(), addListener: jest.fn(), removeListener: jest.fn() },
 }));
-jest.mock('@electron/remote', () => ({ getGlobal: () => undefined }));
 
 import { ipcRenderer } from 'electron';
 import { WindowEventName } from '../../main/ipc/type';

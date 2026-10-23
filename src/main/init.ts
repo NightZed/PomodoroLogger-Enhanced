@@ -5,12 +5,12 @@ import {
     protocol,
     Menu,
     ipcMain,
-    MenuItem,
     app,
     nativeTheme,
     shell,
     dialog,
 } from 'electron';
+import type { MenuItemConstructorOptions } from 'electron';
 import * as path from 'path';
 import * as url from 'url';
 import * as db from './db';
@@ -19,14 +19,12 @@ import { DAY_THEME_ID } from '../renderer/theme/tokens';
 import packageJson from '../../package.json';
 import { AutoUpdater } from './AutoUpdater';
 import { initialize } from './ipc/ipc';
-import { IpcEventName, UpdateEventName, WindowEventName } from './ipc/type';
+import { IpcEventName, TrayEventName, UpdateEventName, WindowEventName } from './ipc/type';
+import type { TrayMenuItem } from './ipc/type';
 import { stopWindowDrag } from './ipc/windowDrag';
-import * as remoteMain from '@electron/remote/main';
 import { initActiveWin } from './activeWin';
 
 const { build } = packageJson;
-
-remoteMain.initialize();
 
 protocol.registerSchemesAsPrivileged([
     {
@@ -187,7 +185,6 @@ if (!gotTheLock) {
 
 const mGlobal: typeof global & {
     tray?: Tray;
-    setMenuItems?: any;
     learner?: any;
 } = global;
 if (process.platform === 'win32') {
@@ -242,7 +239,6 @@ const createWindow = async () => {
         },
     });
 
-    remoteMain.enable(win.webContents);
     win.removeMenu();
     if (process.env.NODE_ENV === 'production') {
         win.removeMenu();
@@ -541,15 +537,35 @@ const autoUpdaterCheck = update();
  * out nor reorder them. `enabled: false` renders an entry greyed out; it is how
  * the renderer says "this action cannot run right now".
  */
-function setMenuItems(items: { label: string; type: string; click: any; enabled?: boolean }[]) {
+export function setMenuItems(items: TrayMenuItem[]) {
     if (!mGlobal.tray) {
         return;
     }
 
-    const menuItems = items.concat([
-        new MenuItem({
+    const menuItems: MenuItemConstructorOptions[] = items
+        .filter(
+            (item) =>
+                item != null && typeof item.label === 'string' && typeof item.enabled === 'boolean'
+        )
+        // The renderer builds five entries; the cap only bounds a malformed
+        // payload, it never truncates a real menu.
+        .slice(0, 10)
+        .map(({ key, label, enabled }) => ({
+            label,
+            type: 'normal',
+            enabled,
+            click: () => {
+                if (!win || win.isDestroyed()) {
+                    return;
+                }
+
+                win.webContents.send(TrayEventName.Action, key);
+            },
+        }));
+    menuItems.push(
+        {
             type: 'separator',
-        }),
+        },
         {
             label: 'Open',
             type: 'normal',
@@ -564,13 +580,11 @@ function setMenuItems(items: { label: string; type: string; click: any; enabled?
                 win = undefined;
                 app.exit();
             },
-        },
-    ]);
-    // @ts-ignore
+        }
+    );
     const contextMenu = Menu.buildFromTemplate(menuItems);
     mGlobal.tray.setContextMenu(contextMenu);
 }
-mGlobal.setMenuItems = setMenuItems;
 app.on('window-all-closed', () => {
     win = undefined;
     app.exit();

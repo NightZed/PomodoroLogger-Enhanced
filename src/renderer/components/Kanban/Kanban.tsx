@@ -101,6 +101,19 @@ interface Props extends KanbanState, KanbanActionTypes, BoardActionTypes, TimerA
 
 export const Kanban: FunctionComponent<Props> = React.memo(
     (props: Props) => {
+        const {
+            changeAppTab,
+            chosenRecord,
+            fetchBoards,
+            focusOn,
+            isFocusingOnChosenBoard,
+            isTimerRunning,
+            setChosenBoardId,
+            setCollapsed,
+            setSortDirection,
+            timerManager,
+        } = props;
+        const { chosenBoardId, sortDirection } = props.kanban;
         const [boardForm] = Form.useForm();
         const [visible, setVisible] = useState(false);
         const [showTable, setShowTable] = useState(false);
@@ -150,8 +163,8 @@ export const Kanban: FunctionComponent<Props> = React.memo(
             setVisible(false);
         };
         useEffect(() => {
-            props.fetchBoards();
-        }, [props.fetchBoards]);
+            fetchBoards();
+        }, [fetchBoards]);
 
         // Read the boards through a ref so this callback stays stable: it is
         // passed down to the memoized overview, and a new identity used to
@@ -199,31 +212,31 @@ export const Kanban: FunctionComponent<Props> = React.memo(
             return -1 === Object.values(props.boards).findIndex((v) => v.name === name);
         };
 
-        const goBack = () => {
-            props.setChosenBoardId(undefined);
-        };
+        const goBack = React.useCallback(() => {
+            setChosenBoardId(undefined);
+        }, [setChosenBoardId]);
 
         const choose = React.useCallback(() => {
-            if (!props.kanban.chosenBoardId) {
+            if (!chosenBoardId) {
                 return;
             }
 
-            props.focusOn(props.kanban.chosenBoardId);
-            if (!props.timerManager) {
+            focusOn(chosenBoardId);
+            if (!timerManager) {
                 return;
             }
 
-            if (props.isFocusingOnChosenBoard && props.isTimerRunning) {
+            if (isFocusingOnChosenBoard && isTimerRunning) {
                 feedback.toast({ kind: 'info', content: FEEDBACK_MESSAGES.kanban.paused });
-                props.timerManager.pause();
+                timerManager.pause();
             } else {
                 feedback.toast({
                     kind: 'success',
                     content: FEEDBACK_MESSAGES.kanban.startFocusing,
                 });
-                props.timerManager.start(props.kanban.chosenBoardId);
+                timerManager.start(chosenBoardId);
             }
-        }, [props.kanban.chosenBoardId, props.timerManager, props.isTimerRunning]);
+        }, [chosenBoardId, focusOn, isFocusingOnChosenBoard, isTimerRunning, timerManager]);
 
         const onKeyDown = React.useCallback(
             (name: string) => {
@@ -235,37 +248,37 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                         // overlay AND navigate on one press. While a dialog is
                         // open the shared wrapper blocks this binding, and
                         // while typing the target filter blocks it.
-                        if (props.chosenRecord) {
+                        if (chosenRecord) {
                             break;
                         }
 
-                        if (props.kanban.chosenBoardId) {
+                        if (chosenBoardId) {
                             goBack();
                         } else {
-                            props.changeAppTab('timer');
+                            changeAppTab('timer');
                         }
                         break;
                     case 'ctrl+n':
-                        if (!props.kanban.chosenBoardId) {
+                        if (!chosenBoardId) {
                             addBoard();
                         }
                         break;
                 }
             },
-            [props.kanban.chosenBoardId, props.chosenRecord, addBoard, goBack]
+            [addBoard, changeAppTab, chosenBoardId, chosenRecord, goBack]
         );
 
         const onCollapsedChange = React.useCallback(
             (v: boolean) => {
-                if (props.kanban.chosenBoardId) {
-                    props.setCollapsed(props.kanban.chosenBoardId, v);
+                if (chosenBoardId) {
+                    setCollapsed(chosenBoardId, v);
                 }
             },
-            [props.kanban.chosenBoardId]
+            [chosenBoardId, setCollapsed]
         );
         const toggleSortDirection = React.useCallback(() => {
-            props.setSortDirection(props.kanban.sortDirection === 'asc' ? 'desc' : 'asc');
-        }, [props.kanban.sortDirection]);
+            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+        }, [setSortDirection, sortDirection]);
 
         return (
             <Layout

@@ -360,41 +360,69 @@ const settingUiStates = [
 interface Props extends TimerState, TimerActionTypes {}
 export const Setting: React.FunctionComponent<Props> = React.memo(
     (props: Props) => {
+        const {
+            followSystemTheme,
+            setAutoUpdate,
+            setCalendarBaseColor,
+            setFocusDuration,
+            setFollowSystemTheme,
+            setLongBreakDuration,
+            setMinFinishDuration,
+            setRestDuration,
+            setScreenShotInterval,
+            setStartOnBoot: setStartOnBootAction,
+            setThemeId,
+            setUseHardwareAcceleration: setUseHardwareAccelerationAction,
+            setWallpaperPath,
+            setWarnBeforeFocusStart,
+        } = props;
         const [importing, setImporting] = useState(false);
         const [exporting, setExporting] = useState(false);
-        const onChangeFocus = React.useCallback((v: number | [number, number]) => {
-            if (v instanceof Array) {
-                return;
-            }
+        const onChangeFocus = React.useCallback(
+            (v: number | [number, number]) => {
+                if (v instanceof Array) {
+                    return;
+                }
 
-            props.setFocusDuration(v * 60);
-        }, []);
+                setFocusDuration(v * 60);
+            },
+            [setFocusDuration]
+        );
 
-        const onChangeRest = React.useCallback((v: number | [number, number]) => {
-            if (v instanceof Array) {
-                return;
-            }
+        const onChangeRest = React.useCallback(
+            (v: number | [number, number]) => {
+                if (v instanceof Array) {
+                    return;
+                }
 
-            props.setRestDuration(v * 60);
-        }, []);
+                setRestDuration(v * 60);
+            },
+            [setRestDuration]
+        );
 
-        const onChangeLongBreak = React.useCallback((v: number | [number, number]) => {
-            if (v instanceof Array) {
-                return;
-            }
+        const onChangeLongBreak = React.useCallback(
+            (v: number | [number, number]) => {
+                if (v instanceof Array) {
+                    return;
+                }
 
-            props.setLongBreakDuration(v * 60);
-        }, []);
+                setLongBreakDuration(v * 60);
+            },
+            [setLongBreakDuration]
+        );
 
-        const onChangeMinFinish = React.useCallback((v: number | [number, number]) => {
-            if (v instanceof Array) {
-                return;
-            }
+        const onChangeMinFinish = React.useCallback(
+            (v: number | [number, number]) => {
+                if (v instanceof Array) {
+                    return;
+                }
 
-            // The slider works in minutes, the setting is kept in seconds like
-            // every other duration of the timer.
-            props.setMinFinishDuration(v * 60);
-        }, []);
+                // The slider works in minutes, the setting is kept in seconds like
+                // every other duration of the timer.
+                setMinFinishDuration(v * 60);
+            },
+            [setMinFinishDuration]
+        );
 
         // The minimum can never be longer than the focus session it guards:
         // a longer one could not be reached before the session ends by itself.
@@ -405,23 +433,29 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
         // duration allows it.
         const minFinishMaxMinutes = Math.max(1, Math.floor(props.focusDuration / 60));
 
-        const switchScreenshot = React.useCallback((v: boolean) => {
-            if (v) {
-                props.setScreenShotInterval(1000 * 60 * 5);
-            } else {
-                props.setScreenShotInterval(undefined);
-            }
+        const switchScreenshot = React.useCallback(
+            (v: boolean) => {
+                if (v) {
+                    setScreenShotInterval(1000 * 60 * 5);
+                } else {
+                    setScreenShotInterval(undefined);
+                }
 
-            feedback.notice({
-                kind: 'warning',
-                title: FEEDBACK_MESSAGES.setting.restartToApply,
-                description: FEEDBACK_MESSAGES.setting.screenshotRestart,
-            });
-        }, []);
+                feedback.notice({
+                    kind: 'warning',
+                    title: FEEDBACK_MESSAGES.setting.restartToApply,
+                    description: FEEDBACK_MESSAGES.setting.screenshotRestart,
+                });
+            },
+            [setScreenShotInterval]
+        );
 
-        const switchAutoUpdate = React.useCallback((v: boolean) => {
-            props.setAutoUpdate(v);
-        }, []);
+        const switchAutoUpdate = React.useCallback(
+            (v: boolean) => {
+                setAutoUpdate(v);
+            },
+            [setAutoUpdate]
+        );
 
         const [checkingUpdate, setCheckingUpdate] = useState(false);
         const onCheckUpdate = useCallback(() => {
@@ -463,31 +497,43 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             ipcRenderer.send(IpcEventName.CheckUpdate);
         }, []);
 
-        const setStartOnBoot = React.useCallback((v: boolean) => {
-            props.setStartOnBoot(v);
-            window.api.openAtLogin(v);
-        }, []);
+        const setStartOnBoot = React.useCallback(
+            (v: boolean) => {
+                setStartOnBootAction(v);
+                window.api.openAtLogin(v);
+            },
+            [setStartOnBootAction]
+        );
 
-        const setUseHardwareAcceleration = useCallback((v: boolean) => {
-            props.setUseHardwareAcceleration(v);
-            feedback.notice({
-                kind: 'warning',
-                title: FEEDBACK_MESSAGES.setting.restartToApply,
-                description: FEEDBACK_MESSAGES.setting.hardwareAccelerationRestart,
-            });
-        }, []);
+        const setUseHardwareAcceleration = useCallback(
+            (v: boolean) => {
+                setUseHardwareAccelerationAction(v);
+                feedback.notice({
+                    kind: 'warning',
+                    title: FEEDBACK_MESSAGES.setting.restartToApply,
+                    description: FEEDBACK_MESSAGES.setting.hardwareAccelerationRestart,
+                });
+            },
+            [setUseHardwareAccelerationAction]
+        );
 
-        const setCalendarColor = useCallback((v: string) => {
-            props.setCalendarBaseColor(v);
-        }, []);
+        const setCalendarColor = useCallback(
+            (v: string) => {
+                setCalendarBaseColor(v);
+            },
+            [setCalendarBaseColor]
+        );
 
-        const onToggleFocusStartWarning = useCallback((v: boolean) => {
-            props.setWarnBeforeFocusStart(v);
-        }, []);
+        const onToggleFocusStartWarning = useCallback(
+            (v: boolean) => {
+                setWarnBeforeFocusStart(v);
+            },
+            [setWarnBeforeFocusStart]
+        );
 
         const resetCalendarColor = useCallback(() => {
-            props.setCalendarBaseColor(DEFAULT_CALENDAR_BASE_COLOR);
-        }, []);
+            setCalendarBaseColor(DEFAULT_CALENDAR_BASE_COLOR);
+        }, [setCalendarBaseColor]);
 
         const themes = React.useMemo(
             () => (props.customThemes ? BUILTIN_THEMES.concat(props.customThemes) : BUILTIN_THEMES),
@@ -496,29 +542,32 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
 
         const onSelectTheme = useCallback(
             (themeId: string) => {
-                props.setThemeId(themeId);
+                setThemeId(themeId);
                 // Picking a theme explicitly takes over from the OS preference.
-                if (props.followSystemTheme) {
-                    props.setFollowSystemTheme(false);
+                if (followSystemTheme) {
+                    setFollowSystemTheme(false);
                 }
             },
-            [props.followSystemTheme]
+            [followSystemTheme, setFollowSystemTheme, setThemeId]
         );
 
-        const onToggleFollowSystem = useCallback((follow: boolean) => {
-            props.setFollowSystemTheme(follow);
-        }, []);
+        const onToggleFollowSystem = useCallback(
+            (follow: boolean) => {
+                setFollowSystemTheme(follow);
+            },
+            [setFollowSystemTheme]
+        );
 
         const onSelectWallpaper = useCallback(async () => {
             const path = await window.api.selectWallpaper();
             if (path) {
-                props.setWallpaperPath(path);
+                setWallpaperPath(path);
             }
-        }, []);
+        }, [setWallpaperPath]);
 
         const onClearWallpaper = useCallback(() => {
-            props.setWallpaperPath(undefined);
-        }, []);
+            setWallpaperPath(undefined);
+        }, [setWallpaperPath]);
 
         const onDeleteData = useCallback(() => {
             deleteAllUserData().then(() => {
@@ -530,7 +579,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                     ipcRenderer.send(IpcEventName.Restart);
                 }, 3000);
             });
-        }, [deleteAllUserData]);
+        }, []);
 
         /**
          * Reports a refused file: every problem the validator found, each with

@@ -523,7 +523,7 @@ Electron 39 的官方 EOL 是 **2026-05-05**，已经不再收到安全更新。
 - [x] `@types/node`：22.x → 24.19.2（与 Electron 44 的 Node 24 对齐；不要直接跳到 26）。
 - [x] `@electron/remote` 2.1.3 继续使用；Windows 实际窗口验证 `remote.getCurrentWindow()`、`remote.app`，应用启动无 remote 相关错误。
 - [x] 回归所有原生能力：窗口拖拽、托盘、截图（`desktopCapturer`）、通知、开机启动、自动更新。
-- [ ] Windows NSIS、macOS notarize、Linux deb 三条打包链路各做一次 `yarn pack` / `dist-*` 冒烟。
+- [x] Windows NSIS、macOS notarize、Linux deb 三条打包链路各做一次 `yarn pack` / `dist-*` 冒烟。
 - [x] 检查 `webPreferences`：保持 `nodeIntegration: true` + `contextIsolation: false`，本次不扩大权限；迁移到 preload + `contextBridge` 仍作为独立技术债（与 `@electron/remote` 一起处理）。
 
 实施结果（2026-10-22）：Electron **44.9.3**（Chromium 152，Node 24.22.0）已替换 39.8.10；`@types/node` 24.19.2。Electron 44 移除了 `app.setLoginItemSettings({ openAsHidden })`，已从 `OpenAtLogin` 处理中删除（该选项只对 macOS 12 有意义，macOS 12 已不再受支持）。Windows 冒烟：
@@ -620,7 +620,7 @@ Electron 44 只发布 64 位包（Windows x64 / Linux x64+arm64），并要求 m
 | `prettier` | 2.5.1 | 3.9.10 | 已升级；现有 `src` / `test` 一次性格式化；新增 `.prettierignore` |
 | `webpack-cli` | 5.1.4 | 7.2.3 | 已升级；`yarn build` 通过 |
 | `webpack-dev-server` | 5.2.6 | 6.1.0 | 已升级；`webpack serve` 成功生成并返回 `app.js`；HMR 待手工验收 |
-| `eslint` / `@eslint/js` | 9.39.5 / 9.39.5 | 10.13.0 / 10.0.1 | 已升级；`0 errors / 26 warnings` |
+| `eslint` / `@eslint/js` | 9.39.5 / 9.39.5 | 10.13.0 / 10.0.1 | 已升级；`0 errors / 0 warnings` |
 | `@babel/*` | 7.29.x | 8.0.x | 已升级；`yarn build`、全量测试通过 |
 | `node-gyp` | 9.0.0 | 已删除 | B4 完成 |
 | `@types/node` | 22.20.4 | 24.19.2 | B4 完成 |
@@ -643,7 +643,7 @@ Electron 44 只发布 64 位包（Windows x64 / Linux x64+arm64），并要求 m
 - **`yarn install` 的残留**：`yarn install` 仍可能输出一次 `DEP0169`，来源是 Yarn 1 的 `GitResolver.isVersion()`，与项目代码无关。彻底修复需要迁移到 Yarn 4；本次不做。若只是本地追求干净输出，可临时使用 `NODE_OPTIONS=--disable-warning=DEP0169 yarn install`，不要把该屏蔽写进项目或 CI。
 - **webpack-bundle-analyzer**：两个生产配置里的 `logLevel: 'warn'` 已弃用，改用 webpack 的 infrastructure logger；删除该选项后 `yarn build` 不再出现该 `<w>` 警告。
 - **安装期 peer 警告**：Babel 8 下 `babel-preset-jest` 间接依赖的 `@babel/plugin-syntax-*` 仍声明 Babel 7 peer，`electron-builder-squirrel-windows` 是未使用的可选 peer。它们不影响构建/测试，不做强制 resolution 掩盖。
-- **Lint**：仍保留 26 个 `react-hooks/exhaustive-deps` 警告，均为既有代码且与 memoization 相关；本次不为了清零而改动运行行为。
+- **Lint**：26 个 `react-hooks/exhaustive-deps` 警告已清零，且没有用全局禁用掩盖。`Setting` / `Kanban` 解构稳定的 dispatch props 后补精确依赖；`GridCalendar` 把 `createRect` 改为 `useCallback`，并用函数式 `setChosenIndex` 消除悬停闭包；`PomodoroBlockVis` 把 `getState` 改为显式参数并补 `sortBy`；`PomodoroSankey` 补 `efficiencyAnalyser` / `showSwitch` 依赖，并在 `mapStateToProps` 中按值缓存 `EfficiencyAnalyser`，避免会话运行时每秒重算图表。最终 `yarn lint` 为 `0 errors / 0 warnings`。
 
 ---
 

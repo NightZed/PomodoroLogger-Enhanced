@@ -2,6 +2,7 @@ import * as React from 'react';
 import ReactEcharts from 'echarts-for-react';
 import { feedback, FEEDBACK_MESSAGES } from '../feedback';
 import { actions } from '../Timer/action';
+import type { DistractingRow } from '../Timer/action';
 import { PomodoroRecord } from '../../monitor/type';
 import { EfficiencyAnalyser } from '../../../shared/efficiency/efficiency';
 import { ColorEncoder } from './ColorEncoder';
@@ -254,8 +255,13 @@ const getLinkAndNode = (
     };
 };
 
-const getOption = (props: Props, tokens: ThemeTokens): EChartsOption => {
-    const data = getLinkAndNode(props.record!, props.efficiencyAnalyser, props.showSwitch);
+const getOption = (
+    record: PomodoroRecord,
+    efficiencyAnalyser: EfficiencyAnalyser,
+    showSwitch: boolean,
+    tokens: ThemeTokens
+): EChartsOption => {
+    const data = getLinkAndNode(record, efficiencyAnalyser, showSwitch);
     return {
         title: {
             text: '',
@@ -345,22 +351,24 @@ const getOption = (props: Props, tokens: ThemeTokens): EChartsOption => {
 };
 
 export const PomodoroSankey = (props: Props) => {
+    const { boardName, cancel, efficiencyAnalyser, record, showSwitch, width = '100%' } = props;
     const { tokens } = useThemeTokens();
     // Every hook must run unconditionally: this component stays mounted even
     // before a record is chosen, and the early returns below used to change
     // the hook count between renders, which crashed with "Rendered more hooks
     // than during the previous render".
     const option = React.useMemo(
-        () => (props.record == null ? undefined : getOption(props, tokens)),
-        [props.record, tokens]
+        () =>
+            record == null ? undefined : getOption(record, efficiencyAnalyser, showSwitch, tokens),
+        [efficiencyAnalyser, record, showSwitch, tokens]
     );
-    if (props.record == null) {
+    if (record == null) {
         return <></>;
     }
     const isOutdated =
-        props.record.switchActivities == null ||
-        props.record.stayTimeInSecond == null ||
-        props.record.switchActivities.length !== props.record.stayTimeInSecond.length;
+        record.switchActivities == null ||
+        record.stayTimeInSecond == null ||
+        record.switchActivities.length !== record.stayTimeInSecond.length;
     if (isOutdated) {
         // A fixed key keeps re-renders from stacking identical toasts.
         feedback.toast({
@@ -375,7 +383,6 @@ export const PomodoroSankey = (props: Props) => {
         // as a record is present; it just keeps the type narrow for ReactEcharts.
         return <></>;
     }
-    const { width = '100%' } = props;
     // Esc closes the overlay. There is deliberately no Enter binding: Enter is
     // not a dismissal key, and a global one would close the overlay from
     // behind any confirmation the user answers with the keyboard.
@@ -383,8 +390,8 @@ export const PomodoroSankey = (props: Props) => {
     const onKeyDown = (keyname: string) => {
         switch (keyname) {
             case 'esc':
-                if (props.cancel) {
-                    props.cancel();
+                if (cancel) {
+                    cancel();
                 }
                 break;
         }
@@ -392,13 +399,13 @@ export const PomodoroSankey = (props: Props) => {
     // The background (and the header above the chart) closes the overlay; the
     // chart itself keeps its clicks, see `ChartArea`.
     return (
-        <FullscreenStyled onClick={props.cancel}>
+        <FullscreenStyled onClick={cancel}>
             <Hotkeys keyName={'esc'} onKeyDown={onKeyDown} />
             <InnerContainer>
                 <Header>
                     <h1>Sankey Diagram</h1>
-                    <h2>{props.boardName}</h2>
-                    <h4>{formatTimeYmdHms(props.record!.startTime)}</h4>
+                    <h2>{boardName}</h2>
+                    <h4>{formatTimeYmdHms(record.startTime)}</h4>
                     <h5>(Click the background or press Esc to exit)</h5>
                 </Header>
                 <ChartArea onClick={(event) => event.stopPropagation()}>
@@ -416,6 +423,23 @@ export const PomodoroSankey = (props: Props) => {
     );
 };
 
+/**
+ * `mapStateToProps` runs on every store update, while the overlay can stay
+ * open during a running session (one update per second). Keeping one analyser
+ * until the distracting rules actually change keeps the option memo below
+ * stable; `isSame` compares the rules by value.
+ */
+let cachedEfficiencyAnalyser: EfficiencyAnalyser | undefined;
+
+function getCachedEfficiencyAnalyser(distractingList: DistractingRow[]): EfficiencyAnalyser {
+    if (cachedEfficiencyAnalyser?.isSame(distractingList)) {
+        return cachedEfficiencyAnalyser;
+    }
+
+    cachedEfficiencyAnalyser = new EfficiencyAnalyser(distractingList);
+    return cachedEfficiencyAnalyser;
+}
+
 export const ConnectedPomodoroSankey = connect(
     (state: RootState): Props => {
         const record = state.timer.chosenRecord;
@@ -423,7 +447,7 @@ export const ConnectedPomodoroSankey = connect(
         const boardDistractingList = board ? board.distractionList || [] : [];
         return {
             showSwitch: false,
-            efficiencyAnalyser: new EfficiencyAnalyser(
+            efficiencyAnalyser: getCachedEfficiencyAnalyser(
                 state.timer.distractingList.concat(boardDistractingList)
             ),
             record: state.timer.chosenRecord,

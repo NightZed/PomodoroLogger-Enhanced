@@ -28,28 +28,32 @@ interface Row {
     ratio: number;
 }
 
-function getState(props: Props): Row[] {
+function getState(
+    record: PomodoroRecord,
+    efficiencyAnalyser: EfficiencyAnalyser,
+    sortBy?: string
+): Row[] {
     const ans: Row[] = [];
-    let time = props.record.startTime;
-    const indexToTitle = getIndexToTitleApp(props.record);
-    for (let i = 0; i < props.record.stayTimeInSecond!.length; i += 1) {
-        const stay = props.record.stayTimeInSecond![i];
-        const index = props.record.switchActivities![i];
+    let time = record.startTime;
+    const indexToTitle = getIndexToTitleApp(record);
+    for (let i = 0; i < record.stayTimeInSecond!.length; i += 1) {
+        const stay = record.stayTimeInSecond![i];
+        const index = record.switchActivities![i];
         const [title, app] = indexToTitle[index];
-        const isDistracting = props.efficiencyAnalyser.getIsDistracting(app, title);
+        const isDistracting = efficiencyAnalyser.getIsDistracting(app, title);
         ans.push({
             app,
             title,
             isDistracting,
             time,
-            ratio: stay / props.record.spentTimeInHour / 3600,
+            ratio: stay / record.spentTimeInHour / 3600,
             activityIndex: index,
         });
 
         time += stay;
     }
 
-    switch (props.sortBy) {
+    switch (sortBy) {
         case 'app':
             ans.sort((a, b) => (a.app < b.app ? -1 : 1));
             break;
@@ -67,13 +71,17 @@ function getState(props: Props): Row[] {
 }
 
 export const PomodoroBlockVis = (props: Props) => {
-    const [state, setState] = React.useState(getState(props));
+    const { efficiencyAnalyser, record, sortBy } = props;
+    const [state, setState] = React.useState(() => getState(record, efficiencyAnalyser, sortBy));
     React.useEffect(() => {
-        setState(getState(props));
-    }, [props.efficiencyAnalyser, props.record]);
+        setState(getState(record, efficiencyAnalyser, sortBy));
+    }, [efficiencyAnalyser, record, sortBy]);
+    // The schemes are stateful color maps: keeping them for the lifetime of
+    // the chart avoids a different random color for the same app on every
+    // record change.
     const [appColor, titleColor, isDistractingColor, indexColor] = React.useMemo(() => {
         return [new ColorScheme(), new ColorScheme(), new ColorScheme(), new ColorScheme()];
-    }, [props.record]);
+    }, []);
 
     const W = 1100;
     const axisMargin = 100;

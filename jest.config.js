@@ -30,8 +30,15 @@ module.exports = {
                 configFile: false,
                 presets: [
                     ['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }],
-                    '@babel/preset-typescript',
-                    '@babel/preset-react'
+                    ['@babel/preset-typescript', { onlyRemoveTypeImports: false }]
+                ],
+                // As in webpack: keep JSX parsing (and its conflict with
+                // generic arrow functions) out of `.ts` files.
+                overrides: [
+                    {
+                        test: /\.tsx$/,
+                        presets: ['@babel/preset-react']
+                    }
                 ]
             }
         ],

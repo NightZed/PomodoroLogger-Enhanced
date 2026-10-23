@@ -43,8 +43,22 @@ module.exports = merge(baseConfig, {
                                 targets: { electron: '39' },
                                 modules: false
                             }],
-                            '@babel/preset-typescript',
-                            '@babel/preset-react'
+                            // Babel 8 defaults `onlyRemoveTypeImports` to true,
+                            // so value imports that are only used in type
+                            // positions would survive and pull in `.d.ts` files
+                            // webpack cannot resolve. Keep Babel 7's behaviour:
+                            // elide imports that are provably type-only.
+                            ['@babel/preset-typescript', { onlyRemoveTypeImports: false }]
+                        ],
+                        // Babel 8 enables JSX parsing for every file when
+                        // preset-react is active, which makes generic arrow
+                        // functions in `.ts` files ambiguous (`<T>(...)`).
+                        // Only `.tsx` needs the React transform.
+                        overrides: [
+                            {
+                                test: /\.tsx$/,
+                                presets: ['@babel/preset-react']
+                            }
                         ],
                         plugins: [
                             '@babel/plugin-transform-runtime',

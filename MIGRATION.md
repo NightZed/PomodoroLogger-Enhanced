@@ -1,7 +1,8 @@
 # 依赖迁移纲要
 
 > 生成日期：2026-10-20
-> 状态：B0 / B1 / B1.5 / B2（代码、升级/回滚、History 性能）/ B3 / B5 已完成；B4 代码迁移完成（`get-windows` + Electron 44.9.3）
+> 最近更新：2026-10-23
+> 状态：B0 / B1 / B1.5 / B2（代码、升级/回滚、History 性能）/ B3 / B5 已完成；B4 代码迁移完成（`get-windows` + Electron 44.9.3）；B6 核心工具链迁移完成，手工验收待做
 > 适用版本：当前 `package.json`（React 19.3 / antd 6 / webpack 5.111 / Jest 30）
 
 本文档列出项目中已停止维护、已被弃用、已过 EOL，或已经确定要替换的依赖，并给出迁移顺序、改动范围、验收标准和回滚方式。每完成一项，直接勾选对应条目并补充实际使用的版本与迁移日期。
@@ -610,23 +611,31 @@ Electron 44 只发布 64 位包（Windows x64 / Linux x64+arm64），并要求 m
 
 ## 7. B6：工具链大版本
 
-| 依赖 | 当前 | 目标 | 备注 |
+### 7.1 实际优先级与结果
+
+按“先低风险、后行为变化”的顺序执行。当前 Node 为 24.22.1，CI 也是 Node 24，因此新工具的 Node 下限不是阻塞项。
+
+| 依赖 | 迁移前 | 实际版本 | 处理结果 |
 | --- | --- | --- | --- |
-| `prettier` | 2.5.1 | 3.9.x | 升级后全仓 `--write` 一次，单独提交，避免和逻辑改动混在一起 |
-| `webpack-cli` | 5.1.4 | 7.2.x | 要求 Node ≥20.9；与 webpack 5.111 兼容 |
-| `webpack-dev-server` | 5.2.6 | 6.1.x | ESM-only、Node ≥22.15；`devServer` 配置有 breaking change，需要单独验证 `yarn start` |
-| `eslint` | 9.39.5 | 10.13.x | 删除 `eslint-plugin-react` / `eslint-plugin-import` 后可行；`typescript-eslint` 8.72、`eslint-plugin-react-hooks` 7.1 已支持 10。注意 `@eslint/js@10.0.x` 目前被 npm 标记为 “should not be used”，建议等下一版再升 |
-| `@babel/*` | 7.29.x | 8.0.x | Babel 8 已稳定；`babel-loader` 10 支持。主要变化是 preset 默认 target、Node 版本要求、`loose` 语义；和 B3 的插件清理一起做 |
-| `nanoid` | 3.3.19 | 6.0.2（可选） | 4+ 是 ESM-only；3.x 仍在打补丁。更彻底的做法是用 `crypto.randomUUID()` 替换 `src/utils/uid.ts` 并删除依赖 |
-| `node-gyp` | 9.0.0 | 13.x 或删除 | `get-windows` 自带 `node-gyp ^10`；确认 `postinstall` 正常后可移除直接依赖 |
-| `@types/node` | 22.20.4 | 24.x | 跟 B4 一起 |
-| `conventional-changelog-conventionalcommits` | 9.3.1 | 10.4.1 | 与 semantic-release 25 一起验证 |
+| `prettier` | 2.5.1 | 3.9.10 | 已升级；现有 `src` / `test` 一次性格式化；新增 `.prettierignore` |
+| `webpack-cli` | 5.1.4 | 7.2.3 | 已升级；`yarn build` 通过 |
+| `webpack-dev-server` | 5.2.6 | 6.1.0 | 已升级；`webpack serve` 成功生成并返回 `app.js`；HMR 待手工验收 |
+| `eslint` / `@eslint/js` | 9.39.5 / 9.39.5 | 10.13.0 / 10.0.1 | 已升级；`0 errors / 26 warnings` |
+| `@babel/*` | 7.29.x | 8.0.x | 已升级；`yarn build`、全量测试通过 |
+| `node-gyp` | 9.0.0 | 已删除 | B4 完成 |
+| `@types/node` | 22.20.4 | 24.19.2 | B4 完成 |
+| `nanoid` | 3.3.19 | 3.3.19 | **保留**：3.x 仍在维护；直接换 `crypto.randomUUID()` 会改变 ID 形状、首字符约束和熵，不值得混入本次工具链升级 |
+| `conventional-changelog-conventionalcommits` | 9.3.1 | 9.3.1 | **延后**：属于发布流程，等 semantic-release dry-run 单独验证 |
 
-补充：
+### 7.2 关键调整
 
-- ESLint 10 升级前先确认 `eslint.config.js` 不再引用被删插件；`prettier` 的 flat config 入口保持 `eslint-config-prettier/flat`。
-- webpack-dev-server 6 升级后重点验证：HMR、`react-refresh`、跨域代理（如果有）、Electron 渲染进程加载 URL。
-- 如果未来考虑 Vite/Rspack，建议在 B3/B6 完成后再评估；当前 webpack 5 仍在维护，不需要为了“新”而换构建器。
+- **Prettier 3 的 `trailingComma`**：Prettier 3 默认改为 `all`，会在函数参数等位置产生大量纯格式 diff。本次显式设为 `es5`，保持与现有代码一致的输出；如果以后想采用新默认值，应单独做一次格式化提交。
+- **Prettier 忽略项**：新增 `.prettierignore`，排除 `yarn.lock`、`dist`、`release`、数据库、截图、`CHANGELOG.md` 等生成物，避免全仓格式化误改构建/发布文件。
+- **ESLint 10**：`eslint.config.js` 已经只使用 `@eslint/js`、`typescript-eslint`、`eslint-plugin-react-hooks` 和 `eslint-config-prettier/flat`，没有需要删除的旧插件；`@eslint/js@10.0.1` 实测可用。
+- **Babel 8 的 type-only import**：`@babel/preset-typescript` 8 默认 `onlyRemoveTypeImports: true`，会让只用于类型位置的普通 import 继续保留，进而尝试解析 `*.d.ts`。本次显式设为 `false`，保持 Babel 7 的删除行为。
+- **Babel 8 的 JSX 解析**：Babel 8 下同时启用 preset-react 会让 `.ts` 文件里的泛型箭头函数 `<T>(...)` 被当作 JSX。webpack/Jest 都把 `@babel/preset-react` 放进只匹配 `.tsx` 的 override，`.ts` 不再启用 JSX 解析。
+- **WDS 6**：包本身是 ESM，但通过 webpack-cli 7 加载 CommonJS 的 `webpack.renderer.dev.config.js` 仍正常；现有 `setupMiddlewares` / `historyApiFallback` / Electron renderer 配置无需改写。
+- 如果未来考虑 Vite/Rspack，建议在 B4/B6 手工验收完成后再评估；当前 webpack 5 仍在维护，不需要为了“新”而换构建器。
 
 ---
 
@@ -673,7 +682,7 @@ Electron 44 只发布 64 位包（Windows x64 / Linux x64+arm64），并要求 m
 3. 嵌套字段先存 JSON，还是本次就规范化 `sessions.apps` / `titleSpentTime`？
 4. `settings` 用 key-value 还是单行多列？（推荐 key-value）
 5. `react-styleguidist` 已删除（B5.5）；以后需要组件预览再引入 Ladle/Storybook。
-6. `nanoid` 是升级到 6，还是换成 `crypto.randomUUID()`？
+6. `nanoid` 保持 3.3.19；B6 不升级到 6，也不换成 `crypto.randomUUID()`（见 §7.1）。
 7. Electron 44 是否与 B4 同一次发布，还是先单独升 Electron 再换 `get-windows`？
 
 ---
@@ -687,4 +696,4 @@ Electron 44 只发布 64 位包（Windows x64 / Linux x64+arm64），并要求 m
 - [x] B3 worker-loader → webpack 5 原生 Worker；marked 4 → 18
 - [x] B4 active-win → get-windows + Electron 44（代码与 Windows 冒烟完成；macOS/Linux 实机和安装验证待做）
 - [x] B5 deox / hotkeys / react-trend / prop-types / styleguidist
-- [ ] B6 prettier / webpack-cli / WDS / ESLint 10 / Babel 8 / nanoid / node-gyp
+- [x] B6 核心工具链（prettier 3 / webpack-cli 7 / WDS 6 / ESLint 10 / Babel 8）；`nanoid`、`conventional-changelog` 延后

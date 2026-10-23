@@ -10,14 +10,14 @@ I'm really happy you're reading this.😄 Thanks for taking the time to contribu
 
 This project is built by [Electron](https://electronjs.org). 
 
-You only need to install the latest version of node.js and node-gyp to build this project.
+You need Node.js 24+ and Yarn 1.22. You do not need a global `node-gyp`; `electron-builder` rebuilds the native modules during `postinstall`.
 
 > **TypeScript 7 toolchain**: `@typescript/native` installs the native `tsc`
 > (TypeScript 7), which provides `yarn typecheck` and the type-check step of
 > `yarn build`. The `typescript` package is deliberately aliased to
 > `@typescript/typescript6`: typescript-eslint still needs the TypeScript 6
 > JavaScript compiler API, which TypeScript 7.0 does not ship. Transpilation is
-> handled by Babel in webpack and Jest, so `ts-loader` and `ts-jest` are
+> handled by Babel 8 in webpack and Jest, so `ts-loader` and `ts-jest` are
 > intentionally absent.
 
 > **Test environment**: Jest loads [`test/setup-env.js`](../test/setup-env.js) through

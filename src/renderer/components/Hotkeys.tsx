@@ -95,8 +95,8 @@ if (typeof window !== 'undefined') {
  *
  * Exported as a pure predicate so `Timer.handleNativeKeydown` stays a
  * one-liner and `Hotkeys.test.tsx` can pin the rule down without importing
- * Timer.tsx (which pulls in the monitor, the worker threads and Electron's
- * `ipcRenderer` at module level).
+ * Timer.tsx (which pulls in the monitor, the worker threads and the preload
+ * bridge at module level).
  */
 export function shouldPreventTabDefault(event: KeyboardEvent): boolean {
     if (event.key !== 'Tab' && event.which !== 9 && event.keyCode !== 9) {

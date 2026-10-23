@@ -4,13 +4,11 @@ import styled from 'styled-components';
 import { GithubOutlined } from '@ant-design/icons';
 import { Button, Slider, Switch } from 'antd';
 import { deleteAllUserData } from '../../monitor/sessionManager';
-import { shell, ipcRenderer } from 'electron';
 import { feedback, FEEDBACK_MESSAGES } from '../feedback';
 import { DistractingListModalButton } from './DistractingList';
 import { isShallowEqualByKeys } from '../../utils';
 import pkg from '../../../../package.json';
-import { IpcEventName, UpdateErrorPayload, UpdateEventName } from '../../../main/ipc/type';
-import type { ExportResult, ImportResult } from '../../../main/ipc/type';
+import type { ExportResult, ImportResult, UpdateErrorPayload } from '../../../main/ipc/type';
 import { refreshDbs } from '../../dbs';
 import { BUILTIN_THEMES, ThemeDefinition } from '../../theme/tokens';
 import SettingNav from './SettingNav';
@@ -467,21 +465,22 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             // declaration would read the binding before it is initialised).
             // eslint-disable-next-line prefer-const
             let timeout: any;
+            const unsubscribers: Array<() => void> = [];
             const onResult = () => {
                 clearTimeout(timeout);
-                ipcRenderer.removeListener(UpdateEventName.Available, onAvailable);
-                ipcRenderer.removeListener(UpdateEventName.NotAvailable, onNotAvailable);
-                ipcRenderer.removeListener(UpdateEventName.Error, onError);
+                for (const unsubscribe of unsubscribers) {
+                    unsubscribe();
+                }
                 setCheckingUpdate(false);
             };
             const onAvailable = () => onResult();
-            const onNotAvailable = (event: any, info: string) => {
+            const onNotAvailable = (info: string) => {
                 // Receipt of the check: a toast, not a dialog. "You are on the
                 // latest version" does not need an acknowledgement.
                 feedback.toast({ kind: 'info', content: info });
                 onResult();
             };
-            const onError = (event: any, payload: UpdateErrorPayload) => {
+            const onError = (payload: UpdateErrorPayload) => {
                 feedback.toast({
                     kind: 'error',
                     content: FEEDBACK_MESSAGES.update.checkFailed(
@@ -490,11 +489,13 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 });
                 onResult();
             };
-            ipcRenderer.on(UpdateEventName.Available, onAvailable);
-            ipcRenderer.on(UpdateEventName.NotAvailable, onNotAvailable);
-            ipcRenderer.on(UpdateEventName.Error, onError);
+            unsubscribers.push(
+                window.api.onUpdateAvailable(onAvailable),
+                window.api.onUpdateNotAvailable(onNotAvailable),
+                window.api.onUpdateError(onError)
+            );
             timeout = setTimeout(onResult, 30000);
-            ipcRenderer.send(IpcEventName.CheckUpdate);
+            window.api.checkUpdate();
         }, []);
 
         const setStartOnBoot = React.useCallback(
@@ -576,7 +577,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                     content: FEEDBACK_MESSAGES.setting.dataRemoved,
                 });
                 setTimeout(() => {
-                    ipcRenderer.send(IpcEventName.Restart);
+                    window.api.restart();
                 }, 3000);
             });
         }, []);
@@ -1103,7 +1104,7 @@ async function onImportData(): Promise<ImportResult> {
  * window mid-assertion.
  */
 function restartApp() {
-    ipcRenderer.send(IpcEventName.Restart);
+    window.api.restart();
 }
 
 /** The rejection of an IPC call is whatever the main process threw: a string. */
@@ -1118,9 +1119,9 @@ function fileNameOf(filePath: string): string {
 }
 
 function openIssuePage() {
-    shell.openExternal('https://github.com/NightZed/PomodoroLogger-Enhanced/issues/new');
+    window.api.openExternal('https://github.com/NightZed/PomodoroLogger-Enhanced/issues/new');
 }
 
 function openGithubPage() {
-    shell.openExternal('https://github.com/NightZed/PomodoroLogger-Enhanced');
+    window.api.openExternal('https://github.com/NightZed/PomodoroLogger-Enhanced');
 }

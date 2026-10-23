@@ -1,11 +1,8 @@
 import { ipcMain } from 'electron';
-import { WorkerMessageType } from '../ipc/type';
+import { DbEventName, WorkerMessageType } from '../ipc/type';
 import { sendWorkerMessage } from '../worker/fork';
 import { DBs, loadDBs } from './index';
 import { DbName } from './types';
-
-export const DB_REQUEST_CHANNEL = 'db:request';
-export const DB_READY_CHANNEL = 'db:ready';
 
 /**
  * The renderer never opens a SQLite connection. It sends the same repository
@@ -13,12 +10,12 @@ export const DB_READY_CHANNEL = 'db:ready';
  * the main process performs them on the single writer connection.
  */
 export function initializeDbIpc() {
-    ipcMain.handle(DB_READY_CHANNEL, async () => {
+    ipcMain.handle(DbEventName.Ready, async () => {
         await loadDBs();
     });
 
     ipcMain.handle(
-        DB_REQUEST_CHANNEL,
+        DbEventName.Request,
         async (_event, name: DbName, operation: string, args: any[] = []) => {
             await loadDBs();
             const repository = DBs[name] as any;

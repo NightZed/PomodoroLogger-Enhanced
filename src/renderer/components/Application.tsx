@@ -1,11 +1,9 @@
 import 'antd/dist/reset.css';
-import { ipcRenderer } from 'electron';
 import * as React from 'react';
 import { batch } from 'react-redux';
 import Hotkeys from './Hotkeys';
 import { connect } from 'react-redux';
 import styled from 'styled-components';
-import { IpcEventName, WindowEventName } from '../../main/ipc/type';
 import { loadDBs } from '../dbs';
 import { RootState } from '../reducers';
 import { genMapDispatchToProp } from '../utils';
@@ -206,13 +204,8 @@ class Application extends React.Component<Props, State> {
 
     state: State = { maximized: false };
 
-    /**
-     * The window state is pushed by the main process (see `State.maximized`);
-     * kept as a field so the very same function can be removed again.
-     */
-    private onWindowMaximizedChanged = (_event: unknown, maximized: boolean) => {
-        this.setState({ maximized });
-    };
+    /** Unsubscribe function returned by the preload event bridge. */
+    private unsubscribeWindowMaximized?: () => void;
 
     componentDidUpdate(prevProps: Props): void {
         if (!prevProps.compact && this.props.compact) {
@@ -231,7 +224,9 @@ class Application extends React.Component<Props, State> {
         setTrayImageWithMadeIcon(undefined).then();
         window.addEventListener('error', this.onError);
 
-        ipcRenderer.addListener(WindowEventName.MaximizedChanged, this.onWindowMaximizedChanged);
+        this.unsubscribeWindowMaximized = window.api.onWindowMaximizedChanged((maximized) =>
+            this.setState({ maximized })
+        );
         // Pushed events only report changes, and the window keeps its state
         // across a renderer reload: read it once for the first paint, otherwise
         // a reloaded page would show "maximize" over a maximized window.
@@ -308,7 +303,7 @@ class Application extends React.Component<Props, State> {
                 window.api.openDevTools();
                 break;
             case 'ctrl+q':
-                ipcRenderer.send(IpcEventName.Quit, 'quit');
+                window.api.quit();
                 break;
             case 'f11':
                 this.returnToCompact = !this.props.compact;
@@ -322,7 +317,8 @@ class Application extends React.Component<Props, State> {
 
     componentWillUnmount() {
         window.removeEventListener('error', this.onError);
-        ipcRenderer.removeListener(WindowEventName.MaximizedChanged, this.onWindowMaximizedChanged);
+        this.unsubscribeWindowMaximized?.();
+        this.unsubscribeWindowMaximized = undefined;
     }
 
     onError = (event: ErrorEvent) => {
@@ -332,7 +328,7 @@ class Application extends React.Component<Props, State> {
         console.error(err);
         setTimeout(() => {
             if (process.env.NODE_ENV === 'production') {
-                ipcRenderer.send(IpcEventName.Restart, 'error');
+                window.api.restart();
             }
         }, 3000);
     };

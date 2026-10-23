@@ -6,6 +6,7 @@ module.exports = {
         '<rootDir>/test/react-act-environment.js',
         '<rootDir>/test/jsdom-compat.js',
         '<rootDir>/test/console-gate.js',
+        '<rootDir>/test/dbBridge.ts',
     ],
     // jest 27+ defaults to the node environment, but the component tests need a DOM.
     testEnvironment: 'jsdom',
@@ -16,7 +17,7 @@ module.exports = {
     // "Must use import to load ES Module". Resolve like Node does instead, which
     // picks the "require" (index.cjs) entry of such packages.
     testEnvironmentOptions: {
-        customExportConditions: ['node']
+        customExportConditions: ['node'],
     },
     testMatch: ['**/*.(spec|test).[jt]s?(x)'],
     // TypeScript 7 has no JavaScript compiler API, so ts-jest cannot be used.
@@ -30,17 +31,17 @@ module.exports = {
                 configFile: false,
                 presets: [
                     ['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }],
-                    ['@babel/preset-typescript', { onlyRemoveTypeImports: false }]
+                    ['@babel/preset-typescript', { onlyRemoveTypeImports: false }],
                 ],
                 // As in webpack: keep JSX parsing (and its conflict with
                 // generic arrow functions) out of `.ts` files.
                 overrides: [
                     {
                         test: /\.tsx$/,
-                        presets: ['@babel/preset-react']
-                    }
-                ]
-            }
+                        presets: ['@babel/preset-react'],
+                    },
+                ],
+            },
         ],
         // marked 18 and react-hotkeys-hook 5 are ESM-only (no CJS entry).
         // Jest's VM runtime cannot require() their ESM files directly, so
@@ -50,9 +51,11 @@ module.exports = {
             {
                 babelrc: false,
                 configFile: false,
-                presets: [['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }]]
-            }
-        ]
+                presets: [
+                    ['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }],
+                ],
+            },
+        ],
     },
     // Keep the default node_modules exclusion, but allow the ESM dependencies
     // above through the transform. Other dependencies stay untouched.
@@ -69,7 +72,8 @@ module.exports = {
         '^@ant-design/icons$': '<rootDir>/node_modules/@ant-design/icons/lib/index.js',
         // @ant-design/colors@v8 ships ESM 'es/'; icons@6 CJS build requires
         // '@ant-design/colors/es/generate', which breaks under Jest CJS.
-        '^@ant-design/colors/es/generate$': '<rootDir>/node_modules/@ant-design/colors/lib/generate.js',
+        '^@ant-design/colors/es/generate$':
+            '<rootDir>/node_modules/@ant-design/colors/lib/generate.js',
     },
     // Action tests exercise real SQLite transactions; give them room so a
     // loaded machine does not trip the default 5s per-test timeout.
@@ -82,5 +86,5 @@ module.exports = {
     modulePaths: ['<rootDir>'],
     moduleDirectories: ['node_modules'],
     // For Circle CI
-    reporters: ['default', 'jest-junit']
+    reporters: ['default', 'jest-junit'],
 };

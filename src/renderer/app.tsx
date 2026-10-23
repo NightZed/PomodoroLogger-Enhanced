@@ -7,9 +7,6 @@ import { ThemeController } from './components/ThemeController';
 import { applyTheme, GlobalStyle, resolveTheme } from './theme';
 import store from './store';
 
-import { ipcRenderer } from 'electron';
-import { IpcEventName } from '../main/ipc/type';
-
 import './echartsSetup';
 
 window.addEventListener('error', (e) => {
@@ -18,32 +15,6 @@ window.addEventListener('error', (e) => {
 window.addEventListener('unhandledrejection', (e) => {
     console.error('[Renderer] unhandled rejection:', e.reason);
 });
-
-const dict: { [event: string]: Function } = {};
-const msgMap: Map<string, { resolve: Function; reject: Function }> = new Map();
-ipcRenderer.on('reply', (e, token, arg, err) => {
-    if (arg === 'error') {
-        msgMap.get(token)!.reject(err);
-        console.error(err);
-    } else {
-        msgMap.get(token)!.resolve(arg);
-        if (arg !== undefined) {
-            console.log(arg);
-        }
-    }
-    msgMap.delete(token);
-});
-for (const name of Object.values(IpcEventName)) {
-    dict[name] = (...args: any) =>
-        new Promise((resolve, reject) => {
-            const token = (Math.random() * 10e10).toString(36);
-            msgMap.set(token, { resolve, reject });
-            ipcRenderer.send(name, token, ...args);
-        });
-}
-
-// console.log(dict);
-(window as any).api = dict;
 
 // Create main element
 const mainElement = document.getElementById('root');

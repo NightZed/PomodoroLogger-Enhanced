@@ -7,7 +7,6 @@ import {
     ipcMain,
     app,
     nativeTheme,
-    shell,
     dialog,
 } from 'electron';
 import type { MenuItemConstructorOptions } from 'electron';
@@ -23,6 +22,7 @@ import { IpcEventName, TrayEventName, UpdateEventName, WindowEventName } from '.
 import type { TrayMenuItem } from './ipc/type';
 import { stopWindowDrag } from './ipc/windowDrag';
 import { initActiveWin } from './activeWin';
+import { openExternalUrl } from './openExternal';
 
 const { build } = packageJson;
 
@@ -234,8 +234,10 @@ const createWindow = async () => {
         webPreferences: {
             nodeIntegrationInWorker: true,
             nodeIntegration: true,
-            contextIsolation: false,
-            // preload: path.join(__dirname, 'preload.js'),
+            // The preload bridge is enabled now; node access is still available
+            // until B7.3 has moved the remaining filesystem work to main.
+            contextIsolation: true,
+            preload: path.join(__dirname, 'preload.js'),
         },
     });
 
@@ -270,7 +272,7 @@ const createWindow = async () => {
     const handleRedirect = (e: any, url: string) => {
         if (url !== win?.webContents.getURL()) {
             e.preventDefault();
-            shell.openExternal(url);
+            openExternalUrl(url);
         }
     };
 
@@ -279,7 +281,7 @@ const createWindow = async () => {
     // target URL is handed over to the default browser instead.
     win.webContents.setWindowOpenHandler((details) => {
         if (details.url !== win?.webContents.getURL()) {
-            shell.openExternal(details.url);
+            openExternalUrl(details.url);
         }
 
         return { action: 'deny' };

@@ -2,9 +2,9 @@ import type { BaseResult } from 'get-windows';
 import { SourceData } from '../../shared/dataMerger/dataMerger';
 import type { ExportMeta } from '../../shared/dataTransfer/payload';
 import type { ValidationIssue, ValidationWarning } from '../../shared/dataTransfer/validate';
-import type { HistoryData } from '../db/types';
+import type { DbName, HistoryData } from '../db/types';
 import type { AggPomodoroInfo } from '../../renderer/components/History/op';
-import type { TrayMenuItem } from '../../renderer/components/Timer/sessionState';
+import type { TrayActionKey, TrayMenuItem } from '../../renderer/components/Timer/sessionState';
 
 export type { TrayMenuItem };
 
@@ -28,11 +28,22 @@ export enum IpcEventName {
     Notify = 'notify',
     FocusOnWindow = 'focusOnWindow',
     DesktopSource = 'desktopSource',
+    OpenExternal = 'openExternal',
     WindowAction = 'windowAction',
     /** Renderer driven move of the maximized title bar, see `WindowDragPhase`. */
     WindowDrag = 'windowDrag',
     /** Window state, asked once when the renderer mounts (see `WindowState`). */
     WindowState = 'windowState',
+}
+
+/**
+ * Channels of the database bridge. Kept separate from `IpcEventName`: these
+ * are invoked directly by `renderer/dbs.ts`, not exposed as one method per
+ * enum entry.
+ */
+export enum DbEventName {
+    Request = 'db:request',
+    Ready = 'db:ready',
 }
 
 /**
@@ -93,6 +104,25 @@ export type UpdateErrorPayload = {
     skipped?: boolean;
 };
 
+/** Payload of `UpdateEventName.Available`, see `AutoUpdater`. */
+export type UpdateInfoPayload = {
+    version: string;
+    releaseName?: string;
+    releaseNotes?: string;
+};
+
+/** Payload of `UpdateEventName.Progress`. */
+export type UpdateProgressPayload = {
+    percent: number;
+    bytesPerSecond: number;
+};
+
+/** The icon payload drawn by the renderer and installed by the main process. */
+export type TrayIconPayload = {
+    src: string;
+    scaleFactor: number;
+};
+
 /**
  * What an export actually did.
  *
@@ -119,22 +149,51 @@ export type ImportResult =
     | { status: 'invalid'; issues: ValidationIssue[] }
     | { status: 'imported'; warnings: ValidationWarning[]; meta: ExportMeta };
 
+/**
+ * The complete surface exposed to the renderer by `src/main/preload.ts`.
+ *
+ * Request methods use `ipcRenderer.invoke` (the main side registers
+ * `ipcMain.handle`); one-way commands use `send`. Event subscriptions return
+ * their own unsubscribe function, so a component never receives `ipcRenderer`
+ * itself.
+ */
 export type ExposedAPI = {
+    readonly platform: NodeJS.Platform;
+
     [IpcEventName.ImportData](): Promise<ImportResult>;
     [IpcEventName.SelectWallpaper](): Promise<string | undefined>;
     [IpcEventName.ExportData](): Promise<ExportResult>;
     [IpcEventName.ActiveWin](): Promise<BaseResult | undefined>;
-    [IpcEventName.OpenAtLogin](on: boolean): void;
-    [IpcEventName.MinimizeWindow](on: boolean): void;
-    [IpcEventName.CompactWindow](on: boolean, alwaysOnTop?: boolean): void;
-    [IpcEventName.OpenDevTools](): void;
-    [IpcEventName.Notify](title: string, body: string, iconPath: string): void;
-    [IpcEventName.FocusOnWindow](): void;
+    [IpcEventName.OpenAtLogin](on: boolean): Promise<void>;
+    [IpcEventName.MinimizeWindow](on: boolean): Promise<void>;
+    [IpcEventName.CompactWindow](on: boolean, alwaysOnTop?: boolean): Promise<void>;
+    [IpcEventName.OpenDevTools](): Promise<void>;
+    [IpcEventName.Notify](title: string, body: string): Promise<void>;
+    [IpcEventName.FocusOnWindow](): Promise<void>;
     [IpcEventName.DesktopSource](): Promise<DesktopSourceInfo | undefined>;
-    [IpcEventName.SetTrayMenu](items: TrayMenuItem[]): void;
-    [IpcEventName.WindowAction](action: WindowAction): void;
-    [IpcEventName.WindowDrag](phase: WindowDragPhase): void;
+    [IpcEventName.SetTrayMenu](items: TrayMenuItem[]): Promise<void>;
+    [IpcEventName.WindowAction](action: WindowAction): Promise<void>;
+    [IpcEventName.WindowDrag](phase: WindowDragPhase): Promise<void>;
     [IpcEventName.WindowState](): Promise<WindowState>;
+
+    quit(): void;
+    restart(): void;
+    downloadUpdate(): void;
+    checkUpdate(): void;
+    installUpdate(): void;
+    setTrayImage(payload: TrayIconPayload): void;
+    openExternal(url: string): void;
+
+    dbReady(): Promise<void>;
+    dbRequest(name: DbName, operation: string, args: unknown[]): Promise<unknown>;
+
+    onUpdateAvailable(listener: (info: UpdateInfoPayload) => void): () => void;
+    onUpdateNotAvailable(listener: (info: string) => void): () => void;
+    onUpdateProgress(listener: (progress: UpdateProgressPayload) => void): () => void;
+    onUpdateDownloaded(listener: () => void): () => void;
+    onUpdateError(listener: (payload: UpdateErrorPayload) => void): () => void;
+    onWindowMaximizedChanged(listener: (maximized: boolean) => void): () => void;
+    onTrayAction(listener: (key: TrayActionKey) => void): () => void;
 };
 
 /**

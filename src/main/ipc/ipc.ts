@@ -12,6 +12,8 @@ import type { TrayMenuItem } from './type';
 import { sendWorkerMessage } from '../worker/fork';
 import { promisify } from 'util';
 import { readFile, writeFile } from 'fs';
+import * as path from 'path';
+import logo from '../../res/icon_sm.png';
 import { writeAllFile } from '../io/write';
 import { revealWindow, setMenuItems, setSkipTaskbar, win } from '../init';
 import { readAllData } from '../io/read';
@@ -24,20 +26,21 @@ import {
 } from '../../shared/dataTransfer/payload';
 import { validateSourceData } from '../../shared/dataTransfer/validate';
 import { initializeDbIpc } from '../db/ipc';
+import { openExternalUrl } from '../openExternal';
 
 /**
- * token is used to identify the sender of the message
- * @param name
- * @param callback
+ * Registers a request/response channel. `ipcMain.handle` + `ipcRenderer.invoke`
+ * replaced the old token + `event.reply('reply')` protocol: the reply now
+ * belongs to the call that made it, and a thrown error rejects the renderer's
+ * promise instead of being smuggled through a magic string.
  */
 function handle(name: string, callback: (...args: any[]) => Promise<void> | any) {
-    ipcMain.on(name, async (event, token, ...args) => {
+    ipcMain.handle(name, async (_event, ...args) => {
         try {
-            const ans = await callback(...args);
-            event.reply('reply', token, ans);
+            return await callback(...args);
         } catch (e) {
             console.error(e);
-            event.reply('reply', token, 'error', (e as any).toString());
+            throw e;
         }
     });
 }
@@ -49,6 +52,9 @@ export function initialize() {
         // Works while the window sits minimized in the tray as well: reveal
         // restores it first (see init.ts `revealWindow`).
         revealWindow();
+    });
+    ipcMain.on(IpcEventName.OpenExternal, (_event, url: string) => {
+        openExternalUrl(url);
     });
     /**
      * The renderer owns the timer actions, but the native tray menu lives in
@@ -87,11 +93,13 @@ export function initialize() {
         const source = sources.find((s) => `${s.display_id}` === `${display.id}`);
         return source ? { id: source.id, display_id: source.display_id } : undefined;
     });
-    handle(IpcEventName.Notify, (title, body, iconPath) => {
+    handle(IpcEventName.Notify, (title: string, body: string) => {
         const notification = new Notification({
             title,
             body,
-            icon: iconPath && nativeImage.createFromPath(iconPath),
+            // The renderer no longer knows a filesystem path; the main process
+            // owns the app icon and resolves it from its own bundle.
+            icon: nativeImage.createFromPath(path.join(__dirname, logo)),
         });
         notification.show();
     });

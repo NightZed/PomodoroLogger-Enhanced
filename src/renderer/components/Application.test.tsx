@@ -66,16 +66,12 @@ jest.mock('../workers', () => ({
         tokenizer: { tokenize: jest.fn().mockResolvedValue([]) },
     },
 }));
-jest.mock('electron', () => ({
-    ipcRenderer: { send: jest.fn(), addListener: jest.fn(), removeListener: jest.fn() },
-}));
-
-import { ipcRenderer } from 'electron';
-import { WindowEventName } from '../../main/ipc/type';
 import { rootReducer, RootState } from '../reducers';
 import { setCompact } from './Timer/action';
 import { feedback } from './feedback';
 import ConnectedApplication from './Application';
+
+let windowMaximizedListener: ((maximized: boolean) => void) | undefined;
 
 // The compact thunk resizes the real window through the preload bridge, and the
 // title bar asks for the window state on mount.
@@ -84,22 +80,19 @@ import ConnectedApplication from './Application';
     minimizeWindow: jest.fn(),
     openDevTools: jest.fn(),
     notify: jest.fn(),
+    quit: jest.fn(),
+    restart: jest.fn(),
+    onWindowMaximizedChanged: jest.fn((listener: (maximized: boolean) => void) => {
+        windowMaximizedListener = listener;
+        return jest.fn();
+    }),
     windowAction: jest.fn(),
     windowDrag: jest.fn(),
     windowState: jest.fn().mockResolvedValue({ maximized: false }),
 };
 
-/**
- * The listener `Application` registered for a window event. The mock records the
- * (name, listener) pairs, so the test can fire the event exactly like the main
- * process does.
- */
-const windowEventListener = (event: string) => {
-    const calls = (ipcRenderer.addListener as jest.Mock).mock.calls.filter(
-        ([name]) => name === event
-    );
-    return calls[calls.length - 1]?.[1] as (e: unknown, maximized: boolean) => void;
-};
+/** Fires the pushed window-state event exactly like the preload bridge does. */
+const fireWindowMaximized = (maximized: boolean) => windowMaximizedListener?.(maximized);
 
 // React asks every update to be wrapped in `act`. Wrapping the *keydown*
 // dispatch, though, would defeat this whole suite: `act` batches updates, and
@@ -245,12 +238,12 @@ describe('Application page switching', () => {
         expect(captionButton()?.title).toBe('Maximize');
 
         act(() => {
-            windowEventListener(WindowEventName.MaximizedChanged)(null, true);
+            fireWindowMaximized(true);
         });
         expect(captionButton()?.title).toBe('Restore Down');
 
         act(() => {
-            windowEventListener(WindowEventName.MaximizedChanged)(null, false);
+            fireWindowMaximized(false);
         });
         expect(captionButton()?.title).toBe('Maximize');
     });

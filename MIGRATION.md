@@ -2,7 +2,7 @@
 
 > 生成日期：2026-10-20
 > 最近更新：2026-10-23
-> 状态：B0 / B1 / B1.5 / B2（代码、升级/回滚、History 性能）/ B3 / B5 已完成；B4 代码迁移完成（`get-windows` + Electron 44.9.3）；B6 核心工具链迁移完成，手工验收待做；B7 Electron 安全架构计划已写入，B7.1（移除 `@electron/remote`）已完成，B7.2-B7.5 待做
+> 状态：B0 / B1 / B1.5 / B2（代码、升级/回滚、History 性能）/ B3 / B5 已完成；B4 代码迁移完成（`get-windows` + Electron 44.9.3）；B6 核心工具链迁移完成，手工验收待做；B7 Electron 安全架构进行中，B7.1（移除 `@electron/remote`）与 B7.2（preload 桥接层）已完成，B7.3-B7.5 待做
 > 适用版本：当前 `package.json`（React 19.3 / antd 6 / webpack 5.111 / Jest 30）
 
 本文档列出项目中已停止维护、已被弃用、已过 EOL，或已经确定要替换的依赖，并给出迁移顺序、改动范围、验收标准和回滚方式。每完成一项，直接勾选对应条目并补充实际使用的版本与迁移日期。
@@ -663,15 +663,15 @@ webPreferences: {
 
 renderer 只通过 preload + `contextBridge` 暴露的窄 API 访问主进程；不向页面暴露 `ipcRenderer`、`require`、通用 `invoke`、任意路径读写或 `shell`。
 
-**本次会话只执行 B7.1；B7.2-B7.5 留到下次会话。**
+**B7.1-B7.2 已完成；B7.3-B7.5 待做。**
 
-### 8.1 起点与现状（2026-10-23）
+### 8.1 起点与现状（B7.2 前，2026-10-23）
 
-- `src/main/init.ts` 仍是 `nodeIntegration: true`、`contextIsolation: false`，`preload` 未启用；这是 B7 真正要改变的部分。
-- `src/main/preload.ts` 已作为 webpack entry 产出，但当前未使用；即使直接打开也不能工作：`Object.keys(IpcEventName)` 得到的是枚举键而不是 channel 值，且 `ipcRenderer.invoke` 与主进程现有的 `ipcMain.on` + `reply` 协议不一致。
-- `src/renderer/app.tsx` 在页面上下文自行创建 `window.api`；B7.2 必须删除它，改由 preload 暴露。
+- `src/main/init.ts` 当时仍是 `nodeIntegration: true`、`contextIsolation: false`，`preload` 未启用。
+- `src/main/preload.ts` 当时未使用，且 `Object.keys(IpcEventName)` 得到的是枚举键而不是 channel 值；`ipcRenderer.invoke` 与主进程的 `ipcMain.on` + `reply` 协议不一致。
+- `src/renderer/app.tsx` 当时在页面上下文自行创建 `window.api`；B7.2 已删除，改由 preload 暴露。
 - `@electron/remote` 在业务代码里只有两处：托盘菜单函数回调、截图窗口 bounds；B7.1 已全部移除。
-- renderer 仍直接依赖 `fs` / `path` / `os`（截图、`sessionManager`、KNN worker）、`nativeTheme`、`shell` 和 `ipcRenderer`；这些是 B7.2/B7.3 的主要工作量。
+- B7.2 前 renderer 直接依赖 `fs` / `path` / `os`（截图、`sessionManager`、KNN worker）、`nativeTheme`、`shell` 和 `ipcRenderer`；其中 IPC 与 shell 已在 B7.2 迁移，剩余 Node 能力是 B7.3 的工作量。
 - 现有 IPC 已覆盖数据库、active window、`desktopCapturer`、通知、窗口控制、导入导出和更新事件，可作为桥接层的基础。
 
 ### 8.2 B7.1 移除 `@electron/remote`（已完成）
@@ -683,13 +683,17 @@ renderer 只通过 preload + `contextBridge` 暴露的窄 API 访问主进程；
 
 实施结果（2026-10-23）：`@electron/remote` 已从 `package.json` / `yarn.lock` / `node_modules` 移除；`yarn lint` 为 0 errors / 0 warnings，`yarn typecheck` 通过，`yarn test --runInBand` 为 65 suites / 477 tests，`yarn build` 通过。托盘菜单点击和截图仍需在 Windows 实机做手工冒烟（自动化测试不覆盖原生 tray/desktopCapturer）。
 
-### 8.3 B7.2 建立 preload 桥接层（待做）
+### 8.3 B7.2 建立 preload 桥接层（已完成）
 
-- 启用 `webPreferences.preload`；删除 `app.tsx` 中自建的 `window.api`。
-- 把 `src/main/preload.ts` 从“枚举循环”改为显式、可类型化的 API；只暴露 `ExposedAPI` 中的方法，不暴露 `ipcRenderer`。
-- 统一请求/响应协议：推荐把现有 `ipcMain.on` + `reply` 改为 `ipcMain.handle` / `ipcRenderer.invoke`；推送事件单独暴露 `onUpdate` / `onWindowState` / `onTrayAction` 并返回取消订阅函数。
-- 迁移 renderer 中所有直接 `ipcRenderer` / `shell` 使用：`Setting`、`UpdateController`、`Application`、`iconMaker`、`dbs`、`app.tsx`。
-- 补充 preload 测试和 renderer 的 `window.api` mock；确保 Jest 不依赖真实 Electron。
+- 启用 `webPreferences.preload`，同时开启 `contextIsolation: true`；`nodeIntegration` 仍为 `true`，等 B7.3 清完 renderer 的 Node 依赖后再在 B7.4 关闭。
+- 删除 `app.tsx` 中自建的 `window.api` 与 `reply` token 协议。
+- `src/main/preload.ts` 改为显式、可类型化的 API：只暴露 `ExposedAPI` 中的请求/命令和事件订阅，不暴露 `ipcRenderer`；订阅函数返回取消订阅回调。
+- 主进程请求通道统一为 `ipcMain.handle` / `ipcRenderer.invoke`；`quit` / `restart` / 更新命令 / 托盘图标 / 外链仍走单向 `send`。
+- 迁移 renderer 中所有直接 `ipcRenderer` / `shell` 使用：`Setting`、`UpdateController`、`Application`、`Timer`、`iconMaker`、`dbs`、`app.tsx`。
+- 数据库代理现在始终通过 `window.api.dbRequest` / `dbReady`；Jest 用 `test/dbBridge.ts` 接回真实的内存仓储，不再需要 renderer 内的 `require('../main/db')` 分支。
+- 外链统一走主进程 `openExternalUrl`，只允许 `http:` / `https:`；`will-navigate` 和 `setWindowOpenHandler` 也复用同一检查。
+
+实施结果（2026-10-23）：`nodeIntegration` 暂未关闭；`yarn lint` 为 0 errors / 0 warnings，`yarn typecheck` 通过，`yarn test --runInBand` 为 65 suites / 476 tests，`yarn build` 通过。preload 桥接层与窗口状态/更新事件仍需在 Windows 实机做手工冒烟。
 
 ### 8.4 B7.3 移除 renderer 的 Node 能力（待做）
 
@@ -719,7 +723,7 @@ renderer 只通过 preload + `contextBridge` 暴露的窄 API 访问主进程；
 
 - 每阶段必须通过：`yarn typecheck`、`yarn lint`、`yarn test --runInBand`、`yarn build`。
 - 手工冒烟：托盘 Start/Pause/Continue/Finish/Stop、关闭到托盘、截图、更新事件、主题切换、窗口控制、导入导出。
-- B7.1 可独立回退到本提交前；B7.2-B7.4 建议分提交，出现问题时先恢复 renderer 的直接 IPC 路径，再逐步重试。
+- B7.1 / B7.2 可独立回退到各自提交前；B7.3-B7.4 建议分提交，出现问题时先恢复 preload 桥接层，再逐步重试。
 - 完整切换后至少跑一次 Windows `yarn pack`，并检查 preload 是否在 asar 内可解析。
 
 ---
@@ -782,7 +786,7 @@ renderer 只通过 preload + `contextBridge` 暴露的窄 API 访问主进程；
 - [x] B5 deox / hotkeys / react-trend / prop-types / styleguidist
 - [x] B6 核心工具链（prettier 3 / webpack-cli 7 / WDS 6 / ESLint 10 / Babel 8）；`nanoid`、`conventional-changelog` 延后
 - [x] B7.1 移除 `@electron/remote`：托盘菜单/截图改为 IPC，`remoteMain` 与依赖已删除
-- [ ] B7.2 建立 preload + `contextBridge` 桥接层，删除 renderer 自建 `window.api`
-- [ ] B7.3 移除 renderer 的 `fs` / `path` / `os` / `nativeTheme` / `shell` 依赖
+- [x] B7.2 建立 preload + `contextBridge` 桥接层，删除 renderer 自建 `window.api`
+- [ ] B7.3 移除 renderer 的 `fs` / `path` / `os` / `nativeTheme` 依赖
 - [ ] B7.4 切换 `nodeIntegration: false`、`contextIsolation: true`、`sandbox: true`、`nodeIntegrationInWorker: false`
 - [ ] B7.5 Markdown 净化、CSP、IPC 参数/sender 校验

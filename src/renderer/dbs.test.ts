@@ -1,30 +1,16 @@
 /**
  * Renderer database handles.
  *
- * In Jest they point at the main process's in-memory repositories, so the
- * module-level `AsyncDB` captures in Timer/Kanban actions keep working. In the
- * packaged app they are IPC proxies to the single main-process connection.
+ * Production always talks to `window.api`; there is no renderer-side SQLite
+ * connection or `require('../main/db')` fallback. The Jest setup
+ * (`test/dbBridge.ts`) backs the same API with the real in-memory repositories
+ * so the action tests keep exercising actual queries.
  */
 describe('renderer database handles', () => {
-    const originalNodeEnv = process.env.NODE_ENV;
-
-    afterEach(() => {
-        process.env.NODE_ENV = originalNodeEnv;
-        jest.dontMock('electron');
-        jest.resetModules();
-    });
-
-    it('uses the main process repositories synchronously under jest', () => {
-        const exported = require('./dbs');
-        const mainDb = require('../main/db');
-        expect(exported.dbs).toBe(mainDb.DBs);
-        expect(exported.default).toBe(mainDb.DBs);
-    });
-
-    it('forwards repository calls over IPC outside jest', async () => {
-        const invoke = jest.fn().mockResolvedValue([{ _id: 'a' }]);
-        jest.doMock('electron', () => ({ ipcRenderer: { invoke } }));
-        process.env.NODE_ENV = 'development';
+    it('forwards repository calls through the preload bridge', async () => {
+        const dbRequest = jest.fn().mockResolvedValue([{ _id: 'a' }]);
+        const dbReady = jest.fn().mockResolvedValue(undefined);
+        (window as any).api = { ...(window as any).api, dbRequest, dbReady };
 
         let exported: any;
         jest.isolateModules(() => {
@@ -34,9 +20,13 @@ describe('renderer database handles', () => {
         await expect(exported.dbs.sessionDB.find({ _id: 'a' }, { _id: 1 })).resolves.toEqual([
             { _id: 'a' },
         ]);
-        expect(invoke).toHaveBeenCalledWith('db:request', 'sessionDB', 'find', [
-            { _id: 'a' },
-            { _id: 1 },
-        ]);
+        expect(dbRequest).toHaveBeenCalledWith('sessionDB', 'find', [{ _id: 'a' }, { _id: 1 }]);
+
+        await exported.loadDBs();
+        expect(dbReady).toHaveBeenCalledTimes(1);
+
+        await exported.refreshDbs();
+        expect(dbReady).toHaveBeenCalledTimes(2);
+        expect(exported.default).toBe(exported.dbs);
     });
 });

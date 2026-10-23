@@ -60,11 +60,7 @@ jest.mock('../../monitor/sessionManager', () => ({
     deleteAllUserData: () => mockDeleteAllUserData(),
 }));
 
-const mockSend = jest.fn();
-jest.mock('electron', () => ({
-    shell: { openExternal: jest.fn() },
-    ipcRenderer: { send: (...args: any[]) => mockSend(...args) },
-}));
+const mockRestart = jest.fn();
 
 const mockRefreshDbs = jest.fn().mockResolvedValue(undefined);
 jest.mock('../../dbs', () => ({
@@ -93,7 +89,7 @@ jest.mock('antd', () => {
 });
 
 import { Setting } from './Setting';
-import { IpcEventName, ExportResult, ImportResult } from '../../../main/ipc/type';
+import type { ExportResult, ImportResult } from '../../../main/ipc/type';
 
 const exportData = jest.fn<Promise<ExportResult>, []>();
 const props = (): any => ({
@@ -177,11 +173,22 @@ beforeEach(() => {
     mockAlert.mockClear();
     mockToast.mockClear();
     mockConfirm.mockClear();
-    mockSend.mockClear();
+    mockRestart.mockClear();
     mockDeleteAllUserData.mockClear();
     exportData.mockReset();
     importData.mockReset();
-    (window as any).api = { exportData, importData };
+    (window as any).api = {
+        exportData,
+        importData,
+        restart: mockRestart,
+        checkUpdate: jest.fn(),
+        onUpdateAvailable: jest.fn(() => jest.fn()),
+        onUpdateNotAvailable: jest.fn(() => jest.fn()),
+        onUpdateError: jest.fn(() => jest.fn()),
+        openAtLogin: jest.fn(),
+        openExternal: jest.fn(),
+        selectWallpaper: jest.fn(),
+    };
 });
 describe('minimum focus time before Finish', () => {
     it('renders the option on the timer section and saves the slider value in seconds', async () => {
@@ -292,7 +299,7 @@ describe('import of a file that cannot be used', () => {
         expect(shown).toContain('is missing; a finite number is required');
         expect(shown).toContain('cards["a1"].spentTimeInHour');
         // The whole point of the refusal: no restart, no data touched.
-        expect(mockSend).not.toHaveBeenCalled();
+        expect(mockRestart).not.toHaveBeenCalled();
         expect(isLoading(button('Import Data'))).toBe(false);
     });
 
@@ -304,7 +311,7 @@ describe('import of a file that cannot be used', () => {
 
         expect(mockAlert.mock.calls[0][0].title).toBe('Import Failed');
         expect(alertText()).toContain('ENOENT: no such file');
-        expect(mockSend).not.toHaveBeenCalled();
+        expect(mockRestart).not.toHaveBeenCalled();
         expect(isLoading(button('Import Data'))).toBe(false);
     });
 
@@ -316,7 +323,7 @@ describe('import of a file that cannot be used', () => {
 
         expect(mockAlert).not.toHaveBeenCalled();
         expect(mockToast).not.toHaveBeenCalled();
-        expect(mockSend).not.toHaveBeenCalled();
+        expect(mockRestart).not.toHaveBeenCalled();
     });
 });
 
@@ -328,7 +335,7 @@ describe('import of a usable file', () => {
         await click('Import Data');
 
         expect(mockToast.mock.calls[0][0].content).toBe('Data imported. Restarting');
-        expect(mockSend).toHaveBeenCalledWith(IpcEventName.Restart);
+        expect(mockRestart).toHaveBeenCalled();
     });
 
     it('shows the warnings first and restarts once they are acknowledged', async () => {
@@ -347,13 +354,13 @@ describe('import of a usable file', () => {
         expect(mockAlert.mock.calls[0][0].title).toBe('Imported with warnings');
         expect(alertText()).toContain('Card "a1" will be removed');
         // Still not restarted: the user has not closed the dialog yet.
-        expect(mockSend).not.toHaveBeenCalled();
+        expect(mockRestart).not.toHaveBeenCalled();
 
         await act(async () => {
             mockAlert.mock.calls[0][0].onOk();
         });
 
-        expect(mockSend).toHaveBeenCalledWith(IpcEventName.Restart);
+        expect(mockRestart).toHaveBeenCalled();
     });
 });
 
@@ -376,13 +383,13 @@ describe('delete of all data', () => {
                 'All user data is removed. Your settings are kept.'
             );
             // The restart is on a timer: nothing is sent while the toast shows.
-            expect(mockSend).not.toHaveBeenCalled();
+            expect(mockRestart).not.toHaveBeenCalled();
 
             await act(async () => {
                 jest.advanceTimersByTime(3000);
             });
 
-            expect(mockSend).toHaveBeenCalledWith(IpcEventName.Restart);
+            expect(mockRestart).toHaveBeenCalled();
         } finally {
             jest.useRealTimers();
         }

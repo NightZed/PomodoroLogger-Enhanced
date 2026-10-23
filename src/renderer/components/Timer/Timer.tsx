@@ -1,6 +1,5 @@
 import { Button, Divider, Tooltip } from 'antd';
 import { AntdIcon as Icon, IconComponent } from '../antdIcon';
-import { ipcRenderer } from 'electron';
 import { debounce } from 'lodash';
 import React, { Component } from 'react';
 import Hotkeys, { shouldPreventTabDefault } from '../Hotkeys';
@@ -9,7 +8,6 @@ import styled from 'styled-components';
 import { MiniLogger } from '../../../components/common/Mini/MiniLogger';
 import { timeScale, __DEV__ } from '../../../config';
 import dingMp3 from '../../../res/ding.mp3';
-import AppIcon from '../../../res/icon.png';
 import { EfficiencyAnalyser } from '../../../shared/efficiency/efficiency';
 import { Monitor } from '../../monitor';
 import { getTodaySessions } from '../../monitor/sessionManager';
@@ -33,7 +31,6 @@ import {
     TimerActionTypes as ThisActionTypes,
     uiStateNames,
 } from './action';
-import { TrayEventName } from '../../../main/ipc/type';
 import { FocusSelector } from './FocusSelector';
 import {
     DONT_REMIND_AGAIN_LABEL,
@@ -304,6 +301,8 @@ class Timer extends Component<Props, State> {
      * destroys the previous dialog instead of stacking another one on top.
      */
     private focusStartWarningModal?: ReturnType<typeof feedback.confirm>;
+    /** Unsubscribe function returned by the preload tray-event bridge. */
+    private unsubscribeTrayAction?: () => void;
 
     constructor(props: Props) {
         super(props);
@@ -337,7 +336,7 @@ class Timer extends Component<Props, State> {
 
     componentDidMount(): void {
         this.efficiencyAnalyser = new EfficiencyAnalyser(this.props.timer.distractingList);
-        ipcRenderer.addListener(TrayEventName.Action, this.onTrayAction);
+        this.unsubscribeTrayAction = window.api.onTrayAction(this.onTrayAction);
         this.interval = setInterval(this.updateLeftTime, 500);
         this.updateLeftTime();
         this.selfRef.current!.addEventListener('resize', this.onResize);
@@ -422,7 +421,7 @@ class Timer extends Component<Props, State> {
      * Handles a tray click sent back by the main process. The menu entry itself
      * only carries a `TrayActionKey`; functions cannot cross the IPC boundary.
      */
-    onTrayAction = (_event: any, key: TrayActionKey): void => {
+    onTrayAction = (key: TrayActionKey): void => {
         switch (key) {
             case 'startFocusing':
                 // While the ending mask is up, first dismiss the mask and then
@@ -502,7 +501,8 @@ class Timer extends Component<Props, State> {
 
     componentWillUnmount(): void {
         this.componentGone = true;
-        ipcRenderer.removeListener(TrayEventName.Action, this.onTrayAction);
+        this.unsubscribeTrayAction?.();
+        this.unsubscribeTrayAction = undefined;
         if (this.monitor) {
             // A staged session (ending mask still up) has already snapshotted
             // the record -- and a click on the mask may be pending its
@@ -886,8 +886,7 @@ class Timer extends Component<Props, State> {
         } else if (shouldRemind) {
             window.api.notify(
                 'Resting session ended',
-                `Completed ${this.state.pomodoroNum} sessions today. \n\n`,
-                `${__dirname}/${AppIcon}`
+                `Completed ${this.state.pomodoroNum} sessions today. \n\n`
             );
         }
 
@@ -917,8 +916,7 @@ class Timer extends Component<Props, State> {
         if (shouldRemind) {
             window.api.notify(
                 'Focusing finished. Start resting.',
-                `Completed ${this.state.pomodoroNum + 1} sessions today. \n\n`,
-                `${__dirname}/${AppIcon}`
+                `Completed ${this.state.pomodoroNum + 1} sessions today. \n\n`
             );
         }
 

@@ -1,4 +1,4 @@
-import { createActionCreator, createReducer } from 'deox';
+import { createAction, createReducer } from '@reduxjs/toolkit';
 import { Dispatch } from 'redux';
 import { actions as listActions } from '../List/action';
 import { workers } from '../../../workers';
@@ -8,62 +8,53 @@ const db = workers.dbWorkers.cardsDB;
 
 export type CardsState = { [_id: string]: Card };
 
-const addSession = createActionCreator(
+const addSession = createAction(
     '[Card]ADD_SESSION',
-    (resolve) => (_id: string, sessionId: string, spentTime: number) =>
-        resolve({ _id, sessionId, spentTime })
+    (_id: string, sessionId: string, spentTime: number) => ({
+        payload: { _id, sessionId, spentTime },
+    })
 );
 
-const addCard = createActionCreator(
+const addCard = createAction(
     '[Card]ADD',
-    (resolve) => (_id: string, title?: string, content?: string, createdTime?: number) =>
-        resolve({ _id, title, content, createdTime })
+    (_id: string, title?: string, content?: string, createdTime?: number) => ({
+        payload: { _id, title, content, createdTime },
+    })
 );
 
-const renameCard = createActionCreator(
-    '[Card]RENAME',
-    (resolve) => (_id: string, title: string) => resolve({ _id, title })
-);
+const renameCard = createAction('[Card]RENAME', (_id: string, title: string) => ({
+    payload: { _id, title },
+}));
 
-const setContent = createActionCreator(
-    '[Card]SET_CONTENT',
-    (resolve) => (_id: string, content: string) => resolve({ _id, content })
-);
+const setContent = createAction('[Card]SET_CONTENT', (_id: string, content: string) => ({
+    payload: { _id, content },
+}));
 
-const setEstimatedTime = createActionCreator(
+const setEstimatedTime = createAction(
     '[Card]SET_ESTIMATED_TIME',
-    (resolve) => (_id: string, estimatedTime: number) => resolve({ _id, estimatedTime })
+    (_id: string, estimatedTime: number) => ({ payload: { _id, estimatedTime } })
 );
 
-const setActualTime = createActionCreator(
-    '[Card]SET_ACTUAL_TIME',
-    (resolve) => (_id: string, actualTime: number) => resolve({ _id, actualTime })
-);
+const setActualTime = createAction('[Card]SET_ACTUAL_TIME', (_id: string, actualTime: number) => ({
+    payload: { _id, actualTime },
+}));
 
-const setLabels = createActionCreator(
-    '[Card]SET_LABELS',
-    (resolve) => (_id: string, labels: CardLabel[]) => resolve({ _id, labels })
-);
+const setLabels = createAction('[Card]SET_LABELS', (_id: string, labels: CardLabel[]) => ({
+    payload: { _id, labels },
+}));
 
-const addActualTime = createActionCreator(
-    '[Card]ADD_ACTUAL_TIME',
-    (resolve) => (_id: string, plus: number) => resolve({ _id, plus })
-);
+const addActualTime = createAction('[Card]ADD_ACTUAL_TIME', (_id: string, plus: number) => ({
+    payload: { _id, plus },
+}));
 
-const setCompletedTime = createActionCreator(
+const setCompletedTime = createAction(
     '[Card]SET_COMPLETED_TIME',
-    (resolve) => (_id: string, completedTime?: number) => resolve({ _id, completedTime })
+    (_id: string, completedTime?: number) => ({ payload: { _id, completedTime } })
 );
 
-const deleteCard = createActionCreator(
-    '[Card]DELETE_CARD',
-    (resolve) => (_id: string) => resolve({ _id })
-);
+const deleteCard = createAction('[Card]DELETE_CARD', (_id: string) => ({ payload: { _id } }));
 
-const setCards = createActionCreator(
-    '[Card]SET_CARDS',
-    (resolve) => (cards: CardsState) => resolve(cards)
-);
+const setCards = createAction('[Card]SET_CARDS', (cards: CardsState) => ({ payload: cards }));
 
 export const actions = {
     fetchCards: () => async (dispatch: Dispatch) => {
@@ -148,131 +139,123 @@ export const actions = {
         },
 };
 
-export const cardReducer = createReducer<CardsState, any>({}, (handle) => [
-    handle(
-        addCard,
-        (state, { payload: { _id, title = '', content = '', createdTime = +new Date() } }) => {
+export const cardReducer = createReducer<CardsState>({}, (builder) => {
+    builder
+        .addCase(
+            addCard,
+            (state, { payload: { _id, title = '', content = '', createdTime = +new Date() } }) => {
+                return {
+                    ...state,
+                    [_id]: {
+                        _id,
+                        title,
+                        content,
+                        createdTime,
+                        sessionIds: [],
+                        spentTimeInHour: {
+                            actual: 0,
+                            estimated: 0,
+                        },
+                    },
+                };
+            }
+        )
+        .addCase(renameCard, (state, { payload: { _id, title } }) => {
             return {
                 ...state,
                 [_id]: {
-                    _id,
+                    ...state[_id],
                     title,
+                },
+            };
+        })
+        .addCase(setContent, (state, { payload: { _id, content } }) => {
+            return {
+                ...state,
+                [_id]: {
+                    ...state[_id],
                     content,
-                    createdTime,
-                    sessionIds: [],
+                },
+            };
+        })
+        .addCase(setEstimatedTime, (state, { payload: { _id, estimatedTime } }) => {
+            return {
+                ...state,
+                [_id]: {
+                    ...state[_id],
                     spentTimeInHour: {
-                        actual: 0,
-                        estimated: 0,
+                        actual: state[_id].spentTimeInHour.actual,
+                        estimated: estimatedTime,
                     },
                 },
             };
-        }
-    ),
-
-    handle(renameCard, (state, { payload: { _id, title } }) => {
-        return {
-            ...state,
-            [_id]: {
-                ...state[_id],
-                title,
-            },
-        };
-    }),
-
-    handle(setContent, (state, { payload: { _id, content } }) => {
-        return {
-            ...state,
-            [_id]: {
-                ...state[_id],
-                content,
-            },
-        };
-    }),
-
-    handle(setEstimatedTime, (state, { payload: { _id, estimatedTime } }) => {
-        return {
-            ...state,
-            [_id]: {
-                ...state[_id],
-                spentTimeInHour: {
-                    actual: state[_id].spentTimeInHour.actual,
-                    estimated: estimatedTime,
+        })
+        .addCase(setActualTime, (state, { payload: { _id, actualTime } }) => {
+            return {
+                ...state,
+                [_id]: {
+                    ...state[_id],
+                    spentTimeInHour: {
+                        actual: actualTime,
+                        estimated: state[_id].spentTimeInHour.estimated,
+                    },
                 },
-            },
-        };
-    }),
-
-    handle(setActualTime, (state, { payload: { _id, actualTime } }) => {
-        return {
-            ...state,
-            [_id]: {
-                ...state[_id],
-                spentTimeInHour: {
-                    actual: actualTime,
-                    estimated: state[_id].spentTimeInHour.estimated,
+            };
+        })
+        .addCase(setLabels, (state, { payload: { _id, labels } }) => {
+            return {
+                ...state,
+                [_id]: {
+                    ...state[_id],
+                    labels,
                 },
-            },
-        };
-    }),
+            };
+        })
+        .addCase(setCompletedTime, (state, { payload: { _id, completedTime } }) => {
+            const card = { ...state[_id] };
+            if (completedTime === undefined) {
+                // drop the key entirely so `completedTime` stays absent, not undefined
+                delete card.completedTime;
+            } else {
+                card.completedTime = completedTime;
+            }
 
-    handle(setLabels, (state, { payload: { _id, labels } }) => {
-        return {
-            ...state,
-            [_id]: {
-                ...state[_id],
-                labels,
-            },
-        };
-    }),
-
-    handle(setCompletedTime, (state, { payload: { _id, completedTime } }) => {
-        const card = { ...state[_id] };
-        if (completedTime === undefined) {
-            // drop the key entirely so `completedTime` stays absent, not undefined
-            delete card.completedTime;
-        } else {
-            card.completedTime = completedTime;
-        }
-
-        return {
-            ...state,
-            [_id]: card,
-        };
-    }),
-
-    handle(deleteCard, (state, { payload: { _id } }) => {
-        const { [_id]: _deleted, ...rest } = state;
-        return rest;
-    }),
-
-    handle(setCards, (state, { payload }) => payload),
-    handle(addActualTime, (state, { payload: { _id, plus } }) => {
-        return {
-            ...state,
-            [_id]: {
-                ...state[_id],
-                spentTimeInHour: {
-                    ...state[_id].spentTimeInHour,
-                    actual: state[_id].spentTimeInHour.actual + plus,
+            return {
+                ...state,
+                [_id]: card,
+            };
+        })
+        .addCase(deleteCard, (state, { payload: { _id } }) => {
+            const { [_id]: _deleted, ...rest } = state;
+            return rest;
+        })
+        .addCase(setCards, (state, { payload }) => payload)
+        .addCase(addActualTime, (state, { payload: { _id, plus } }) => {
+            return {
+                ...state,
+                [_id]: {
+                    ...state[_id],
+                    spentTimeInHour: {
+                        ...state[_id].spentTimeInHour,
+                        actual: state[_id].spentTimeInHour.actual + plus,
+                    },
                 },
-            },
-        };
-    }),
-
-    handle(addSession, (state, { payload: { _id, sessionId, spentTime } }) => {
-        const card = state[_id];
-        return {
-            ...state,
-            [_id]: {
-                ...card,
-                sessionIds: [...card.sessionIds, sessionId],
-                spentTimeInHour: {
-                    actual: card.spentTimeInHour.actual + spentTime,
-                    estimated: card.spentTimeInHour.estimated,
+            };
+        })
+        .addCase(addSession, (state, { payload: { _id, sessionId, spentTime } }) => {
+            const card = state[_id];
+            return {
+                ...state,
+                [_id]: {
+                    ...card,
+                    sessionIds: [...card.sessionIds, sessionId],
+                    spentTimeInHour: {
+                        actual: card.spentTimeInHour.actual + spentTime,
+                        estimated: card.spentTimeInHour.estimated,
+                    },
                 },
-            },
-        };
-    }),
-]);
+            };
+        });
+});
 
 export type CardActionTypes = { [key in keyof typeof actions]: typeof actions[key] };

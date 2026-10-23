@@ -1,7 +1,7 @@
 # 依赖迁移纲要
 
 > 生成日期：2026-10-20
-> 状态：B0 / B1 / B1.5 / B2（代码、升级/回滚、History 性能）/ B3 已完成；B4 代码迁移完成（`get-windows` + Electron 44.9.3）
+> 状态：B0 / B1 / B1.5 / B2（代码、升级/回滚、History 性能）/ B3 / B5 已完成；B4 代码迁移完成（`get-windows` + Electron 44.9.3）
 > 适用版本：当前 `package.json`（React 19.3 / antd 6 / webpack 5.111 / Jest 30）
 
 本文档列出项目中已停止维护、已被弃用、已过 EOL，或已经确定要替换的依赖，并给出迁移顺序、改动范围、验收标准和回滚方式。每完成一项，直接勾选对应条目并补充实际使用的版本与迁移日期。
@@ -103,7 +103,7 @@ yarn pack          # 至少在一个平台上做一次解包冒烟
 - [x] `@types/prop-types` + `prop-types`：删除 `Progress.tsx` 的 `static propTypes`，仅保留现有 TS 类型。
 - [x] `eslint-plugin-import`：`eslint.config.js` 根本没有加载它。
 - [x] `eslint-plugin-react`：配置里只注册了插件，没有启用任何 `react/*` 规则；删除插件注册与 `settings.react`，保留 `eslint-plugin-react-hooks` 与 JSX parser 配置（见 B6）。
-- [x] `@babel/polyfill`：从 `webpack.style.js` 的 entry 删除，`style-pack` 改为正确的 `styleguidist build`；Electron / 现代浏览器不需要整包 polyfill。
+- [x] `@babel/polyfill`：已从 `webpack.style.js` 的 entry 删除（该文件随后在 B5.5 整体删除）；Electron / 现代浏览器不需要整包 polyfill。
 - [x] `@babel/plugin-proposal-optional-chaining`：删除；optional chaining 已是标准语法，由 preset-env 按 target 处理。
 - [x] `@babel/plugin-proposal-class-properties`：删除而不是替换。`preset-env` 已按 `electron: 39` / `last 2 versions` 处理 class fields；显式 `{ loose: true }` 反而与 preset-env 的 private 字段插件产生 loose 模式冲突，完整构建已验证无 Babel 告警。
 
@@ -177,7 +177,7 @@ React 官方已将 `react-test-renderer` 标记为 deprecated（每个测试用�
 
 - [x] 9 个文件全部改用 RTL，测试数量和断言覆盖不减少。
 - [x] `yarn test` 输出中 `react-test-renderer is deprecated` 和 `not wrapped in act` 归零。
-- [x] 删除 `react-test-renderer`、`@types/react-test-renderer`（`react-styleguidist` 的传递类型仍留在 lockfile，随 B5.5 处理）。
+- [x] 删除 `react-test-renderer`、`@types/react-test-renderer`（`react-styleguidist` 已在 B5.5 删除，lockfile 已清理）。
 - [x] `jest.config.js` 新增 `test/jsdom-compat.js`（仅处理 jsdom 的 `getComputedStyle` 限制）和 `test/console-gate.js`（未声明 `console.error` / `console.warn` 直接失败），不使用全局静默。
 - [x] 为 B5 的 `Hotkeys` 重写保留一份可用的 RTL 测试基线。
 
@@ -554,43 +554,53 @@ Electron 44 只发布 64 位包（Windows x64 / Linux x64+arm64），并要求 m
 
 `deox` 仓库已于 2022 年归档；`deox@3.3.1` 也是 2022 年的版本，并且依赖 `redux-starter-kit@0.5.1` + rxjs 6，不适合作为升级目标。
 
-- [ ] 涉及文件：`History/action.ts`、`UserGuide/actions.ts`、`Kanban/action.ts`、`Kanban/List/action.ts`、`Kanban/Board/action.ts`、`Kanban/Card/action.ts`、`Timer/action.ts`。
-- [ ] 用 `createAction` / `createReducer` 直接替换（改动最小），或逐步改为 `createSlice`。
-- [ ] 保留现有 action 类型名与 payload 形状，避免组件测试大面积改动。
-- [ ] 删除 `deox`，确认 `redux` / `react-redux` 版本不变。
-- [ ] 回归：看板拖拽、卡片增删改、历史筛选、设置持久化。
+- [x] 涉及文件：`History/action.ts`、`UserGuide/actions.ts`、`Kanban/action.ts`、`Kanban/List/action.ts`、`Kanban/Board/action.ts`、`Kanban/Card/action.ts`、`Timer/action.ts`。
+- [x] 用 `createAction` / `createReducer` 直接替换（改动最小），或逐步改为 `createSlice`。
+- [x] 保留现有 action 类型名与 payload 形状，避免组件测试大面积改动。
+- [x] 删除 `deox`，确认 `redux` / `react-redux` 版本不变。
+- [x] 回归：看板拖拽、卡片增删改、历史筛选、设置持久化（action/组件测试通过，Windows 打包启动冒烟）。
+
+实施结果：新增 `@reduxjs/toolkit@2.13.0`，用 `createAction` / `createReducer` 替换全部 7 个 action 文件。action 类型名、payload 形状、thunk 入口均未改；`redux@5.0.1` / `react-redux@9.2.0` 未动。RTK 的 Immer 检查发现并修正了 Kanban Board/List 中“返回新对象同时修改 draft”的旧写法，改为纯不可变更新。`History` / `Kanban` / `Timer` 的 action 回归共 19 个 suite、153 条测试通过。
 
 ### 6.2 `react-hot-keys` 3.0.0 → `react-hotkeys-hook` 5.x
 
 `Hotkeys.tsx` 里已经记录了 3.0.0 的多个缺陷和 workaround（keyup 释放、输入框过滤、Alt+Tab 残留、模态框判断）。
 
-- [ ] 用 `useHotkeys` 重写 `Hotkeys.tsx`，保留四个 guard：仅 keydown、可编辑目标过滤、模态框打开时禁用、按住只触发一次。
-- [ ] 现有 `Hotkeys.test.tsx` 是回归基线，逐条保留。
-- [ ] 所有调用点（Application / Timer / Kanban / PomodoroSankey）不改签名。
-- [ ] 删除 `react-hot-keys`。
+- [x] 用 `useHotkeys` 重写 `Hotkeys.tsx`，保留四个 guard：仅 keydown、可编辑目标过滤、模态框打开时禁用、按住只触发一次。
+- [x] 现有 `Hotkeys.test.tsx` 是回归基线，逐条保留。
+- [x] 所有调用点（Application / Timer / Kanban / PomodoroSankey）不改签名。
+- [x] 删除 `react-hot-keys`。
+
+实施结果：升级到 `react-hotkeys-hook@5.3.3`。包装组件仍导出同名 `Hotkeys`，调用点全部未改；用 `useKey: true` 保持原先按 `event.key` 的匹配语义（`esc` 在进入/离开库时分别归一化为 `escape`），并用按下集合 + `event.repeat` 保留“按住只触发一次”。`ignoreEventWhen` 复用原有 keydown-only、输入框、窗口聚焦宽限期和模态框四个 guard。Jest 为 ESM-only 的 `react-hotkeys-hook` 增加了窄范围 transform。原有 23 条 Hotkeys/Application 测试全部通过，并新增 Escape 拼写映射的回归测试；打包应用内也验证了 Ctrl+Tab / Ctrl+Shift+Tab 切换页面。
 
 ### 6.3 `react-trend` → 本地 SVG sparkline
 
 当前依赖是 `zxch3n/react-trend` 的 git 分支，安装目录里没有 `package.json`（yarn 记为 `0.0.0`），原仓库 2019 年已归档。
 
-- [ ] 用约 50 行 SVG `polyline` 实现 `ProjectTrend.tsx` 需要的曲线/渐变/尺寸能力。
-- [ ] 或改用 npm 上的 `react-trend@1.2.5`，但同样要确认 React 19 兼容性。
-- [ ] 删除 git 依赖，避免 codeload 供应链和“无 manifest”问题。
-- [ ] 回归：History 项目趋势图的 hover、宽度自适应、空数据。
+- [x] 用约 50 行 SVG `polyline` 实现 `ProjectTrend.tsx` 需要的曲线/渐变/尺寸能力。
+- [x] 或改用 npm 上的 `react-trend@1.2.5`，但同样要确认 React 19 兼容性。
+- [x] 删除 git 依赖，避免 codeload 供应链和“无 manifest”问题。
+- [x] 回归：History 项目趋势图的 hover、宽度自适应、空数据。
+
+实施结果：`ProjectTrend.tsx` 内置 `Sparkline`（归一化坐标、平滑二次贝塞尔路径、横向渐变、viewBox 自适应、空/单点数据保护），不依赖第三方图表库；hover 覆盖层和 `countRecordNum` 行为保持不变。新增 3 条 sparkline 测试；`react-trend` 的 codeload git 依赖已删除。
 
 ### 6.4 `prop-types`
 
-- [ ] 删除 `Progress.tsx` 的 `static propTypes` 和 `import * as PropTypes`；`ProgressProps` 已经是完整的类型来源。
-- [ ] 删除 `prop-types`、`@types/prop-types`（与 B1 合并）。
+- [x] 删除 `Progress.tsx` 的 `static propTypes` 和 `import * as PropTypes`；`ProgressProps` 已经是完整的类型来源。
+- [x] 删除 `prop-types`、`@types/prop-types`（与 B1 合并）。
+
+实施结果：B1 已随 `Progress.tsx` 的清理删除直接依赖；本次移除 `react-styleguidist` 后，`prop-types` / `@types/prop-types` 也已从 lockfile 完全消失。
 
 ### 6.5 `react-styleguidist`
 
 最后发版是 2025-01，之后没有提交；当前只用于 `yarn style` 本地预览。
 
-- [ ] 先确认团队是否还在使用 `yarn style`。
-- [ ] 如果不用：删除 `style` / `style-pack` 脚本、`styleguide.config.js`、`webpack.style.js`、`react-docgen-typescript`、`@babel/polyfill`、proposal 插件。
-- [ ] 如果还用：迁移到 Ladle（轻量）或 Storybook；`src/components/**/README.md` 可以保留作为文档。
-- [ ] 无论哪种，都把 `webpack.style.js` 从维护范围里去掉，减少一套 Babel/webpack 配置。
+- [x] 先确认团队是否还在使用 `yarn style`。
+- [x] 如果不用：删除 `style` / `style-pack` 脚本、`styleguide.config.js`、`webpack.style.js`、`react-docgen-typescript`（`@babel/polyfill` / proposal 插件已在 B1 移除）。
+- [x] 如果还用：迁移到 Ladle（轻量）或 Storybook；`src/components/**/README.md` 可以保留作为文档。
+- [x] 无论哪种，都把 `webpack.style.js` 从维护范围里去掉，减少一套 Babel/webpack 配置。
+
+实施结果：仓库内没有 CI、README 或脚本依赖 `yarn style`；`styleguide.config.js` 的组件路径也已过期，因此按“不用”处理，删除两个脚本、两份配置、`react-styleguidist`、`react-docgen-typescript` 及相关 lockfile 条目。`src/components/**/README.md` 保留作为普通文档；以后若需要组件预览，再单独引入 Ladle。
 
 ### 6.6 `react-test-renderer`
 
@@ -662,7 +672,7 @@ Electron 44 只发布 64 位包（Windows x64 / Linux x64+arm64），并要求 m
 2. 数据库所有权：主进程独占 + IPC（推荐），还是继续放在渲染进程 worker？
 3. 嵌套字段先存 JSON，还是本次就规范化 `sessions.apps` / `titleSpentTime`？
 4. `settings` 用 key-value 还是单行多列？（推荐 key-value）
-5. `react-styleguidist` 是删除还是迁移到 Ladle/Storybook？
+5. `react-styleguidist` 已删除（B5.5）；以后需要组件预览再引入 Ladle/Storybook。
 6. `nanoid` 是升级到 6，还是换成 `crypto.randomUUID()`？
 7. Electron 44 是否与 B4 同一次发布，还是先单独升 Electron 再换 `get-windows`？
 
@@ -675,6 +685,6 @@ Electron 44 只发布 64 位包（Windows x64 / Linux x64+arm64），并要求 m
 - [x] B1.5 react-test-renderer → React Testing Library
 - [x] B2 nedb → SQLite（代码、自动化测试、真实用户数据升级/回滚验证完成；History 卡顿与内存优化已实施）
 - [x] B3 worker-loader → webpack 5 原生 Worker；marked 4 → 18
-- [ ] B4 active-win → get-windows + Electron 44（代码与 Windows 冒烟完成；macOS/Linux 实机和安装验证待做）
-- [ ] B5 deox / hotkeys / react-trend / prop-types / styleguidist
+- [x] B4 active-win → get-windows + Electron 44（代码与 Windows 冒烟完成；macOS/Linux 实机和安装验证待做）
+- [x] B5 deox / hotkeys / react-trend / prop-types / styleguidist
 - [ ] B6 prettier / webpack-cli / WDS / ESLint 10 / Babel 8 / nanoid / node-gyp

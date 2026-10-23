@@ -383,10 +383,10 @@ class Timer extends Component<Props, State> {
      * - editable targets (this page's inputs): the filter refuses the binding
      *   there anyway, so a blanket preventDefault only left a dead key --
      *   pressing Tab in an input moved neither focus nor mode;
-     * - Shift+Tab: not bound at all (hotkeys-js matches modifiers exactly).
+     * - Shift+Tab: not bound at all (the wrapper matches modifiers exactly).
      *
      * It only calls `preventDefault`, never `stopPropagation`: the event keeps
-     * bubbling to the document-level hotkeys-js listener, so the mode still
+     * bubbling to the document-level hotkey listener, so the mode still
      * switches. Note this Layout only sees keydowns from elements INSIDE it --
      * after a click on a blank spot the activeElement is `<body>` and the
      * event goes body -> document straight past this listener, so the 'tab'
@@ -1361,7 +1361,7 @@ class Timer extends Component<Props, State> {
                 // default used to slip through and dropped a focus ring on the
                 // first focusable element (Start button in mini mode,
                 // FocusSelector or the swap button otherwise) right after the
-                // mode switched. hotkeys-js hands us the very event it
+                // mode switched. The shared wrapper hands us the very event it
                 // dispatches, so swallowing it here covers every target the
                 // binding can fire on, and the mode switch and the suppressed
                 // focus jump can no longer come apart.

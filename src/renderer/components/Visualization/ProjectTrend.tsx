@@ -1,7 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-// @ts-ignore
-import Trend from 'react-trend';
 import { PomodoroRecord } from '../../monitor/type';
 import { workers } from '../../workers';
 
@@ -37,26 +35,127 @@ interface Props {
     hoverEffect?: boolean;
 }
 
+interface SparklineProps {
+    width?: number;
+    height?: number;
+    data: number[];
+    smooth?: boolean;
+    gradient?: string[];
+    strokeWidth?: number;
+    strokeLinecap?: 'butt' | 'square' | 'round';
+}
+
+const DEFAULT_GRADIENT = ['#00c6ff', '#F0F', '#FF0'];
+const PADDING = 8;
+
+const buildSmoothPath = (points: { x: number; y: number }[]): string => {
+    if (points.length === 0) {
+        return '';
+    }
+    if (points.length === 1) {
+        return `M ${points[0].x},${points[0].y}`;
+    }
+
+    let path = `M ${points[0].x},${points[0].y}`;
+    for (let i = 1; i < points.length - 1; i++) {
+        const point = points[i];
+        const next = points[i + 1];
+        // Quadratic segments meet at the midpoint of each pair, which smooths
+        // the line without overshooting the data like a Catmull-Rom spline.
+        path += ` Q ${point.x},${point.y} ${(point.x + next.x) / 2},${(point.y + next.y) / 2}`;
+    }
+    const last = points[points.length - 1];
+    return `${path} L ${last.x},${last.y}`;
+};
+
+const buildLinearPath = (points: { x: number; y: number }[]): string =>
+    points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x},${point.y}`).join(' ');
+
+/**
+ * A dependency-free replacement for the archived `react-trend` git fork.
+ *
+ * The card/table sparkline only needs a normalized path and a gradient; keeping
+ * the SVG local removes a codeload dependency that had no package manifest.
+ * `width`/`height` are optional so callers keep the old behavior of filling the
+ * parent width; the viewBox uses a fixed 300x75 coordinate space.
+ */
+const Sparkline: React.FC<SparklineProps> = ({
+    width,
+    height,
+    data,
+    smooth = false,
+    gradient = DEFAULT_GRADIENT,
+    strokeWidth = 1.5,
+    strokeLinecap = 'butt',
+}) => {
+    const gradientId = `pl-sparkline-${React.useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
+    if (data.length < 2) {
+        return null;
+    }
+
+    const viewWidth = width ?? 300;
+    const viewHeight = height ?? 75;
+    const svgWidth = width ?? '100%';
+    const svgHeight = height ?? 30;
+    const min = Math.min(...data);
+    const max = Math.max(...data);
+    const points = data.map((value, index) => ({
+        x: PADDING + (index * (viewWidth - PADDING * 2)) / (data.length - 1),
+        y:
+            max === min
+                ? viewHeight - PADDING
+                : viewHeight - PADDING - ((value - min) / (max - min)) * (viewHeight - PADDING * 2),
+    }));
+    const path = smooth ? buildSmoothPath(points) : buildLinearPath(points);
+
+    return (
+        <svg
+            width={svgWidth}
+            height={svgHeight}
+            viewBox={`0 0 ${viewWidth} ${viewHeight}`}
+            preserveAspectRatio="none"
+            focusable="false"
+            aria-hidden="true"
+        >
+            <defs>
+                <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+                    {gradient.map((color, index) => (
+                        <stop
+                            key={`${color}-${index}`}
+                            offset={`${(index / Math.max(gradient.length - 1, 1)) * 100}%`}
+                            stopColor={color}
+                        />
+                    ))}
+                </linearGradient>
+            </defs>
+            <path
+                d={path}
+                fill="none"
+                stroke={`url(#${gradientId})`}
+                strokeWidth={strokeWidth}
+                strokeLinecap={strokeLinecap}
+                vectorEffect="non-scaling-stroke"
+            />
+        </svg>
+    );
+};
+
 export const ProjectTrend: React.FC<Props> = (props: Props) => {
     const { hoverEffect = false } = props;
-    const ref = useRef<SVGSVGElement | null>(null);
     const C = hoverEffect ? Container : NoHover;
     return (
-        // @ts-ignore
-        <C ref={ref}>
+        <C>
             {props.data.length > 0 ? (
                 <>
                     {hoverEffect ? <h1>TREND</h1> : undefined}
-                    <Trend
+                    <Sparkline
                         width={props.width}
                         height={props.height}
                         smooth={true}
                         data={props.data}
-                        gradient={['#00c6ff', '#F0F', '#FF0']}
-                        radius={10.1}
+                        gradient={DEFAULT_GRADIENT}
                         strokeWidth={1.5}
                         strokeLinecap={'butt'}
-                        maxDada={16}
                     />
                 </>
             ) : undefined}
@@ -91,7 +190,7 @@ export const IdTrend: React.FC<InputProps> = (props: InputProps) => {
         let cancelled = false;
         const worker = workers.dbWorkers.sessionDB;
         worker.find({ boardId }, {}).then((values: PomodoroRecord[]) => {
-            // 组件可能已在查询完成前卸载（如切换视图），此时不再做状态更新
+            // 切换项目/图表时丢弃过期的查询结果，避免旧状态覆盖新状态
             if (cancelled) {
                 return;
             }

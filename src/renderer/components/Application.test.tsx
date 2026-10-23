@@ -118,7 +118,7 @@ const dispatchKey = (key: string, init: KeyboardEventInit = {}) => {
 
 const press = async (key: string, init: KeyboardEventInit = {}) => {
     dispatchKey(key, init);
-    // The Hotkeys wrapper releases its "already down" state in a timeout.
+    // Let React flush the wrapper's keyup bookkeeping.
     await new Promise((resolve) => setTimeout(resolve, 0));
 };
 

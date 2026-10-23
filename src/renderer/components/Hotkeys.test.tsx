@@ -1,11 +1,10 @@
 /**
  * Regression tests for the shared `Hotkeys` wrapper (see Hotkeys.tsx).
  *
- * react-hot-keys@3.0.0 only drains the internal "already down" set it uses to
- * swallow key-repeat when an `onKeyUp` prop is passed, and no call site of the
- * app listens to keyup -- so after the 3.0.0 bump every binding (Ctrl+Tab,
- * Ctrl+Shift+Tab, Tab, F5, ...) fired exactly once per mount and then went
- * dead. The wrapper supplies that prop; these tests pin the behaviour down.
+ * These pin down the wrapper's contract independently of the underlying
+ * library: every press fires once, a held combination does not auto-repeat,
+ * keyup releases it for the next press, and the input/window-focus/modal
+ * guards stay in force.
  */
 import React from 'react';
 import { act, render } from '@testing-library/react';
@@ -18,8 +17,7 @@ const dispatch = (type: 'keydown' | 'keyup', key: string, init: KeyboardEventIni
 };
 
 /**
- * The wrapper's release path lives in a `setTimeout(0)` behind the library's
- * document-level keyup listener, so a press is only "finished" after it ran.
+ * Let React flush the keyup bookkeeping before asserting a subsequent press.
  */
 const flushRelease = () =>
     act(async () => {
@@ -57,7 +55,7 @@ const unmount = async (view: ReturnType<typeof render>) => {
     await flushRelease();
 };
 
-describe('Hotkeys wrapper (react-hot-keys 3.0.0 release tracking)', () => {
+describe('Hotkeys wrapper (press / repeat tracking)', () => {
     it('fires a combination again on every press', async () => {
         const onKeyDown = jest.fn();
         const view = mount('ctrl+tab', onKeyDown);
@@ -134,6 +132,16 @@ describe('Hotkeys wrapper (react-hot-keys 3.0.0 release tracking)', () => {
             'ctrl+shift+tab',
             'ctrl+shift+tab',
         ]);
+    });
+
+    it('keeps the call-site spelling for Escape', async () => {
+        const onKeyDown = jest.fn();
+        const view = mount('esc', onKeyDown);
+
+        await press('Escape', {});
+        await unmount(view);
+
+        expect(onKeyDown.mock.calls.map((call) => call[0])).toEqual(['esc']);
     });
 });
 
@@ -218,7 +226,7 @@ describe('Hotkeys wrapper (input / window-focus guards)', () => {
 
     it('hands the call site the live event so the binding can swallow its default', async () => {
         // `Timer.onKeyDown`'s 'tab' branch relies on this contract: it calls
-        // preventDefault on the very event hotkeys-js dispatches, so the mode
+        // preventDefault on the very event the wrapper dispatches, so the mode
         // switch and the suppressed focus jump (the focus ring that used to
         // land on the first focusable element after clicking a blank spot)
         // cannot come apart.

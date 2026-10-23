@@ -15,10 +15,10 @@ You only need to install the latest version of node.js and node-gyp to build thi
 > **TypeScript 7 toolchain**: `@typescript/native` installs the native `tsc`
 > (TypeScript 7), which provides `yarn typecheck` and the type-check step of
 > `yarn build`. The `typescript` package is deliberately aliased to
-> `@typescript/typescript6`: typescript-eslint and react-docgen-typescript still
-> need the TypeScript 6 JavaScript compiler API, which TypeScript 7.0 does not
-> ship. Transpilation is handled by Babel in webpack and Jest, so `ts-loader`
-> and `ts-jest` are intentionally absent.
+> `@typescript/typescript6`: typescript-eslint still needs the TypeScript 6
+> JavaScript compiler API, which TypeScript 7.0 does not ship. Transpilation is
+> handled by Babel in webpack and Jest, so `ts-loader` and `ts-jest` are
+> intentionally absent.
 
 > **Test environment**: Jest loads [`test/setup-env.js`](../test/setup-env.js) through
 > `setupFiles` in `jest.config.js` before any test module. It pins `NODE_ENV=test` so

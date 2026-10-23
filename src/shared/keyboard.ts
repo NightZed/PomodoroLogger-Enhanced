@@ -15,9 +15,8 @@
  * Consumers: the renderer's hotkey filter and `Timer.handleNativeKeydown`
  * (see src/renderer/components/Hotkeys.tsx -- they must agree so a binding
  * and Tab's preventDefault never come apart) and the Search bar's Ctrl+F
- * listener (which must not steal focus from a field being typed in). Same
- * predicate as react-hot-keys' stock `defaultFilter`: `document` and plain
- * elements pass, editable ones do not.
+ * listener (which must not steal focus from a field being typed in).
+ * `document` and plain elements pass, editable ones do not.
  */
 export function isEditableTarget(target: EventTarget | null): boolean {
     if (!target) {

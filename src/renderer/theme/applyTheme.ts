@@ -31,8 +31,8 @@ const colorTokenKeys = Object.keys(CSS_VAR_NAMES) as ColorTokenKey[];
 
 /**
  * `electron` is not available when the theme module is imported outside of the
- * Electron runtime (unit tests, styleguidist), so it is resolved lazily and the
- * callers degrade to a DOM-only theme switch.
+ * Electron runtime (unit tests), so it is resolved lazily and the callers
+ * degrade to a DOM-only theme switch.
  */
 export function getNativeTheme():
     | { themeSource?: ThemeSource; shouldUseDarkColors?: boolean }

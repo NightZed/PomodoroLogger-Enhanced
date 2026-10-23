@@ -1,4 +1,4 @@
-import { createActionCreator, createReducer } from 'deox';
+import { createAction, createReducer } from '@reduxjs/toolkit';
 import { Dispatch } from 'redux';
 import { actions as cardAction } from '../Card/action';
 import { actions as boardActions } from '../Board/action';
@@ -9,152 +9,155 @@ import { List, ListsState } from '../type';
 const db = workers.dbWorkers.listsDB;
 const moveDB = workers.dbWorkers.moveDB;
 
-const addList = createActionCreator(
-    '[List]ADD',
-    (resolve) => (_id: string, title: string) => resolve({ _id, title })
-);
+const addList = createAction('[List]ADD', (_id: string, title: string) => ({
+    payload: { _id, title },
+}));
 
-const setLists = createActionCreator(
-    '[List]SET_Lists',
-    (resolve) => (lists: ListsState) => resolve(lists)
-);
+const setLists = createAction('[List]SET_Lists', (lists: ListsState) => ({ payload: lists }));
 
-const moveCard = createActionCreator(
+const moveCard = createAction(
     '[List]MOVE_CARD',
-    (resolve) =>
-        (
-            fromListId: string,
-            toListId: string,
-            fromIndex: number,
-            toIndex: number,
-            done: (movedCardId: string) => void
-        ) =>
-            resolve({ fromListId, toListId, fromIndex, toIndex, done })
+    (
+        fromListId: string,
+        toListId: string,
+        fromIndex: number,
+        toIndex: number,
+        done: (movedCardId: string) => void
+    ) => ({ payload: { fromListId, toListId, fromIndex, toIndex, done } })
 );
 
-const renameList = createActionCreator(
-    '[List]RENAME',
-    (resolve) => (_id, title) => resolve({ _id, title })
-);
+const renameList = createAction('[List]RENAME', (_id, title) => ({ payload: { _id, title } }));
 
-const addCard = createActionCreator(
-    '[List]ADD_CARD',
-    (resolve) => (_id, cardId) => resolve({ _id, cardId })
-);
+const addCard = createAction('[List]ADD_CARD', (_id, cardId) => ({ payload: { _id, cardId } }));
 
-const deleteList = createActionCreator('[List]DEL_LIST', (resolve) => (_id) => resolve({ _id }));
+const deleteList = createAction('[List]DEL_LIST', (_id) => ({ payload: { _id } }));
 
-const deleteCard = createActionCreator(
-    '[List]DEL_CARD',
-    (resolve) => (_id, cardId) => resolve({ _id, cardId })
-);
+const deleteCard = createAction('[List]DEL_CARD', (_id, cardId) => ({ payload: { _id, cardId } }));
 
-const setVisibleCards = createActionCreator(
+const setVisibleCards = createAction(
     '[List]SET_VISIBLE_CARDS',
-    (resolve) => (listId: string, cards?: string[]) => resolve({ listId, cards })
+    (listId: string, cards?: string[]) => ({ payload: { listId, cards } })
 );
 
-export const listReducer = createReducer<ListsState, any>({}, (handle) => [
-    handle(addList, (state, { payload: { _id, title } }) => ({
-        ...state,
-        [_id]: {
-            _id,
-            title,
-            cards: [],
-        },
-    })),
-
-    handle(setLists, (state, { payload }) => payload),
-    handle(moveCard, (state, { payload: { fromListId, toListId, fromIndex, toIndex, done } }) => {
-        const newState = { ...state };
-        const fromList = newState[fromListId];
-        const fromCards = Array.from(fromList.cards);
-        if (fromList.visibleCards) {
-            // user is actually moving one of the visible cards
-            fromIndex = fromCards.indexOf(fromList.visibleCards[fromIndex]);
-            if (fromListId === toListId) {
-                if (toIndex < fromList.visibleCards.length) {
-                    toIndex = fromCards.indexOf(fromList.visibleCards[toIndex]);
-                } else {
-                    const lastVisible = fromList.visibleCards[fromList.visibleCards.length - 1];
-                    const lastVisibleIndex = fromCards.indexOf(lastVisible);
-                    toIndex = lastVisibleIndex + 1;
+export const listReducer = createReducer<ListsState>({}, (builder) => {
+    builder
+        .addCase(addList, (state, { payload: { _id, title } }) => ({
+            ...state,
+            [_id]: {
+                _id,
+                title,
+                cards: [],
+            },
+        }))
+        .addCase(setLists, (state, { payload }) => payload)
+        .addCase(
+            moveCard,
+            (state, { payload: { fromListId, toListId, fromIndex, toIndex, done } }) => {
+                const fromList = state[fromListId];
+                const fromCards = Array.from(fromList.cards);
+                if (fromList.visibleCards) {
+                    // user is actually moving one of the visible cards
+                    fromIndex = fromCards.indexOf(fromList.visibleCards[fromIndex]);
+                    if (fromListId === toListId) {
+                        if (toIndex < fromList.visibleCards.length) {
+                            toIndex = fromCards.indexOf(fromList.visibleCards[toIndex]);
+                        } else {
+                            const lastVisible =
+                                fromList.visibleCards[fromList.visibleCards.length - 1];
+                            const lastVisibleIndex = fromCards.indexOf(lastVisible);
+                            toIndex = lastVisibleIndex + 1;
+                        }
+                    }
                 }
+
+                (async () => {
+                    // I hate to write effect in reducer. But I did not find a clean way to get the correct fromIndex
+                    const from: List = await db.findOne({ _id: fromListId });
+                    const fromCards = from.cards;
+                    const [rm] = fromCards.splice(fromIndex, 1);
+                    if (fromListId === toListId) {
+                        fromCards.splice(toIndex, 0, rm);
+                        await db.update({ _id: fromListId }, { $set: { cards: fromCards } }, {});
+                        return rm;
+                    }
+
+                    const dest: List = await db.findOne({ _id: toListId });
+                    const destCards = dest.cards;
+                    destCards.splice(toIndex, 0, rm);
+                    await db.update({ _id: fromListId }, { $set: { cards: fromCards } }, {});
+                    await db.update({ _id: toListId }, { $set: { cards: destCards } }, {});
+                    await moveDB.insert({
+                        fromListId,
+                        toListId,
+                        cardId: rm,
+                        time: new Date().getTime(),
+                    });
+                    return rm;
+                })().then(done);
+
+                if (fromListId === toListId) {
+                    const [del] = fromCards.splice(fromIndex, 1);
+                    fromCards.splice(toIndex, 0, del);
+                    return {
+                        ...state,
+                        [fromListId]: {
+                            ...state[fromListId],
+                            cards: fromCards,
+                        },
+                    };
+                }
+
+                const toCards = Array.from(state[toListId].cards);
+                const [del] = fromCards.splice(fromIndex, 1);
+                toCards.splice(toIndex, 0, del);
+                return {
+                    ...state,
+                    [fromListId]: {
+                        ...state[fromListId],
+                        cards: fromCards,
+                    },
+                    [toListId]: {
+                        ...state[toListId],
+                        cards: toCards,
+                    },
+                };
             }
-        }
-
-        (async () => {
-            // I hate to write effect in reducer. But I did not find a clean way to get the correct fromIndex
-            const from: List = await db.findOne({ _id: fromListId });
-            const fromCards = from.cards;
-            const [rm] = fromCards.splice(fromIndex, 1);
-            if (fromListId === toListId) {
-                fromCards.splice(toIndex, 0, rm);
-                await db.update({ _id: fromListId }, { $set: { cards: fromCards } }, {});
-                return rm;
-            }
-
-            const dest: List = await db.findOne({ _id: toListId });
-            const destCards = dest.cards;
-            destCards.splice(toIndex, 0, rm);
-            await db.update({ _id: fromListId }, { $set: { cards: fromCards } }, {});
-            await db.update({ _id: toListId }, { $set: { cards: destCards } }, {});
-            await moveDB.insert({ fromListId, toListId, cardId: rm, time: new Date().getTime() });
-            return rm;
-        })().then(done);
-
-        if (fromListId === toListId) {
-            const [del] = fromCards.splice(fromIndex, 1);
-            fromCards.splice(toIndex, 0, del);
-            newState[fromListId].cards = fromCards;
-            return newState;
-        }
-
-        const toCards = Array.from(newState[toListId].cards);
-        const [del] = fromCards.splice(fromIndex, 1);
-        toCards.splice(toIndex, 0, del);
-        newState[fromListId].cards = fromCards;
-        newState[toListId].cards = toCards;
-        return newState;
-    }),
-
-    handle(renameList, (state, { payload: { _id, title } }) => {
-        return {
+        )
+        .addCase(renameList, (state, { payload: { _id, title } }) => {
+            return {
+                ...state,
+                [_id]: {
+                    ...state[_id],
+                    title,
+                },
+            };
+        })
+        .addCase(addCard, (state, { payload: { _id, cardId } }) => ({
             ...state,
             [_id]: {
                 ...state[_id],
-                title,
+                cards: [...state[_id].cards, cardId],
             },
-        };
-    }),
-
-    handle(addCard, (state, { payload: { _id, cardId } }) => ({
-        ...state,
-        [_id]: {
-            ...state[_id],
-            cards: [...state[_id].cards, cardId],
-        },
-    })),
-
-    handle(deleteList, (state, { payload: { _id } }) => {
-        const { [_id]: _del, ...rest } = state;
-        return rest;
-    }),
-
-    handle(deleteCard, (state, { payload: { _id, cardId } }) => {
-        const newState = { ...state };
-        newState[_id].cards = newState[_id].cards.filter((v) => v !== cardId);
-        return newState;
-    }),
-
-    handle(setVisibleCards, (state, { payload: { listId, cards } }) => ({
-        ...state,
-        [listId]: {
-            ...state[listId],
-            visibleCards: cards,
-        },
-    })),
-]);
+        }))
+        .addCase(deleteList, (state, { payload: { _id } }) => {
+            const { [_id]: _del, ...rest } = state;
+            return rest;
+        })
+        .addCase(deleteCard, (state, { payload: { _id, cardId } }) => ({
+            ...state,
+            [_id]: {
+                ...state[_id],
+                cards: state[_id].cards.filter((v) => v !== cardId),
+            },
+        }))
+        .addCase(setVisibleCards, (state, { payload: { listId, cards } }) => ({
+            ...state,
+            [listId]: {
+                ...state[listId],
+                visibleCards: cards,
+            },
+        }));
+});
 
 export const actions = {
     setVisibleCards: (listId: string, cards?: string[]) => (dispatch: Dispatch) => {

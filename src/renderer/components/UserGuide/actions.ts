@@ -1,4 +1,4 @@
-import { createAction, createReducer } from 'deox';
+import { createAction, createReducer } from '@reduxjs/toolkit';
 import { Story } from './type';
 import { timerStories, kanbanStories, allStories } from './stories';
 
@@ -23,16 +23,13 @@ const preStory = createAction('[Guide]PRE_STORY');
 
 const quit = createAction('[Guide]QUIT');
 
-const startHelpByStoryName = createAction(
-    '[Guide]HELP_BY_NAME',
-    (resolve) =>
-        (name: string = 'all') =>
-            resolve({ name })
-);
+const startHelpByStoryName = createAction('[Guide]HELP_BY_NAME', (name: string = 'all') => ({
+    payload: { name },
+}));
 
 const resumeByStepId = createAction(
     '[Guide]RESUME_BY_STEP',
-    (resolve) => (tourName: string, stepId: string) => resolve({ tourName, stepId })
+    (tourName: string, stepId: string) => ({ payload: { tourName, stepId } })
 );
 
 export const actions = {
@@ -55,54 +52,55 @@ const indexOfStepId = (stories: Story[] | undefined, stepId: string): number => 
     return byName >= 0 ? byName : 0;
 };
 
-export const storyReducer = createReducer(defaultState, (handle) => [
-    handle(nextStory, (state) => {
-        if (state.name == null) {
-            return state;
-        }
+export const storyReducer = createReducer(defaultState, (builder) => {
+    builder
+        .addCase(nextStory, (state) => {
+            if (state.name == null) {
+                return state;
+            }
 
-        if (state.index + 1 >= state.stories[state.name].length) {
-            // Tour finished: quit instead of looping back to step 0.
-            try {
-                window.localStorage.removeItem('pl-tour-progress');
-            } catch (e) {
-                // ignore
+            if (state.index + 1 >= state.stories[state.name].length) {
+                // Tour finished: quit instead of looping back to step 0.
+                try {
+                    window.localStorage.removeItem('pl-tour-progress');
+                } catch (e) {
+                    // ignore
+                }
+                return {
+                    stories: state.stories,
+                    index: 0,
+                    name: undefined,
+                };
             }
             return {
-                stories: state.stories,
-                index: 0,
-                name: undefined,
+                ...state,
+                index: state.index + 1,
             };
-        }
-        return {
-            ...state,
-            index: state.index + 1,
-        };
-    }),
-    handle(preStory, (state) => {
-        if (state.index - 1 < 0) {
+        })
+        .addCase(preStory, (state) => {
+            if (state.index - 1 < 0) {
+                return {
+                    stories: state.stories,
+                    index: 0,
+                };
+            }
             return {
-                stories: state.stories,
-                index: 0,
+                ...state,
+                index: state.index - 1,
             };
-        }
-        return {
+        })
+        .addCase(quit, (state) => ({
             ...state,
-            index: state.index - 1,
-        };
-    }),
-    handle(quit, (state) => ({
-        ...state,
-        name: undefined,
-    })),
-    handle(startHelpByStoryName, (state, { payload: { name } }) => ({
-        ...state,
-        name,
-        index: 0,
-    })),
-    handle(resumeByStepId, (state, { payload: { tourName, stepId } }) => ({
-        ...state,
-        name: tourName,
-        index: indexOfStepId(state.stories[tourName], stepId),
-    })),
-]);
+            name: undefined,
+        }))
+        .addCase(startHelpByStoryName, (state, { payload: { name } }) => ({
+            ...state,
+            name,
+            index: 0,
+        }))
+        .addCase(resumeByStepId, (state, { payload: { tourName, stepId } }) => ({
+            ...state,
+            name: tourName,
+            index: indexOfStepId(state.stories[tourName], stepId),
+        }));
+});

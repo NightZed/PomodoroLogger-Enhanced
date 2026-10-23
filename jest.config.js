@@ -35,9 +35,10 @@ module.exports = {
                 ]
             }
         ],
-        // marked 18 is ESM-only (no CJS entry). Jest's VM runtime cannot
-        // require() the ESM file directly, so transpile that one dependency.
-        'node_modules[/\\\\]marked[/\\\\].+\\.js$': [
+        // marked 18 and react-hotkeys-hook 5 are ESM-only (no CJS entry).
+        // Jest's VM runtime cannot require() their ESM files directly, so
+        // transpile those dependencies.
+        'node_modules[/\\\\](marked|react-hotkeys-hook)[/\\\\].+\\.js$': [
             'babel-jest',
             {
                 babelrc: false,
@@ -46,9 +47,9 @@ module.exports = {
             }
         ]
     },
-    // Keep the default node_modules exclusion, but allow marked through the
-    // transform above. Other dependencies stay untouched.
-    transformIgnorePatterns: ['/node_modules/(?!(marked)/)'],
+    // Keep the default node_modules exclusion, but allow the ESM dependencies
+    // above through the transform. Other dependencies stay untouched.
+    transformIgnorePatterns: ['/node_modules/(?!(marked|react-hotkeys-hook)/)'],
     moduleFileExtensions: ['ts', 'tsx', 'js', 'json', 'node'],
     moduleNameMapper: {
         '\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga|dat)$':

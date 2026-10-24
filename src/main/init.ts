@@ -4,7 +4,6 @@ import {
     BrowserWindow,
     protocol,
     Menu,
-    ipcMain,
     app,
     nativeTheme,
     dialog,
@@ -17,9 +16,10 @@ import logo from '../res/icon_sm.png';
 import { DAY_THEME_ID } from '../renderer/theme/tokens';
 import packageJson from '../../package.json';
 import { AutoUpdater } from './AutoUpdater';
-import { initialize } from './ipc/ipc';
+import { handleCommand, initialize } from './ipc/ipc';
 import { IpcEventName, TrayEventName, UpdateEventName, WindowEventName } from './ipc/type';
-import type { TrayMenuItem } from './ipc/type';
+import type { TrayIconPayload, TrayMenuItem } from './ipc/type';
+import { assertTrayIconPayload } from './ipc/validate';
 import { stopWindowDrag } from './ipc/windowDrag';
 import { initActiveWin } from './activeWin';
 import { openExternalUrl } from './openExternal';
@@ -319,7 +319,7 @@ const createWindow = async () => {
         }
     });
 
-    ipcMain.addListener(IpcEventName.Quit, () => {
+    handleCommand(IpcEventName.Quit, () => {
         if (process.env.NODE_ENV === 'development') {
             console.log('receive quit-app');
             return;
@@ -329,7 +329,7 @@ const createWindow = async () => {
         app.exit();
     });
 
-    ipcMain.addListener(IpcEventName.Restart, restart);
+    handleCommand(IpcEventName.Restart, restart);
 
     // 方案一 + 附带清理: the renderer draws the icon at the physical size it
     // will be SHOWN at (16 logical px x display scale, see `trayCanvasSize`),
@@ -337,16 +337,17 @@ const createWindow = async () => {
     // re-scales it -- no blur. Memory direct `setImage(dataURL-backed
     // nativeImage)` instead of the old write-tray@2x.png-then-read-path round
     // trip, which added file IO latency to every icon update.
-    ipcMain.addListener(
+    handleCommand(
         IpcEventName.SetTray,
-        (event: any, payload: { src: string; scaleFactor: number }) => {
+        (payload: TrayIconPayload) => {
             const scaleFactor = payload.scaleFactor > 0 ? payload.scaleFactor : 1;
             const image = nativeImage.createFromBuffer(
                 nativeImage.createFromDataURL(payload.src).toPNG(),
                 { scaleFactor }
             );
             mGlobal.tray?.setImage(image);
-        }
+        },
+        [(value) => assertTrayIconPayload(value)]
     );
 
     if (process.platform === 'darwin') {
@@ -508,15 +509,15 @@ function update() {
 
     const autoUpdater = new AutoUpdater(sendStatusToWindow);
 
-    ipcMain.on(IpcEventName.DownloadUpdate, () => {
+    handleCommand(IpcEventName.DownloadUpdate, () => {
         autoUpdater.download();
     });
 
-    ipcMain.on(IpcEventName.CheckUpdate, () => {
+    handleCommand(IpcEventName.CheckUpdate, () => {
         autoUpdater.checkUpdate(true);
     });
 
-    ipcMain.on(IpcEventName.InstallUpdate, () => {
+    handleCommand(IpcEventName.InstallUpdate, () => {
         if (process.env.NODE_ENV === 'development') {
             console.log('receive install-update');
             return;

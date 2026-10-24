@@ -6,14 +6,42 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const { build } = require('./package');
 const baseConfig = require('./webpack.base.config');
 
+// Dev needs the webpack-dev-server websocket and React Refresh's eval; the
+// packaged app never gets either. Everything else is the same policy, so a
+// production-only CSP mistake cannot hide behind a looser dev build.
+const isDevelopment = process.env.NODE_ENV === 'development';
+const csp = [
+    "default-src 'self'",
+    `script-src 'self'${isDevelopment ? " 'unsafe-eval'" : ''}`,
+    "script-src-attr 'none'",
+    "style-src 'self' 'unsafe-inline'",
+    // Markdown/release notes may embed remote images; they cannot execute
+    // code, while every script/connect source stays restricted to 'self'.
+    "img-src 'self' data: blob: wallpaper: https:",
+    "font-src 'self' data:",
+    "media-src 'self' blob:",
+    "worker-src 'self' blob:",
+    `connect-src 'self'${isDevelopment ? ' http://localhost:2003 ws://localhost:2003' : ''}`,
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'none'",
+    "frame-src 'none'",
+].join('; ');
+
 module.exports = merge(baseConfig, {
     target: 'electron-renderer',
     entry: {
-        app: ['./src/renderer/app.tsx']
+        app: ['./src/renderer/app.tsx'],
+    },
+    output: {
+        // The renderer is sandboxed and has no Node `global`. Webpack's HMR
+        // runtime otherwise emits `global["webpackHotUpdate..."]`, which fails
+        // with "global is not defined" before the app can mount in dev.
+        globalObject: 'globalThis',
     },
     module: {
         rules: [
-                        {
+            {
                 test: /\.tsx?$/,
                 exclude: /node_modules/,
                 use: {
@@ -22,33 +50,36 @@ module.exports = merge(baseConfig, {
                         cacheDirectory: true,
                         babelrc: false,
                         presets: [
-                            ['@babel/preset-env', {
-                                // This config builds `target: 'electron-renderer'`
-                                // only, so the code never runs in a browser.
-                                // `last 2 versions` made preset-env downlevel for
-                                // browsers the app cannot run in, pulling in
-                                // transform-async-to-generator / transform-classes.
-                                // Those modern helpers call NodePath APIs that a
-                                // stale nested @babel/traverse (7.17, installed
-                                // under @babel/core) does not have, which made any
-                                // re-transpiled file fail with
-                                // "path.ensureFunctionName is not a function".
-                                // Compile for Electron instead. The value is a
-                                // minimum, not the exact bundled version: the
-                                // app ships its own Electron, so there is no
-                                // older runtime to support, and a future
-                                // Electron upgrade does not require touching
-                                // this line (it only means a few features stay
-                                // transpiled a little longer than necessary).
-                                targets: { electron: '39' },
-                                modules: false
-                            }],
+                            [
+                                '@babel/preset-env',
+                                {
+                                    // This config builds `target: 'electron-renderer'`
+                                    // only, so the code never runs in a browser.
+                                    // `last 2 versions` made preset-env downlevel for
+                                    // browsers the app cannot run in, pulling in
+                                    // transform-async-to-generator / transform-classes.
+                                    // Those modern helpers call NodePath APIs that a
+                                    // stale nested @babel/traverse (7.17, installed
+                                    // under @babel/core) does not have, which made any
+                                    // re-transpiled file fail with
+                                    // "path.ensureFunctionName is not a function".
+                                    // Compile for Electron instead. The value is a
+                                    // minimum, not the exact bundled version: the
+                                    // app ships its own Electron, so there is no
+                                    // older runtime to support, and a future
+                                    // Electron upgrade does not require touching
+                                    // this line (it only means a few features stay
+                                    // transpiled a little longer than necessary).
+                                    targets: { electron: '39' },
+                                    modules: false,
+                                },
+                            ],
                             // Babel 8 defaults `onlyRemoveTypeImports` to true,
                             // so value imports that are only used in type
                             // positions would survive and pull in `.d.ts` files
                             // webpack cannot resolve. Keep Babel 7's behaviour:
                             // elide imports that are provably type-only.
-                            ['@babel/preset-typescript', { onlyRemoveTypeImports: false }]
+                            ['@babel/preset-typescript', { onlyRemoveTypeImports: false }],
                         ],
                         // Babel 8 enables JSX parsing for every file when
                         // preset-react is active, which makes generic arrow
@@ -57,59 +88,61 @@ module.exports = merge(baseConfig, {
                         overrides: [
                             {
                                 test: /\.tsx$/,
-                                presets: ['@babel/preset-react']
-                            }
+                                presets: ['@babel/preset-react'],
+                            },
                         ],
                         plugins: [
                             '@babel/plugin-transform-runtime',
-                            ...(process.env.NODE_ENV === 'development' ? ['react-refresh/babel'] : [])
-                        ]
-                    }
-                }
+                            ...(process.env.NODE_ENV === 'development'
+                                ? ['react-refresh/babel']
+                                : []),
+                        ],
+                    },
+                },
             },
             {
                 test: /\.scss$/,
-                use: ['style-loader', 'css-loader', 'sass-loader']
+                use: ['style-loader', 'css-loader', 'sass-loader'],
             },
             {
                 test: /\.css$/,
-                use: ['style-loader', 'css-loader']
+                use: ['style-loader', 'css-loader'],
             },
             {
                 test: /\.svg(\?v=\d+\.\d+\.\d+)?$/,
                 use: [
                     {
-                        loader: 'babel-loader'
+                        loader: 'babel-loader',
                     },
                     {
                         loader: '@svgr/webpack',
                         options: {
-                            icon: true
-                        }
-                    }
-                ]
+                            icon: true,
+                        },
+                    },
+                ],
             },
             {
                 // url-loader with an 8kb inline limit -> webpack 5 asset module
                 test: /\.(gif|png|jpe?g)$/,
                 type: 'asset',
                 parser: {
-                    dataUrlCondition: { maxSize: 8192 }
-                }
+                    dataUrlCondition: { maxSize: 8192 },
+                },
             },
             // All output '.js' files will have any sourcemaps re-processed by 'source-map-loader'.
             {
                 enforce: 'pre',
                 test: /\.js$/,
                 exclude: /node_modules/,
-                loader: 'source-map-loader'
+                loader: 'source-map-loader',
             },
             {
                 test: /\.(dat|mp3)$/,
-                type: 'asset/resource'
-            }
-        ]
-        },
+                type: 'asset/resource',
+            },
+        ],
+    },
     plugins: [
         // Type checking is done by `yarn typecheck` (see webpack.main.config.js).
         new CopyPlugin({
@@ -119,20 +152,21 @@ module.exports = merge(baseConfig, {
                     to: path.resolve(__dirname, 'dist'),
                     // index.html is the HtmlWebpackPlugin template: copying it would
                     // clash with the generated file (webpack 5 errors on that).
-                    globOptions: { ignore: ['**/index.html'] }
-                }
-            ]
+                    globOptions: { ignore: ['**/index.html'] },
+                },
+            ],
         }),
         new HtmlWebpackPlugin({
             title: build.productName,
             template: 'public/index.html',
-            inject: true
+            inject: true,
+            csp,
         }),
         new webpack.DefinePlugin({
-            'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
-        })
+            'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+        }),
     ],
     resolve: {
-        alias: {}
-    }
+        alias: {},
+    },
 });

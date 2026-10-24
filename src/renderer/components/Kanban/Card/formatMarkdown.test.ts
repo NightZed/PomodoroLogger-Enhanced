@@ -26,7 +26,8 @@ describe('Markdown tag', () => {
     });
 
     it("'hello'", () => {
-        expect(formatMarkdown("'hello'").trim()).toEqual('<p>&#39;hello&#39;</p>');
+        // DOMPurify normalizes the text entities marked produces.
+        expect(formatMarkdown("'hello'").trim()).toEqual("<p>'hello'</p>");
     });
 
     it('italic', () => {
@@ -49,7 +50,7 @@ describe('Markdown tag', () => {
 describe('task checkbox', () => {
     it('keeps plain [ ] clickable', () => {
         const html = formatMarkdown('[ ] todo');
-        expect(html).toContain('<input id=0 onclick="return false" type="checkbox">');
+        expect(html).toContain('<input type="checkbox">');
         expect(html).not.toContain('disabled');
     });
 
@@ -59,7 +60,6 @@ describe('task checkbox', () => {
         expect(input).toBeDefined();
         expect(input).not.toContain('disabled');
         expect(input).not.toContain('checked');
-        expect(input).toContain('onclick="return false"');
     });
 
     it('renders - [x] as a checked clickable checkbox', () => {
@@ -68,7 +68,6 @@ describe('task checkbox', () => {
         expect(input).toBeDefined();
         expect(input).not.toContain('disabled');
         expect(input).toContain('checked');
-        expect(input).toContain('onclick="return false"');
     });
 
     it('keeps checkbox order aligned with the markdown source', () => {
@@ -80,8 +79,32 @@ describe('task checkbox', () => {
         expect(inputs.map((input) => input.includes('checked'))).toEqual([false, false, true]);
         for (const box of inputs) {
             expect(box).not.toContain('disabled');
-            expect(box).toContain('onclick="return false"');
         }
+    });
+});
+
+describe('markdown sanitization', () => {
+    it('drops scripts and inline event handlers', () => {
+        const html = formatMarkdown(
+            '<script>window.evil = true</script>\n\n<img src="x" onerror="window.evil = true">'
+        );
+        expect(html).not.toContain('<script');
+        expect(html).not.toContain('onerror');
+        expect(html).not.toContain('window.evil');
+    });
+
+    it('drops dangerous link protocols and embedded styles', () => {
+        const html = formatMarkdown(
+            '[click](javascript:alert(1))\n\n<style>body { display: none }</style>'
+        );
+        expect(html).not.toContain('javascript:');
+        expect(html).not.toContain('<style');
+    });
+
+    it('keeps the generated tag markup intact', () => {
+        const html = formatMarkdown('deploy #prod');
+        expect(html).toContain('<span class="pl-tag"');
+        expect(html).toContain('--hover-background');
     });
 });
 

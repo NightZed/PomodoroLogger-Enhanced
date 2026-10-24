@@ -1,22 +1,63 @@
 import { ipcMain } from 'electron';
+import type { IpcMainInvokeEvent } from 'electron';
 import { DbEventName, WorkerMessageType } from '../ipc/type';
 import { sendWorkerMessage } from '../worker/fork';
 import { DBs, loadDBs } from './index';
-import { DbName } from './types';
+import { dbNames, DbName } from './types';
+
+type SenderGuard = (event: IpcMainInvokeEvent) => boolean;
+
+/** The complete set of repository methods the renderer proxies. */
+const allowedOperations = new Set([
+    'find',
+    'findOne',
+    'insert',
+    'update',
+    'remove',
+    'count',
+    'aggHistory',
+]);
 
 /**
  * The renderer never opens a SQLite connection. It sends the same repository
  * calls it used to make through `@electron/remote` (plus the db worker), and
  * the main process performs them on the single writer connection.
+ *
+ * The channel names, repository names and operation names are all checked
+ * here: a compromised renderer cannot reach arbitrary functions or even a
+ * differently-cased method name through this generic-looking bridge.
  */
-export function initializeDbIpc() {
-    ipcMain.handle(DbEventName.Ready, async () => {
+export function initializeDbIpc(isTrustedSender: SenderGuard = () => true) {
+    const assertSender = (event: IpcMainInvokeEvent) => {
+        if (!isTrustedSender(event)) {
+            throw new Error('Blocked database IPC from an untrusted sender');
+        }
+    };
+
+    ipcMain.handle(DbEventName.Ready, async (event) => {
+        assertSender(event);
         await loadDBs();
     });
 
     ipcMain.handle(
         DbEventName.Request,
-        async (_event, name: DbName, operation: string, args: any[] = []) => {
+        async (event, name: DbName, operation: string, args: any[] = []) => {
+            assertSender(event);
+
+            if (typeof name !== 'string' || !dbNames.includes(name)) {
+                throw new Error(`Unknown database: ${name}`);
+            }
+            if (
+                typeof operation !== 'string' ||
+                !/^[A-Za-z][A-Za-z0-9]{0,63}$/.test(operation) ||
+                !allowedOperations.has(operation)
+            ) {
+                throw new Error(`Invalid database operation: ${operation}`);
+            }
+            if (!Array.isArray(args) || args.length > 10) {
+                throw new Error('Database arguments must be an array of at most 10 entries');
+            }
+
             await loadDBs();
             const repository = DBs[name] as any;
             if (!repository) {

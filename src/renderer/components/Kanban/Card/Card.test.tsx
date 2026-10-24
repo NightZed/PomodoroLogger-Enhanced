@@ -168,10 +168,12 @@ describe('Card content clicks', () => {
 
         const checkbox = container.querySelector('input[type="checkbox"]') as HTMLInputElement;
         expect(checkbox).not.toBeNull();
-        click(checkbox);
+        const event = click(checkbox);
 
         expect(actions.setContent).toHaveBeenCalledWith('card-1', '- [x] todo');
         expect(actions.setEditCard).not.toHaveBeenCalled();
+        // The React state owns the checkbox; the browser must not flip it first.
+        expect(event.defaultPrevented).toBe(true);
     });
 
     it('defers markdown for off-screen cards until they intersect the viewport', () => {

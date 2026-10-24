@@ -207,6 +207,11 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                     return;
                 }
 
+                // The state is derived from the markdown source and re-rendered
+                // after `setContent`. Letting the browser flip the input first
+                // would show the wrong state for one frame (the old markup also
+                // used an inline onclick for this; DOMPurify/CSP forbid that).
+                e.preventDefault();
                 const checkboxIndex = getCheckboxIndex(markdownRef.current, checkbox);
                 const nextContent = toggleNthCheckbox(props.content, checkboxIndex);
                 if (nextContent !== undefined) {

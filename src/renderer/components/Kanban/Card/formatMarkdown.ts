@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 
 export interface MarkdownContext {
@@ -57,19 +58,14 @@ export const formatMarkdown = (markdown: string, context: MarkdownContext = defa
         }
     }
 
-    let i = 0;
     const html = marked
         .parse(markdown, { gfm: true, breaks: true, async: false })
         .replace(/<a/g, '<a target="_blank"')
         .replace(/\[(\s|x)\]/g, (match) => {
-            let newString;
-            if (match === '[ ]') {
-                newString = `<input id=${i} onclick="return false" type="checkbox">`;
-            } else {
-                newString = `<input id=${i} checked onclick="return false" type="checkbox">`;
-            }
-            i += 1;
-            return newString;
+            const checked = match === '[x]' ? ' checked' : '';
+            // The card's click handler owns the checkbox state; no inline
+            // `onclick` is needed (and none is allowed through DOMPurify/CSP).
+            return `<input${checked} type="checkbox">`;
         })
         // GFM task list items (`- [ ] ...`) are rendered by marked itself as
         // `<input ... disabled="" ... type="checkbox">`. The `disabled`
@@ -89,11 +85,20 @@ export const formatMarkdown = (markdown: string, context: MarkdownContext = defa
                 }
 
                 const checked = /\bchecked\b/.test(attrs);
-                return `<input${checked ? ' checked' : ''} onclick="return false" type="checkbox">`;
+                return `<input${checked ? ' checked' : ''} type="checkbox">`;
             }
         );
 
-    const result = parseTag(html, context);
+    // `marked` passes raw HTML through. Every board description, card and
+    // update note reaches `dangerouslySetInnerHTML`, so sanitize once here:
+    // remove scripts/event handlers, keep the tags Markdown itself produces
+    // (including the task-list inputs and the tag spans with inline colors).
+    const result = DOMPurify.sanitize(parseTag(html, context), {
+        USE_PROFILES: { html: true },
+        ADD_ATTR: ['target'],
+        FORBID_TAGS: ['style', 'form'],
+    });
+
     if (cacheable) {
         if (markdownHtmlCache.size >= MARKDOWN_CACHE_LIMIT) {
             const oldest = markdownHtmlCache.keys().next().value;

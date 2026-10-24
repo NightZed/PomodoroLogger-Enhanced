@@ -2,7 +2,7 @@
 
 > 生成日期：2026-10-20
 > 最近更新：2026-10-23
-> 状态：B0 / B1 / B1.5 / B2（代码、升级/回滚、History 性能）/ B3 / B5 已完成；B4 代码迁移完成（`get-windows` + Electron 44.9.3）；B6 核心工具链迁移完成，手工验收待做；B7 Electron 安全架构进行中，B7.1-B7.4 已完成，B7.5 待做
+> 状态：B0 / B1 / B1.5 / B2（代码、升级/回滚、History 性能）/ B3 / B5 已完成；B4 代码迁移完成（`get-windows` + Electron 44.9.3）；B6 核心工具链迁移完成，手工验收待做；B7 Electron 安全架构（B7.1-B7.5）代码、生产/开发启动与 Windows 安装目录验证完成，GUI 冒烟待做
 > 适用版本：当前 `package.json`（React 19.3 / antd 6 / webpack 5.111 / Jest 30）
 
 本文档列出项目中已停止维护、已被弃用、已过 EOL，或已经确定要替换的依赖，并给出迁移顺序、改动范围、验收标准和回滚方式。每完成一项，直接勾选对应条目并补充实际使用的版本与迁移日期。
@@ -715,21 +715,25 @@ renderer 只通过 preload + `contextBridge` 暴露的窄 API 访问主进程；
 - `nodeIntegrationInWorker: false`
 - `preload` 仍使用 `path.join(__dirname, 'preload.js')`；主进程 webpack 输出到 `dist/preload.js`，dev 与 production 使用同一路径。
 
-实施结果（2026-10-23）：生产 `file://` 构建已实机启动。通过 CDP 检查确认 `typeof require === 'undefined'`、`typeof process === 'undefined'`，`window.api` 的完整窄接口已注入；`dbRequest('settingDB', 'find')`、`windowState()` 和事件取消订阅均实际返回成功，worker target 也正常创建。`yarn lint` / `yarn typecheck` / 66 suites / 480 tests / `yarn build` 全部通过。启动时 Electron 仍提示缺少 CSP（预期，B7.5 处理）；`webpack serve` 的 dev 加载方式还需单独冒烟。
+实施结果（2026-10-23）：生产 `file://` 构建已实机启动。通过 CDP 检查确认 `typeof require === 'undefined'`、`typeof process === 'undefined'`，`window.api` 的完整窄接口已注入；`dbRequest('settingDB', 'find')`、`windowState()` 和事件取消订阅均实际返回成功，worker target 也正常创建。`yarn lint` / `yarn typecheck` / 66 suites / 480 tests / `yarn build` 全部通过。当时启动时 Electron 的 CSP 警告已在 B7.5 消除；`webpack serve` 的 dev 加载方式也在 B7.5 完成冒烟。
 
-### 8.6 B7.5 防御性加固（待做）
+### 8.6 B7.5 防御性加固（已完成）
 
-- `marked` 输出净化（DOMPurify 或等价方案）；当前 `formatMarkdown` + `dangerouslySetInnerHTML` 用在卡片和更新说明上。
-- 加 CSP（`script-src 'self'` 等）；保持 `setWindowOpenHandler` / `will-navigate` 的外链策略。
-- 主进程校验 IPC sender、参数类型和长度；禁止通用 `invoke(channel, ...)` 和任意路径 API。
-- 不在 renderer 暴露 `ipcRenderer`、`require`、`process`、`shell` 或 `fs`。
+- `formatMarkdown` 现在先经过 DOMPurify（HTML profile，保留任务列表和标签 span），再交给 `dangerouslySetInnerHTML`；脚本、事件属性、`javascript:` 链接和 `<style>` 会被移除。复选框改为由 Card 的 click handler 统一 `preventDefault`，不再依赖内联 `onclick`。
+- `public/index.html` 通过 HtmlWebpackPlugin 注入 CSP：production 为 `script-src 'self'`，dev 额外允许 React Refresh 的 `unsafe-eval` 与 `http://localhost:2003` / `ws://localhost:2003`。样式仍允许 inline（antd + styled-components）；图片允许 `data:` / `blob:` / `wallpaper:` / `https:`（保留 Markdown 与更新说明的远程图片）；`object-src`、`frame-src`、`form-action` 均关闭。
+- 所有 preload 请求/命令通道统一校验 sender：`event.sender` 必须是当前主窗口的 `webContents`；参数类型、长度、枚举值、托盘菜单、截图 data URL、KNN 模型和外链协议均在 `src/main/ipc/validate.ts` 中检查。
+- 数据库桥只接受 `dbNames` 中的库名和固定操作白名单（`find` / `findOne` / `insert` / `update` / `remove` / `count` / `aggHistory`），参数最多 10 个；文件写入/删除仍限制在主进程的固定目录内。
+- renderer 中没有 `ipcRenderer`、`require`、`process`、`global`、`shell` 或 `fs`；外链只接受 `http:` / `https:`，`will-navigate` / `setWindowOpenHandler` 复用同一检查。
+- webpack renderer 输出 `globalObject: 'globalThis'`，修复 sandbox 下 dev HMR runtime 的 `global is not defined`；production 不受影响。
+
+实施结果（2026-10-24）：`yarn lint` 为 0 errors / 0 warnings，`yarn typecheck` 通过，`yarn test --runInBand` 为 67 suites / 488 tests，`yarn build` 通过。生产 `file://` 构建再次通过 CDP 验证：无 CSP 警告，`require` / `process` / `global` 均为 `undefined`，`window.api`、`dbRequest`、`windowState` 和事件取消订阅正常；非法 DB 操作和非法截图 payload 均被主进程拒绝。`webpack serve` + dev main 也已启动验证，页面无运行时异常；dev 的 Electron CSP 警告来自 React Refresh 的 `unsafe-eval`，打包后不会出现。`yarn run pack` 成功，`app.asar` 内含 `dist/preload.js`，`release/win-unpacked` 打包产物启动后同样通过上述 CDP 检查。
 
 ### 8.7 验收与回滚
 
 - 每阶段必须通过：`yarn typecheck`、`yarn lint`、`yarn test --runInBand`、`yarn build`。
 - 手工冒烟：托盘 Start/Pause/Continue/Finish/Stop、关闭到托盘、截图、更新事件、主题切换、窗口控制、导入导出。
-- B7.1 / B7.2 可独立回退到各自提交前；B7.3-B7.4 建议分提交，出现问题时先恢复 preload 桥接层，再逐步重试。
-- 完整切换后至少跑一次 Windows `yarn pack`，并检查 preload 是否在 asar 内可解析。
+- B7.1-B7.5 各自独立提交，可逐段回退；出问题时先恢复 preload 桥接层，再检查 sender 校验/CSP 是否阻塞了合法调用。
+- 完整切换后至少跑一次 Windows `yarn run pack`，并检查 preload 是否在 asar 内可解析（B7.5 已完成：`app.asar` 内存在 `dist/preload.js`，打包产物可启动）。
 
 ---
 
@@ -794,4 +798,4 @@ renderer 只通过 preload + `contextBridge` 暴露的窄 API 访问主进程；
 - [x] B7.2 建立 preload + `contextBridge` 桥接层，删除 renderer 自建 `window.api`
 - [x] B7.3 移除 renderer 的 `fs` / `path` / `os` / `nativeTheme` 依赖
 - [x] B7.4 切换 `nodeIntegration: false`、`contextIsolation: true`、`sandbox: true`、`nodeIntegrationInWorker: false`
-- [ ] B7.5 Markdown 净化、CSP、IPC 参数/sender 校验
+- [x] B7.5 Markdown 净化、CSP、IPC 参数/sender 校验（生产 + dev + 打包产物启动验证完成；GUI 冒烟待做）

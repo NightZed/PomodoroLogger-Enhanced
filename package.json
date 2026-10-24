@@ -167,7 +167,7 @@
         "dayjs": "^1.11.13",
         "echarts": "^6.1.0",
         "echarts-for-react": "^3.0.6",
-        "electron": "^44.9.3",
+        "electron": "^45.0.0",
         "electron-builder": "^26.15.3",
         "eslint": "^10.13.0",
         "eslint-config-prettier": "^10.1.8",

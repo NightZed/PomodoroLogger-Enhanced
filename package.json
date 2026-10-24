@@ -130,7 +130,7 @@
     },
     "devDependencies": {
         "@ant-design/icons": "^6",
-        "@babel/core": "^8.0.7",
+        "@babel/core": "^8.0.9",
         "@babel/plugin-transform-runtime": "^8.0.6",
         "@babel/preset-env": "^8.0.7",
         "@babel/preset-react": "^8.0.1",

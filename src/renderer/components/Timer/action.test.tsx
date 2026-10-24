@@ -24,12 +24,9 @@ import {
 import { generateRandomName } from '../../utils';
 import { workers } from '../../workers';
 import { getAllSession } from '../../monitor/sessionManager';
-import { dbPaths, DEBUG_TIME_SCALE, scaleMs, timeScale } from '../../../config';
-import { existsSync, unlinkSync } from 'fs';
+import { DEBUG_TIME_SCALE, scaleMs, timeScale } from '../../../config';
 import { PomodoroRecord } from '../../monitor/type';
 import { Dispatch } from 'redux';
-
-const { projectDB } = dbPaths;
 
 describe('Reducer', () => {
     it('has default state', () => {
@@ -214,12 +211,6 @@ describe('Reducer', () => {
 });
 
 describe('On timerFinished', () => {
-    beforeAll(() => {
-        if (existsSync(projectDB)) {
-            unlinkSync(projectDB);
-        }
-    });
-
     it('will add data to DB', async () => {
         const record: PomodoroRecord = {
             _id: '_id',
@@ -290,7 +281,7 @@ describe('inferProject', () => {
         // made `kanban.boards[boardId]` undefined and crashed `Timer`'s render
         // with "Cannot read properties of undefined (reading 'focusedList')".
         // The prediction is written into the session record, so it must be the
-        // `_id` the project pies resolve through the kanban DB.
+        // `_id` the project treemaps resolve through the kanban DB.
         expect(predicted).not.toBe(boardName);
     });
 

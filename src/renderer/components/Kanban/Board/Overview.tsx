@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useRef, useState } from 'react';
+import React, { FC, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Table } from 'antd';
 import { RootState } from '../../../reducers';
 import { Dispatch } from 'redux';
@@ -6,29 +6,61 @@ import { KanbanBoardState } from './action';
 import { connect } from 'react-redux';
 import { CardsState } from '../Card/action';
 import { IdTrend } from '../../Visualization/ProjectTrend';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 import { formatTimeWithoutZero } from '../../../utils';
 import { BoardBrief } from './BoardBrief';
 import { actions, SortDirection, SortType } from '../action';
-// @ts-ignore
-import StackGrid from 'react-stack-grid';
-import { Card, KanbanBoard, ListsState } from '../type';
+import { KanbanBoard, ListsState } from '../type';
+import { AggBoardInfo, aggregateBoardRows } from './tableAggregation';
 
 const Container = styled.div``;
+
+// Waterfall geometry, matching what react-stack-grid used before the React 19
+// migration removed it: fixed-width columns, a 5px gutter, and cards placed in
+// the currently shortest column (left to right on equal heights).
+const BOARD_COLUMN_WIDTH = 265;
+const BOARD_GUTTER = 5;
+const BOARD_APPEAR_DURATION = 320;
+const BOARD_APPEAR_DELAY = 20;
+const BOARD_APPEAR_MAX_STAGGER = 12;
+const BOARD_EASING = 'cubic-bezier(0.165, 0.84, 0.44, 1)';
+
+const boardAppear = keyframes`
+    0% {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+`;
+
+const BoardGrid = styled.div`
+    position: relative;
+`;
+
+// Positions are applied instantly. Transitioning every card's transform made
+// a sort/resize slide cards across each other while the columns were being
+// recomputed (which read as uneven gaps), and it kept dozens of composited
+// layers animating at once. Only the one-shot appear animation below remains.
+const BoardGridItem = styled.div`
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: ${BOARD_COLUMN_WIDTH}px;
+`;
+
+const BoardGridItemInner = styled.div<{ $delay: number }>`
+    display: flow-root;
+    animation: ${boardAppear} ${BOARD_APPEAR_DURATION}ms ${BOARD_EASING}
+        ${({ $delay }) => `${$delay}ms`} both;
+`;
 
 interface Props {
     boards: KanbanBoardState;
     lists: ListsState;
     cards: CardsState;
-}
-
-interface AggBoardInfo {
-    _id: string;
-    name: string;
-    estimatedLeftTimeSum: number;
-    actualTimeSum: number;
-    pomodoroCount: number;
-    meanPercentageError?: number;
 }
 
 const columns = [
@@ -86,51 +118,20 @@ const columns = [
     },
 ];
 
-type NewCard = Card & { isDone?: boolean };
-const _OverviewTable: FC<Props> = (props: Props) => {
+const OverviewTableInner: FC<Props> = (props: Props) => {
     const { boards, lists: listsById, cards: cardsById } = props;
-    const boardRows = Object.values(boards);
 
-    const aggInfo: AggBoardInfo[] = boardRows.map((board) => {
-        const { name, lists, relatedSessions, _id } = board;
-        const cards: NewCard[] = lists.reduce((l: NewCard[], listId) => {
-            for (const cardId of listsById[listId].cards) {
-                const card: NewCard = cardsById[cardId];
-                card.isDone = listId === board.doneList;
-                l.push(card);
-            }
-            return l;
-        }, []);
-        const [estimatedLeftTimeSum, actualTimeSum, errorSum, n] = cards.reduce(
-            (l: number[], r: NewCard) => {
-                let err = 0;
-                const { actual, estimated } = r.spentTimeInHour;
-                if (r.isDone && actual !== 0 && estimated !== 0) {
-                    err = (Math.abs(estimated - actual) / actual) * 100;
-                }
-
-                return [
-                    l[0] + (r.isDone ? 0 : Math.max(0, estimated - actual)),
-                    l[1] + actual,
-                    l[2] + err,
-                    l[3] + (r.isDone ? 1 : 0),
-                ];
-            },
-            [0, 0, 0, 0]
-        );
-        return {
-            _id,
-            name,
-            estimatedLeftTimeSum,
-            actualTimeSum,
-            meanPercentageError: n ? errorSum / n : undefined,
-            pomodoroCount: relatedSessions.length,
-        };
-    });
+    // The aggregation walks every card of every board. The table re-renders
+    // when it is sorted, paged or when an IdTrend resolves, so keep the result
+    // stable for the inputs that actually affect it.
+    const aggInfo: AggBoardInfo[] = React.useMemo(
+        () => aggregateBoardRows(boards, listsById, cardsById),
+        [boards, listsById, cardsById]
+    );
 
     return (
         <Container>
-            <Table rowKey={'name'} columns={columns} dataSource={aggInfo} />
+            <Table rowKey={'_id'} columns={columns} dataSource={aggInfo} />
         </Container>
     );
 };
@@ -144,7 +145,7 @@ const OverviewTable = connect((state: RootState) => ({
     boards: state.kanban.boards,
     lists: state.kanban.lists,
     cards: state.kanban.cards,
-}))(_OverviewTable);
+}))(OverviewTableInner);
 
 const getPinScore = ({ pin: aPin }: KanbanBoard, { pin: bPin }: KanbanBoard) => {
     const a = aPin ? 1 : 0;
@@ -157,6 +158,9 @@ const applyDirection = (value: number, desc?: boolean) => (desc ? -value : value
 // Sort board names so that (ascending) English names come first (a-z), then Chinese names
 // by pinyin; descending reverses the whole order, like Windows Explorer.
 const pinyinCollator = new Intl.Collator('zh-Hans-CN');
+// The control range is intentional: this only classifies the first character
+// as ASCII, and a leading NUL should still be treated as a non-ASCII name.
+// eslint-disable-next-line no-control-regex
 const isAscii = (s: string) => /^[\x00-\x7F]/.test(s); // first char ASCII => English group
 const compareName = (a: string, b: string): number => {
     const aAscii = isAscii(a);
@@ -214,7 +218,7 @@ sortFunc.set('created', (a, b, desc) => {
 });
 
 interface OverviewCardsProps {
-    boards: KanbanBoard[];
+    boardsById: KanbanBoardState;
     sortedBy: SortType;
     sortDirection: SortDirection;
     setId: (_id: string) => void;
@@ -224,142 +228,433 @@ interface OverviewCardsProps {
     showConfigById?: (boardId: string) => void;
 }
 
+interface BoardRect {
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+}
+
+interface BoardLayout {
+    rects: { [key: string]: BoardRect };
+    height: number;
+    measured: boolean;
+}
+
+const getChildKey = (child: React.ReactNode, index: number): string =>
+    React.isValidElement(child) && child.key != null ? String(child.key) : `board-${index}`;
+
 /**
- * Guard for `react-stack-grid@0.7.1`: when its measured container width cannot
- * fit a single column, its `getColumnLengthAndWidth(width, 265, 5)` computes
- * `maxColumn = 0`, leaving `columnHeights = []`, so `Math.max(...[]) -
- * gutterHeight` becomes `-Infinity` and React warns `` `Infinity` is an
- * invalid value for the `height` css style property `` on the TransitionGroup
- * div.
+ * Height occupied by a card in a column: its border box plus the margins it
+ * renders with. Measuring the card itself (instead of the absolutely
+ * positioned wrapper) keeps animated/overflowing descendants and inline-block
+ * line boxes out of the result -- those could otherwise add a few pixels to
+ * `scrollHeight` and leave uneven gaps after a reorder.
+ */
+const measureItemHeight = (item: HTMLElement): number => {
+    const card = item.querySelector<HTMLElement>('.kanban-brief-card');
+    if (!card) {
+        return Math.round(Math.max(item.scrollHeight, item.clientHeight, item.offsetHeight, 0));
+    }
+    const style = window.getComputedStyle(card);
+    const margin = (parseFloat(style.marginTop) || 0) + (parseFloat(style.marginBottom) || 0);
+    return Math.round(card.offsetHeight + margin);
+};
+
+const sameRects = (a: { [key: string]: BoardRect }, b: { [key: string]: BoardRect }): boolean => {
+    const aKeys = Object.keys(a);
+    if (aKeys.length !== Object.keys(b).length) {
+        return false;
+    }
+    return aKeys.every((key) => {
+        const ra = a[key];
+        const rb = b[key];
+        return (
+            rb !== undefined &&
+            ra.top === rb.top &&
+            ra.left === rb.left &&
+            ra.width === rb.width &&
+            ra.height === rb.height
+        );
+    });
+};
+
+/**
+ * Pinterest-like waterfall grid with the ordering of the removed
+ * `react-stack-grid` dependency: items fill the leftmost shortest column, so
+ * equal-height cards run left-to-right and then top-to-bottom. Positions use
+ * transforms (animated on reorder) and new items fade up with the old stagger.
  *
- * `maxColumn >= 1` requires `width >= 265` (columnWidth), not just `width >=
- * 1`: anything in `[1, 265)` still yields `maxColumn = 0` and reproduces the
- * warning. This happens when restoring from mini mode: `suspended` flips
- * synchronously while the window is still at mini size, so the grid would
- * briefly mount at ~200px before the resize settles.
+ * The elements stay in the DOM while their heights are measured, which keeps
+ * later content growth (the nested list-count chart) from being laid out
+ * against stale card heights -- the reason the old grid needed an explicit
+ * `updateLayout()` on every frame.
  */
-const STACK_GRID_COLUMN_WIDTH = 265;
-
-/**
- * Minimum container width that fits one column. Below this
- * `getColumnLengthAndWidth` yields `maxColumn = 0` (see above).
- */
-const STACK_GRID_MIN_WIDTH = STACK_GRID_COLUMN_WIDTH;
-
-const SafeStackGrid: FC<{ children: React.ReactNode; suspended?: boolean }> = ({
+export const ResponsiveBoardGrid: FC<{ children: React.ReactNode; suspended?: boolean }> = ({
     children,
     suspended = false,
 }) => {
-    const ref = useRef<HTMLDivElement>(null);
-    // `null` = not measured yet: render the placeholder once so the first
-    // measurement never feeds `undefined` into StackGrid's layout.
+    const containerRef = useRef<HTMLDivElement>(null);
+    const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+    const itemRefCallbacks = useRef<Map<string, (el: HTMLDivElement | null) => void>>(new Map());
+    const measuredHeights = useRef<Map<string, number>>(new Map());
+    const pendingMeasure = useRef<Set<string>>(new Set());
+    const resizeObserverRef = useRef<ResizeObserver | null>(null);
     const [width, setWidth] = useState<number | null>(null);
-    const gridRef = useRef<{ updateLayout: () => void } | null>(null);
-    const layoutRaf = useRef<number | null>(null);
+    const [layout, setLayout] = useState<BoardLayout>({
+        rects: {},
+        height: 0,
+        measured: false,
+    });
+    const [measureVersion, setMeasureVersion] = useState(0);
+    const measureRaf = useRef<number | null>(null);
+
+    // Coalesce every measurement request (newly mounted or resized cards) into
+    // one render. The old implementation scheduled a new frame from an effect
+    // that depended on `children`, i.e. on every parent render, and then
+    // measured *all* cards synchronously -- the source of the forced-reflow
+    // violations while clicking around the overview.
+    const scheduleMeasure = useCallback((key?: string) => {
+        if (key !== undefined) {
+            pendingMeasure.current.add(key);
+        }
+        if (measureRaf.current !== null) {
+            return;
+        }
+        measureRaf.current = requestAnimationFrame(() => {
+            measureRaf.current = null;
+            setMeasureVersion((v) => v + 1);
+        });
+    }, []);
+
+    // Keep one ref callback per key: an inline callback gets detached and
+    // re-attached on every render, which looks like a remount to the observer.
+    const attachItem = useCallback(
+        (key: string, el: HTMLDivElement | null) => {
+            const previous = itemRefs.current.get(key);
+            if (el === null) {
+                if (previous !== undefined) {
+                    resizeObserverRef.current?.unobserve(previous);
+                    itemRefs.current.delete(key);
+                }
+                return;
+            }
+
+            el.dataset.gridKey = key;
+            itemRefs.current.set(key, el);
+            if (previous === el) {
+                return;
+            }
+            resizeObserverRef.current?.observe(el);
+            scheduleMeasure(key);
+        },
+        [scheduleMeasure]
+    );
+
+    const getItemRefCallback = useCallback(
+        (key: string) => {
+            let callback = itemRefCallbacks.current.get(key);
+            if (callback === undefined) {
+                callback = (el: HTMLDivElement | null) => attachItem(key, el);
+                itemRefCallbacks.current.set(key, callback);
+            }
+            return callback;
+        },
+        [attachItem]
+    );
+
     useEffect(() => {
-        const el = ref.current;
+        const el = containerRef.current;
         if (!el) {
             return;
         }
 
-        let measureRaf: number | null = null;
-        const measure = () => {
-            // Defer React's layout updates until after the ResizeObserver
-            // delivery, or StackGrid can resize the observed node in the same
-            // cycle and trigger the browser's undelivered-notifications error.
-            if (measureRaf !== null) {
-                cancelAnimationFrame(measureRaf);
+        let widthRaf: number | null = null;
+        const measureWidth = () => {
+            if (widthRaf !== null) {
+                cancelAnimationFrame(widthRaf);
             }
-            measureRaf = requestAnimationFrame(() => {
-                measureRaf = null;
+            widthRaf = requestAnimationFrame(() => {
+                widthRaf = null;
                 if (!el.isConnected) {
                     return;
                 }
                 const nextWidth = el.clientWidth;
-                setWidth((prev) => (prev === nextWidth ? prev : nextWidth));
+                setWidth((prev) => {
+                    // An inactive tab pane is `display: none`, so its width
+                    // reads 0. Keeping the last real width lets the cards stay
+                    // mounted across a tab switch instead of tearing the whole
+                    // overview down and rebuilding (and re-animating) it when
+                    // the page comes back.
+                    if (nextWidth === 0 && prev !== null) {
+                        return prev;
+                    }
+                    return prev === nextWidth ? prev : nextWidth;
+                });
             });
         };
-        const measureNow = () => {
-            const nextWidth = el.clientWidth;
-            setWidth((prev) => (prev === nextWidth ? prev : nextWidth));
-        };
-        measureNow();
+
+        measureWidth();
         if (typeof ResizeObserver !== 'undefined') {
-            const observer = new ResizeObserver(measure);
+            const observer = new ResizeObserver(measureWidth);
             observer.observe(el);
             return () => {
                 observer.disconnect();
-                if (measureRaf !== null) {
-                    cancelAnimationFrame(measureRaf);
+                if (widthRaf !== null) {
+                    cancelAnimationFrame(widthRaf);
                 }
             };
         }
-        window.addEventListener('resize', measure);
+        window.addEventListener('resize', measureWidth);
         return () => {
-            window.removeEventListener('resize', measure);
-            if (measureRaf !== null) {
-                cancelAnimationFrame(measureRaf);
+            window.removeEventListener('resize', measureWidth);
+            if (widthRaf !== null) {
+                cancelAnimationFrame(widthRaf);
             }
         };
     }, []);
 
-    // stack-grid measures the DOM only when its own props change, and it does
-    // so during the render phase -- i.e. against the *previous* commit. Card
-    // content can still grow after that (the nested connected list-count bar
-    // commits its chart one dispatch later), and with no further dispatch no
-    // re-measurement ever runs: boards below keep the stale `top` and cover
-    // the bottom of the board above them until the overview is re-sorted or
-    // remounted (which is exactly how the overlap used to be "fixed"). Re-run
-    // the layout one frame later, when every pending commit has landed;
-    // `children` is a fresh array on every parent render, so this also heals
-    // any other post-commit growth (images, fonts). Coalesce to one rAF per
-    // frame; `GridInline.updateLayout` is guarded by its `mounted` flag, so a
-    // callback that outlives `suspended` (or the unmount) is a no-op.
+    // One observer for the grid's lifetime; ref callbacks add/remove cards as
+    // they mount. A card only needs a new measurement when its own box size
+    // changed (chart data arriving, images/fonts, a resize), not when the
+    // parent happens to render again.
     useEffect(() => {
-        if (layoutRaf.current !== null) {
-            cancelAnimationFrame(layoutRaf.current);
+        if (typeof ResizeObserver === 'undefined') {
+            return;
         }
 
-        layoutRaf.current = requestAnimationFrame(() => {
-            layoutRaf.current = null;
-            if (gridRef.current) {
-                gridRef.current.updateLayout();
+        const observer = new ResizeObserver((entries) => {
+            // Inactive tab panes are `display: none`: every observed card
+            // reports a 0x0 box. Measuring there would replace the cached
+            // heights with zero and squash the grid while it is hidden, so
+            // ignore those entries; the real size is reported when the pane is
+            // shown again.
+            if (containerRef.current?.clientWidth === 0) {
+                return;
             }
+
+            for (const entry of entries) {
+                const target = entry.target as HTMLElement;
+                if (target.dataset.gridKey !== undefined) {
+                    pendingMeasure.current.add(target.dataset.gridKey);
+                }
+            }
+            scheduleMeasure();
+        });
+        resizeObserverRef.current = observer;
+        itemRefs.current.forEach((el, key) => {
+            el.dataset.gridKey = key;
+            observer.observe(el);
         });
         return () => {
-            if (layoutRaf.current !== null) {
-                cancelAnimationFrame(layoutRaf.current);
-                layoutRaf.current = null;
-            }
+            observer.disconnect();
+            resizeObserverRef.current = null;
         };
-    }, [children]);
+    }, [scheduleMeasure]);
 
-    // The wrapper div (and its ref) stays mounted on both branches, so the
-    // ResizeObserver keeps measuring and can bring the grid back on resize.
-    // `suspended` unmounts the grid deterministically (e.g. mini mode hides
-    // the pane *and* shrinks the window, and the inner SizeMe listener could
-    // otherwise observe width 0 before our observer callback runs).
-    const showGrid = !suspended && width !== null && width >= STACK_GRID_MIN_WIDTH;
-    return (
-        <div ref={ref}>
-            {showGrid ? (
-                <StackGrid
-                    columnWidth={STACK_GRID_COLUMN_WIDTH}
-                    gutterHeight={0}
-                    gridRef={(grid: any) => {
-                        gridRef.current = grid;
-                    }}
-                >
-                    {children}
-                </StackGrid>
-            ) : null}
-        </div>
+    // Mini mode and windows narrower than one column skip the cards entirely.
+    // Inactive tabs keep their last width (see the width observer above), so a
+    // page switch does not unmount and remount the whole overview.
+    const canRenderItems = !suspended && width !== null && width >= BOARD_COLUMN_WIDTH;
+
+    useLayoutEffect(() => {
+        const el = containerRef.current;
+        if (!el) {
+            return;
+        }
+
+        // Hidden tab pane: keep the last measured layout untouched.
+        if (el.clientWidth === 0) {
+            pendingMeasure.current.clear();
+            return;
+        }
+
+        const availableWidth = width ?? el.clientWidth;
+        if (width === null && availableWidth > 0) {
+            setWidth(availableWidth);
+        }
+
+        if (suspended || availableWidth < BOARD_COLUMN_WIDTH) {
+            pendingMeasure.current.clear();
+            setLayout((prev) => (prev.measured ? { rects: {}, height: 0, measured: false } : prev));
+            return;
+        }
+
+        const maxColumn = Math.max(
+            1,
+            Math.floor(
+                (availableWidth - (availableWidth / BOARD_COLUMN_WIDTH - 1) * BOARD_GUTTER) /
+                    BOARD_COLUMN_WIDTH
+            )
+        );
+        const actualWidth = maxColumn * BOARD_COLUMN_WIDTH + (maxColumn - 1) * BOARD_GUTTER;
+        const offset = Math.max(0, (availableWidth - actualWidth) / 2);
+        const columnHeights = new Array<number>(maxColumn).fill(0);
+        const rects: { [key: string]: BoardRect } = {};
+
+        React.Children.toArray(children).forEach((child, index) => {
+            const key = getChildKey(child, index);
+            const item = itemRefs.current.get(key);
+
+            // Measure only cards that are new or were reported as resized;
+            // everything else reuses the cached height. This is what keeps a
+            // reorder (or any unrelated overview render) from reading layout
+            // for every card on the page.
+            if (
+                item !== undefined &&
+                (pendingMeasure.current.has(key) || !measuredHeights.current.has(key))
+            ) {
+                pendingMeasure.current.delete(key);
+                measuredHeights.current.set(key, measureItemHeight(item));
+            }
+
+            // Fall back to the last known height while a card is remounting;
+            // measuring 0 there would stack the whole column on top of itself.
+            const height = measuredHeights.current.get(key) ?? 0;
+
+            let column = 0;
+            for (let i = 1; i < columnHeights.length; i += 1) {
+                if (columnHeights[i] < columnHeights[column]) {
+                    column = i;
+                }
+            }
+
+            const top = columnHeights[column];
+            const left = offset + column * (BOARD_COLUMN_WIDTH + BOARD_GUTTER);
+            // `gutterHeight` was 0 in the old grid: the card itself carries its
+            // vertical margins, so only the measured height is accumulated.
+            columnHeights[column] += height;
+
+            rects[key] = { top, left, width: BOARD_COLUMN_WIDTH, height };
+        });
+
+        const height = Math.max(...columnHeights);
+        setLayout((prev) => {
+            if (prev.measured && prev.height === height && sameRects(prev.rects, rects)) {
+                return prev;
+            }
+            return { rects, height, measured: true };
+        });
+    }, [children, width, measureVersion, suspended]);
+
+    useEffect(
+        () => () => {
+            if (measureRaf.current !== null) {
+                cancelAnimationFrame(measureRaf.current);
+            }
+            itemRefCallbacks.current.clear();
+        },
+        []
     );
+
+    const visible = canRenderItems && layout.measured;
+    const items = React.Children.toArray(children);
+
+    return (
+        <BoardGrid
+            ref={containerRef}
+            style={{
+                height: layout.height,
+                visibility: visible ? 'visible' : 'hidden',
+            }}
+        >
+            {canRenderItems
+                ? items.map((child, index) => {
+                      const key = getChildKey(child, index);
+                      const rect = layout.rects[key];
+                      return (
+                          <BoardGridItem
+                              key={key}
+                              ref={getItemRefCallback(key)}
+                              style={
+                                  rect
+                                      ? {
+                                            transform: `translate3d(${Math.round(
+                                                rect.left
+                                            )}px, ${Math.round(rect.top)}px, 0)`,
+                                        }
+                                      : undefined
+                              }
+                          >
+                              <BoardGridItemInner
+                                  $delay={
+                                      Math.min(index, BOARD_APPEAR_MAX_STAGGER) * BOARD_APPEAR_DELAY
+                                  }
+                              >
+                                  {child}
+                              </BoardGridItemInner>
+                          </BoardGridItem>
+                      );
+                  })
+                : null}
+        </BoardGrid>
+    );
+};
+
+/**
+ * Order the board ids for the overview. This runs in a `useMemo` instead of an
+ * effect that wrote the ids back into state: the old version re-sorted and
+ * committed a second render on every parent render (the `boards` array was
+ * recreated by `mapStateToProps`), which in turn remeasured the whole grid.
+ */
+const getSortedBoardIds = (
+    boards: KanbanBoard[],
+    sortedBy: SortType,
+    sortDirection: SortDirection,
+    lists: ListsState,
+    cards: CardsState
+): string[] => {
+    const sorted = boards.concat();
+    const desc = sortDirection === 'desc';
+
+    if (sortedBy === 'remaining') {
+        const leftByBoardId: { [_id: string]: number } = {};
+        for (const board of sorted) {
+            let leftSum = 0;
+            for (const listId of board.lists) {
+                if (listId === board.doneList) {
+                    continue;
+                }
+
+                const list = lists[listId];
+                if (list === undefined) {
+                    continue;
+                }
+
+                for (const cardId of list.cards) {
+                    const card = cards[cardId];
+                    if (card === undefined) {
+                        continue;
+                    }
+
+                    const h = card.spentTimeInHour;
+                    leftSum += Math.max(0, h.estimated - h.actual);
+                }
+            }
+
+            leftByBoardId[board._id] = leftSum;
+        }
+
+        sorted.sort((a, b) => {
+            if (getPinScore(a, b)) return getPinScore(a, b);
+            return applyDirection(-leftByBoardId[a._id] + leftByBoardId[b._id], desc);
+        });
+    } else {
+        const sortFn = sortFunc.get(sortedBy);
+        if (sortFn) {
+            sorted.sort((a, b) => sortFn(a, b, desc));
+        }
+    }
+
+    return sorted.map((board) => board._id);
 };
 
 const OverviewCards = connect(
     (state: RootState) => ({
-        boards: Object.values(state.kanban.boards),
+        // Keep the stable map: `Object.values` here returned a fresh array on
+        // every store notification, so an unrelated dispatch (a timer tick, a
+        // tab switch, ...) re-rendered and re-sorted the whole overview.
+        boardsById: state.kanban.boards,
         sortedBy: state.kanban.kanban.sortedBy,
         sortDirection: state.kanban.kanban.sortDirection,
         lists: state.kanban.lists,
@@ -370,78 +665,38 @@ const OverviewCards = connect(
         setId: (_id: string) => actions.setChosenBoardId(_id)(dispatch),
     })
 )(((props: OverviewCardsProps) => {
-    const { boards, setId } = props;
-    const [ids, setIds] = useState<string[]>([]);
-    useEffect(() => {
-        const desc = props.sortDirection === 'desc';
-        if (
-            props.sortedBy === 'due' ||
-            props.sortedBy === 'alpha' ||
-            props.sortedBy === 'spent' ||
-            props.sortedBy === 'recent' ||
-            props.sortedBy === 'created'
-        ) {
-            const sortFn = sortFunc.get(props.sortedBy);
-            boards.sort((a, b) => (sortFn ? sortFn(a, b, desc) : 0));
-        } else if (props.sortedBy === 'remaining') {
-            const boardsMap: { [_id: string]: number } = {};
-            for (let i = 0; i < boards.length; i += 1) {
-                if (boardsMap[boards[i]._id] == null) {
-                    boardsMap[boards[i]._id] = 0;
-                }
-
-                const board = boards[i];
-                let leftSum = 0;
-                for (const j of board.lists) {
-                    if (j === board.doneList) {
-                        continue;
-                    }
-
-                    for (const card of props.lists[j].cards) {
-                        const h = props.cards[card].spentTimeInHour;
-                        const left = h.estimated - h.actual;
-                        leftSum += Math.max(0, left);
-                    }
-                }
-
-                boardsMap[boards[i]._id] = leftSum;
-            }
-
-            boards.sort((a, b) => {
-                if (getPinScore(a, b)) return getPinScore(a, b);
-                return applyDirection(-boardsMap[a._id] + boardsMap[b._id], desc);
-            });
-        }
-        setIds(boards.map((b) => b._id));
-    }, [
-        props.sortedBy,
-        props.sortDirection,
-        props.boards,
-        props.sortedBy === 'remaining' && props.cards,
-        boards.reduce((v, b) => (b.lastVisitTime ? b.lastVisitTime : 0) + v, 0),
-    ]);
+    const { boardsById, setId } = props;
+    const boards = React.useMemo(() => Object.values(boardsById), [boardsById]);
+    const ids = React.useMemo(
+        () =>
+            getSortedBoardIds(
+                boards,
+                props.sortedBy,
+                props.sortDirection,
+                props.lists,
+                props.cards
+            ),
+        [boards, props.sortedBy, props.sortDirection, props.lists, props.cards]
+    );
 
     return (
-        <SafeStackGrid suspended={props.minimize}>
-            {ids.map((_id) => {
-                const onClick = () => setId(_id);
-                const onSettingClick = props.showConfigById
-                    ? () => {
-                          props.showConfigById!(_id);
-                      }
-                    : undefined;
-                return (
-                    <BoardBrief
-                        key={_id}
-                        boardId={_id}
-                        onClick={onClick}
-                        onSettingClick={onSettingClick}
-                    />
-                );
-            })}
-        </SafeStackGrid>
+        <ResponsiveBoardGrid suspended={props.minimize}>
+            {ids.map((_id) => (
+                <BoardBrief
+                    key={_id}
+                    boardId={_id}
+                    onClick={setId}
+                    onSettingClick={props.showConfigById}
+                />
+            ))}
+        </ResponsiveBoardGrid>
     );
 }) as FC<OverviewCardsProps>);
 
-export const Overview: FC<InputProps> = ({ showTable = false, showConfigById }: InputProps) =>
-    showTable ? <OverviewTable /> : <OverviewCards showConfigById={showConfigById} />;
+// Memoized so a local state change of the page (opening the board editor,
+// toggling the table view, ...) does not re-render the board grid: the
+// connected `OverviewCards` would otherwise rebuild every `BoardBrief`.
+export const Overview: FC<InputProps> = React.memo(
+    ({ showTable = false, showConfigById }: InputProps) =>
+        showTable ? <OverviewTable /> : <OverviewCards showConfigById={showConfigById} />
+);

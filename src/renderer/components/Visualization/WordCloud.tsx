@@ -15,23 +15,24 @@ interface Props {
 
 type MProps = Props & { [other: string]: any };
 export const WordCloud: React.FC<MProps> = (props: MProps) => {
-    const canvas = React.useRef<HTMLCanvasElement>();
+    const canvas = React.useRef<HTMLCanvasElement | null>(null);
     const { weights, ...restProps } = props;
     React.useEffect(() => {
-        if (canvas.current === undefined) {
+        const canvasElement = canvas.current;
+        if (!canvasElement) {
             return;
         }
 
-        const context = canvas.current.getContext('2d');
+        const context = canvasElement.getContext('2d');
         if (context) {
-            context.clearRect(0, 0, canvas.current.width, canvas.current.height);
+            context.clearRect(0, 0, canvasElement.width, canvasElement.height);
         }
-        if (props.weights.length === 0) {
+        if (weights.length === 0) {
             return;
         }
 
-        const width = canvas.current.clientWidth || props.width || 800;
-        WordCloud2(canvas.current, {
+        const width = canvasElement.clientWidth || props.width || 800;
+        WordCloud2(canvasElement, {
             list: weights,
             gridSize: Math.round((8 * width) / 800),
             weightFactor: (size: number) => {
@@ -46,7 +47,7 @@ export const WordCloud: React.FC<MProps> = (props: MProps) => {
             // Transparent so the canvas follows the active theme background.
             backgroundColor: 'transparent',
         });
-    }, [weights]);
+    }, [weights, props.width]);
 
     // @ts-ignore
     return <canvas ref={canvas} {...restProps} />;

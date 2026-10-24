@@ -110,7 +110,7 @@ const nodeValue = (params: any): number =>
     Array.isArray(params.value) ? params.value[0] : Number(params.value);
 
 /**
- * The pie's `{d}` percent placeholder is pie-series specific and stays empty
+ * ECharts' `{d}` percent placeholder is pie-series specific and stays empty
  * for treemaps, so each panel formats percentages against its own total.
  * The hours sit next to the share so a block reads the spend without needing
  * a hover, and they use one decimal to match the panel totals above.
@@ -134,9 +134,8 @@ function tooltipFormatter(projectTotal: number, appTotal: number) {
 }
 
 /**
- * One rectangle per project/app, area proportional to hours spent — the pie
- * rings "unrolled" into panels that scale to any number of entries without
- * the labels colliding.
+ * One rectangle per project/app, area proportional to hours spent, so the
+ * panels scale to any number of entries without the labels colliding.
  */
 function treemapSeries(
     name: string,
@@ -265,9 +264,9 @@ export function getOption(props: Props, tokens: ThemeTokens): EChartsOption {
 }
 
 /**
- * Two side-by-side treemaps replacing the dual pie chart on the History page:
- * projects on the left, applications on the right, each block's area showing
- * its share of the time. Clicking a project block filters the view to it.
+ * Two side-by-side treemaps on the History page: projects on the left,
+ * applications on the right, each block's area showing its share of the time.
+ * Clicking a project block filters the view to it.
  */
 export const TimeTreemap: React.FC<Props> = (props: Props) => {
     const { tokens } = useThemeTokens();

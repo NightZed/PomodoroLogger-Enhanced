@@ -1,7 +1,7 @@
 import { Button } from 'antd';
 import { AntdIcon as Icon } from '../../../renderer/components/antdIcon';
 import React from 'react';
-import styled, { keyframes, css } from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 import { PomodoroRecord } from '../../../renderer/monitor/type';
 
 const confirmSpin = keyframes`
@@ -23,11 +23,11 @@ const confirmSpin = keyframes`
  * a quartz movement: each frame holds a tick position, no in-between
  * interpolation frames.
  */
-const ConfirmSweep = styled.g<{ frozen: boolean }>`
+const ConfirmSweep = styled.g<{ $frozen: boolean }>`
     transform-box: view-box;
     transform-origin: center;
     animation: ${confirmSpin} 1s steps(18) infinite;
-    animation-play-state: ${({ frozen }) => (frozen ? 'paused' : 'running')};
+    animation-play-state: ${({ $frozen }) => ($frozen ? 'paused' : 'running')};
     @media (prefers-reduced-motion: reduce) {
         animation: none;
     }
@@ -51,10 +51,10 @@ const Line = styled.line`
  * pause/resume and only flips opacity, so React never remounts the node
  * mid-session.
  */
-const SecondHand = styled.g<{ hidden: boolean }>`
+const SecondHand = styled.g<{ $hidden: boolean }>`
     transform-box: view-box;
     transform-origin: center;
-    opacity: ${({ hidden }) => (hidden ? 0 : 1)};
+    opacity: ${({ $hidden }) => ($hidden ? 0 : 1)};
     transition: opacity 180ms ease-out;
     @media (prefers-reduced-motion: reduce) {
         transition: none;
@@ -81,7 +81,7 @@ const StyledLogger = styled.div`
     /* Frameless window: dragging anywhere except the buttons moves the strip. */
     -webkit-app-region: drag;
     /* Matches the window corner radius (Main writes --pl-window-radius); the
-       fallback keeps standalone styleguidist previews rounded as well. */
+       fallback keeps the strip rounded before that variable is available. */
     border-radius: var(--pl-window-radius, 10px);
     overflow: hidden;
     margin: 0 auto;
@@ -548,15 +548,15 @@ export class MiniLogger extends React.Component<Props> {
                                     stroke: isConfirming
                                         ? 'rgb(99, 99, 99)'
                                         : (i / 18) * 100 < percentage
-                                        ? 'rgb(200, 200, 200)'
-                                        : 'rgb(99,99,99)',
+                                          ? 'rgb(200, 200, 200)'
+                                          : 'rgb(99,99,99)',
                                     strokeWidth: 12,
                                 }}
                             />
                         </g>
                     ))}
                 {isConfirming && (
-                    <ConfirmSweep frozen={this.state.confirmSweepFrozen} className="timer-confirm">
+                    <ConfirmSweep $frozen={this.state.confirmSweepFrozen} className="timer-confirm">
                         {/* One bright tick on a 1s/round rotation: the chase
                             read without eighteen simultaneous animations. */}
                         <line
@@ -574,7 +574,7 @@ export class MiniLogger extends React.Component<Props> {
                 </text>
                 {showSecondHand && (
                     <SecondHand
-                        hidden={isPausedWithSession}
+                        $hidden={isPausedWithSession}
                         className="timer-orbit"
                         style={{
                             // Cumulative clockwise angle (see above): never

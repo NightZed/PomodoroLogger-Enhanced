@@ -1,18 +1,11 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { screenshotDir } from '../../config';
-import * as remote from '@electron/remote';
-
 /**
  * `desktopCapturer` and `screen` are main-process APIs since Electron 17, so the
  * main process resolves which capture source belongs to the display that hosts
- * the window (see `IpcEventName.DesktopSource`).
+ * the window (see `IpcEventName.DesktopSource`). It reads the window bounds
+ * itself; no renderer-side remote/window access is involved.
  */
-const getDesktopSource = async (): Promise<{ id: string; display_id: string } | undefined> => {
-    const currentWindow = remote.getCurrentWindow();
-    const { x, y } = currentWindow.getBounds();
-    return await window.api.desktopSource(x, y);
-};
+const getDesktopSource = async (): Promise<{ id: string; display_id: string } | undefined> =>
+    window.api.desktopSource();
 
 function getScreenCallback(
     maxSize: number | undefined,
@@ -65,7 +58,7 @@ function getScreenCallback(
         callback(e);
     };
 
-    if (require('os').platform() === 'win32') {
+    if (window.api.platform === 'win32') {
         getDesktopSource()
             .then((source) => {
                 if (!source) {
@@ -130,17 +123,10 @@ export async function getScreen(
                     return;
                 }
 
-                const filePath = path.join(screenshotDir, new Date().getTime() + '.jpg');
-                // Get the DataUrl from the Canvas
-                const url = canvas.toDataURL('image/jpg', 0.1);
-                // remove Base64 stuff from the Image
-                const base64Data = url.replace(/^data:image\/png;base64,/, '');
-                fs.writeFile(filePath, base64Data, 'base64', (err) => {
-                    if (err) {
-                        console.log(err);
-                    }
-                });
-                resolve(filePath);
+                // The renderer only produces the image and hands it to the
+                // main process; `screenshotDir` and fs never touch this side.
+                const url = canvas.toDataURL('image/jpeg', 0.1);
+                window.api.saveScreenshot(url).then(resolve).catch(reject);
             }
         });
 

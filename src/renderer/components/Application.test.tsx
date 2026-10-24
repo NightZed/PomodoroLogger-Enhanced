@@ -15,11 +15,10 @@
  * batching question is actually exercised.
  */
 import * as React from 'react';
-import * as ReactDOM from 'react-dom';
-import { act } from 'react-dom/test-utils';
+import { act, cleanup, render } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { applyMiddleware, createStore, Store } from 'redux';
-import thunk from 'redux-thunk';
+import { thunk } from 'redux-thunk';
 
 // The pages are content, not the subject: they drag in echarts, the monitor and
 // the worker threads, none of which the navigation depends on.
@@ -39,7 +38,6 @@ jest.mock('./Timer/iconMaker', () => ({
 }));
 jest.mock('../dbs', () => {
     const dbs = {
-        projectDB: {},
         sessionDB: {},
         settingDB: {},
         kanbanDB: {},
@@ -57,7 +55,6 @@ jest.mock('../dbs', () => {
 jest.mock('../workers', () => ({
     workers: {
         dbWorkers: {
-            projectDB: {},
             sessionDB: {},
             settingDB: {},
             kanbanDB: {},
@@ -69,18 +66,12 @@ jest.mock('../workers', () => ({
         tokenizer: { tokenize: jest.fn().mockResolvedValue([]) },
     },
 }));
-jest.mock('electron', () => ({
-    ipcRenderer: { send: jest.fn(), addListener: jest.fn(), removeListener: jest.fn() },
-}));
-jest.mock('@electron/remote', () => ({ getGlobal: () => undefined }));
-jest.mock('react-hot-loader/root', () => ({ hot: (component: unknown) => component }));
-
-import { ipcRenderer } from 'electron';
-import { WindowEventName } from '../../main/ipc/type';
 import { rootReducer, RootState } from '../reducers';
 import { setCompact } from './Timer/action';
 import { feedback } from './feedback';
 import ConnectedApplication from './Application';
+
+let windowMaximizedListener: ((maximized: boolean) => void) | undefined;
 
 // The compact thunk resizes the real window through the preload bridge, and the
 // title bar asks for the window state on mount.
@@ -89,22 +80,19 @@ import ConnectedApplication from './Application';
     minimizeWindow: jest.fn(),
     openDevTools: jest.fn(),
     notify: jest.fn(),
+    quit: jest.fn(),
+    restart: jest.fn(),
+    onWindowMaximizedChanged: jest.fn((listener: (maximized: boolean) => void) => {
+        windowMaximizedListener = listener;
+        return jest.fn();
+    }),
     windowAction: jest.fn(),
     windowDrag: jest.fn(),
     windowState: jest.fn().mockResolvedValue({ maximized: false }),
 };
 
-/**
- * The listener `Application` registered for a window event. The mock records the
- * (name, listener) pairs, so the test can fire the event exactly like the main
- * process does.
- */
-const windowEventListener = (event: string) => {
-    const calls = (ipcRenderer.addListener as jest.Mock).mock.calls.filter(
-        ([name]) => name === event
-    );
-    return calls[calls.length - 1]?.[1] as (e: unknown, maximized: boolean) => void;
-};
+/** Fires the pushed window-state event exactly like the preload bridge does. */
+const fireWindowMaximized = (maximized: boolean) => windowMaximizedListener?.(maximized);
 
 // React asks every update to be wrapped in `act`. Wrapping the *keydown*
 // dispatch, though, would defeat this whole suite: `act` batches updates, and
@@ -122,7 +110,7 @@ const dispatchKey = (key: string, init: KeyboardEventInit = {}) => {
 
 const press = async (key: string, init: KeyboardEventInit = {}) => {
     dispatchKey(key, init);
-    // The Hotkeys wrapper releases its "already down" state in a timeout.
+    // Let React flush the wrapper's keyup bookkeeping.
     await new Promise((resolve) => setTimeout(resolve, 0));
 };
 
@@ -136,7 +124,7 @@ const clickTab = async (index: number) => {
 
 describe('Application page switching', () => {
     let container: HTMLDivElement;
-    let store: Store<RootState | undefined>;
+    let store: Store<RootState>;
 
     const state = () => store.getState()!.timer;
 
@@ -152,17 +140,12 @@ describe('Application page switching', () => {
         document.body.appendChild(container);
         store = createStore(rootReducer, applyMiddleware(thunk));
 
-        act(() => {
-            ReactDOM.render(
-                <Provider store={store}>
-                    {/* `fetchKanban` is the one prop connect does not supply:
-                        it is passed to `genMapDispatchToProp` as an extra key,
-                        outside the action types the prop is typed with. */}
-                    <ConnectedApplication fetchKanban={jest.fn()} />
-                </Provider>,
-                container
-            );
-        });
+        render(
+            <Provider store={store}>
+                <ConnectedApplication />
+            </Provider>,
+            { container }
+        );
 
         act(() => {
             store.dispatch(setCompact(true));
@@ -172,9 +155,7 @@ describe('Application page switching', () => {
     });
 
     afterEach(() => {
-        act(() => {
-            ReactDOM.unmountComponentAtNode(container);
-        });
+        cleanup();
         container.remove();
         document.documentElement.removeAttribute('data-theme');
         (console.error as jest.Mock).mockRestore();
@@ -257,12 +238,12 @@ describe('Application page switching', () => {
         expect(captionButton()?.title).toBe('Maximize');
 
         act(() => {
-            windowEventListener(WindowEventName.MaximizedChanged)(null, true);
+            fireWindowMaximized(true);
         });
         expect(captionButton()?.title).toBe('Restore Down');
 
         act(() => {
-            windowEventListener(WindowEventName.MaximizedChanged)(null, false);
+            fireWindowMaximized(false);
         });
         expect(captionButton()?.title).toBe('Maximize');
     });

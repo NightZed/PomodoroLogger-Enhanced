@@ -1,4 +1,5 @@
 import { combineReducers } from 'redux';
+import { Reducer } from 'redux';
 import { storyReducer, StoryState } from '../components/UserGuide/actions';
 import { reducer as timerReducer, TimerState } from '../components/Timer/action';
 import { reducer as historyReducer, HistoryState } from '../components/History/action';
@@ -11,9 +12,9 @@ export interface RootState {
     story: StoryState;
 }
 
-export const rootReducer = combineReducers<RootState | undefined>({
+export const rootReducer = combineReducers({
     timer: timerReducer,
     history: historyReducer,
     kanban: kanbanReducer,
-    story: storyReducer
-});
+    story: storyReducer,
+}) as Reducer<RootState>;

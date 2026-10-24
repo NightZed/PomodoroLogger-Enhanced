@@ -73,8 +73,9 @@ After creating a task on the Kanban board, select it on the timer page to track 
 -   **Tray**: closing the main window minimizes the app to the system tray.
 
 <p align="center">
-  <img width="100" src="./screenshots/tray.png" alt="Countdown in the system tray"/>
+  <img width="" src="./screenshots/tray.png" alt="Countdown in the system tray"/>
 </p>
+
 
 -   **Mini mode**: use `F12` to switch between the full interface and mini mode.
 
@@ -161,13 +162,13 @@ The **Sankey diagram** connects distracting apps with where your time went.
   <img width="520" src="./screenshots/sankey-diagram.png" alt="Distraction Sankey diagram"/>
 </p>
 
-### 🥧 Time Proportion Pie Chart · Word Cloud
+### 🥧 Time Proportion Chart · Word Cloud
 
-The **pie chart** shows the share of time per project / app, and the **word cloud** shows the keywords that appear most often in window titles. Click a day on the heat map, or switch the project and year/month, and the charts update accordingly.
+The **chart** shows the share of time per project / app, and the **word cloud** shows the keywords that appear most often in window titles. Click a day on the heat map, or switch the project and year/month, and the charts update accordingly.
 
 <p align="center">
-  <img height="270" src="./screenshots/time-proportion-pie-chart.png" alt="Time proportion pie chart"/>
-  <img height="270" src="./screenshots/word-cloud.png" alt="Word cloud"/>
+  <img width="800" src="./screenshots/time-proportion-chart.png" alt="Time proportion chart"/>
+  <img width="800" src="./screenshots/word-cloud.png" alt="Word cloud"/>
 </p>
 
 <a id="features"></a>
@@ -185,7 +186,7 @@ DeepMind (@DeepMindAI) | Twitter - Google Chrome
 pomodoro-logger [C:\code\pomodoro-logger] .\src\renderer\components\src\Application.tsx - WebStorm
 ```
 
-These raw records are aggregated into the time proportion pie chart and word cloud in [Statistics](#statistics).
+These raw records are aggregated into the time proportion chart and word cloud in [Statistics](#statistics).
 
 <a id="data-privacy"></a>
 
@@ -229,7 +230,7 @@ These raw records are aggregated into the time proportion pie chart and word clo
 
 ## 🚀 Quick Start
 
-Platforms: **Windows 10 / macOS 12+ / Linux**.
+Platforms: **Windows 10 / macOS 13+ / Linux**.
 Download: [release page](https://github.com/NightZed/PomodoroLogger-Enhanced/releases).
 
 ## 🤝 CONTRIBUTING

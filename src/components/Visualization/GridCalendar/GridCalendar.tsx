@@ -166,9 +166,10 @@ export const GridCalendar = React.memo((props: Props) => {
         data,
         shownWeeks = 53,
         baseColor = '#aceebb',
+        clickDate,
         highlightMonth,
     } = props;
-    const maxIntensity = hexToHsl(baseColor);
+    const maxIntensity = React.useMemo(() => hexToHsl(baseColor), [baseColor]);
     const tillTimestamp = getLastDayTimestamp(till);
     const day = (new Date(till).getDay() + 1) % 7;
     const shownGrids = (day === 0 ? 7 : day) + (shownWeeks - 1) * 7;
@@ -230,45 +231,48 @@ export const GridCalendar = React.memo((props: Props) => {
         </div>
     );
 
-    const createRect = (v: GridData, index: number, chosen: boolean) => {
-        const onEnter = () => setChosenIndex(index);
-        const onClick = props.clickDate
-            ? () => props.clickDate!(v.year, v.month, v.date)
-            : undefined;
-        return (
-            <rect
-                width={gridWidth}
-                height={gridHeight}
-                x={v.week * (gridWidth + gridMargin)}
-                y={v.day * (gridWidth + gridMargin)}
-                fill={
-                    v.count === 0
-                        ? undefined
-                        : getBaseGridFill(
-                              maxIntensity[0],
-                              maxIntensity[1],
-                              v.count / maxCountInADay,
-                              isDark
-                          )
-                }
-                key={index}
-                stroke={chosen ? 'rgb(200, 180, 240)' : ''}
-                onMouseEnter={onEnter}
-                onMouseLeave={() => index === chosenIndex && setChosenIndex(undefined)}
-                onClick={onClick}
-                style={{
-                    cursor: props.clickDate ? 'pointer' : undefined,
-                    // SVG attributes cannot resolve var(), the style form can.
-                    fill: v.count === 0 ? 'var(--pl-bg-sunken)' : undefined,
-                }}
-            />
-        );
-    };
+    const createRect = React.useCallback(
+        (v: GridData, index: number, chosen: boolean) => {
+            const onEnter = () => setChosenIndex(index);
+            const onClick = clickDate ? () => clickDate(v.year, v.month, v.date) : undefined;
+            return (
+                <rect
+                    width={gridWidth}
+                    height={gridHeight}
+                    x={v.week * (gridWidth + gridMargin)}
+                    y={v.day * (gridWidth + gridMargin)}
+                    fill={
+                        v.count === 0
+                            ? undefined
+                            : getBaseGridFill(
+                                  maxIntensity[0],
+                                  maxIntensity[1],
+                                  v.count / maxCountInADay,
+                                  isDark
+                              )
+                    }
+                    key={index}
+                    stroke={chosen ? 'rgb(200, 180, 240)' : ''}
+                    onMouseEnter={onEnter}
+                    onMouseLeave={() =>
+                        setChosenIndex((current) => (current === index ? undefined : current))
+                    }
+                    onClick={onClick}
+                    style={{
+                        cursor: clickDate ? 'pointer' : undefined,
+                        // SVG attributes cannot resolve var(), the style form can.
+                        fill: v.count === 0 ? 'var(--pl-bg-sunken)' : undefined,
+                    }}
+                />
+            );
+        },
+        [clickDate, gridHeight, gridMargin, gridWidth, isDark, maxCountInADay, maxIntensity]
+    );
 
     const targetYear = new Date(till).getFullYear();
     let rects = React.useMemo(
         () => grids.map((v, index) => (v.year === targetYear ? createRect(v, index, false) : null)),
-        [grids, gridWidth, gridMargin, gridHeight, targetYear, isDark]
+        [createRect, grids, targetYear]
     );
     if (chosenIndex != null) {
         rects = rects.concat();
@@ -290,7 +294,7 @@ export const GridCalendar = React.memo((props: Props) => {
                     </SvgText>
                 );
             }),
-        [gridWidth, gridHeight, axisMargin, gridMargin]
+        [axisMargin, gridMargin, gridWidth]
     );
 
     const weekMonthMap: number[] = [];

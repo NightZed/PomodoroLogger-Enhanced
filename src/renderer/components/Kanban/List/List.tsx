@@ -1,19 +1,39 @@
-import { Draggable, Droppable } from 'react-beautiful-dnd';
+import { Draggable, Droppable } from '@hello-pangea/dnd';
 import FocusIcon from '../../../../res/Focus.svg';
 import DoneIcon from '../../../../res/done.svg';
 import React, { FC, useRef, useState } from 'react';
 import { ListActionTypes } from './action';
 import styled from 'styled-components';
-import Card from '../Card';
+import { Card } from '../Card';
 import { Button, Dropdown, Input, Tooltip } from 'antd';
 import type { MenuProps } from 'antd';
 import { AntdIcon as Icon, IconComponent } from '../../antdIcon';
 import { ConfirmPopover, feedback, FEEDBACK_MESSAGES } from '../../feedback';
 import { KanbanActionTypes } from '../action';
-import { CardsState } from '../Card/action';
+import { CardActionTypes, CardsState } from '../Card/action';
 import { List as ListType } from '../type';
 import { mergeRefs } from '../../../utils';
 import { throttle, debounce } from 'lodash';
+
+// First page is deliberately small: each Card is a dnd draggable with markdown
+// and badges. Subsequent turns add a screenful at a time.
+const PROGRESSIVE_INITIAL_CARDS = 6;
+const PROGRESSIVE_CARD_BATCH = 12;
+
+// A frame boundary matters here: the point is to let the browser paint the
+// first page before mounting the next batch. A plain setTimeout can run
+// back-to-back in the same event-loop turn on some platforms.
+const scheduleFrame = (callback: () => void) =>
+    typeof window.requestAnimationFrame === 'function'
+        ? window.requestAnimationFrame(callback)
+        : window.setTimeout(callback, 0);
+const cancelFrame = (handle: number) => {
+    if (typeof window.cancelAnimationFrame === 'function') {
+        window.cancelAnimationFrame(handle);
+    } else {
+        window.clearTimeout(handle);
+    }
+};
 
 const Container = styled.div`
     padding: 4px;
@@ -99,14 +119,14 @@ const AfterPlaceHolder = styled.div`
 `;
 
 interface CardsProps {
-    displayScrollbar: boolean;
+    $displayScrollbar: boolean;
 }
 
 // The thumb of `Cards` paints itself with `box-shadow: inset 0 0 0 10px`, i.e.
 // with `currentColor`, so `color` *is* the scrollbar color here and has to come
 // from the theme: a fixed dark color is invisible on a dark list body.
-const displayScrollbarFn = ({ displayScrollbar }: CardsProps) => {
-    if (displayScrollbar) {
+const displayScrollbarFn = ({ $displayScrollbar }: CardsProps) => {
+    if ($displayScrollbar) {
         return `
             color: var(--pl-scrollbar-thumb);
             transition: color 250ms;
@@ -133,18 +153,22 @@ const Cards = styled.div<CardsProps>`
         color: var(--pl-text);
     }
 
-    ${displayScrollbarFn} ::-webkit-scrollbar {
+    /* The "&" matters here: styled-components v6 no longer turns a nested
+       scrollbar pseudo-element selector into a self selector, so without it
+       these rules would style the scrollbars of *descendants* (the card
+       bodies) instead of the list column itself. */
+    ${displayScrollbarFn} &::-webkit-scrollbar {
         width: 4px;
         height: 4px;
         background-color: rgba(0, 0, 0, 0);
     }
 
-    ::-webkit-scrollbar-track {
+    &::-webkit-scrollbar-track {
         width: 4px;
         background-color: rgba(0, 0, 0, 0);
     }
 
-    ::-webkit-scrollbar-thumb {
+    &::-webkit-scrollbar-thumb {
         background-color: transparent;
         box-shadow: inset 0 0 0 10px;
         width: 4px;
@@ -173,14 +197,28 @@ export interface InputProps {
 interface Props extends ListType, InputProps, ListActionTypes, KanbanActionTypes {
     searchReg?: string;
     cardsState: CardsState;
+    collapsed: boolean;
+    setContent: CardActionTypes['setContent'];
 }
 
 export const List: FC<Props> = React.memo((props: Props) => {
-    const { focused = false, searchReg, cards, cardsState, done = false } = props;
+    const {
+        focused = false,
+        searchReg,
+        cards,
+        cardsState,
+        done = false,
+        setVisibleCards,
+        visibleCards: storedVisibleCards,
+        _id,
+        boardId,
+        deleteList,
+    } = props;
     const cardListRef = React.useRef<HTMLElement>(null);
     const [showScrollBar, setShowScrollBar] = useState(true);
     React.useEffect(() => {
-        if (!cardListRef.current) {
+        const cardList = cardListRef.current;
+        if (!cardList) {
             return;
         }
 
@@ -193,10 +231,13 @@ export const List: FC<Props> = React.memo((props: Props) => {
             hideScrollBar();
         }, 30);
 
-        cardListRef.current.addEventListener('scroll', onScroll);
+        // Passive: the handler only toggles the scrollbar visibility and never
+        // prevents scrolling, so the browser can keep scrolling off the main
+        // thread instead of waiting for this listener.
+        cardList.addEventListener('scroll', onScroll, { passive: true });
         hideScrollBar();
         return () => {
-            cardListRef.current?.removeEventListener('scroll', onScroll);
+            cardList.removeEventListener('scroll', onScroll);
             // Pending debounced/throttled callbacks would still call
             // `setShowScrollBar` after unmount ("state update on an unmounted
             // component" warning + a leaked timer per mount/unmount cycle),
@@ -230,13 +271,55 @@ export const List: FC<Props> = React.memo((props: Props) => {
             );
         });
         return visibleCards_;
-    }, [props._id, searchReg, props.cardsState, cards]);
+    }, [searchReg, cardsState, cards]);
 
     React.useEffect(() => {
-        props.setVisibleCards(props._id, visibleCards);
-    }, [props._id, visibleCards]);
+        // Opening a board mounts every list, and this used to dispatch a
+        // "visible cards = undefined" action for each one even when the store
+        // already held the same value. Each dispatch notified every connected
+        // card, so a board with many lists/cards paid that cost on open. Only
+        // write when the filter actually changed.
+        if (visibleCards === storedVisibleCards) {
+            return;
+        }
+        setVisibleCards(_id, visibleCards);
+    }, [_id, visibleCards, storedVisibleCards, setVisibleCards]);
 
-    const filteredCards = visibleCards || props.cards || [];
+    const filteredCards = React.useMemo(
+        () => visibleCards ?? props.cards ?? [],
+        [visibleCards, props.cards]
+    );
+
+    // Opening a board used to mount every card in one commit. With a long list
+    // (100+ cards) that blocks the first paint even though only the first few
+    // cards are on screen. Mount a small first page synchronously, then append
+    // the rest in short timer turns so the board opens and remains scrollable.
+    // The cap resets on list/search changes, not on reorder, so dragging does
+    // not collapse an already fully rendered list back to the first page.
+    const [renderLimit, setRenderLimit] = React.useState(() =>
+        Math.min(PROGRESSIVE_INITIAL_CARDS, filteredCards.length)
+    );
+    React.useEffect(() => {
+        setRenderLimit(Math.min(PROGRESSIVE_INITIAL_CARDS, filteredCards.length));
+        // Reset only when the list identity or search filter changes. Adding a
+        // card must not send an already fully loaded list back to page one; the
+        // second effect below extends the limit when the array grows.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [_id, searchReg]);
+    React.useEffect(() => {
+        if (renderLimit >= filteredCards.length) {
+            return;
+        }
+
+        const handle = scheduleFrame(() => {
+            setRenderLimit((current) =>
+                Math.min(current + PROGRESSIVE_CARD_BATCH, filteredCards.length)
+            );
+        });
+        return () => cancelFrame(handle);
+    }, [renderLimit, filteredCards.length]);
+
+    const renderedCards = filteredCards.slice(0, renderLimit);
     const [estimatedTimeSum, actualTimeSum] = React.useMemo(
         () =>
             filteredCards.reduce(
@@ -262,20 +345,20 @@ export const List: FC<Props> = React.memo((props: Props) => {
     const cardCount = props.cards?.length ?? 0;
     const [isEditing, setIsEditing] = useState(false);
     const [value, setValue] = useState('');
-    const inputRef = useRef<any>();
+    const inputRef = useRef<any>(null);
 
     const addCard = () => {
         props.setEditCard(true, props.listId, undefined);
     };
 
-    const onDelete = () => {
+    const onDelete = React.useCallback(() => {
         if (focused || done) {
             feedback.toast({ kind: 'warning', content: FEEDBACK_MESSAGES.kanban.cannotDeleteList });
             return;
         }
 
-        props.deleteList(props._id, props.boardId);
-    };
+        deleteList(_id, boardId);
+    }, [focused, done, _id, boardId, deleteList]);
 
     const onSave = () => {
         props.renameList(props._id, value);
@@ -286,7 +369,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
         setValue(e.target.value);
     };
 
-    const onEdit = () => {
+    const onEdit = React.useCallback(() => {
         setValue(props.title);
         setIsEditing(true);
         if (!inputRef.current) {
@@ -294,15 +377,10 @@ export const List: FC<Props> = React.memo((props: Props) => {
         }
 
         inputRef.current.focus();
-    };
+    }, [props.title]);
 
     /** The shared popover forwards the antd instance, so the menu can open it. */
-    const popConfirmRef = useRef<{ setVisible: (visible: boolean) => void }>();
-    const onPreDelete = React.useCallback(() => {
-        if (popConfirmRef.current) {
-            popConfirmRef.current.setVisible(true);
-        }
-    }, []);
+    const popConfirmRef = useRef<{ setVisible: (visible: boolean) => void } | null>(null);
 
     const menu: MenuProps = React.useMemo(
         () =>
@@ -337,7 +415,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
                           },
                       ],
                   },
-        [onDelete, focused, done, onPreDelete, onEdit]
+        [onDelete, focused, done, onEdit]
     );
 
     return (
@@ -411,22 +489,41 @@ export const List: FC<Props> = React.memo((props: Props) => {
                                 return (
                                     <Cards
                                         ref={mergedRef}
-                                        displayScrollbar={showScrollBar}
+                                        $displayScrollbar={showScrollBar}
                                         {...provided.droppableProps}
                                     >
                                         <BeforePlaceHolder />
-                                        {filteredCards.map((cardId, index) => (
-                                            <Card
-                                                boardId={props.boardId}
-                                                cardId={cardId}
-                                                index={index}
-                                                key={cardId}
-                                                listId={props.listId}
-                                                isInDoneList={done}
-                                                isDraggingOver={isDraggingOver}
-                                                searchReg={searchReg}
-                                            />
-                                        ))}
+                                        {renderedCards.map((cardId, index) => {
+                                            const card = cardsState[cardId];
+                                            // The card may already be gone while
+                                            // this list is still mounted (e.g.
+                                            // its board was just deleted).
+                                            if (card === undefined) {
+                                                return null;
+                                            }
+
+                                            return (
+                                                <Card
+                                                    {...card}
+                                                    boardId={props.boardId}
+                                                    cardId={cardId}
+                                                    index={index}
+                                                    key={cardId}
+                                                    listId={props.listId}
+                                                    isInDoneList={done}
+                                                    isDraggingOver={isDraggingOver}
+                                                    searchReg={searchReg}
+                                                    initiallyVisible={index < 3}
+                                                    isDragDisabled={
+                                                        renderLimit < filteredCards.length
+                                                    }
+                                                    collapsed={props.collapsed}
+                                                    setEditCard={props.setEditCard}
+                                                    setSearchReg={props.setSearchReg}
+                                                    setContent={props.setContent}
+                                                />
+                                            );
+                                        })}
                                         {provided.placeholder}
                                         <AfterPlaceHolder />
                                     </Cards>
@@ -442,7 +539,6 @@ export const List: FC<Props> = React.memo((props: Props) => {
                             />
                         </ButtonWrapper>
                     </Container>
-                    {provided.placeholder}
                 </div>
             )}
         </Draggable>

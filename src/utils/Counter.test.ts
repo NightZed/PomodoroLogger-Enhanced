@@ -11,18 +11,18 @@ describe('Counter', () => {
         expect(counter.dict).toStrictEqual({
             1: 1,
             2: 2,
-            3: 3
+            3: 3,
         });
 
         const list = counter.list;
         const fromList: { [n: string]: number } = {};
-        list.forEach(v => {
+        list.forEach((v) => {
             fromList[v[0]] = v[1];
         });
         expect(fromList).toStrictEqual({
             1: 1,
             2: 2,
-            3: 3
+            3: 3,
         });
     });
 

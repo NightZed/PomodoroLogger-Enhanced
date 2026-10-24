@@ -1,4 +1,4 @@
-import { createActionCreator, createReducer } from 'deox';
+import { createAction, createReducer } from '@reduxjs/toolkit';
 import { Dispatch } from 'redux';
 import { actions as listActions } from '../List/action';
 import { actions as cardActions } from '../Card/action';
@@ -33,200 +33,180 @@ export const defaultBoard: KanbanBoard = {
 
 export type KanbanBoardState = { [_id: string]: KanbanBoard };
 
-const addBoard = createActionCreator(
+const addBoard = createAction(
     '[Board]ADD',
-    (resolve) =>
-        (
-            _id: string,
-            name: string,
-            description: string,
-            lists: string[],
-            focusedList: string,
-            doneList: string,
-            createdTime: number
-        ) =>
-            resolve({ _id, name, description, lists, focusedList, doneList, createdTime })
+    (
+        _id: string,
+        name: string,
+        description: string,
+        lists: string[],
+        focusedList: string,
+        doneList: string,
+        createdTime: number
+    ) => ({ payload: { _id, name, description, lists, focusedList, doneList, createdTime } })
 );
 
-const setBoardMap = createActionCreator(
-    '[Board]SET_BOARD_MAP',
-    (resolve) => (boards: KanbanBoardState) => resolve(boards)
-);
+const setBoardMap = createAction('[Board]SET_BOARD_MAP', (boards: KanbanBoardState) => ({
+    payload: boards,
+}));
 
-const moveList = createActionCreator(
+const moveList = createAction(
     '[Board]MOVE_LIST',
-    (resolve) => (_id: string, fromIndex: number, toIndex: number) =>
-        resolve({ _id, fromIndex, toIndex })
+    (_id: string, fromIndex: number, toIndex: number) => ({ payload: { _id, fromIndex, toIndex } })
 );
 
-const renameBoard = createActionCreator(
-    '[Board]RENAME',
-    (resolve) => (_id, name) => resolve({ _id, name })
-);
+const renameBoard = createAction('[Board]RENAME', (_id, name) => ({ payload: { _id, name } }));
 
-const addList = createActionCreator(
-    '[Board]ADD_LIST',
-    (resolve) => (_id, listId) => resolve({ _id, cardId: listId })
-);
+const addList = createAction('[Board]ADD_LIST', (_id, listId) => ({
+    payload: { _id, cardId: listId },
+}));
 
-const deleteBoard = createActionCreator('[Board]DEL_BOARD', (resolve) => (_id) => resolve({ _id }));
+const deleteBoard = createAction('[Board]DEL_BOARD', (_id) => ({ payload: { _id } }));
 
-const deleteList = createActionCreator(
-    '[Board]DEL_LIST',
-    (resolve) => (_id, listId) => resolve({ _id, listId })
-);
+const deleteList = createAction('[Board]DEL_LIST', (_id, listId) => ({ payload: { _id, listId } }));
 
-const setLastVisitTime = createActionCreator(
-    '[Board]SET_LAST_VISIT_TIME',
-    (resolve) => (_id, time) => resolve({ _id, time })
-);
+const setLastVisitTime = createAction('[Board]SET_LAST_VISIT_TIME', (_id, time) => ({
+    payload: { _id, time },
+}));
 
-const onTimerFinished = createActionCreator(
+const onTimerFinished = createAction(
     '[Board]ON_TIMER_FINISHED',
-    (resolve) => (_id: string, sessionId: string, spentTime: number) =>
-        resolve({ _id, sessionId, spentTime })
+    (_id: string, sessionId: string, spentTime: number) => ({
+        payload: { _id, sessionId, spentTime },
+    })
 );
 
-const editBoard = createActionCreator(
-    '[Board]EDIT',
-    (resolve) => (_id: string, name: string, description: string) =>
-        resolve({ _id, name, description })
-);
+const editBoard = createAction('[Board]EDIT', (_id: string, name: string, description: string) => ({
+    payload: { _id, name, description },
+}));
 
-const setPin = createActionCreator(
-    '[Board]SET_PIN',
-    (resolve) => (_id: string, pin: boolean) => resolve({ _id, pin })
-);
+const setPin = createAction('[Board]SET_PIN', (_id: string, pin: boolean) => ({
+    payload: { _id, pin },
+}));
 
-const _updateAggInfo = createActionCreator(
-    '[Board]UPDATE_AGG_INFO',
-    (resolve) => (_id: string, aggInfo: AggInfo) => resolve({ _id, aggInfo })
-);
+const _updateAggInfo = createAction('[Board]UPDATE_AGG_INFO', (_id: string, aggInfo: AggInfo) => ({
+    payload: { _id, aggInfo },
+}));
 
-const setDistractionList = createActionCreator(
+const setDistractionList = createAction(
     '[Board]SET_DISTRACTION_LIST',
-    (resolve) => (_id: string, distractionList?: DistractingRow[]) =>
-        resolve({ _id, distractionList })
+    (_id: string, distractionList?: DistractingRow[]) => ({ payload: { _id, distractionList } })
 );
 
-const setCollapsed = createActionCreator(
-    '[Board]SET_COLLAPSED',
-    (resolve) => (_id: string, collapsed: boolean) => resolve({ _id, collapsed })
-);
+const setCollapsed = createAction('[Board]SET_COLLAPSED', (_id: string, collapsed: boolean) => ({
+    payload: { _id, collapsed },
+}));
 
-export const boardReducer = createReducer<KanbanBoardState, any>({}, (handle) => [
-    handle(
-        addBoard,
-        (
-            state,
-            { payload: { _id, name, description, lists, focusedList, doneList, createdTime } }
-        ) => ({
+export const boardReducer = createReducer<KanbanBoardState>({}, (builder) => {
+    builder
+        .addCase(
+            addBoard,
+            (
+                state,
+                { payload: { _id, name, description, lists, focusedList, doneList, createdTime } }
+            ) => ({
+                ...state,
+                [_id]: {
+                    ...defaultBoard,
+                    _id,
+                    description,
+                    name,
+                    lists,
+                    focusedList,
+                    doneList,
+                    createdTime,
+                },
+            })
+        )
+        .addCase(setBoardMap, (state, { payload }) => payload)
+        .addCase(setPin, (state, { payload: { _id, pin } }) => ({
             ...state,
             [_id]: {
-                ...defaultBoard,
-                _id,
-                description,
-                name,
-                lists,
-                focusedList,
-                doneList,
-                createdTime,
+                ...state[_id],
+                pin,
             },
+        }))
+        .addCase(moveList, (state, { payload: { _id, fromIndex, toIndex } }) => {
+            const lists = state[_id].lists.concat();
+            const [rm] = lists.splice(fromIndex, 1);
+            lists.splice(toIndex, 0, rm);
+            return {
+                ...state,
+                [_id]: {
+                    ...state[_id],
+                    lists,
+                },
+            };
         })
-    ),
-
-    handle(setBoardMap, (state, { payload }) => payload),
-    handle(setPin, (state, { payload: { _id, pin } }) => ({
-        ...state,
-        [_id]: {
-            ...state[_id],
-            pin,
-        },
-    })),
-    handle(moveList, (state, { payload: { _id, fromIndex, toIndex } }) => {
-        const newState = { ...state };
-        const lists = newState[_id].lists.concat();
-        const [rm] = lists.splice(fromIndex, 1);
-        lists.splice(toIndex, 0, rm);
-        newState[_id].lists = lists;
-        return newState;
-    }),
-
-    handle(renameBoard, (state, { payload: { _id, name } }) => {
-        return {
+        .addCase(renameBoard, (state, { payload: { _id, name } }) => {
+            return {
+                ...state,
+                [_id]: {
+                    ...state[_id],
+                    name,
+                },
+            };
+        })
+        .addCase(addList, (state, { payload: { _id, cardId } }) => ({
+            ...state,
+            [_id]: {
+                ...state[_id],
+                lists: [...state[_id].lists, cardId],
+            },
+        }))
+        .addCase(deleteBoard, (state, { payload: { _id } }) => {
+            const { [_id]: _del, ...rest } = state;
+            return rest;
+        })
+        .addCase(deleteList, (state, { payload: { _id, listId } }) => ({
+            ...state,
+            [_id]: {
+                ...state[_id],
+                lists: state[_id].lists.filter((v) => v !== listId),
+            },
+        }))
+        .addCase(onTimerFinished, (state, { payload: { _id, sessionId, spentTime } }) => {
+            return {
+                ...state,
+                [_id]: {
+                    ...state[_id],
+                    relatedSessions: state[_id].relatedSessions.concat([sessionId]),
+                    spentHours: state[_id].spentHours + spentTime,
+                },
+            };
+        })
+        .addCase(setLastVisitTime, (state, { payload: { _id, time } }) => {
+            return {
+                ...state,
+                [_id]: {
+                    ...state[_id],
+                    lastVisitTime: time,
+                },
+            };
+        })
+        .addCase(editBoard, (state, { payload: { _id, name, description } }) => ({
             ...state,
             [_id]: {
                 ...state[_id],
                 name,
+                description,
             },
-        };
-    }),
-
-    handle(addList, (state, { payload: { _id, cardId } }) => ({
-        ...state,
-        [_id]: {
-            ...state[_id],
-            lists: [...state[_id].lists, cardId],
-        },
-    })),
-
-    handle(deleteBoard, (state, { payload: { _id } }) => {
-        const { [_id]: _del, ...rest } = state;
-        return rest;
-    }),
-
-    handle(deleteList, (state, { payload: { _id, listId } }) => {
-        const newState = { ...state };
-        newState[_id].lists = newState[_id].lists.filter((v) => v !== listId);
-        return newState;
-    }),
-
-    handle(onTimerFinished, (state, { payload: { _id, sessionId, spentTime } }) => {
-        return {
+        }))
+        .addCase(setDistractionList, (state, { payload: { _id, distractionList } }) => ({
             ...state,
             [_id]: {
                 ...state[_id],
-                relatedSessions: state[_id].relatedSessions.concat([sessionId]),
-                spentHours: state[_id].spentHours + spentTime,
+                distractionList,
             },
-        };
-    }),
-
-    handle(setLastVisitTime, (state, { payload: { _id, time } }) => {
-        return {
+        }))
+        .addCase(setCollapsed, (state, { payload: { _id, collapsed } }) => ({
             ...state,
             [_id]: {
                 ...state[_id],
-                lastVisitTime: time,
+                collapsed,
             },
-        };
-    }),
-
-    handle(editBoard, (state, { payload: { _id, name, description } }) => ({
-        ...state,
-        [_id]: {
-            ...state[_id],
-            name,
-            description,
-        },
-    })),
-
-    handle(setDistractionList, (state, { payload: { _id, distractionList } }) => ({
-        ...state,
-        [_id]: {
-            ...state[_id],
-            distractionList,
-        },
-    })),
-
-    handle(setCollapsed, (state, { payload: { _id, collapsed } }) => ({
-        ...state,
-        [_id]: {
-            ...state[_id],
-            collapsed,
-        },
-    })),
-]);
+        }));
+});
 
 /**
  * Backfill createdTime for legacy boards (created before the field existed):
@@ -534,4 +514,4 @@ export const actions = {
     },
 };
 
-export type BoardActionTypes = { [key in keyof typeof actions]: typeof actions[key] };
+export type BoardActionTypes = { [key in keyof typeof actions]: (typeof actions)[key] };

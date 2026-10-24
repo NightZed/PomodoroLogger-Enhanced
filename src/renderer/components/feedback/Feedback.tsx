@@ -106,14 +106,14 @@ export const notice = ({
 }: NoticeOptions): void => {
     getFeedbackAppApi().notification.open({
         key,
-        message: title,
+        title,
         description:
             description === undefined ? undefined : (
                 <div className={FEEDBACK_TEXT_CLASS}>{description}</div>
             ),
         icon: kindIcon(kind),
         duration,
-        btn: actions,
+        actions,
         placement,
         onClose,
     });
@@ -175,7 +175,7 @@ export const confirm = ({
         cancelText,
         width,
         centered: true,
-        maskClosable: false,
+        mask: { closable: false },
         onOk,
         onCancel,
         getContainer: getPopupContainer,
@@ -199,7 +199,7 @@ export const alert = ({
         okText,
         width,
         centered: true,
-        maskClosable: false,
+        mask: { closable: false },
         onOk,
         getContainer: getPopupContainer,
     });

@@ -4,15 +4,12 @@
  * contract down: a page the hotkeys can reach but the bar does not declare shows
  * up as a blank tab, which is what 'setting' + Ctrl+Tab used to do.
  *
- * They run on a bare react-test-renderer rather than on the DOM: antd has no
- * `data-node-key` attribute to query, and the tab bar reads pixel geometry off
- * its host refs while it mounts (jsdom reports nothing for that). The panes are
- * read off the `Tabs` element instead, which is the declaration the hotkeys have
- * to stay within anyway.
+ * The tabs are queried through the DOM now (rc-tabs exposes `data-node-key`),
+ * so the tests also exercise the real antd rendering instead of inspecting the
+ * `Tabs` element through react-test-renderer.
  */
-import { Tabs } from 'antd';
 import * as React from 'react';
-import TestRenderer, { act } from 'react-test-renderer';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { APP_TABS, nextTabKey } from '../appTabs';
 import { tabType } from '../Timer/action';
 import AppTitleBar from './AppTitleBar';
@@ -21,38 +18,6 @@ import AppTitleBar from './AppTitleBar';
 // through `window.api`.
 (window as any).api = { windowAction: jest.fn(), windowDrag: jest.fn() };
 
-/**
- * Fake DOM node for the tab bar.
- *
- * `react-test-renderer` hands `null` to host-element refs unless a
- * `createNodeMock` is supplied, and rc-tabs reads geometry off those refs while
- * it mounts: it measures the ink bar
- * (`style`, `offsetWidth`), the scroll container and the tab nodes. All zeros
- * here are enough for it to render, and they keep the test about which pages the
- * bar declares instead of about pixel measurements.
- */
-const fakeNode = {
-    style: {},
-    focus: () => undefined,
-    blur: () => undefined,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-    getBoundingClientRect: () => ({ left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0 }),
-    querySelector: () => null,
-    querySelectorAll: () => [],
-    getElementsByClassName: () => [],
-    offsetWidth: 0,
-    offsetHeight: 0,
-    offsetLeft: 0,
-    offsetTop: 0,
-    clientWidth: 0,
-    clientHeight: 0,
-    scrollWidth: 0,
-    scrollHeight: 0,
-    scrollLeft: 0,
-    scrollTop: 0,
-};
-
 const build = (
     currentTab: tabType,
     onTabChange: (tab: tabType) => void,
@@ -60,7 +25,7 @@ const build = (
     maximized = false,
     compact = false
 ) =>
-    TestRenderer.create(
+    render(
         <AppTitleBar
             currentTab={currentTab}
             minimize={false}
@@ -74,84 +39,53 @@ const build = (
             setting={<div>setting page</div>}
             alwaysOnTop={false}
             onToggleAlwaysOnTop={() => undefined}
-        />,
-        { createNodeMock: () => fakeNode }
+        />
     );
 
-/**
- * The host element the bar's pointer handlers live on. `styled-components`
- * forwards them to the `div`, which `react-test-renderer` exposes with a string
- * type; that is the element a press on the title bar reaches first.
- */
-const dragSurface = (renderer: TestRenderer.ReactTestRenderer) => {
-    const bars = renderer.root.findAll(
-        (node) => typeof node.type === 'string' && typeof node.props.onPointerDown === 'function'
-    );
-    expect(bars).toHaveLength(1);
-    return bars[0];
-};
+const tabNodes = (container: HTMLElement) =>
+    Array.from(container.querySelectorAll('[data-node-key]')) as HTMLElement[];
+
+const tabButton = (container: HTMLElement, key: string) =>
+    container.querySelector(`[data-node-key="${key}"] [role="tab"]`) as HTMLElement | null;
+
+/** The declared pages, in order, read off the rendered tab bar. */
+const declaredTabs = (container: HTMLElement) =>
+    tabNodes(container).map((tab) => {
+        const label = tab.querySelector('[title]');
+        const button = tab.querySelector('[role="tab"]');
+        return {
+            key: tab.getAttribute('data-node-key'),
+            title: label?.getAttribute('title'),
+            tourKey: label?.getAttribute('data-tour') ?? undefined,
+            disabled: button?.getAttribute('aria-disabled') === 'true',
+        };
+    });
 
 /** A `pointerdown` on the empty part of the bar (not on a tab or a button). */
-const pointerDownEvent = () => ({
-    button: 0,
-    pointerId: 7,
-    // `isDragSurface` walks up with `closest`: inside the bar, outside the
-    // entries. See dragRegion.test.ts for the real element structure.
-    target: { closest: (selector: string) => (selector === '.ant-tabs-nav' ? {} : null) },
-    currentTarget: { setPointerCapture: jest.fn() },
-    preventDefault: jest.fn(),
-});
-
-/**
- * The panes the bar declares, in order.
- *
- * Read off the `Tabs` element's own `TabPane` children -- not off the rendered
- * tree and not off the DOM. The rendered tree keeps the `TabPane` *element
- * types* (not element instances), and an inactive pane without `forceRender`
- * renders `null`, so the DOM would only show the active page plus the Timer.
- * What the hotkeys have to stay within is the set of *declared* pages.
- */
-const declaredTabs = (renderer: TestRenderer.ReactTestRenderer) => {
-    const items = renderer.root.findByType(Tabs).props.items as Array<{
-        key: string;
-        label: React.ReactElement<{ title: string; 'data-tour'?: string }>;
-        forceRender?: boolean;
-        disabled?: boolean;
-    }>;
-
-    return items.map((item) => ({
-        key: item.key,
-        title: item.label.props.title,
-        tourKey: item.label.props['data-tour'],
-        forceRender: item.forceRender,
-        disabled: item.disabled,
-    }));
+const pointerDown = (target: HTMLElement, pointerId = 7) => {
+    const event = new Event('pointerdown', { bubbles: true, cancelable: true });
+    Object.assign(event, { button: 0, pointerId });
+    fireEvent(target, event);
+    return event;
 };
 
-const unmount = (renderer: TestRenderer.ReactTestRenderer) => {
-    act(() => {
-        renderer.unmount();
-    });
+const pointerUp = (target: HTMLElement, pointerId = 7) => {
+    const event = new Event('pointerup', { bubbles: true, cancelable: true });
+    Object.assign(event, { button: 0, pointerId });
+    fireEvent(target, event);
 };
 
 describe('AppTitleBar', () => {
-    APP_TABS.forEach(({ key, title, forceRender, tourKey }) => {
+    APP_TABS.forEach(({ key, title, tourKey }) => {
         it(`renders the ${key} page with its title`, () => {
-            const renderer = build(key, () => undefined);
+            const { container } = build(key, () => undefined);
 
-            const pane = declaredTabs(renderer).find((tab) => tab.key === key);
+            const pane = declaredTabs(container).find((tab) => tab.key === key);
             expect(pane).toBeDefined();
-            expect(renderer.root.findByType(Tabs).props.animated).toEqual({
-                inkBar: true,
-                tabPane: false,
-            });
             expect(pane?.title).toBe(title);
-            // The marker attributes of the guided tour and the mounted-ness of
-            // the page travel with the tab, so both come from the same list.
+            // The marker attributes of the guided tour travel with the tab, so
+            // both come from the same list.
             expect(pane?.tourKey).toBe(tourKey);
-            expect(pane?.forceRender).toBe(forceRender);
-
-            unmount(renderer);
         });
     });
 
@@ -162,83 +96,59 @@ describe('AppTitleBar', () => {
         // in the timer actions) which a removed dev-only page ('analyser') had
         // left one entry longer, so 'setting' + Ctrl+Tab landed on that blank
         // page first.
-        const renderer = build('timer', () => undefined);
-        expect(declaredTabs(renderer).map((tab) => tab.key)).toEqual(
+        const { container } = build('timer', () => undefined);
+        expect(declaredTabs(container).map((tab) => tab.key)).toEqual(
             APP_TABS.map((tab) => tab.key)
         );
 
         let current: tabType = 'setting';
         for (let step = 0; step < APP_TABS.length; step++) {
             current = nextTabKey(current, 1);
-            expect(declaredTabs(renderer).map((tab) => tab.key)).toContain(current);
+            expect(declaredTabs(container).map((tab) => tab.key)).toContain(current);
         }
-
-        unmount(renderer);
     });
 
     it('centers each compact icon without an individual offset', () => {
-        const renderer = build('timer', () => undefined, false, false, true);
-        const items = renderer.root.findByType(Tabs).props.items;
-        const firstIcon = items[0].label.props.children[0];
-        const secondIcon = items[1].label.props.children[0];
+        const { container } = build('timer', () => undefined, false, false, true);
+        const labels = Array.from(container.querySelectorAll('[title]')) as HTMLElement[];
+        const timerLabel = labels.find((label) => label.getAttribute('title') === 'Pomodoro');
+        const kanbanLabel = labels.find((label) => label.getAttribute('title') === 'Kanban');
 
-        expect(items[0].label.props.style).toMatchObject({ justifyContent: 'center' });
-        expect(firstIcon.props.style).toBeUndefined();
-        expect(secondIcon.props.style).toBeUndefined();
-
-        unmount(renderer);
+        expect(timerLabel?.style.justifyContent).toBe('center');
+        expect(kanbanLabel?.style.justifyContent).toBe('center');
+        const icons = Array.from(timerLabel?.querySelectorAll('.anticon') ?? []);
+        expect(icons.length).toBeGreaterThan(0);
+        icons.forEach((icon) => expect(icon.getAttribute('style')).toBeNull());
     });
 
     it('hands the tab the user picked to onTabChange', () => {
         const onTabChange = jest.fn();
-        const renderer = build('timer', onTabChange);
-        const tabs = renderer.root.findByType(Tabs);
+        const { container } = build('timer', onTabChange);
 
-        act(() => {
-            tabs.props.onChange('setting');
-        });
+        fireEvent.click(tabButton(container, 'setting') as HTMLElement);
         expect(onTabChange).toHaveBeenLastCalledWith('setting');
 
-        // The arrow keys of the tab bar (rc-tabs `onNavKeyDown`) end up here as
-        // well, which is why they navigate by page, and now by the same
-        // page-switch routine the Ctrl+Tab hotkeys use.
-        act(() => {
-            tabs.props.onChange('kanban');
-        });
+        fireEvent.click(tabButton(container, 'kanban') as HTMLElement);
         expect(onTabChange).toHaveBeenLastCalledWith('kanban');
-
-        unmount(renderer);
     });
 
     it('refuses to switch pages while the ending mask is up', () => {
         const onTabChange = jest.fn();
-        const renderer = build('timer', onTabChange, true);
-        const tabs = renderer.root.findByType(Tabs);
+        const { container } = build('timer', onTabChange, true);
 
-        act(() => {
-            tabs.props.onChange('kanban');
-        });
+        expect(declaredTabs(container).every((tab) => tab.disabled)).toBe(true);
+        fireEvent.click(tabButton(container, 'kanban') as HTMLElement);
         expect(onTabChange).not.toHaveBeenCalled();
-
-        // The entries are greyed out as well, so the arrow keys of the tab bar
-        // cannot sneak past the mask either.
-        expect(declaredTabs(renderer).every((tab) => tab.disabled)).toBe(true);
-
-        unmount(renderer);
     });
 
     it('keeps the Timer page mounted while another tab is active', () => {
         // The running session and its interval live there: a page switch must
-        // not tear them down.
-        const renderer = build('kanban', () => undefined);
-        expect(declaredTabs(renderer).find((tab) => tab.key === 'timer')?.forceRender).toBe(true);
-
-        const texts = renderer.root
-            .findAll((node) => typeof node.type === 'string')
-            .flatMap((node) => node.children.filter((child) => typeof child === 'string'));
-        expect(texts).toContain('timer page');
-
-        unmount(renderer);
+        // not tear them down. `forceRender` on the Timer entry is what keeps
+        // the pane in the DOM; the other inactive pages are not mounted.
+        build('kanban', () => undefined);
+        expect(screen.getByText('timer page')).not.toBeNull();
+        expect(screen.queryByText('history page')).toBeNull();
+        expect(screen.queryByText('setting page')).toBeNull();
     });
 
     it('turns a press on the maximized bar into a window drag', () => {
@@ -251,24 +161,21 @@ describe('AppTitleBar', () => {
         const windowDrag = jest.fn();
         (window as any).api = { windowAction: jest.fn(), windowDrag };
 
-        const renderer = build('timer', () => undefined, false, true);
-        const event = pointerDownEvent();
+        const { container } = build('timer', () => undefined, false, true);
+        const bar = container.querySelector('.ant-tabs-nav') as HTMLElement;
+        const root = container.firstElementChild as HTMLElement;
+        const setPointerCapture = jest.fn();
+        root.setPointerCapture = setPointerCapture;
 
-        act(() => {
-            dragSurface(renderer).props.onPointerDown(event);
-        });
+        pointerDown(bar);
 
         expect(windowDrag).toHaveBeenCalledWith('start');
         // The release is only guaranteed to arrive through the capture: the
         // window shrinks out from under the cursor while the button is held.
-        expect(event.currentTarget.setPointerCapture).toHaveBeenCalledWith(7);
+        expect(setPointerCapture).toHaveBeenCalledWith(7);
 
-        act(() => {
-            dragSurface(renderer).props.onPointerUp();
-        });
+        pointerUp(bar);
         expect(windowDrag).toHaveBeenLastCalledWith('end');
-
-        unmount(renderer);
     });
 
     it('leaves a press on a normal window to the native drag region', () => {
@@ -278,16 +185,15 @@ describe('AppTitleBar', () => {
         const windowDrag = jest.fn();
         (window as any).api = { windowAction: jest.fn(), windowDrag };
 
-        const renderer = build('timer', () => undefined);
-        const event = pointerDownEvent();
+        const { container } = build('timer', () => undefined);
+        const bar = container.querySelector('.ant-tabs-nav') as HTMLElement;
+        const root = container.firstElementChild as HTMLElement;
+        const setPointerCapture = jest.fn();
+        root.setPointerCapture = setPointerCapture;
 
-        act(() => {
-            dragSurface(renderer).props.onPointerDown(event);
-        });
+        pointerDown(bar);
 
         expect(windowDrag).not.toHaveBeenCalled();
-        expect(event.currentTarget.setPointerCapture).not.toHaveBeenCalled();
-
-        unmount(renderer);
+        expect(setPointerCapture).not.toHaveBeenCalled();
     });
 });

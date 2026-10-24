@@ -1,9 +1,9 @@
 import { existsSync, mkdirSync, writeFile } from 'fs';
 import path from 'path';
-import { dbBkBaseDir } from '../../config';
+import { dbBkBaseDir } from '../config';
 import type { SourceData } from '../../shared/dataMerger/dataMerger';
-import { AsyncDB } from '../../utils/dbHelper';
-import { DBs, loadDBs } from '../db';
+import { DBs, loadDBs, runInTransaction } from '../db';
+import { SqliteRepository } from '../db/repository';
 import { readAllData } from './read';
 import { promisify } from 'util';
 
@@ -11,55 +11,27 @@ export async function writeAllFile(data: SourceData) {
     await loadDBs(['cardsDB', 'listsDB', 'kanbanDB', 'moveDB', 'sessionDB']);
     // should use latest data
     await generateBackup();
-    const DB = {
-        sessionDB: new AsyncDB(DBs.sessionDB),
-        kanbanDB: new AsyncDB(DBs.kanbanDB),
-        cardsDB: new AsyncDB(DBs.cardsDB),
-        listsDB: new AsyncDB(DBs.listsDB),
-        moveDB: new AsyncDB(DBs.moveDB),
-    };
 
-    await deleteAll(DB);
-    await insertData(DB, data);
-}
+    // The old NeDB code deleted table by table and inserted in parallel. On
+    // SQLite this is one transaction: a failed import leaves the previous data
+    // intact instead of a half-empty board/session set.
+    runInTransaction(() => {
+        const cards = DBs.cardsDB as SqliteRepository;
+        const lists = DBs.listsDB as SqliteRepository;
+        const boards = DBs.kanbanDB as SqliteRepository;
+        const moves = DBs.moveDB as SqliteRepository;
+        const sessions = DBs.sessionDB as unknown as SqliteRepository;
 
-async function insertData(
-    DB: {
-        sessionDB: AsyncDB;
-        kanbanDB: AsyncDB;
-        cardsDB: AsyncDB;
-        listsDB: AsyncDB;
-        moveDB: AsyncDB;
-    },
-    data: SourceData
-) {
-    const promises = [
-        DB.cardsDB.insert(Object.values(data.cards)),
-        DB.listsDB.insert(Object.values(data.lists)),
-        DB.kanbanDB.insert(Object.values(data.boards)),
-        DB.moveDB.insert(data.move),
-        DB.sessionDB.insert(data.records),
-    ];
+        for (const repository of [cards, lists, boards, moves, sessions]) {
+            repository.clearSync();
+        }
 
-    await Promise.all(promises);
-}
-
-async function deleteAll(DB: {
-    sessionDB: AsyncDB;
-    kanbanDB: AsyncDB;
-    cardsDB: AsyncDB;
-    listsDB: AsyncDB;
-    moveDB: AsyncDB;
-}) {
-    const promises = [
-        DB.cardsDB.remove({}, { multi: true }),
-        DB.listsDB.remove({}, { multi: true }),
-        DB.kanbanDB.remove({}, { multi: true }),
-        DB.moveDB.remove({}, { multi: true }),
-        DB.sessionDB.remove({}, { multi: true }),
-    ];
-
-    await Promise.all(promises);
+        cards.insertSync(Object.values(data.cards));
+        lists.insertSync(Object.values(data.lists));
+        boards.insertSync(Object.values(data.boards));
+        moves.insertSync(data.move);
+        sessions.insertSync(data.records);
+    });
 }
 
 export async function generateBackup() {

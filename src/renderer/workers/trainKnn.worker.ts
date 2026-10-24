@@ -1,69 +1,14 @@
-import { dbPaths, modelPath } from '../../config';
 import { PomodoroRecord } from '../monitor/type';
 import { KNN } from '../../main/learner/appKnn';
+import type { KnnModel } from '../../main/learner/appKnn';
 import { sample } from '../../utils/random';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
-import nedb from 'nedb';
-import { deferCompaction } from './deferCompaction';
 
 const ctx: Worker = self as any;
 
-/**
- * Read the session DB without touching it.
- *
- * This worker only reads, and the db worker is very likely loading the very same
- * file at the same time, so neDB's load-time rewrite is masked (see
- * ./deferCompaction): two writers on one `<file>~` temp file is what used to
- * push a fresh start past the request timeouts.
- *
- * Never leaves the caller hanging: the old code logged a failed load and
- * returned without resolving, so every caller waited forever.
- */
-async function getRecords() {
-    const sessionDB = new nedb({ filename: dbPaths.sessionDB, autoload: false });
-    deferCompaction(sessionDB);
-    let reloadTimes = 0;
-    await new Promise<void>((resolve) => {
-        const loadDatabase = () => {
-            sessionDB.loadDatabase((err) => {
-                if (!err) {
-                    resolve();
-                    return;
-                }
-
-                reloadTimes += 1;
-                if (reloadTimes > 10) {
-                    console.error('[trainKnn] cannot load the session database', err);
-                    resolve();
-                    return;
-                }
-
-                setTimeout(loadDatabase, 200);
-            });
-        };
-
-        loadDatabase();
-    });
-
-    const records: PomodoroRecord[] = await new Promise((resolve) => {
-        sessionDB.find({}, {}, (err, docs) => {
-            if (err) {
-                console.error(err);
-                resolve([]);
-                return;
-            }
-
-            resolve(docs as PomodoroRecord[]);
-        });
-    });
-
-    return records.filter((r) => r.boardId !== undefined);
-}
-
 let knn = new KNN();
-async function train(isTest: boolean, code: number) {
+async function train(isTest: boolean, code: number, records: PomodoroRecord[]) {
     try {
-        const records = await getRecords();
+        records = records.filter((r) => r.boardId !== undefined);
         if (records.length === 0) {
             ctx.postMessage({
                 code,
@@ -126,12 +71,13 @@ async function train(isTest: boolean, code: number) {
 }
 
 function saveModel(code: number) {
-    const json = knn.toJson();
     try {
-        writeFileSync(modelPath.knnPath, JSON.stringify(json), { encoding: 'utf-8' });
+        // Persistence belongs to the main process; the worker only serializes
+        // the model it already holds.
         ctx.postMessage({
             code,
-            type: 'onDone',
+            type: 'saved',
+            payload: knn.toJson(),
         });
     } catch (e) {
         ctx.postMessage({
@@ -142,23 +88,29 @@ function saveModel(code: number) {
     }
 }
 
-async function loadModel(dbSize: number, code: number) {
-    if (!existsSync(modelPath.knnPath)) {
-        await train(false, code);
-        saveModel(code);
-    } else {
-        const json = JSON.parse(readFileSync(modelPath.knnPath, { encoding: 'utf-8' }));
-        knn = KNN.fromJson(json);
-    }
+async function loadModel(
+    dbSize: number,
+    code: number,
+    records: PomodoroRecord[],
+    model: KnnModel | undefined
+) {
+    knn = model ? KNN.fromJson(model) : new KNN();
+    let retrained = !model;
 
     if (!knn.isTrained || dbSize - knn.length > 20 || dbSize / knn.length > 1.5) {
-        await train(false, code);
-        saveModel(code);
+        retrained = true;
+        await train(false, code, records);
     }
 
     ctx.postMessage({
         code,
-        type: 'onDone',
+        type: 'loaded',
+        payload: {
+            model: knn.toJson(),
+            // Only write when there was nothing usable: an unchanged model is
+            // read and used without touching the disk again.
+            save: retrained,
+        },
     });
 }
 
@@ -176,14 +128,14 @@ ctx.addEventListener('message', async ({ data: { type, payload, code } }) => {
     try {
         if (type === 'trainModel') {
             knn = new KNN();
-            await train(false, code);
+            await train(false, code, payload.records);
         } else if (type === 'testModel') {
             knn = new KNN();
-            await train(true, code);
+            await train(true, code, payload.records);
         } else if (type === 'saveModel') {
             saveModel(code);
         } else if (type === 'loadModel') {
-            await loadModel(payload.dbSize, code);
+            await loadModel(payload.dbSize, code, payload.records, payload.model);
         } else if (type === 'predict') {
             predict(payload, code);
         }

@@ -73,8 +73,9 @@
 - **托盘**：关闭主页面缩放到系统托盘
 
 <p align="center">
-  <img width="100" src="./screenshots/tray.png" alt="系统托盘上的倒计时"/>
+  <img width="" src="./screenshots/tray.png" alt="系统托盘上的倒计时"/>
 </p>
+
 
 - **迷你模式**：用 `F12` 在完整界面与迷你模式之间切换。
 
@@ -161,13 +162,13 @@
   <img width="520" src="./screenshots/sankey-diagram.png" alt="分心应用桑基图"/>
 </p>
 
-### 🥧 时间占比饼图 · 词云
+### 🥧 时间占比图表 · 词云
 
-**饼图**看各项目 / 应用的时间占比，**词云**看窗口标题里出现最多的关键词。点开热力图中的某一天，或切换项目与年月，图表都会跟着更新。
+**图表**看各项目 / 应用的时间占比，**词云**看窗口标题里出现最多的关键词。点开热力图中的某一天，或切换项目与年月，图表都会跟着更新。
 
 <p align="center">
-  <img height="270" src="./screenshots/time-proportion-pie-chart.png" alt="时间占比饼图"/>
-  <img height="270" src="./screenshots/word-cloud.png" alt="词云"/>
+  <img width="800" src="./screenshots/time-proportion-chart.png" alt="时间占比图表"/>
+  <img width="800" src="./screenshots/word-cloud.png" alt="词云"/>
 </p>
 
 <a id="features"></a>
@@ -185,7 +186,7 @@ DeepMind (@DeepMindAI) | Twitter - Google Chrome
 pomodoro-logger [C:\code\pomodoro-logger] .\src\renderer\components\src\Application.tsx - WebStorm
 ```
 
-这些原始记录会在[统计与分析](#statistics)里汇总成时间占比饼图与词云。
+这些原始记录会在[统计与分析](#statistics)里汇总成时间占比图表与词云。
 
 <a id="data-privacy"></a>
 
@@ -229,7 +230,7 @@ pomodoro-logger [C:\code\pomodoro-logger] .\src\renderer\components\src\Applicat
 
 ## 🚀 快速开始
 
-平台支持： **Windows 10 / macOS 12+ / Linux**，
+平台支持： **Windows 10 / macOS 13+ / Linux**，
 下载：[发布页面](https://github.com/NightZed/PomodoroLogger-Enhanced/releases)。
 
 ## 🤝 参与贡献

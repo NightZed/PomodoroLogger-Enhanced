@@ -8,15 +8,13 @@ import { List, ListsState } from '../type';
 
 jest.setTimeout(30000);
 // The old `beforeEach` unlinked the db file and called `refreshDbs()`. That was
-// both pointless and the source of the parallel-run flake: `refreshDbs()` swaps
-// in brand-new nedb instances, but this file's `AsyncDB` handles and the
-// `FakeDBWorker` instances behind `workers.dbWorkers` captured the *original*
-// instances at import time, so they never saw the replacement. All it did was
-// delete the file out from under the still-open original instance's persistence
-// handle — under 19 concurrent Jest workers that wedged nedb's async write
-// queue and every later op on the stuck db hung until the 30s test timeout.
-// Clearing the tables in place gives the same fresh-database semantics with no
-// file churn.
+// both pointless and the source of the parallel-run flake: the `AsyncDB` handles
+// and the db-worker facade behind `workers.dbWorkers` captured the *original*
+// repositories at import time, so a refresh never reached them. All it did was
+// delete the file out from under the still-open connection -- under 19
+// concurrent Jest workers that wedged the database and every later op on it hung
+// until the 30s test timeout. Clearing the tables in place gives the same
+// fresh-database semantics with no file churn.
 const db = new AsyncDB(dbs.listsDB);
 const moveDB = new AsyncDB(dbs.moveDB);
 const kanbanDB = new AsyncDB(dbs.kanbanDB);

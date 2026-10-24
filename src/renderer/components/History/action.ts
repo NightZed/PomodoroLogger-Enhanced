@@ -1,4 +1,4 @@
-import { createActionCreator, createReducer } from 'deox';
+import { createAction, createReducer } from '@reduxjs/toolkit';
 
 export interface HistoryState {
     chosenProjectId?: string;
@@ -6,33 +6,31 @@ export interface HistoryState {
 }
 
 export const defaultState: HistoryState = {
-    expiringKey: ''
+    expiringKey: '',
 };
 
-const setChosenProjectId = createActionCreator(
-    '[History]setChosenProjectId',
-    resolve => (project?: string) => resolve(project)
-);
+const setChosenProjectId = createAction('[History]setChosenProjectId', (project?: string) => ({
+    payload: project,
+}));
 
-const setExpiringKey = createActionCreator(
-    '[History]setExpiringKey',
-    resolve => (expiringKey: string) => resolve({ expiringKey })
-);
+const setExpiringKey = createAction('[History]setExpiringKey', (expiringKey: string) => ({
+    payload: { expiringKey },
+}));
 
 export const actions = {
     setChosenProjectId,
-    setExpiringKey
+    setExpiringKey,
 };
 
-export type HistoryActionCreatorTypes = { [key in keyof typeof actions]: typeof actions[key] };
-export const reducer = createReducer<HistoryState, any>(defaultState, handle => [
-    handle(setChosenProjectId, (state: HistoryState, { payload }) => ({
-        ...state,
-        chosenProjectId: payload
-    })),
-
-    handle(setExpiringKey, (state, { payload: { expiringKey } }) => ({
-        ...state,
-        expiringKey
-    }))
-]);
+export type HistoryActionCreatorTypes = { [key in keyof typeof actions]: (typeof actions)[key] };
+export const reducer = createReducer(defaultState, (builder) => {
+    builder
+        .addCase(setChosenProjectId, (state, { payload }) => ({
+            ...state,
+            chosenProjectId: payload,
+        }))
+        .addCase(setExpiringKey, (state, { payload: { expiringKey } }) => ({
+            ...state,
+            expiringKey,
+        }));
+});

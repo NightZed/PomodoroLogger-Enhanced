@@ -1,10 +1,9 @@
-import { createActionCreator, createReducer } from 'deox';
+import { createAction, createReducer } from '@reduxjs/toolkit';
 import { Dispatch } from 'redux';
 import { addSession } from '../../monitor/sessionManager';
 import { actions as boardActions } from '../Kanban/Board/action';
 import { actions as kanbanActions } from '../Kanban/action';
 import { actions as historyActions } from '../History/action';
-import { promisify } from 'util';
 import dbs from '../../dbs';
 import { PomodoroRecord } from '../../monitor/type';
 import { workers } from '../../workers';
@@ -19,9 +18,9 @@ const settingDB = new AsyncDB(dbs.settingDB);
  * Pending writes of the drag-driven settings, keyed by setting name.
  *
  * The opacity sliders dispatch on every `onChange`, i.e. dozens of times while
- * a thumb is being dragged, and each dispatch would otherwise be its own NeDB
- * write. Writes are debounced per key, so dragging one slider never cancels the
- * pending write of another one.
+ * a thumb is being dragged, and each dispatch would otherwise be its own
+ * SQLite write. Writes are debounced per key, so dragging one slider never
+ * cancels the pending write of another one.
  */
 const pendingSettingWrites: { [name: string]: ReturnType<typeof setTimeout> } = {};
 
@@ -219,137 +218,73 @@ export const uiStateNames = [
 // so the very same session can be resumed. `stopTimer` is the only one that
 // discards a session (and everything collected with it) -- what the "Stop"
 // button, the tray entry and the mini window call.
-export const startTimer = createActionCreator('[Timer]START_TIMER');
-export const pauseTimer = createActionCreator('[Timer]PAUSE_TIMER');
-export const continueTimer = createActionCreator('[Timer]CONTINUE_TIMER');
-export const stopTimer = createActionCreator('[Timer]STOP_TIMER');
-export const timerFinished = createActionCreator('[Timer]TIMER_FINISHED');
-export const setMinimize = createActionCreator(
-    '[Timer]SET_MINIMIZE',
-    (resolve) => (value: boolean) => resolve(value)
-);
+export const startTimer = createAction('[Timer]START_TIMER');
+export const pauseTimer = createAction('[Timer]PAUSE_TIMER');
+export const continueTimer = createAction('[Timer]CONTINUE_TIMER');
+export const stopTimer = createAction('[Timer]STOP_TIMER');
+export const timerFinished = createAction('[Timer]TIMER_FINISHED');
+export const setMinimize = createAction<boolean>('[Timer]SET_MINIMIZE');
 /**
  * Raise or lower the ending mask: a finished session is waiting to be
  * confirmed. See `TimerState.sessionEnding` for why this is app-wide state.
  */
-export const setSessionEnding = createActionCreator(
-    '[Timer]SET_SESSION_ENDING',
-    (resolve) => (value: boolean) => resolve(value)
-);
-export const setWallpaperDataUrl = createActionCreator(
+export const setSessionEnding = createAction<boolean>('[Timer]SET_SESSION_ENDING');
+export const setWallpaperDataUrl = createAction(
     '[Setting]SET_WALLPAPER_DATA_URL',
-    (resolve) => (value?: string) => resolve(value)
+    (value?: string) => ({ payload: value })
 );
-export const setCompact = createActionCreator(
-    '[Timer]SET_COMPACT',
-    (resolve) => (value: boolean) => resolve(value)
+export const setCompact = createAction<boolean>('[Timer]SET_COMPACT');
+export const setCompactAlwaysOnTop = createAction<boolean>('[Timer]SET_COMPACT_ALWAYS_ON_TOP');
+export const setContentOpacity = createAction<number>('[Setting]SET_CONTENT_OPACITY');
+export const setThemeBackgroundOpacity = createAction<number>(
+    '[Setting]SET_THEME_BACKGROUND_OPACITY'
 );
-export const setCompactAlwaysOnTop = createActionCreator(
-    '[Timer]SET_COMPACT_ALWAYS_ON_TOP',
-    (resolve) => (value: boolean) => resolve(value)
-);
-export const setContentOpacity = createActionCreator(
-    '[Setting]SET_CONTENT_OPACITY',
-    (resolve) => (value: number) => resolve(value)
-);
-export const setThemeBackgroundOpacity = createActionCreator(
-    '[Setting]SET_THEME_BACKGROUND_OPACITY',
-    (resolve) => (value: number) => resolve(value)
-);
-export const setWallpaperPath = createActionCreator(
-    '[Setting]SET_WALLPAPER_PATH',
-    (resolve) => (value?: string) => resolve(value)
-);
-export const setWallpaperOpacity = createActionCreator(
-    '[Setting]SET_WALLPAPER_OPACITY',
-    (resolve) => (value: number) => resolve(value)
-);
-export const setAutoUpdate = createActionCreator(
-    '[Timer]SET_AUTO_UPDATE',
-    (resolve) => (value: boolean) => resolve(value)
-);
-export const setTimerManager = createActionCreator(
+export const setWallpaperPath = createAction('[Setting]SET_WALLPAPER_PATH', (value?: string) => ({
+    payload: value,
+}));
+export const setWallpaperOpacity = createAction<number>('[Setting]SET_WALLPAPER_OPACITY');
+export const setAutoUpdate = createAction<boolean>('[Timer]SET_AUTO_UPDATE');
+export const setTimerManager = createAction(
     '[Timer]StartOrResumeTimer',
-    (resolve) => (manager?: TimerManager) => resolve({ manager })
+    (manager?: TimerManager) => ({ payload: { manager } })
 );
-export const setChosenRecord = createActionCreator(
+export const setChosenRecord = createAction(
     '[Timer]SET_CHOSEN_RECORD',
-    (resolve) => (record?: PomodoroRecord) => resolve({ record })
+    (record?: PomodoroRecord) => ({ payload: { record } })
 );
-export const setDistractingList = createActionCreator(
-    '[Setting]SET_DISTRACTING_LIST',
-    (resolve) => (rows: DistractingRow[]) => resolve(rows)
-);
-export const extendCurrentSession = createActionCreator(
-    '[Timer]EXTEND_CURRENT_SESSION',
-    (resolve) => (time: number) => resolve(time)
-);
-export const setLongBreakDuration = createActionCreator(
+export const setDistractingList = createAction<DistractingRow[]>('[Setting]SET_DISTRACTING_LIST');
+export const extendCurrentSession = createAction<number>('[Timer]EXTEND_CURRENT_SESSION');
+export const setLongBreakDuration = createAction(
     '[Timer]SET_LONG_BREAK',
-    (resolve) => (longBreakDuration: number) => resolve({ longBreakDuration })
+    (longBreakDuration: number) => ({ payload: { longBreakDuration } })
 );
-export const setMinFinishDuration = createActionCreator(
-    '[Timer]SET_MIN_FINISH_DURATION',
-    (resolve) => (duration: number) => resolve(duration)
+export const setMinFinishDuration = createAction<number>('[Timer]SET_MIN_FINISH_DURATION');
+export const setStartOnBoot = createAction<boolean>('[Timer]SWITCH_START_ON_BOOT');
+export const setUseHardwareAcceleration = createAction<boolean>(
+    '[Timer]SWITCH_SET_USE_HARDWARE_ACCELERATION'
 );
-export const setStartOnBoot = createActionCreator(
-    '[Timer]SWITCH_START_ON_BOOT',
-    (resolve) => (check: boolean) => resolve(check)
-);
-export const setUseHardwareAcceleration = createActionCreator(
-    '[Timer]SWITCH_SET_USE_HARDWARE_ACCELERATION',
-    (resolve) => (check: boolean) => resolve(check)
-);
-export const setFocusDuration = createActionCreator(
-    '[Timer]SET_FOCUS_DURATION',
-    (resolve) => (duration: number) => resolve(duration)
-);
-export const setRestDuration = createActionCreator(
-    '[Timer]SET_REST_DURATION',
-    (resolve) => (duration: number) => resolve(duration)
-);
-export const setBoardId = createActionCreator(
-    '[Timer]SET_BOARD_ID',
-    (resolve) => (boardId?: string) => resolve({ boardId })
-);
-export const setMonitorInterval = createActionCreator(
-    '[Timer]SET_MONITOR_INTERVAL',
-    (resolve) => (interval: number) => resolve(interval)
-);
-export const setScreenShotInterval = createActionCreator(
+export const setFocusDuration = createAction<number>('[Timer]SET_FOCUS_DURATION');
+export const setRestDuration = createAction<number>('[Timer]SET_REST_DURATION');
+export const setBoardId = createAction('[Timer]SET_BOARD_ID', (boardId?: string) => ({
+    payload: { boardId },
+}));
+export const setMonitorInterval = createAction<number>('[Timer]SET_MONITOR_INTERVAL');
+export const setScreenShotInterval = createAction(
     '[Timer]SET_SCREEN_SHOT_INTERVAL',
-    (resolve) => (interval?: number) => resolve(interval)
+    (interval?: number) => ({ payload: interval })
 );
-export const setWarnBeforeFocusStart = createActionCreator(
-    '[Timer]SET_WARN_BEFORE_FOCUS_START',
-    (resolve) => (warn: boolean) => resolve(warn)
-);
-export const setCalendarBaseColor = createActionCreator(
-    '[Timer]SET_CALENDAR_BASE_COLOR',
-    (resolve) => (color: string) => resolve(color)
-);
-export const switchFocusRestMode = createActionCreator('[Timer]SWITCH_FOCUS_MODE');
-export const setThemeId = createActionCreator(
-    '[Setting]SET_THEME_ID',
-    (resolve) => (themeId: string) => resolve(themeId)
-);
-export const setFollowSystemTheme = createActionCreator(
-    '[Setting]SET_FOLLOW_SYSTEM_THEME',
-    (resolve) => (follow: boolean) => resolve(follow)
-);
-export const setCustomThemes = createActionCreator(
-    '[Setting]SET_CUSTOM_THEMES',
-    (resolve) => (customThemes: ThemeDefinition[]) => resolve(customThemes)
-);
-export const changeAppTab = createActionCreator(
-    '[App]CHANGE_APP_TAB',
-    (resolve) => (tab: tabType) => resolve(tab)
-);
+export const setWarnBeforeFocusStart = createAction<boolean>('[Timer]SET_WARN_BEFORE_FOCUS_START');
+export const setCalendarBaseColor = createAction<string>('[Timer]SET_CALENDAR_BASE_COLOR');
+export const switchFocusRestMode = createAction('[Timer]SWITCH_FOCUS_MODE');
+export const setThemeId = createAction<string>('[Setting]SET_THEME_ID');
+export const setFollowSystemTheme = createAction<boolean>('[Setting]SET_FOLLOW_SYSTEM_THEME');
+export const setCustomThemes = createAction<ThemeDefinition[]>('[Setting]SET_CUSTOM_THEMES');
+export const changeAppTab = createAction<tabType>('[App]CHANGE_APP_TAB');
 
 /**
  * Predict the project a finished session belongs to, so a session the user did
  * not attribute explicitly still lands on the right project in the statistics
- * (project pies, board hours, cards).
+ * (project treemaps, board hours, cards).
  *
  * Deliberately NOT an action creator: the prediction is a property of the
  * session record, not of the UI. Dispatching `setBoardId` here used to move the
@@ -374,8 +309,8 @@ export async function inferProject(sessionData: PomodoroRecord): Promise<string 
 
     // The prediction label is the board `_id` of the closest historical
     // session, and records must refer to a real board `_id` (`Timer` renders
-    // `kanban.boards[boardId]` directly, and the pies resolve ids through the
-    // kanban DB). Only use the prediction while that board still exists; this
+    // `kanban.boards[boardId]` directly, and the treemaps resolve ids through
+    // the kanban DB). Only use the prediction while that board still exists; this
     // also filters out degenerate predictions such as an empty string.
     const board = await workers.dbWorkers.kanbanDB
         .findOne({ _id: newProjectId })
@@ -396,11 +331,6 @@ export function resolveSessionProjectId(
     return confirmedBoardId !== undefined ? confirmedBoardId : inferredProjectId;
 }
 
-const throwError = (err: Error | null) => {
-    if (err) {
-        throw err;
-    }
-};
 export const actions = {
     pauseTimer,
     continueTimer,
@@ -414,9 +344,7 @@ export const actions = {
     setTimerManager,
     switchFocusRestMode,
     fetchSettings: () => async (dispatch: Dispatch) => {
-        const settings: Partial<Setting> = await promisify(
-            dbs.settingDB.findOne.bind(dbs.settingDB)
-        )({ name: 'setting' });
+        const settings: Partial<Setting> = await settingDB.findOne({ name: 'setting' });
         if (settings == null) {
             return;
         }
@@ -462,21 +390,15 @@ export const actions = {
     },
     setAutoUpdate: (value: boolean) => async (dispatch: Dispatch) => {
         dispatch(setAutoUpdate(value));
-        dbs.settingDB.update(
+        await settingDB.update(
             { name: 'setting' },
             { $set: { autoUpdate: value } },
-            { upsert: true },
-            throwError
+            { upsert: true }
         );
     },
     setFocusDuration: (focusDuration: number) => async (dispatch: Dispatch) => {
         dispatch(setFocusDuration(focusDuration));
-        dbs.settingDB.update(
-            { name: 'setting' },
-            { $set: { focusDuration } },
-            { upsert: true },
-            throwError
-        );
+        await settingDB.update({ name: 'setting' }, { $set: { focusDuration } }, { upsert: true });
     },
     setMinimize: (mini: boolean) => async (dispatch: Dispatch) => {
         dispatch(setMinimize(mini));
@@ -537,111 +459,87 @@ export const actions = {
     },
     setRestDuration: (restDuration: number) => async (dispatch: Dispatch) => {
         dispatch(setRestDuration(restDuration));
-        dbs.settingDB.update(
-            { name: 'setting' },
-            { $set: { restDuration } },
-            { upsert: true },
-            throwError
-        );
+        await settingDB.update({ name: 'setting' }, { $set: { restDuration } }, { upsert: true });
     },
     setLongBreakDuration: (longBreakDuration: number) => async (dispatch: Dispatch) => {
         dispatch(setLongBreakDuration(longBreakDuration));
-        dbs.settingDB.update(
+        await settingDB.update(
             { name: 'setting' },
             { $set: { longBreakDuration } },
-            { upsert: true },
-            throwError
+            { upsert: true }
         );
     },
     setMinFinishDuration: (minFinishDuration: number) => async (dispatch: Dispatch) => {
         dispatch(setMinFinishDuration(minFinishDuration));
-        dbs.settingDB.update(
+        await settingDB.update(
             { name: 'setting' },
             { $set: { minFinishDuration } },
-            { upsert: true },
-            throwError
+            { upsert: true }
         );
     },
     setStartOnBoot: (check: boolean) => async (dispatch: Dispatch) => {
         dispatch(setStartOnBoot(check));
-        dbs.settingDB.update(
+        await settingDB.update(
             { name: 'setting' },
             { $set: { startOnBoot: check } },
-            { upsert: true },
-            throwError
+            { upsert: true }
         );
     },
     setUseHardwareAcceleration: (check: boolean) => async (dispatch: Dispatch) => {
         dispatch(setUseHardwareAcceleration(check));
-        dbs.settingDB.update(
+        await settingDB.update(
             { name: 'setting' },
             { $set: { useHardwareAcceleration: check } },
-            { upsert: true },
-            throwError
+            { upsert: true }
         );
     },
     setMonitorInterval: (monitorInterval: number) => async (dispatch: Dispatch) => {
         dispatch(setMonitorInterval(monitorInterval));
-        dbs.settingDB.update(
+        await settingDB.update(
             { name: 'setting' },
             { $set: { monitorInterval } },
-            { upsert: true },
-            throwError
+            { upsert: true }
         );
     },
     setScreenShotInterval: (screenShotInterval?: number) => async (dispatch: Dispatch) => {
         dispatch(setScreenShotInterval(screenShotInterval));
-        dbs.settingDB.update(
+        await settingDB.update(
             { name: 'setting' },
             { $set: { screenShotInterval } },
-            { upsert: true },
-            throwError
+            { upsert: true }
         );
     },
     setWarnBeforeFocusStart: (warnBeforeFocusStart: boolean) => async (dispatch: Dispatch) => {
         dispatch(setWarnBeforeFocusStart(warnBeforeFocusStart));
-        dbs.settingDB.update(
+        await settingDB.update(
             { name: 'setting' },
             { $set: { warnBeforeFocusStart } },
-            { upsert: true },
-            throwError
+            { upsert: true }
         );
     },
     setCalendarBaseColor: (calendarBaseColor: string) => async (dispatch: Dispatch) => {
         dispatch(setCalendarBaseColor(calendarBaseColor));
-        dbs.settingDB.update(
+        await settingDB.update(
             { name: 'setting' },
             { $set: { calendarBaseColor } },
-            { upsert: true },
-            throwError
+            { upsert: true }
         );
     },
     setThemeId: (themeId: string) => async (dispatch: Dispatch) => {
         dispatch(setThemeId(themeId));
-        dbs.settingDB.update(
-            { name: 'setting' },
-            { $set: { themeId } },
-            { upsert: true },
-            throwError
-        );
+        await settingDB.update({ name: 'setting' }, { $set: { themeId } }, { upsert: true });
     },
     setFollowSystemTheme: (follow: boolean) => async (dispatch: Dispatch) => {
         dispatch(setFollowSystemTheme(follow));
-        dbs.settingDB.update(
+        await settingDB.update(
             { name: 'setting' },
             { $set: { followSystemTheme: follow } },
-            { upsert: true },
-            throwError
+            { upsert: true }
         );
     },
     setCustomThemes: (customThemes: ThemeDefinition[]) => async (dispatch: Dispatch) => {
         dispatch(setCustomThemes(customThemes));
-        dbs.settingDB.update(
-            { name: 'setting' },
-            { $set: { customThemes } },
-            { upsert: true },
-            throwError
-        );
+        await settingDB.update({ name: 'setting' }, { $set: { customThemes } }, { upsert: true });
     },
     timerFinished:
         (sessionData?: PomodoroRecord, cardIds: string[] = [], boardId?: string | undefined) =>
@@ -666,175 +564,170 @@ export const actions = {
     },
 };
 
-export type TimerActionTypes = { [key in keyof typeof actions]: typeof actions[key] };
-export const reducer = createReducer<TimerState, any>(defaultState, (handle) => [
-    handle(startTimer, (state: TimerState) => {
-        const duration: number = state.isFocusing
-            ? state.focusDuration
-            : state.iBreak % LONG_BREAK_INTERVAL === 0
-            ? state.longBreakDuration
-            : state.restDuration;
-        const now = new Date().getTime();
-        // `scaleMs` is the identity in production and divides by
-        // DEBUG_TIME_SCALE elsewhere -- the very branch this used to spell out
-        // inline; see the time scale contract in `config.ts`.
-        return { ...state, isRunning: true, targetTime: now + scaleMs(duration * 1000) };
-    }),
-
-    handle(pauseTimer, (state) => ({
-        ...state,
-        isRunning: false,
-        leftTime: state.targetTime ? state.targetTime - new Date().getTime() : undefined,
-    })),
-
-    handle(continueTimer, (state) => ({
-        ...state,
-        isRunning: true,
-        targetTime: state.leftTime ? new Date().getTime() + state.leftTime : state.targetTime,
-    })),
-    handle(stopTimer, (state) => ({
-        ...state,
-        leftTime: undefined,
-        isRunning: false,
-        targetTime: undefined,
-    })),
-    handle(timerFinished, (state: TimerState) => {
-        return {
+export type TimerActionTypes = { [key in keyof typeof actions]: (typeof actions)[key] };
+export const reducer = createReducer<TimerState>(defaultState, (builder) => {
+    builder
+        .addCase(startTimer, (state: TimerState) => {
+            const duration: number = state.isFocusing
+                ? state.focusDuration
+                : state.iBreak % LONG_BREAK_INTERVAL === 0
+                  ? state.longBreakDuration
+                  : state.restDuration;
+            const now = new Date().getTime();
+            // `scaleMs` is the identity in production and divides by
+            // DEBUG_TIME_SCALE elsewhere -- the very branch this used to spell out
+            // inline; see the time scale contract in `config.ts`.
+            return { ...state, isRunning: true, targetTime: now + scaleMs(duration * 1000) };
+        })
+        .addCase(pauseTimer, (state) => ({
             ...state,
             isRunning: false,
-            targetTime: undefined,
-            isFocusing: !state.isFocusing,
-            iBreak: state.iBreak + (state.isFocusing ? 1 : 0),
+            leftTime: state.targetTime ? state.targetTime - new Date().getTime() : undefined,
+        }))
+        .addCase(continueTimer, (state) => ({
+            ...state,
+            isRunning: true,
+            targetTime: state.leftTime ? new Date().getTime() + state.leftTime : state.targetTime,
+        }))
+        .addCase(stopTimer, (state) => ({
+            ...state,
             leftTime: undefined,
-        };
-    }),
-
-    handle(setFocusDuration, (state, { payload }) =>
-        // Project: persistence
-        ({ ...state, focusDuration: payload })
-    ),
-
-    handle(setRestDuration, (state, { payload }) =>
-        // Project: persistence
-        ({ ...state, restDuration: payload })
-    ),
-    handle(setAutoUpdate, (state, { payload }) => ({
-        ...state,
-        autoUpdate: payload,
-    })),
-    handle(setMonitorInterval, (state, { payload }) => ({ ...state, monitorInterval: payload })),
-
-    handle(setScreenShotInterval, (state, { payload }) => ({
-        ...state,
-        screenShotInterval:
-            payload == null
-                ? payload
-                : process.env.NODE_ENV !== 'development'
-                ? payload
-                : payload / DEBUG_TIME_SCALE,
-    })),
-
-    handle(setCalendarBaseColor, (state, { payload }) => ({
-        ...state,
-        calendarBaseColor: payload,
-    })),
-
-    handle(setThemeId, (state, { payload }) => ({ ...state, themeId: payload })),
-    handle(setFollowSystemTheme, (state, { payload }) => ({
-        ...state,
-        followSystemTheme: payload,
-    })),
-    handle(setCustomThemes, (state, { payload }) => ({ ...state, customThemes: payload })),
-
-    handle(switchFocusRestMode, (state) => ({
-        ...state,
-        isFocusing: !state.isFocusing,
-        leftTime: undefined,
-        targetTime: undefined,
-        isRunning: false,
-    })),
-
-    handle(setBoardId, (state, { payload: { boardId } }) => ({ ...state, boardId })),
-    handle(changeAppTab, (state, { payload }) => ({ ...state, currentTab: payload })),
-    handle(setStartOnBoot, (state, { payload }) => ({
-        ...state,
-        startOnBoot: payload,
-    })),
-    handle(setWarnBeforeFocusStart, (state, { payload }) => ({
-        ...state,
-        warnBeforeFocusStart: payload,
-    })),
-    handle(setUseHardwareAcceleration, (state, { payload }) => ({
-        ...state,
-        useHardwareAcceleration: payload,
-    })),
-    handle(setLongBreakDuration, (state, { payload: { longBreakDuration } }) => ({
-        ...state,
-        longBreakDuration,
-    })),
-    handle(setMinFinishDuration, (state, { payload }) => ({
-        ...state,
-        minFinishDuration: payload,
-    })),
-    handle(extendCurrentSession, (state, { payload }) => ({
-        ...state,
-        // Same clock as `startTimer`: the extension is a nominal duration the
-        // dev clock compresses (see `scaleMs`), so +5 lasts 2.5 seconds
-        // outside production instead of a flat second or a real 5 minutes.
-        targetTime: new Date().getTime() + scaleMs(payload * 1000),
-        isFocusing: true,
-        isRunning: true,
-    })),
-    handle(setDistractingList, (state, { payload }) => ({
-        ...state,
-        distractingList: payload,
-    })),
-    handle(setChosenRecord, (state, { payload: { record } }) => ({
-        ...state,
-        chosenRecord: record,
-    })),
-    handle(setTimerManager, (state, { payload: { manager } }) => ({
-        ...state,
-        timerManager: manager,
-    })),
-    handle(setSessionEnding, (state, { payload }) => ({
-        ...state,
-        sessionEnding: payload,
-    })),
-    handle(setMinimize, (state, { payload }) => ({
-        ...state,
-        minimize: payload,
-        compact: false,
-        currentTab: 'timer',
-    })),
-    handle(setCompact, (state, { payload }) => ({
-        ...state,
-        compact: payload,
-        minimize: false,
-        currentTab: payload ? 'timer' : state.currentTab,
-    })),
-    handle(setCompactAlwaysOnTop, (state, { payload }) => ({
-        ...state,
-        compactAlwaysOnTop: payload,
-    })),
-    handle(setContentOpacity, (state, { payload }) => ({
-        ...state,
-        contentOpacity: payload,
-    })),
-    handle(setThemeBackgroundOpacity, (state, { payload }) => ({
-        ...state,
-        themeBackgroundOpacity: payload,
-    })),
-    handle(setWallpaperPath, (state, { payload }) => ({
-        ...state,
-        wallpaperPath: payload,
-    })),
-    handle(setWallpaperDataUrl, (state, { payload }) => ({
-        ...state,
-        wallpaperDataUrl: payload,
-    })),
-    handle(setWallpaperOpacity, (state, { payload }) => ({
-        ...state,
-        wallpaperOpacity: payload,
-    })),
-]);
+            isRunning: false,
+            targetTime: undefined,
+        }))
+        .addCase(timerFinished, (state: TimerState) => {
+            return {
+                ...state,
+                isRunning: false,
+                targetTime: undefined,
+                isFocusing: !state.isFocusing,
+                iBreak: state.iBreak + (state.isFocusing ? 1 : 0),
+                leftTime: undefined,
+            };
+        })
+        .addCase(setFocusDuration, (state, { payload }) =>
+            // Project: persistence
+            ({ ...state, focusDuration: payload })
+        )
+        .addCase(setRestDuration, (state, { payload }) =>
+            // Project: persistence
+            ({ ...state, restDuration: payload })
+        )
+        .addCase(setAutoUpdate, (state, { payload }) => ({
+            ...state,
+            autoUpdate: payload,
+        }))
+        .addCase(setMonitorInterval, (state, { payload }) => ({
+            ...state,
+            monitorInterval: payload,
+        }))
+        .addCase(setScreenShotInterval, (state, { payload }) => ({
+            ...state,
+            screenShotInterval:
+                payload == null
+                    ? payload
+                    : process.env.NODE_ENV !== 'development'
+                      ? payload
+                      : payload / DEBUG_TIME_SCALE,
+        }))
+        .addCase(setCalendarBaseColor, (state, { payload }) => ({
+            ...state,
+            calendarBaseColor: payload,
+        }))
+        .addCase(setThemeId, (state, { payload }) => ({ ...state, themeId: payload }))
+        .addCase(setFollowSystemTheme, (state, { payload }) => ({
+            ...state,
+            followSystemTheme: payload,
+        }))
+        .addCase(setCustomThemes, (state, { payload }) => ({ ...state, customThemes: payload }))
+        .addCase(switchFocusRestMode, (state) => ({
+            ...state,
+            isFocusing: !state.isFocusing,
+            leftTime: undefined,
+            targetTime: undefined,
+            isRunning: false,
+        }))
+        .addCase(setBoardId, (state, { payload: { boardId } }) => ({ ...state, boardId }))
+        .addCase(changeAppTab, (state, { payload }) => ({ ...state, currentTab: payload }))
+        .addCase(setStartOnBoot, (state, { payload }) => ({
+            ...state,
+            startOnBoot: payload,
+        }))
+        .addCase(setWarnBeforeFocusStart, (state, { payload }) => ({
+            ...state,
+            warnBeforeFocusStart: payload,
+        }))
+        .addCase(setUseHardwareAcceleration, (state, { payload }) => ({
+            ...state,
+            useHardwareAcceleration: payload,
+        }))
+        .addCase(setLongBreakDuration, (state, { payload: { longBreakDuration } }) => ({
+            ...state,
+            longBreakDuration,
+        }))
+        .addCase(setMinFinishDuration, (state, { payload }) => ({
+            ...state,
+            minFinishDuration: payload,
+        }))
+        .addCase(extendCurrentSession, (state, { payload }) => ({
+            ...state,
+            // Same clock as `startTimer`: the extension is a nominal duration the
+            // dev clock compresses (see `scaleMs`), so +5 lasts 2.5 seconds
+            // outside production instead of a flat second or a real 5 minutes.
+            targetTime: new Date().getTime() + scaleMs(payload * 1000),
+            isFocusing: true,
+            isRunning: true,
+        }))
+        .addCase(setDistractingList, (state, { payload }) => ({
+            ...state,
+            distractingList: payload,
+        }))
+        .addCase(setChosenRecord, (state, { payload: { record } }) => ({
+            ...state,
+            chosenRecord: record,
+        }))
+        .addCase(setTimerManager, (state, { payload: { manager } }) => ({
+            ...state,
+            timerManager: manager,
+        }))
+        .addCase(setSessionEnding, (state, { payload }) => ({
+            ...state,
+            sessionEnding: payload,
+        }))
+        .addCase(setMinimize, (state, { payload }) => ({
+            ...state,
+            minimize: payload,
+            compact: false,
+            currentTab: 'timer',
+        }))
+        .addCase(setCompact, (state, { payload }) => ({
+            ...state,
+            compact: payload,
+            minimize: false,
+            currentTab: payload ? 'timer' : state.currentTab,
+        }))
+        .addCase(setCompactAlwaysOnTop, (state, { payload }) => ({
+            ...state,
+            compactAlwaysOnTop: payload,
+        }))
+        .addCase(setContentOpacity, (state, { payload }) => ({
+            ...state,
+            contentOpacity: payload,
+        }))
+        .addCase(setThemeBackgroundOpacity, (state, { payload }) => ({
+            ...state,
+            themeBackgroundOpacity: payload,
+        }))
+        .addCase(setWallpaperPath, (state, { payload }) => ({
+            ...state,
+            wallpaperPath: payload,
+        }))
+        .addCase(setWallpaperDataUrl, (state, { payload }) => ({
+            ...state,
+            wallpaperDataUrl: payload,
+        }))
+        .addCase(setWallpaperOpacity, (state, { payload }) => ({
+            ...state,
+            wallpaperOpacity: payload,
+        }));
+});

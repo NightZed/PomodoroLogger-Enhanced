@@ -50,7 +50,7 @@ const EMPTY_AGG_INFO: AggPomodoroInfo = {
         usedTime: undefined,
     },
     calendarCount: undefined,
-    pieChart: undefined,
+    timeSpent: undefined,
     wordWeights: undefined,
 };
 
@@ -103,7 +103,7 @@ interface Props extends HistoryActionCreatorTypes, HistoryState {
 export const History: React.FunctionComponent<Props> = React.memo((props: Props) => {
     const [targetDate, setTargetDate] = useState<undefined | [number, number, number]>(undefined);
     const [shownPomodoros, setPomodoros] = useState<undefined | PomodoroRecord[]>(undefined);
-    const [selectedDatePieChart, setSelectedDatePieChart] = useState<undefined | TimeSpentData>(
+    const [selectedDateTimeSpent, setSelectedDateTimeSpent] = useState<undefined | TimeSpentData>(
         undefined
     );
     const [selectedDateWordWeights, setSelectedDateWordWeights] = useState<
@@ -190,7 +190,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
             setStatus('ready');
             setErrorMsg(undefined);
             setTargetDate(undefined);
-            setSelectedDatePieChart(undefined);
+            setSelectedDateTimeSpent(undefined);
             setSelectedDateWordWeights(undefined);
             setPomodoros(undefined);
             return () => {
@@ -211,18 +211,18 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         //  - records since the week/month boundary feed the Today/Week/Month stats;
         //  - records of the chosen year (or All time) feed the calendar, which keeps
         //    its full-year window whatever month is picked;
-        //  - `periodRange` narrows the same year records down to the chosen month for
-        //    the badge / pie chart / word cloud, so the badge follows project + month
-        //    without the calendar losing the rest of the year; picking `All` months drops
-        //    the range so those views cover the whole year again;
+        //  - `periodRange` asks the repository for a separate month query with `apps`
+        //    for the badge / treemap / word cloud, while the year scan stays scalar
+        //    for the calendar; picking `All` months drops the range so those views
+        //    cover the whole year again;
         //  - with All time no range is sent and a single query covers both the recent
         //    stats and the full view.
-        // The whole aggregation runs inside the db worker (aggHistory op), so raw
-        // records never cross to the main thread and only the small aggregated
-        // result is transferred back. The worker also resolves the project names
-        // from the kanban DB itself, which is why `props.boards` is not part of
-        // the dependency list below: loading/renaming a board must not re-run
-        // the aggregation and throw the page back into its Loading state.
+        // The whole aggregation runs in the main-process aggregation child
+        // (aggHistory op), so raw records never cross to the renderer thread and
+        // only the small aggregated result is transferred back. That child also
+        // resolves project names from the kanban DB, which is why `props.boards`
+        // is not part of the dependency list below: loading/renaming a board
+        // must not re-run the aggregation and throw the page back into Loading.
         const db = workers.dbWorkers.sessionDB;
         const now = new Date();
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -268,7 +268,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                 setStatus('ready');
                 setErrorMsg(undefined);
                 setTargetDate(undefined);
-                setSelectedDatePieChart(undefined);
+                setSelectedDateTimeSpent(undefined);
                 setSelectedDateWordWeights(undefined);
                 setPomodoros(undefined);
             })
@@ -307,7 +307,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                       startTime: { $lt: nextDay.getTime(), $gte: dateStart.getTime() },
                   };
         setPomodoros(undefined);
-        setSelectedDatePieChart(undefined);
+        setSelectedDateTimeSpent(undefined);
         setSelectedDateWordWeights(undefined);
         db.find(searchArg, {}).then(async (docs) => {
             if (cancelled) {
@@ -316,12 +316,12 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
             setPomodoros(
                 docs.length ? [...docs].sort((a, b) => a.startTime - b.startTime) : undefined
             );
-            const [pieChart, wordWeights] = await Promise.all([
+            const [timeSpent, wordWeights] = await Promise.all([
                 getTimeSpentDataFromRecords(docs),
                 workers.tokenizer.tokenize(docs, []),
             ]);
             if (!cancelled) {
-                setSelectedDatePieChart(pieChart);
+                setSelectedDateTimeSpent(timeSpent);
                 setSelectedDateWordWeights(wordWeights);
             }
         });
@@ -373,7 +373,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
             }
         }
         return ans;
-    }, [aggInfo.calendarCount, chosenYear]);
+    }, [aggInfo, chosenYear]);
 
     // All time shows the full current-year calendar, so anchor the window to the year end.
     // Picking a month never moves this window: the heat map stays on the whole year,
@@ -384,7 +384,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         31
     ).getTime();
 
-    const shownPieChart = targetDate == null ? aggInfo.pieChart : selectedDatePieChart;
+    const shownTimeSpent = targetDate == null ? aggInfo.timeSpent : selectedDateTimeSpent;
     const shownWordWeights = targetDate == null ? aggInfo.wordWeights : selectedDateWordWeights;
 
     // The three stat cards show a spinner only while a load is actually running.
@@ -401,13 +401,13 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                     title={title}
                     value={loaded.count}
                     precision={0}
-                    valueStyle={{ color }}
+                    styles={{ content: { color } }}
                 />
             );
         }
 
         return status === 'error' ? (
-            <Statistic title={title} value={'-'} valueStyle={{ color }} />
+            <Statistic title={title} value={'-'} styles={{ content: { color } }} />
         ) : (
             <Loading hideBackground={true} />
         );
@@ -527,7 +527,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                             Retry
                         </Button>
                     </Card>
-                ) : aggInfo.pieChart != null && aggInfo.wordWeights != null ? (
+                ) : aggInfo.timeSpent != null && aggInfo.wordWeights != null ? (
                     calendarWidth > 670 ? (
                         <ChartContainer>
                             <GridCalendar
@@ -583,7 +583,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                             ) : (
                                 <>
                                     <TimeTreemap
-                                        {...(shownPieChart || { projectData: [], appData: [] })}
+                                        {...(shownTimeSpent || { projectData: [], appData: [] })}
                                         width={calendarWidth}
                                         onProjectClick={onProjectClick}
                                     />

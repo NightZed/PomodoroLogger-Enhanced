@@ -1,12 +1,20 @@
-import type { BaseResult } from 'active-win';
+import type { BaseResult } from 'get-windows';
 import { SourceData } from '../../shared/dataMerger/dataMerger';
 import type { ExportMeta } from '../../shared/dataTransfer/payload';
 import type { ValidationIssue, ValidationWarning } from '../../shared/dataTransfer/validate';
+import type { DbName, HistoryData } from '../db/types';
+import type { KnnModel } from '../learner/appKnn';
+import type { AggPomodoroInfo } from '../../renderer/components/History/op';
+import type { TrayActionKey, TrayMenuItem } from '../../renderer/components/Timer/sessionState';
+
+export type { TrayMenuItem };
 
 export enum IpcEventName {
     Quit = 'quit',
     Restart = 'restart-app',
     SetTray = 'set-tray',
+    /** Rebuilds the tray context menu from serializable entries, see `TrayMenuItem`. */
+    SetTrayMenu = 'setTrayMenu',
     DownloadUpdate = 'download-update',
     CheckUpdate = 'check-update',
     InstallUpdate = 'install-update',
@@ -21,11 +29,28 @@ export enum IpcEventName {
     Notify = 'notify',
     FocusOnWindow = 'focusOnWindow',
     DesktopSource = 'desktopSource',
+    OpenExternal = 'openExternal',
+    SaveScreenshot = 'saveScreenshot',
+    DeleteScreenshots = 'deleteScreenshots',
+    ClearUserFiles = 'clearUserFiles',
+    LoadKnnModel = 'loadKnnModel',
+    SaveKnnModel = 'saveKnnModel',
+    SetNativeTheme = 'setNativeTheme',
     WindowAction = 'windowAction',
     /** Renderer driven move of the maximized title bar, see `WindowDragPhase`. */
     WindowDrag = 'windowDrag',
     /** Window state, asked once when the renderer mounts (see `WindowState`). */
     WindowState = 'windowState',
+}
+
+/**
+ * Channels of the database bridge. Kept separate from `IpcEventName`: these
+ * are invoked directly by `renderer/dbs.ts`, not exposed as one method per
+ * enum entry.
+ */
+export enum DbEventName {
+    Request = 'db:request',
+    Ready = 'db:ready',
 }
 
 /**
@@ -60,6 +85,18 @@ export enum WindowEventName {
     MaximizedChanged = 'window-maximized-changed',
 }
 
+/**
+ * Events pushed from the main process when the user clicks a tray entry.
+ *
+ * The renderer used to hand main a set of click callbacks through
+ * `@electron/remote`. IPC cannot serialize functions, so the menu now carries
+ * only a `TrayActionKey` and the click comes back here; the Timer still owns
+ * the action itself.
+ */
+export enum TrayEventName {
+    Action = 'tray-action',
+}
+
 /** Phase of the update flow the error occurred in. */
 export type UpdatePhase = 'check' | 'download' | 'install';
 
@@ -74,6 +111,28 @@ export type UpdateErrorPayload = {
     skipped?: boolean;
 };
 
+/** Payload of `UpdateEventName.Available`, see `AutoUpdater`. */
+export type UpdateInfoPayload = {
+    version: string;
+    releaseName?: string;
+    releaseNotes?: string;
+};
+
+/** Payload of `UpdateEventName.Progress`. */
+export type UpdateProgressPayload = {
+    percent: number;
+    bytesPerSecond: number;
+};
+
+/** The icon payload drawn by the renderer and installed by the main process. */
+export type TrayIconPayload = {
+    src: string;
+    scaleFactor: number;
+};
+
+/** Values accepted by Electron's `nativeTheme.themeSource`. */
+export type NativeThemeSource = 'light' | 'dark' | 'system';
+
 /**
  * What an export actually did.
  *
@@ -82,8 +141,7 @@ export type UpdateErrorPayload = {
  * anything.
  */
 export type ExportResult =
-    | { status: 'cancelled' }
-    | { status: 'written'; filePath: string; meta: ExportMeta };
+    { status: 'cancelled' } | { status: 'written'; filePath: string; meta: ExportMeta };
 
 /**
  * What an import actually did.
@@ -101,21 +159,58 @@ export type ImportResult =
     | { status: 'invalid'; issues: ValidationIssue[] }
     | { status: 'imported'; warnings: ValidationWarning[]; meta: ExportMeta };
 
+/**
+ * The complete surface exposed to the renderer by `src/main/preload.ts`.
+ *
+ * Request methods use `ipcRenderer.invoke` (the main side registers
+ * `ipcMain.handle`); one-way commands use `send`. Event subscriptions return
+ * their own unsubscribe function, so a component never receives `ipcRenderer`
+ * itself.
+ */
 export type ExposedAPI = {
+    readonly platform: NodeJS.Platform;
+
     [IpcEventName.ImportData](): Promise<ImportResult>;
     [IpcEventName.SelectWallpaper](): Promise<string | undefined>;
     [IpcEventName.ExportData](): Promise<ExportResult>;
     [IpcEventName.ActiveWin](): Promise<BaseResult | undefined>;
-    [IpcEventName.OpenAtLogin](on: boolean): void;
-    [IpcEventName.MinimizeWindow](on: boolean): void;
-    [IpcEventName.CompactWindow](on: boolean, alwaysOnTop?: boolean): void;
-    [IpcEventName.OpenDevTools](): void;
-    [IpcEventName.Notify](title: string, body: string, iconPath: string): void;
-    [IpcEventName.FocusOnWindow](): void;
-    [IpcEventName.DesktopSource](x: number, y: number): Promise<DesktopSourceInfo | undefined>;
-    [IpcEventName.WindowAction](action: WindowAction): void;
-    [IpcEventName.WindowDrag](phase: WindowDragPhase): void;
+    [IpcEventName.OpenAtLogin](on: boolean): Promise<void>;
+    [IpcEventName.MinimizeWindow](on: boolean): Promise<void>;
+    [IpcEventName.CompactWindow](on: boolean, alwaysOnTop?: boolean): Promise<void>;
+    [IpcEventName.OpenDevTools](): Promise<void>;
+    [IpcEventName.Notify](title: string, body: string): Promise<void>;
+    [IpcEventName.FocusOnWindow](): Promise<void>;
+    [IpcEventName.DesktopSource](): Promise<DesktopSourceInfo | undefined>;
+    [IpcEventName.SetTrayMenu](items: TrayMenuItem[]): Promise<void>;
+    [IpcEventName.WindowAction](action: WindowAction): Promise<void>;
+    [IpcEventName.WindowDrag](phase: WindowDragPhase): Promise<void>;
     [IpcEventName.WindowState](): Promise<WindowState>;
+
+    quit(): void;
+    restart(): void;
+    downloadUpdate(): void;
+    checkUpdate(): void;
+    installUpdate(): void;
+    setTrayImage(payload: TrayIconPayload): void;
+    openExternal(url: string): void;
+    setNativeTheme(source: NativeThemeSource): void;
+
+    saveScreenshot(dataUrl: string): Promise<string>;
+    deleteScreenshots(paths: string[]): Promise<void>;
+    clearUserFiles(): Promise<void>;
+    loadKnnModel(): Promise<KnnModel | undefined>;
+    saveKnnModel(model: KnnModel): Promise<void>;
+
+    dbReady(): Promise<void>;
+    dbRequest(name: DbName, operation: string, args: unknown[]): Promise<unknown>;
+
+    onUpdateAvailable(listener: (info: UpdateInfoPayload) => void): () => void;
+    onUpdateNotAvailable(listener: (info: string) => void): () => void;
+    onUpdateProgress(listener: (progress: UpdateProgressPayload) => void): () => void;
+    onUpdateDownloaded(listener: () => void): () => void;
+    onUpdateError(listener: (payload: UpdateErrorPayload) => void): () => void;
+    onWindowMaximizedChanged(listener: (maximized: boolean) => void): () => void;
+    onTrayAction(listener: (key: TrayActionKey) => void): () => void;
 };
 
 /**
@@ -145,7 +240,10 @@ export type WindowState = {
 
 /**
  * Identifiers of the `desktopCapturer` source that belongs to the display which
- * hosts the window at `(x, y)`.
+ * hosts the app window.
+ *
+ * The main process derives the window bounds itself; the renderer no longer
+ * sends coordinates (it used `@electron/remote` for that).
  *
  * Only the string fields are sent over IPC: `thumbnail` is a `NativeImage` and
  * cannot be structured-cloned by the IPC layer.
@@ -157,6 +255,7 @@ export type DesktopSourceInfo = {
 
 export enum WorkerMessageType {
     MergeData = 'MergeData',
+    AggregateHistory = 'AggregateHistory',
 }
 
 export type WorkerMessagePayload = {
@@ -164,6 +263,7 @@ export type WorkerMessagePayload = {
         source: 'local' | SourceData;
         external: SourceData;
     };
+    [WorkerMessageType.AggregateHistory]: HistoryData;
 };
 
 export type WorkerResponsePayload = {
@@ -171,6 +271,7 @@ export type WorkerResponsePayload = {
         merged: SourceData;
         warning?: string;
     };
+    [WorkerMessageType.AggregateHistory]: AggPomodoroInfo;
 };
 
 export type WorkerMessage<T extends WorkerMessageType = WorkerMessageType> = {
@@ -183,4 +284,5 @@ export type WorkerResponse<T extends WorkerMessageType = WorkerMessageType> = {
     type: T;
     payload: WorkerResponsePayload[T];
     id: number;
+    error?: string;
 };

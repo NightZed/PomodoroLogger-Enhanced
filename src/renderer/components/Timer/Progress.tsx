@@ -1,10 +1,8 @@
-import * as PropTypes from 'prop-types';
 import * as React from 'react';
 import classNames from 'classnames';
 import Circle from 'antd/es/progress/Circle';
 
-const ProgressTypes = ['line', 'circle', 'dashboard'] as const;
-export type ProgressType = typeof ProgressTypes[number];
+export type ProgressType = 'line' | 'circle' | 'dashboard';
 const ProgressStatuses = ['normal', 'exception', 'active', 'success'] as const;
 export type ProgressSize = 'default' | 'small';
 export type StringGradients = { [percentage: string]: string };
@@ -17,7 +15,7 @@ export interface ProgressProps {
     percent?: number;
     successPercent?: number;
     format?: (percent?: number, successPercent?: number) => React.ReactNode;
-    status?: typeof ProgressStatuses[number];
+    status?: (typeof ProgressStatuses)[number];
     showInfo?: boolean;
     strokeWidth?: number;
     strokeLinecap?: 'butt' | 'square' | 'round';
@@ -39,20 +37,6 @@ export default class Progress extends React.Component<ProgressProps> {
         size: 'default',
         gapDegree: 0,
         strokeLinecap: 'round',
-    };
-
-    static propTypes = {
-        status: PropTypes.oneOf(ProgressStatuses),
-        type: PropTypes.oneOf(ProgressTypes),
-        showInfo: PropTypes.bool,
-        percent: PropTypes.number,
-        width: PropTypes.number,
-        strokeWidth: PropTypes.number,
-        strokeLinecap: PropTypes.oneOf(['round', 'square']),
-        strokeColor: PropTypes.oneOfType([PropTypes.string, PropTypes.object]),
-        trailColor: PropTypes.string,
-        format: PropTypes.func,
-        gapDegree: PropTypes.number,
     };
 
     getPercentNumber() {
@@ -87,7 +71,9 @@ export default class Progress extends React.Component<ProgressProps> {
             // ('#D9D9D9', written as inline style so CSS cannot override it).
             // var() is legal inside inline styles and resolves live, so the
             // ring follows the active theme without any JS-side sync. An
-            // explicit trailColor prop still takes precedence.
+            // explicit trailColor prop still takes precedence. In antd v6 the
+            // prop is called railColor (trailColor is deprecated); this wrapper
+            // keeps its own `trailColor` prop name and forwards it as railColor.
             trailColor = 'var(--pl-border)',
             size,
             successPercent,
@@ -109,10 +95,12 @@ export default class Progress extends React.Component<ProgressProps> {
             <Circle
                 prefixCls={prefixCls}
                 progressStatus={progressStatus}
-                trailColor={trailColor}
+                railColor={trailColor}
+                classNames={{}}
+                styles={{}}
                 type={type}
                 percent={percent}
-                successPercent={successPercent}
+                success={successPercent !== undefined ? { percent: successPercent } : undefined}
                 strokeWidth={strokeWidth}
                 strokeLinecap={strokeLinecap}
                 strokeColor={strokeColor}

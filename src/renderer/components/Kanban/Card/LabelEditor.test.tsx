@@ -16,8 +16,7 @@
  * did not shadow it.
  */
 import * as React from 'react';
-import * as ReactDOM from 'react-dom';
-import { act, Simulate } from 'react-dom/test-utils';
+import { cleanup, fireEvent, render } from '@testing-library/react';
 
 import { POPUP_CONTAINER_ID } from '../../popupLayer';
 import { LabelEditor } from './LabelEditor';
@@ -48,18 +47,13 @@ describe('LabelEditor suggestion input value', () => {
         });
         onChange = jest.fn();
 
-        act(() => {
-            ReactDOM.render(
-                <LabelEditor labels={[]} onChange={onChange} suggestions={SUGGESTIONS} />,
-                container
-            );
+        render(<LabelEditor labels={[]} onChange={onChange} suggestions={SUGGESTIONS} />, {
+            container,
         });
     });
 
     afterEach(() => {
-        act(() => {
-            ReactDOM.unmountComponentAtNode(container);
-        });
+        cleanup();
         container.remove();
         document.body.innerHTML = '';
         (console.error as jest.Mock).mockRestore();
@@ -69,11 +63,7 @@ describe('LabelEditor suggestion input value', () => {
         container.querySelector('input[placeholder="Label name"]') as HTMLInputElement;
 
     const type = (value: string) => {
-        act(() => {
-            // `target` is typed as plain EventTarget; the override mirrors what
-            // every DOM-testing helper does to feed a value into onChange.
-            Simulate.change(nameInput(), { target: { value } as unknown as EventTarget });
-        });
+        fireEvent.change(nameInput(), { target: { value } });
     };
 
     /** The propType warnings this fix targets name `inputValue` explicitly. */
@@ -99,9 +89,7 @@ describe('LabelEditor suggestion input value', () => {
         );
         expect(option).toBeDefined();
 
-        act(() => {
-            Simulate.click(option as Element);
-        });
+        fireEvent.click(option as Element);
 
         expect(onChange).toHaveBeenCalledWith([{ name: 'bug', color: '#eb5a46' }]);
         expect(inputValueWarnings()).toEqual([]);
@@ -117,6 +105,23 @@ describe('LabelEditor suggestion input value', () => {
         const dropdown = document.querySelector('.ant-select-dropdown');
         expect(dropdown).not.toBeNull();
         expect(document.getElementById(POPUP_CONTAINER_ID)!.contains(dropdown)).toBe(true);
+    });
+
+    it('renders the option list in the container the chip-cloud CSS targets', () => {
+        // The wrapping chip cloud (LabelSuggestDropdownStyle) turns antd's
+        // vertical option list into a flex-wrap cloud by overriding
+        // `flex-direction` on the virtual list's inner container. antd 6
+        // renamed that container from `.rc-virtual-list-holder-inner` to
+        // `.ant-select-dropdown-list-holder-inner`, which silently broke the
+        // layout: the selectors kept matching nothing and every chip went back
+        // to its own row. Pin the class names the CSS depends on so the next
+        // antd bump cannot regress it unnoticed.
+        type('bu');
+        expect(
+            document.querySelector(
+                '.pl-label-suggest-dropdown .ant-select-dropdown-list-holder-inner'
+            )
+        ).not.toBeNull();
     });
 });
 
@@ -135,18 +140,13 @@ describe('LabelEditor chip editing', () => {
         document.body.appendChild(popupLayer);
         onChange = jest.fn();
 
-        act(() => {
-            ReactDOM.render(
-                <LabelEditor labels={LABELS} onChange={onChange} suggestions={SUGGESTIONS} />,
-                container
-            );
+        render(<LabelEditor labels={LABELS} onChange={onChange} suggestions={SUGGESTIONS} />, {
+            container,
         });
     });
 
     afterEach(() => {
-        act(() => {
-            ReactDOM.unmountComponentAtNode(container);
-        });
+        cleanup();
         container.remove();
         document.body.innerHTML = '';
     });
@@ -155,9 +155,7 @@ describe('LabelEditor chip editing', () => {
     const chipRemove = () => container.querySelector('span[title="Remove label"]');
 
     it('opens the edit popover from the chip, prefilled with the label', () => {
-        act(() => {
-            Simulate.click(chipName() as Element);
-        });
+        fireEvent.click(chipName() as Element);
 
         // The popup renders into the shared popup layer (getPopupContainer);
         // the first input inside it is the prefilled name field.
@@ -170,9 +168,7 @@ describe('LabelEditor chip editing', () => {
     });
 
     it('removes the label from the cross without opening the popover', () => {
-        act(() => {
-            Simulate.click(chipRemove() as Element);
-        });
+        fireEvent.click(chipRemove() as Element);
 
         expect(onChange).toHaveBeenCalledWith([]);
         // The cross stops propagation, so the Popover trigger's own click
@@ -182,21 +178,15 @@ describe('LabelEditor chip editing', () => {
     });
 
     it('saves an edited name through the popover OK button', () => {
-        act(() => {
-            Simulate.click(chipName() as Element);
-        });
+        fireEvent.click(chipName() as Element);
         const editInput = document.querySelector('.ant-popover input') as HTMLInputElement;
-        act(() => {
-            Simulate.change(editInput, { target: { value: 'defect' } as unknown as EventTarget });
-        });
+        fireEvent.change(editInput, { target: { value: 'defect' } });
 
         const ok = Array.from(document.querySelectorAll('.ant-popover button')).find(
             (button) => button.textContent === 'OK'
         );
         expect(ok).toBeDefined();
-        act(() => {
-            Simulate.click(ok as Element);
-        });
+        fireEvent.click(ok as Element);
 
         expect(onChange).toHaveBeenCalledWith([{ name: 'defect', color: '#eb5a46' }]);
     });
@@ -226,18 +216,13 @@ describe('LabelEditor direct commit on suggestion pick', () => {
         document.body.appendChild(popupLayer);
         onChange = jest.fn();
 
-        act(() => {
-            ReactDOM.render(
-                <LabelEditor labels={[]} onChange={onChange} suggestions={SUGGESTIONS} />,
-                container
-            );
+        render(<LabelEditor labels={[]} onChange={onChange} suggestions={SUGGESTIONS} />, {
+            container,
         });
     });
 
     afterEach(() => {
-        act(() => {
-            ReactDOM.unmountComponentAtNode(container);
-        });
+        cleanup();
         container.remove();
         document.body.innerHTML = '';
     });
@@ -246,9 +231,7 @@ describe('LabelEditor direct commit on suggestion pick', () => {
         container.querySelector('input[placeholder="Label name"]') as HTMLInputElement;
 
     const type = (value: string) => {
-        act(() => {
-            Simulate.change(nameInput(), { target: { value } as unknown as EventTarget });
-        });
+        fireEvent.change(nameInput(), { target: { value } });
     };
 
     const suggestionItem = () =>
@@ -263,14 +246,10 @@ describe('LabelEditor direct commit on suggestion pick', () => {
         // Hover is what highlights a chip (rc-select clears the active key on
         // every input change) -- the same state as the user's "hover a
         // suggestion and press Enter".
-        act(() => {
-            Simulate.mouseEnter(item);
-        });
+        fireEvent.mouseEnter(item);
         expect(item).not.toBeNull();
 
-        act(() => {
-            Simulate.keyDown(nameInput(), { key: 'Enter', keyCode: 13, which: 13 });
-        });
+        fireEvent.keyDown(nameInput(), { key: 'Enter', keyCode: 13, which: 13 });
 
         // Exactly one commit, and it is the full suggestion -- not 'bu'.
         expect(onChange).toHaveBeenCalledTimes(1);
@@ -282,38 +261,28 @@ describe('LabelEditor direct commit on suggestion pick', () => {
         // the typed name goes through the regular add path.
         type('brand-new');
 
-        act(() => {
-            Simulate.keyDown(nameInput(), { key: 'Enter', keyCode: 13, which: 13 });
-        });
+        fireEvent.keyDown(nameInput(), { key: 'Enter', keyCode: 13, which: 13 });
 
         expect(onChange).toHaveBeenCalledTimes(1);
         expect(onChange).toHaveBeenCalledWith([{ name: 'brand-new', color: '#61bd4f' }]);
     });
 
     it('picking a suggestion in the edit popover saves the rename immediately', () => {
-        act(() => {
-            ReactDOM.render(
-                <LabelEditor
-                    labels={[{ name: 'bug', color: '#eb5a46' }]}
-                    onChange={onChange}
-                    suggestions={SUGGESTIONS}
-                />,
-                container
-            );
-        });
-        act(() => {
-            Simulate.click(container.querySelector('span[title="bug"]') as Element);
-        });
+        render(
+            <LabelEditor
+                labels={[{ name: 'bug', color: '#eb5a46' }]}
+                onChange={onChange}
+                suggestions={SUGGESTIONS}
+            />,
+            { container }
+        );
+        fireEvent.click(container.querySelector('span[title="bug"]') as Element);
 
         const editInput = document.querySelector('.ant-popover input') as HTMLInputElement;
-        act(() => {
-            Simulate.change(editInput, { target: { value: 'feature' } as unknown as EventTarget });
-        });
+        fireEvent.change(editInput, { target: { value: 'feature' } });
         expect(suggestionItem()).not.toBeNull();
 
-        act(() => {
-            Simulate.click(suggestionItem());
-        });
+        fireEvent.click(suggestionItem());
 
         // The picked name replaces the edited label with the board color --
         // no OK press needed.

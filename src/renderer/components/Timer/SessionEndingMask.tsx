@@ -1,4 +1,4 @@
-import { Button, ConfigProvider, List, Popover, Row } from 'antd';
+import { Button, ConfigProvider, Listy, Popover, Row } from 'antd';
 import { actions, LONG_BREAK_INTERVAL } from './action';
 import { PomodoroNumView } from './PomodoroNumView';
 import React from 'react';
@@ -17,7 +17,7 @@ const ButtonContainer = styled.div`
     right: 16px;
 `;
 
-const Mask = styled.div<{ nightTheme: boolean }>`
+const Mask = styled.div<{ $nightTheme: boolean }>`
     left: 0;
     top: 0;
     height: 100%;
@@ -27,8 +27,8 @@ const Mask = styled.div<{ nightTheme: boolean }>`
        follows the background opacity so the desktop still shows through, but
        the value is floored so the alert can never be tuned away into white text
        floating over the desktop. */
-    background-color: ${({ nightTheme }) =>
-        nightTheme
+    background-color: ${({ $nightTheme }) =>
+        $nightTheme
             ? 'color-mix(in srgb, #27323a max(var(--pl-theme-bg-opacity), 60%), transparent)'
             : 'color-mix(in srgb, #dd5339 max(var(--pl-theme-bg-opacity), 60%), transparent)'};
     text-align: center;
@@ -44,9 +44,9 @@ const Mask = styled.div<{ nightTheme: boolean }>`
        own -- the one added when the window got rounded corners was a patch. */
 `;
 
-const MaskInnerContainer = styled.div<{ compact: boolean }>`
+const MaskInnerContainer = styled.div<{ $compact: boolean }>`
     max-width: 500px;
-    width: ${({ compact }) => (compact ? 'calc(100% - 24px)' : '100%')};
+    width: ${({ $compact }) => ($compact ? 'calc(100% - 24px)' : '100%')};
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -55,8 +55,8 @@ const MaskInnerContainer = styled.div<{ compact: boolean }>`
     user-select: text;
 `;
 
-const ProjectName = styled.h1<{ compact: boolean }>`
-    font-size: ${({ compact }) => (compact ? '2em' : '4em')};
+const ProjectName = styled.h1<{ $compact: boolean }>`
+    font-size: ${({ $compact }) => ($compact ? '2em' : '4em')};
     transition: color 0.4s;
     color: black;
     cursor: pointer;
@@ -64,7 +64,7 @@ const ProjectName = styled.h1<{ compact: boolean }>`
     margin: 0;
     width: 100%;
     text-align: center;
-    :hover {
+    &:hover {
         color: white;
     }
 `;
@@ -81,7 +81,7 @@ const ListItem = styled.span`
     cursor: pointer;
     color: #0074d9;
     transition: color 0.3s;
-    :hover {
+    &:hover {
         color: #000088;
     }
 `;
@@ -111,8 +111,8 @@ export interface MaskProps extends InputProps {
     nightTheme: boolean;
 }
 
-const _TimerMask = (props: MaskProps) => {
-    const { boards = [], setBoard = () => {} } = props;
+const TimerMaskInner = (props: MaskProps) => {
+    const { boards = [], setBoard = () => {}, extendCurrentSession } = props;
     // An explicit choice (timer page or the popover below) wins. Otherwise the
     // session is going to be credited to the predicted project, so showing it
     // here lets the user notice a wrong guess before confirming.
@@ -120,27 +120,45 @@ const _TimerMask = (props: MaskProps) => {
     // Pass board objects (not their names) so the click handler can dispatch
     // the board `_id`. `timer.boardId` must always be a `_id` — `Timer` looks
     // it up in `kanban.boards` when rendering.
-    const renderItem = (item: KanbanBoard) => {
-        const onClick = (event: React.MouseEvent) => {
-            setBoard(item._id);
-            event.stopPropagation();
-            event.preventDefault();
-        };
-        return (
-            <List.Item>
-                <ListItem onClick={onClick}>{item.name}</ListItem>
-            </List.Item>
-        );
-    };
+    // antd v6: List is removed in favor of Listy (`dataSource` -> `items`,
+    // `renderItem` -> `itemRender`; `List.Item` is gone, the item wrapper is
+    // rendered by Listy itself). The old small + bordered look is reproduced
+    // with Listy's semantic styles.
+    // The mask re-renders with every timer update, but the project list only
+    // changes when boards change. Rebuilding the Listy element on every tick
+    // does not mount it while the Popover is closed, but keep it stable so
+    // opening the popover only has to show the already-built tree.
+    const content = React.useMemo(() => {
+        if (!boards.length) {
+            return undefined;
+        }
 
-    const content = boards.length ? (
-        <List
-            size="small"
-            bordered={true}
-            dataSource={Object.values(boards)}
-            renderItem={renderItem}
-        />
-    ) : undefined;
+        const renderItem = (item: KanbanBoard) => {
+            const onClick = (event: React.MouseEvent) => {
+                setBoard(item._id);
+                event.stopPropagation();
+                event.preventDefault();
+            };
+            return <ListItem onClick={onClick}>{item.name}</ListItem>;
+        };
+
+        return (
+            <Listy
+                items={Object.values(boards)}
+                rowKey="_id"
+                itemRender={renderItem}
+                styles={{
+                    root: {
+                        border: '1px solid var(--pl-border, #d9d9d9)',
+                        borderRadius: 2,
+                    },
+                    item: {
+                        padding: '8px 16px',
+                    },
+                }}
+            />
+        );
+    }, [boards, setBoard]);
 
     const onProjectClick = (event: React.MouseEvent) => {
         event.stopPropagation();
@@ -153,36 +171,36 @@ const _TimerMask = (props: MaskProps) => {
     const extend10 = React.useCallback(
         (event: any) => {
             event.stopPropagation();
-            props.extendCurrentSession(10);
+            extendCurrentSession(10);
         },
-        [props.extendCurrentSession]
+        [extendCurrentSession]
     );
     const extend5 = React.useCallback(
         (event: any) => {
             event.stopPropagation();
-            props.extendCurrentSession(5);
+            extendCurrentSession(5);
         },
-        [props.extendCurrentSession]
+        [extendCurrentSession]
     );
 
     return (
         <Mask
-            nightTheme={props.nightTheme}
+            $nightTheme={props.nightTheme}
             style={{ display: props.showMask ? 'flex' : 'none' }}
             onClick={props.onCancel}
         >
-            <MaskInnerContainer compact={props.compact}>
+            <MaskInnerContainer $compact={props.compact}>
                 <Row onClick={onProjectClick} justify="center" style={{ width: '100%' }}>
                     {props.isFocusing ? (
                         <Popover title="Project Name" content={content}>
-                            <ProjectName compact={props.compact}>
+                            <ProjectName $compact={props.compact}>
                                 {shownProjectId === undefined
                                     ? undefined
                                     : props.boards[shownProjectId]?.name}
                             </ProjectName>
                         </Popover>
                     ) : (
-                        <ProjectName compact={props.compact}>Break</ProjectName>
+                        <ProjectName $compact={props.compact}>Break</ProjectName>
                     )}
                     <h1
                         style={{
@@ -201,8 +219,8 @@ const _TimerMask = (props: MaskProps) => {
                         {!props.isFocusing
                             ? ' Focusing'
                             : props.isLongBreak
-                            ? ' Long Break'
-                            : ' Short Break'}
+                              ? ' Long Break'
+                              : ' Short Break'}
                     </Button>
                 </ConfigProvider>
                 <PomodoroSummary>
@@ -242,4 +260,4 @@ export const TimerMask = connect(
     (dispatch: Dispatch) => ({
         setBoard: (_id?: string) => dispatch(actions.setBoardId(_id)),
     })
-)(_TimerMask);
+)(TimerMaskInner);

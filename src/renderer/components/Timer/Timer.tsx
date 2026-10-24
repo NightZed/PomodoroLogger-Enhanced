@@ -1,6 +1,5 @@
 import { Button, Divider, Tooltip } from 'antd';
 import { AntdIcon as Icon, IconComponent } from '../antdIcon';
-import * as remote from '@electron/remote';
 import { debounce } from 'lodash';
 import React, { Component } from 'react';
 import Hotkeys, { shouldPreventTabDefault } from '../Hotkeys';
@@ -9,7 +8,6 @@ import styled from 'styled-components';
 import { MiniLogger } from '../../../components/common/Mini/MiniLogger';
 import { timeScale, __DEV__ } from '../../../config';
 import dingMp3 from '../../../res/ding.mp3';
-import AppIcon from '../../../res/icon.png';
 import { EfficiencyAnalyser } from '../../../shared/efficiency/efficiency';
 import { Monitor } from '../../monitor';
 import { getTodaySessions } from '../../monitor/sessionManager';
@@ -60,8 +58,6 @@ import { TimerMask } from './SessionEndingMask';
 import { waitUntil } from './wait';
 import { WorkRestIcon } from './WorkRestIcon';
 
-const setMenuItems: (...args: any) => void = remote.getGlobal('setMenuItems');
-
 const KanbanName = styled.h1`
     position: relative;
     margin: 0;
@@ -71,7 +67,7 @@ const KanbanName = styled.h1`
     transition: color 0.2s;
     user-select: none;
     cursor: pointer;
-    :hover {
+    &:hover {
         color: rgb(85, 87, 240);
     }
     .kanban-name-arrow {
@@ -91,10 +87,10 @@ const KanbanName = styled.h1`
     }
 `;
 
-const CompactModeIcon = styled.span<{ compact: boolean }>`
+const CompactModeIcon = styled.span<{ $compact: boolean }>`
     display: inline-block;
-    width: ${({ compact }) => (compact ? '14px' : '8px')};
-    height: ${({ compact }) => (compact ? '8px' : '14px')};
+    width: ${({ $compact }) => ($compact ? '14px' : '8px')};
+    height: ${({ $compact }) => ($compact ? '8px' : '14px')};
     border: 1px solid currentColor;
     border-radius: 1px;
     vertical-align: middle;
@@ -111,14 +107,14 @@ const ProgressTextContainer = styled.div`
     justify-content: center;
 `;
 
-const TimerLayout = styled.div<{ compact: boolean }>`
+const TimerLayout = styled.div<{ $compact: boolean }>`
     position: relative;
     padding: 0 24px 0 24px;
-    overflow-y: ${({ compact }) => (compact ? 'hidden' : 'auto')};
+    overflow-y: ${({ $compact }) => ($compact ? 'hidden' : 'auto')};
     width: 100%;
     height: calc(100vh - 44px);
-    ${({ compact }) =>
-        compact
+    ${({ $compact }) =>
+        $compact
             ? `
                 height: calc(100vh - 32px);
                 padding: 0 8px;
@@ -127,14 +123,14 @@ const TimerLayout = styled.div<{ compact: boolean }>`
     ${thinScrollBar}
 `;
 
-const TimerInnerLayout = styled.div<{ compact: boolean }>`
+const TimerInnerLayout = styled.div<{ $compact: boolean }>`
     overflow-x: hidden;
     min-width: 350px;
     max-width: 850px;
     margin: 0 auto;
-    padding-top: ${({ compact }) => (compact ? '16px' : '32px')};
-    ${({ compact }) =>
-        compact
+    padding-top: ${({ $compact }) => ($compact ? '16px' : '32px')};
+    ${({ $compact }) =>
+        $compact
             ? `
                 min-width: 0;
                 max-width: 380px;
@@ -198,8 +194,16 @@ const MoreInfo = styled.div`
     max-width: 800px;
 `;
 
-const ThemeToggleRow = styled.div`
-    margin: 0.6em auto 0 auto;
+const ThemeToggleRow = styled.div<{ $compact: boolean }>`
+    /* The bulb sits halfway between the circle and the project selector:
+       symmetric padding around it, and the selector below no longer contributes
+       a top margin (adjacent margins collapse, so the old 0.6em/2em pair put
+       the bulb much closer to the circle than to the selector). The padding
+       keeps the total band height and therefore every element below unchanged. */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: ${({ $compact }) => ($compact ? '0.6em 0' : '1.3em 0')};
     text-align: center;
     line-height: 1;
 `;
@@ -208,9 +212,11 @@ const ThemeToggle = styled(Icon)`
     font-size: 18px;
     color: var(--pl-text-secondary);
     cursor: pointer;
-    transition: color 0.2s, transform 0.2s;
+    transition:
+        color 0.2s,
+        transform 0.2s;
 
-    :hover {
+    &:hover {
         color: var(--pl-primary);
         transform: scale(1.15);
     }
@@ -276,8 +282,8 @@ class Timer extends Component<Props, State> {
      * consumed (and cleared) by `onSessionConfirmed` once the record is in.
      */
     private nextSessionStarter?: () => void;
-    mainDiv: React.RefObject<HTMLDivElement>;
-    sound: React.RefObject<HTMLAudioElement>;
+    mainDiv: React.RefObject<HTMLDivElement | null>;
+    sound: React.RefObject<HTMLAudioElement | null>;
     extendedTimeInMinute: number;
     efficiencyAnalyser: EfficiencyAnalyser;
     private stagedSession?: PomodoroRecord;
@@ -288,13 +294,15 @@ class Timer extends Component<Props, State> {
      * selected, i.e. when there is nothing to predict.
      */
     private projectInference?: Promise<string | undefined>;
-    selfRef: React.RefObject<HTMLDivElement> = React.createRef();
+    selfRef: React.RefObject<HTMLDivElement | null> = React.createRef<HTMLDivElement>();
     private componentGone = false;
     /**
      * The open "no project / no cards" confirmation, if any. A new start request
      * destroys the previous dialog instead of stacking another one on top.
      */
     private focusStartWarningModal?: ReturnType<typeof feedback.confirm>;
+    /** Unsubscribe function returned by the preload tray-event bridge. */
+    private unsubscribeTrayAction?: () => void;
 
     constructor(props: Props) {
         super(props);
@@ -328,6 +336,7 @@ class Timer extends Component<Props, State> {
 
     componentDidMount(): void {
         this.efficiencyAnalyser = new EfficiencyAnalyser(this.props.timer.distractingList);
+        this.unsubscribeTrayAction = window.api.onTrayAction(this.onTrayAction);
         this.interval = setInterval(this.updateLeftTime, 500);
         this.updateLeftTime();
         this.selfRef.current!.addEventListener('resize', this.onResize);
@@ -375,10 +384,10 @@ class Timer extends Component<Props, State> {
      * - editable targets (this page's inputs): the filter refuses the binding
      *   there anyway, so a blanket preventDefault only left a dead key --
      *   pressing Tab in an input moved neither focus nor mode;
-     * - Shift+Tab: not bound at all (hotkeys-js matches modifiers exactly).
+     * - Shift+Tab: not bound at all (the wrapper matches modifiers exactly).
      *
      * It only calls `preventDefault`, never `stopPropagation`: the event keeps
-     * bubbling to the document-level hotkeys-js listener, so the mode still
+     * bubbling to the document-level hotkey listener, so the mode still
      * switches. Note this Layout only sees keydowns from elements INSIDE it --
      * after a click on a blank spot the activeElement is `<body>` and the
      * event goes body -> document straight past this listener, so the 'tab'
@@ -409,17 +418,12 @@ class Timer extends Component<Props, State> {
     }
 
     /**
-     * (Re)builds the tray menu for the current state.
-     *
-     * The menu is state dependent -- `Pause` becomes `Continue`, and the entries
-     * a session owns are greyed while it runs (the matrix lives in
-     * `sessionState.trayMenuItems`) -- so this runs again whenever that state
-     * changes, see `componentDidUpdate`. Every entry reuses the handler the
-     * window would use, so the tray cannot drift away from the page again.
+     * Handles a tray click sent back by the main process. The menu entry itself
+     * only carries a `TrayActionKey`; functions cannot cross the IPC boundary.
      */
-    addMenuItems(): void {
-        const clickHandlers: { [key in TrayActionKey]: () => void } = {
-            startFocusing: () => {
+    onTrayAction = (key: TrayActionKey): void => {
+        switch (key) {
+            case 'startFocusing':
                 // While the ending mask is up, first dismiss the mask and then
                 // start exactly what this label names — not the cycle's next
                 // session. Starting (or resuming the expired timer) before the
@@ -434,32 +438,43 @@ class Timer extends Component<Props, State> {
                 // the request is refused out loud); see `startNamedSession` for
                 // the whole decision table.
                 this.startNamedSession(true);
-            },
-            startBreak: () => {
+                return;
+            case 'startBreak':
                 if (this.props.timer.sessionEnding) {
                     this.confirmMaskAndStart(false);
                     return;
                 }
 
                 this.startNamedSession(false);
-            },
+                return;
             // One handler for both labels: it pauses while the session runs and
             // resumes it while it is paused, exactly like the page's play button.
-            pauseOrContinue: this.onPauseResumeOrStart,
+            case 'pauseOrContinue':
+                this.onPauseResumeOrStart();
+                return;
             // The page's Finish button, as a menu entry: end the session now and
             // keep what it recorded.
-            finish: () => this.onFinishButtonClick(),
-            stop: this.onStop,
-        };
+            case 'finish':
+                this.onFinishButtonClick();
+                return;
+            case 'stop':
+                this.onStop();
+                return;
+        }
+    };
 
-        setMenuItems(
-            trayMenuItems(this.props.timer).map(({ key, label, enabled }) => ({
-                label,
-                type: 'normal',
-                enabled,
-                click: clickHandlers[key],
-            }))
-        );
+    /**
+     * (Re)builds the tray menu for the current state.
+     *
+     * The menu is state dependent -- `Pause` becomes `Continue`, and the entries
+     * a session owns are greyed while it runs (the matrix lives in
+     * `sessionState.trayMenuItems`) -- so this runs again whenever that state
+     * changes, see `componentDidUpdate`. Main builds the native menu from these
+     * serializable entries and sends the chosen key back to `onTrayAction`, so
+     * the tray cannot drift away from the page.
+     */
+    addMenuItems(): void {
+        window.api.setTrayMenu(trayMenuItems(this.props.timer));
     }
 
     componentDidUpdate(prevProps: Props): void {
@@ -486,6 +501,8 @@ class Timer extends Component<Props, State> {
 
     componentWillUnmount(): void {
         this.componentGone = true;
+        this.unsubscribeTrayAction?.();
+        this.unsubscribeTrayAction = undefined;
         if (this.monitor) {
             // A staged session (ending mask still up) has already snapshotted
             // the record -- and a click on the mask may be pending its
@@ -811,8 +828,8 @@ class Timer extends Component<Props, State> {
         return isFocusing
             ? this.props.timer.focusDuration
             : isLongBreak
-            ? this.props.timer.longBreakDuration
-            : this.props.timer.restDuration;
+              ? this.props.timer.longBreakDuration
+              : this.props.timer.restDuration;
     };
 
     private defaultLeftTime = (isFocusing?: boolean) => {
@@ -869,8 +886,7 @@ class Timer extends Component<Props, State> {
         } else if (shouldRemind) {
             window.api.notify(
                 'Resting session ended',
-                `Completed ${this.state.pomodoroNum} sessions today. \n\n`,
-                `${__dirname}/${AppIcon}`
+                `Completed ${this.state.pomodoroNum} sessions today. \n\n`
             );
         }
 
@@ -900,8 +916,7 @@ class Timer extends Component<Props, State> {
         if (shouldRemind) {
             window.api.notify(
                 'Focusing finished. Start resting.',
-                `Completed ${this.state.pomodoroNum + 1} sessions today. \n\n`,
-                `${__dirname}/${AppIcon}`
+                `Completed ${this.state.pomodoroNum + 1} sessions today. \n\n`
             );
         }
 
@@ -963,8 +978,8 @@ class Timer extends Component<Props, State> {
 
     /**
      * Resolve the prediction started when the session ended. `onSessionConfirmed`
-     * awaits it, so which project the record (and therefore the project pies of
-     * the Timer/History pages) gets does not depend on when the user clicked.
+     * awaits it, so which project the record (and therefore the project treemaps
+     * of the Timer/History pages) gets does not depend on when the user clicked.
      */
     private async getInferredProjectId(): Promise<string | undefined> {
         if (!this.projectInference) {
@@ -1353,7 +1368,7 @@ class Timer extends Component<Props, State> {
                 // default used to slip through and dropped a focus ring on the
                 // first focusable element (Start button in mini mode,
                 // FocusSelector or the swap button otherwise) right after the
-                // mode switched. hotkeys-js hands us the very event it
+                // mode switched. The shared wrapper hands us the very event it
                 // dispatches, so swallowing it here covers every target the
                 // binding can fire on, and the mode switch and the suppressed
                 // focus jump can no longer come apart.
@@ -1489,7 +1504,7 @@ class Timer extends Component<Props, State> {
                             />
                         </MySider>
                     ))}
-                <TimerLayout compact={compact} ref={this.mainDiv}>
+                <TimerLayout $compact={compact} ref={this.mainDiv}>
                     <Tooltip title={compact ? 'Normal (F11)' : 'Compact (F11)'} placement="bottom">
                         <Button
                             onClick={() => this.props.setCompact(!compact)}
@@ -1501,7 +1516,7 @@ class Timer extends Component<Props, State> {
                                 right: 52,
                             }}
                         >
-                            <CompactModeIcon compact={compact} />
+                            <CompactModeIcon $compact={compact} />
                         </Button>
                     </Tooltip>
                     <Tooltip title="Minimize (F12)" placement="bottom">
@@ -1529,7 +1544,7 @@ class Timer extends Component<Props, State> {
                             }}
                         />
                     )}
-                    <TimerInnerLayout compact={compact}>
+                    <TimerInnerLayout $compact={compact}>
                         <ProgressContainer>
                             <Progress
                                 type="circle"
@@ -1554,13 +1569,14 @@ class Timer extends Component<Props, State> {
                                         isLongBreak={
                                             !(this.props.timer.iBreak % LONG_BREAK_INTERVAL)
                                         }
+                                        aria-label="Switch timer mode"
                                         onClick={this.switchMode}
                                     />
                                 </ProgressTextContainer>
                             </Progress>
                         </ProgressContainer>
 
-                        <ThemeToggleRow>
+                        <ThemeToggleRow $compact={compact}>
                             <Tooltip title={'Switch Theme'}>
                                 <ThemeToggle type="bulb" onClick={this.toggleTheme} />
                             </Tooltip>
@@ -1568,7 +1584,7 @@ class Timer extends Component<Props, State> {
 
                         <div
                             style={{
-                                margin: compact ? '0.6em auto' : '2em auto',
+                                margin: compact ? '0 auto 0.6em auto' : '0 auto 2em auto',
                                 textAlign: 'center',
                             }}
                         >

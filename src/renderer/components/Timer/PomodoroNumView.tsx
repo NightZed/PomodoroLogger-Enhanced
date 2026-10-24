@@ -7,7 +7,7 @@ import { uid } from '../../../utils/uid';
 
 const SvgDot = styled.svg`
     transition: transform 0.1s cubic-bezier(0.17, 0.67, 0.96, 0.59);
-    :hover {
+    &:hover {
         transform: scale(1.2);
     }
 `;

@@ -123,20 +123,25 @@ export function getTokenWeights(records: PomodoroRecord[]): [string, number][] {
  * highlighted.
  *
  * `periodRange`, when given, slices those same records down to the chosen month
- * and feeds the badge / pie chart / word cloud. Filtering here rather than with a
- * second query keeps this a single find: the month records are a subset of what
- * the year query already read. Omitted (All time) everything falls back to the
- * year records.
+ * and feeds the badge / treemap / word cloud. The caller may also pass those
+ * records directly (`periodRecords`): the SQL repository queries the month with
+ * `apps` separately, so the full-year scan can stay scalar-only for the
+ * calendar/total. Without `periodRecords`, the range is applied here.
  */
 export function aggHistory(
     recentRecords: PomodoroRecord[],
     yearRecords: PomodoroRecord[],
     boardNames: { [boardId: string]: string },
-    periodRange?: { from: number; to: number }
+    periodRange?: { from: number; to: number },
+    periodRecords?: PomodoroRecord[]
 ) {
-    const periodRecords = periodRange
-        ? yearRecords.filter((v) => v.startTime >= periodRange.from && v.startTime < periodRange.to)
-        : yearRecords;
+    const period = periodRecords
+        ? periodRecords
+        : periodRange
+          ? yearRecords.filter(
+                (v) => v.startTime >= periodRange.from && v.startTime < periodRange.to
+            )
+          : yearRecords;
     return {
         agg: {
             day: getPomodoroAgg(0, recentRecords),
@@ -144,11 +149,11 @@ export function aggHistory(
             month: getPomodoroAgg(new Date().getDate() - 1, recentRecords),
         },
         total: {
-            count: periodRecords.length,
-            usedTime: periodRecords.reduce((a, b) => a + b.spentTimeInHour, 0),
+            count: period.length,
+            usedTime: period.reduce((a, b) => a + b.spentTimeInHour, 0),
         },
-        wordWeights: getTokenWeights(periodRecords),
-        pieChart: getTimeSpentDataFromRecordsSync(periodRecords, boardNames),
+        wordWeights: getTokenWeights(period),
+        timeSpent: getTimeSpentDataFromRecordsSync(period, boardNames),
         calendarCount: getPomodoroCalendarData(yearRecords),
     };
 }

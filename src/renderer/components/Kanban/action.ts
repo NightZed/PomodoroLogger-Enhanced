@@ -1,5 +1,5 @@
 /* istanbul ignore file */
-import { createActionCreator, createReducer } from 'deox';
+import { createAction, createReducer } from '@reduxjs/toolkit';
 import { actions as boardActions } from './Board/action';
 import { actions as timerActions } from '../Timer/action';
 import { Dispatch } from 'redux';
@@ -35,41 +35,35 @@ const defaultState: KanbanState = {
     },
 };
 
-const setIsSearching = createActionCreator(
-    '[KANBAN]SET_IS_SEARCHING',
-    (resolve) => (isSearching: boolean) => resolve(isSearching)
-);
+const setIsSearching = createAction('[KANBAN]SET_IS_SEARCHING', (isSearching: boolean) => ({
+    payload: isSearching,
+}));
 
-const setConfiguringBoardId = createActionCreator(
-    '[KANBAN]CONFIGURING_BOARD_ID',
-    (resolve) => (_id?: string) => resolve({ _id })
-);
+const setConfiguringBoardId = createAction('[KANBAN]CONFIGURING_BOARD_ID', (_id?: string) => ({
+    payload: { _id },
+}));
 
-const setChosenBoardId = createActionCreator(
-    '[KANBAN]SET_CHOSEN_BOARD_ID',
-    (resolve) => (_id?: string) => resolve({ _id })
-);
+const setChosenBoardId = createAction('[KANBAN]SET_CHOSEN_BOARD_ID', (_id?: string) => ({
+    payload: { _id },
+}));
 
-const setSortedBy = createActionCreator(
-    '[KANBAN]SET_SORTED_BY',
-    (resolve) => (sortedBy: SortType) => resolve({ sortedBy })
-);
+const setSortedBy = createAction('[KANBAN]SET_SORTED_BY', (sortedBy: SortType) => ({
+    payload: { sortedBy },
+}));
 
-const setSortDirection = createActionCreator(
+const setSortDirection = createAction(
     '[KANBAN]SET_SORT_DIRECTION',
-    (resolve) => (sortDirection: SortDirection) => resolve({ sortDirection })
+    (sortDirection: SortDirection) => ({ payload: { sortDirection } })
 );
 
-const setEditCard = createActionCreator(
+const setEditCard = createAction(
     '[KANBAN]EDIT_CARD',
-    (resolve) => (isEditing: boolean, listId: string, _id?: string) =>
-        resolve({ isEditing, _id, listId })
+    (isEditing: boolean, listId: string, _id?: string) => ({ payload: { isEditing, _id, listId } })
 );
 
-const setSearchReg = createActionCreator(
-    '[KANBAN]SET_SEARCH_REG',
-    (resolve) => (reg?: string) => resolve({ reg })
-);
+const setSearchReg = createAction('[KANBAN]SET_SEARCH_REG', (reg?: string) => ({
+    payload: { reg },
+}));
 
 export const actions = {
     setEditCard,
@@ -106,43 +100,44 @@ export const actions = {
     },
 };
 
-export type KanbanActionTypes = { [key in keyof typeof actions]: typeof actions[key] };
-export const reducer = createReducer<KanbanState, any>(defaultState, (handle) => [
-    handle(setChosenBoardId, (state, { payload: { _id } }) => {
-        return {
+export type KanbanActionTypes = { [key in keyof typeof actions]: (typeof actions)[key] };
+export const reducer = createReducer<KanbanState>(defaultState, (builder) => {
+    builder
+        .addCase(setChosenBoardId, (state, { payload: { _id } }) => {
+            return {
+                ...state,
+                chosenBoardId: _id,
+                searchReg: undefined,
+            };
+        })
+        .addCase(setEditCard, (state, { payload: { _id, isEditing, listId } }) => {
+            return {
+                ...state,
+                editCard: {
+                    _id,
+                    isEditing,
+                    listId,
+                },
+            };
+        })
+        .addCase(setSortedBy, (state, { payload: { sortedBy } }) => ({
             ...state,
-            chosenBoardId: _id,
-            searchReg: undefined,
-        };
-    }),
-    handle(setEditCard, (state, { payload: { _id, isEditing, listId } }) => {
-        return {
+            sortedBy,
+        }))
+        .addCase(setSortDirection, (state, { payload: { sortDirection } }) => ({
             ...state,
-            editCard: {
-                _id,
-                isEditing,
-                listId,
-            },
-        };
-    }),
-    handle(setSortedBy, (state, { payload: { sortedBy } }) => ({
-        ...state,
-        sortedBy,
-    })),
-    handle(setSortDirection, (state, { payload: { sortDirection } }) => ({
-        ...state,
-        sortDirection,
-    })),
-    handle(setSearchReg, (state, { payload: { reg } }) => ({
-        ...state,
-        searchReg: reg || undefined,
-    })),
-    handle(setConfiguringBoardId, (state, { payload: { _id } }) => ({
-        ...state,
-        configuringBoardId: _id,
-    })),
-    handle(setIsSearching, (state, { payload }) => ({
-        ...state,
-        isSearching: payload,
-    })),
-]);
+            sortDirection,
+        }))
+        .addCase(setSearchReg, (state, { payload: { reg } }) => ({
+            ...state,
+            searchReg: reg || undefined,
+        }))
+        .addCase(setConfiguringBoardId, (state, { payload: { _id } }) => ({
+            ...state,
+            configuringBoardId: _id,
+        }))
+        .addCase(setIsSearching, (state, { payload }) => ({
+            ...state,
+            isSearching: payload,
+        }));
+});

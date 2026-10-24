@@ -1,3 +1,9 @@
+// TypeScript 7 enables `noUncheckedSideEffectImports` by default, so these
+// stylesheet imports need an explicit module declaration.
+declare module '*.css';
+declare module '*.scss';
+declare module '*.sass';
+
 declare module '*.svg' {
     import { FunctionComponent } from 'react';
     const _: FunctionComponent<any>;
@@ -16,14 +22,6 @@ declare module '*/package.json' {
 declare module '*.dat' {
     const path: string;
     export default path;
-}
-
-declare module 'worker-loader!*' {
-    class WebpackWorker extends Worker {
-        constructor();
-    }
-
-    export default WebpackWorker;
 }
 
 declare module '*.mp3' {
@@ -269,19 +267,4 @@ interface ResizeObserverEntryBoxSize {
 
 interface Window {
     ResizeObserver: typeof ResizeObserver;
-}
-
-declare namespace Nedb {
-    interface Persistence {
-        persistCachedDatabase(cb: () => void): void;
-        closeDatabase(cb: () => void): void;
-    }
-
-    interface Datastore {
-        closeDatabase(cb: () => void): void;
-    }
-}
-
-declare interface Nedb {
-    closeDatabase(cb: () => void): void;
 }

@@ -62,8 +62,8 @@ export const timerStories: Story[] = [
         stepId: 'timer.mode',
         useMask: true,
         spotlight: true,
-        // #timer-mode's visible icon+label are absolutely-positioned children;
-        // the parent box is a long strip, so measure the children union instead.
+        // #timer-mode's icon and label are stacked in one slot; measure the
+        // children union so the spotlight covers the taller icon as well.
         unionChildren: true,
         pointerTargetSelector: '[data-tour="timer-mode"]',
         hasConfirm: true,

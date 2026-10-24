@@ -7,7 +7,4 @@ import { genMapDispatchToProp } from '../../utils';
 
 const mapStateToProps = (state: RootState) => state.timer;
 const mapDispatchToProps = genMapDispatchToProp<TimerActionTypes>(actions);
-export default connect(
-    mapStateToProps,
-    mapDispatchToProps
-)(Setting);
+export default connect(mapStateToProps, mapDispatchToProps)(Setting);

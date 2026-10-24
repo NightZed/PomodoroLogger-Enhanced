@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 
 export interface MarkdownContext {
@@ -38,19 +39,33 @@ export function parseTag(
     });
 }
 
+/**
+ * Rendering a board mounts one `Card` per card, and every card parses its
+ * markdown (`marked` + the tag/checkbox passes) during that commit. Revisiting
+ * a board or a card re-parsed the same strings again. The default-context
+ * result is a pure function of the markdown, so cache it; custom contexts
+ * (extractTags registers tags as a side effect) bypass the cache.
+ */
+const MARKDOWN_CACHE_LIMIT = 512;
+const markdownHtmlCache = new Map<string, string>();
+
 export const formatMarkdown = (markdown: string, context: MarkdownContext = defaultContext) => {
-    let i = 0;
-    const html = marked(markdown, { gfm: true, breaks: true })
+    const cacheable = context === defaultContext;
+    if (cacheable) {
+        const cached = markdownHtmlCache.get(markdown);
+        if (cached !== undefined) {
+            return cached;
+        }
+    }
+
+    const html = marked
+        .parse(markdown, { gfm: true, breaks: true, async: false })
         .replace(/<a/g, '<a target="_blank"')
         .replace(/\[(\s|x)\]/g, (match) => {
-            let newString;
-            if (match === '[ ]') {
-                newString = `<input id=${i} onclick="return false" type="checkbox">`;
-            } else {
-                newString = `<input id=${i} checked onclick="return false" type="checkbox">`;
-            }
-            i += 1;
-            return newString;
+            const checked = match === '[x]' ? ' checked' : '';
+            // The card's click handler owns the checkbox state; no inline
+            // `onclick` is needed (and none is allowed through DOMPurify/CSP).
+            return `<input${checked} type="checkbox">`;
         })
         // GFM task list items (`- [ ] ...`) are rendered by marked itself as
         // `<input ... disabled="" ... type="checkbox">`. The `disabled`
@@ -70,11 +85,31 @@ export const formatMarkdown = (markdown: string, context: MarkdownContext = defa
                 }
 
                 const checked = /\bchecked\b/.test(attrs);
-                return `<input${checked ? ' checked' : ''} onclick="return false" type="checkbox">`;
+                return `<input${checked ? ' checked' : ''} type="checkbox">`;
             }
         );
 
-    return parseTag(html, context);
+    // `marked` passes raw HTML through. Every board description, card and
+    // update note reaches `dangerouslySetInnerHTML`, so sanitize once here:
+    // remove scripts/event handlers, keep the tags Markdown itself produces
+    // (including the task-list inputs and the tag spans with inline colors).
+    const result = DOMPurify.sanitize(parseTag(html, context), {
+        USE_PROFILES: { html: true },
+        ADD_ATTR: ['target'],
+        FORBID_TAGS: ['style', 'form'],
+    });
+
+    if (cacheable) {
+        if (markdownHtmlCache.size >= MARKDOWN_CACHE_LIMIT) {
+            const oldest = markdownHtmlCache.keys().next().value;
+            if (oldest !== undefined) {
+                markdownHtmlCache.delete(oldest);
+            }
+        }
+        markdownHtmlCache.set(markdown, result);
+    }
+
+    return result;
 };
 
 const contentTagCache = new Map<string, string[]>();

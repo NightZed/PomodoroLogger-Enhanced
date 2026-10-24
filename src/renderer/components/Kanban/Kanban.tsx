@@ -30,16 +30,16 @@ const { Option } = Select;
 const Content = styled.main`
     margin: 0;
     overflow: auto;
-    ::-webkit-scrollbar {
+    &::-webkit-scrollbar {
         width: 8px;
         height: 8px;
         background-color: var(--pl-bg-sunken);
     }
-    ::-webkit-scrollbar-thumb {
+    &::-webkit-scrollbar-thumb {
         border-radius: 8px;
         background-color: var(--pl-scrollbar-thumb);
     }
-    ::-webkit-scrollbar-track {
+    &::-webkit-scrollbar-track {
         border-radius: 8px;
         background-color: var(--pl-scrollbar-track);
     }
@@ -101,6 +101,19 @@ interface Props extends KanbanState, KanbanActionTypes, BoardActionTypes, TimerA
 
 export const Kanban: FunctionComponent<Props> = React.memo(
     (props: Props) => {
+        const {
+            changeAppTab,
+            chosenRecord,
+            fetchBoards,
+            focusOn,
+            isFocusingOnChosenBoard,
+            isTimerRunning,
+            setChosenBoardId,
+            setCollapsed,
+            setSortDirection,
+            timerManager,
+        } = props;
+        const { chosenBoardId, sortDirection } = props.kanban;
         const [boardForm] = Form.useForm();
         const [visible, setVisible] = useState(false);
         const [showTable, setShowTable] = useState(false);
@@ -121,15 +134,18 @@ export const Kanban: FunctionComponent<Props> = React.memo(
             // render-time TagManager registry only ever accumulated, so a
             // deleted tag stayed suggested until an app restart.)
             return getBoardSearchTags(board, props.lists, props.cards);
-        }, [props.cards, props.lists, props.boards, props.kanban]);
+            // Only the chosen id matters here, not every unrelated kanban
+            // update; including the whole slice re-created the callback (and
+            // the Search bar's tag list) on each tick.
+        }, [props.cards, props.lists, props.boards, props.kanban.chosenBoardId]);
         const onShowTableChange = (value: boolean) => {
             setShowTable(value);
         };
         // Recreating the debounced function on every render leaves a pending
         // timer behind each time and never cancels the previous one; keep a
         // single instance and cancel it on unmount instead.
-        const search = React.useMemo(() => debounce(props.setSearchReg, 200), []);
-        useEffect(() => () => search.cancel(), []);
+        const search = React.useMemo(() => debounce(props.setSearchReg, 200), [props.setSearchReg]);
+        useEffect(() => () => search.cancel(), [search]);
         const valueHandler: (values: FormValue) => void = ({ name, description }: FormValue) => {
             if (editingBoardId === undefined) {
                 props.addBoard(uid(), name, description);
@@ -147,23 +163,36 @@ export const Kanban: FunctionComponent<Props> = React.memo(
             setVisible(false);
         };
         useEffect(() => {
-            props.fetchBoards();
-        }, []);
+            fetchBoards();
+        }, [fetchBoards]);
 
-        const showConfigById = (id?: string) => {
-            setEditingBoardId(id);
-            setVisible(true);
-            if (id === undefined) {
-                boardForm.setFieldsValue({ name: '', description: '' });
-            } else {
-                const board = props.boards[id];
-                boardForm.setFieldsValue({ name: board.name, description: board.description });
-            }
-        };
+        // Read the boards through a ref so this callback stays stable: it is
+        // passed down to the memoized overview, and a new identity used to
+        // re-render every board brief whenever the page rendered.
+        const boardsRef = React.useRef(props.boards);
+        boardsRef.current = props.boards;
+        const showConfigById = useCallback(
+            (id?: string) => {
+                setEditingBoardId(id);
+                setVisible(true);
+                if (id === undefined) {
+                    boardForm.setFieldsValue({ name: '', description: '' });
+                } else {
+                    const board = boardsRef.current[id];
+                    if (board !== undefined) {
+                        boardForm.setFieldsValue({
+                            name: board.name,
+                            description: board.description,
+                        });
+                    }
+                }
+            },
+            [boardForm]
+        );
 
         const addBoard = useCallback(() => {
             showConfigById();
-        }, []);
+        }, [showConfigById]);
 
         const showBoardSettingMenu = () => {
             showConfigById(props.kanban.chosenBoardId);
@@ -183,31 +212,31 @@ export const Kanban: FunctionComponent<Props> = React.memo(
             return -1 === Object.values(props.boards).findIndex((v) => v.name === name);
         };
 
-        const goBack = () => {
-            props.setChosenBoardId(undefined);
-        };
+        const goBack = React.useCallback(() => {
+            setChosenBoardId(undefined);
+        }, [setChosenBoardId]);
 
         const choose = React.useCallback(() => {
-            if (!props.kanban.chosenBoardId) {
+            if (!chosenBoardId) {
                 return;
             }
 
-            props.focusOn(props.kanban.chosenBoardId);
-            if (!props.timerManager) {
+            focusOn(chosenBoardId);
+            if (!timerManager) {
                 return;
             }
 
-            if (props.isFocusingOnChosenBoard && props.isTimerRunning) {
+            if (isFocusingOnChosenBoard && isTimerRunning) {
                 feedback.toast({ kind: 'info', content: FEEDBACK_MESSAGES.kanban.paused });
-                props.timerManager.pause();
+                timerManager.pause();
             } else {
                 feedback.toast({
                     kind: 'success',
                     content: FEEDBACK_MESSAGES.kanban.startFocusing,
                 });
-                props.timerManager.start(props.kanban.chosenBoardId);
+                timerManager.start(chosenBoardId);
             }
-        }, [props.kanban.chosenBoardId, props.timerManager, props.isTimerRunning]);
+        }, [chosenBoardId, focusOn, isFocusingOnChosenBoard, isTimerRunning, timerManager]);
 
         const onKeyDown = React.useCallback(
             (name: string) => {
@@ -219,37 +248,37 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                         // overlay AND navigate on one press. While a dialog is
                         // open the shared wrapper blocks this binding, and
                         // while typing the target filter blocks it.
-                        if (props.chosenRecord) {
+                        if (chosenRecord) {
                             break;
                         }
 
-                        if (props.kanban.chosenBoardId) {
+                        if (chosenBoardId) {
                             goBack();
                         } else {
-                            props.changeAppTab('timer');
+                            changeAppTab('timer');
                         }
                         break;
                     case 'ctrl+n':
-                        if (!props.kanban.chosenBoardId) {
+                        if (!chosenBoardId) {
                             addBoard();
                         }
                         break;
                 }
             },
-            [props.kanban.chosenBoardId, props.chosenRecord, addBoard, goBack]
+            [addBoard, changeAppTab, chosenBoardId, chosenRecord, goBack]
         );
 
         const onCollapsedChange = React.useCallback(
             (v: boolean) => {
-                if (props.kanban.chosenBoardId) {
-                    props.setCollapsed(props.kanban.chosenBoardId, v);
+                if (chosenBoardId) {
+                    setCollapsed(chosenBoardId, v);
                 }
             },
-            [props.kanban.chosenBoardId]
+            [chosenBoardId, setCollapsed]
         );
         const toggleSortDirection = React.useCallback(() => {
-            props.setSortDirection(props.kanban.sortDirection === 'asc' ? 'desc' : 'asc');
-        }, [props.kanban.sortDirection]);
+            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+        }, [setSortDirection, sortDirection]);
 
         return (
             <Layout
@@ -393,9 +422,22 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                         height: 'calc(100vh - 45px)',
                     }}
                 >
-                    {props.kanban.chosenBoardId === undefined ? (
+                    {/* Keep the overview mounted while a board is open. Going
+                        back used to remount every brief card (13 boards = a
+                        fresh waterfall measurement, one SVG chart per board,
+                        antd buttons/badges, ...), which was the visible freeze
+                        before the overview appeared. Hiding it keeps the board
+                        view itself unchanged and makes "back" a display swap.
+                        The grid ignores the 0-width measurements of a hidden
+                        pane (see ResponsiveBoardGrid). */}
+                    <div
+                        style={{
+                            display: props.kanban.chosenBoardId === undefined ? undefined : 'none',
+                        }}
+                    >
                         <Overview showConfigById={showConfigById} showTable={showTable} />
-                    ) : (
+                    </div>
+                    {props.kanban.chosenBoardId === undefined ? null : (
                         <Board
                             boardId={props.kanban.chosenBoardId}
                             key={props.kanban.chosenBoardId}

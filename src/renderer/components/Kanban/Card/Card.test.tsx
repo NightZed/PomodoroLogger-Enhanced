@@ -13,15 +13,14 @@
  * branch stealing one of them.
  */
 import * as React from 'react';
-import * as ReactDOM from 'react-dom';
-import { act } from 'react-dom/test-utils';
+import { act, cleanup, render } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { createStore } from 'redux';
 
-// react-beautiful-dnd is drag plumbing, not the subject: its Draggable only
+// The drag-and-drop package is plumbing, not the subject: its Draggable only
 // wraps the card in a drag context. Rendering the real one under jsdom drags
 // in rAF/measurements for zero extra coverage of the click logic.
-jest.mock('react-beautiful-dnd', () => ({
+jest.mock('@hello-pangea/dnd', () => ({
     Draggable: (props: any) =>
         props.children(
             {
@@ -34,7 +33,7 @@ jest.mock('react-beautiful-dnd', () => ({
 }));
 
 // Card only reads `formatTimeYmdHm` from Timeline, but importing the real
-// module pulls in sessionManager -> workers -> worker-loader/nedb, none of
+// module pulls in sessionManager -> workers -> native workers/SQLite, none of
 // which has anything to do with click routing.
 jest.mock('../../Visualization/Timeline', () => ({
     formatTimeYmdHm: (time: number) => `time-${time}`,
@@ -56,14 +55,12 @@ describe('Card content clicks', () => {
     });
 
     afterEach(() => {
-        act(() => {
-            ReactDOM.unmountComponentAtNode(container);
-        });
+        cleanup();
         container.remove();
         document.body.innerHTML = '';
     });
 
-    const renderCard = (content: string) => {
+    const renderCard = (content: string, extraProps: any = {}) => {
         const actions = {
             setEditCard: jest.fn(),
             setSearchReg: jest.fn(),
@@ -82,26 +79,22 @@ describe('Card content clicks', () => {
             boardId: 'board-1',
             isDraggingOver: false,
             ...actions,
+            ...extraProps,
         };
 
-        act(() => {
-            ReactDOM.render(
-                <Provider store={store}>
-                    <Card {...props} />
-                </Provider>,
-                container
-            );
-        });
+        render(
+            <Provider store={store}>
+                <Card {...props} />
+            </Provider>,
+            { container }
+        );
 
         return actions;
     };
 
     /**
-     * Dispatch a real bubbling MouseEvent: React 16 listens at the document,
-     * so the card's onClick fires with nativeEvent.target pointing at `el`
-     * (Simulate would not populate e.nativeEvent.target the way the handler
-     * reads it). Returns the event so the caller can inspect whether the
-     * default action survived.
+     * Dispatch a real bubbling MouseEvent so the handler sees the native
+     * target and the caller can inspect whether the default action survived.
      */
     const click = (el: Element): MouseEvent => {
         const event = new MouseEvent('click', { bubbles: true, cancelable: true, view: window });
@@ -175,9 +168,39 @@ describe('Card content clicks', () => {
 
         const checkbox = container.querySelector('input[type="checkbox"]') as HTMLInputElement;
         expect(checkbox).not.toBeNull();
-        click(checkbox);
+        const event = click(checkbox);
 
         expect(actions.setContent).toHaveBeenCalledWith('card-1', '- [x] todo');
         expect(actions.setEditCard).not.toHaveBeenCalled();
+        // The React state owns the checkbox; the browser must not flip it first.
+        expect(event.defaultPrevented).toBe(true);
+    });
+
+    it('defers markdown for off-screen cards until they intersect the viewport', () => {
+        const original = (globalThis as any).IntersectionObserver;
+        const callbacks: Array<(entries: any[]) => void> = [];
+        class MockIntersectionObserver {
+            constructor(callback: (entries: any[]) => void) {
+                callbacks.push(callback);
+            }
+            observe() {}
+            disconnect() {}
+        }
+        (globalThis as any).IntersectionObserver = MockIntersectionObserver;
+
+        try {
+            renderCard('**deferred body**', { initiallyVisible: false });
+            // The lightweight preview exists, but marked has not produced a
+            // paragraph from the markdown yet.
+            expect(container.querySelector('p')).toBeNull();
+            expect(container.textContent).toContain('deferred body');
+
+            act(() => {
+                callbacks.forEach((callback) => callback([{ isIntersecting: true }]));
+            });
+            expect(container.querySelector('p')?.textContent).toBe('deferred body');
+        } finally {
+            (globalThis as any).IntersectionObserver = original;
+        }
     });
 });

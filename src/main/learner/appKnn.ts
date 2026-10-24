@@ -6,10 +6,21 @@ interface AppProjectPair {
     project?: string;
 }
 
-interface EncodingProjectPair {
+export interface EncodingProjectPair {
     encoding: number[];
     project: string;
 }
+
+/**
+ * Serialized form of `KNN`. It travels through IPC and is written to
+ * `modelKnn.json` by the main process; the training worker itself no longer
+ * touches the filesystem.
+ */
+export type KnnModel = {
+    encoder: { [appName: string]: number };
+    encodings: EncodingProjectPair[];
+    k: number;
+};
 
 export class NameEncoder {
     public encodingLength: number;
@@ -58,26 +69,24 @@ export class NameEncoder {
 }
 
 export function getAppProjectPairs(records: PomodoroRecord[]): AppProjectPair[] {
-    return records.map(v => {
+    return records.map((v) => {
         const pairs: { appName: string; time: number }[] = [];
         for (const app in v.apps) {
             pairs.push({
                 appName: app,
-                time: v.apps[app].spentTimeInHour
+                time: v.apps[app].spentTimeInHour,
             });
         }
 
         const project: string | undefined = v.boardId;
         return {
             project,
-            apps: pairs
+            apps: pairs,
         };
     });
 }
 
-export function encodeAppUsage(
-    pairs: AppProjectPair[]
-): {
+export function encodeAppUsage(pairs: AppProjectPair[]): {
     encodings: EncodingProjectPair[];
     encoder: NameEncoder;
 } {
@@ -101,15 +110,15 @@ export function encodeAppUsage(
 
     const encoder = buildEncoder();
     const encoding = pairs.map(
-        pair =>
+        (pair) =>
             ({
                 project: pair.project,
-                encoding: encoder.encode(pair.apps)
-            } as EncodingProjectPair)
+                encoding: encoder.encode(pair.apps),
+            }) as EncodingProjectPair
     );
     return {
         encoder,
-        encodings: encoding
+        encodings: encoding,
     };
 }
 
@@ -174,13 +183,13 @@ export class KNN {
                 topKManager.push([dist(encoding, enc.encoding), enc.project]);
             }
 
-            pred.push(topKManager.vote(x => x[1]));
+            pred.push(topKManager.vote((x) => x[1]));
         }
 
         return pred;
     };
 
-    public toJson() {
+    public toJson(): KnnModel {
         if (!this.encoder || !this.encodings) {
             throw new Error('Must fit before saving');
         }
@@ -188,13 +197,16 @@ export class KNN {
         return {
             encoder: this.encoder.toJson(),
             encodings: this.encodings,
-            k: this.k
+            k: this.k,
         };
     }
 
-    public static fromJson(json: { encoder: any; encoding: any; k: number }) {
+    public static fromJson(json: KnnModel | (Omit<KnnModel, 'encodings'> & { encoding: any })) {
         const knn = new KNN(json.k);
-        knn.encodings = json.encoding;
+        // `encoding` is the field the old serializer accidentally wrote; accept
+        // it so a model saved by an older build can still be reused instead of
+        // being retrained on every start.
+        knn.encodings = 'encodings' in json ? json.encodings : json.encoding;
         knn.encoder = NameEncoder.fromJson(json.encoder);
         return knn;
     }
@@ -203,7 +215,10 @@ export class KNN {
 export class TopKManager<T> {
     public arr: T[] = [];
     private maxIndex: number | undefined = undefined;
-    public constructor(public k: number, private compare: (a: T, b: T) => number) {
+    public constructor(
+        public k: number,
+        private compare: (a: T, b: T) => number
+    ) {
         if (process.env.NODE_ENV !== 'production' && k > 100) {
             throw new Error('You should use a better data structure');
         }

@@ -51,13 +51,13 @@ export interface AggPomodoroInfo {
     };
     calendarCount?: any;
     wordWeights?: [string, number][];
-    pieChart?: TimeSpentData;
+    timeSpent?: TimeSpentData;
 }
 
 /**
  * Aggregate pomodoro records.
  * `pomodoros` feeds the Today/Week/Month stats (recent records only, avoid full load);
- * `yearRecords` feeds the calendar/pie/word cloud and the total count/time badge
+ * `yearRecords` feeds the calendar/treemap/word cloud and the total count/time badge
  * (queried for the chosen year or All time; defaults to `pomodoros` for backward
  * compatibility, e.g. tests). The badge and the word cloud share the same source as
  * the charts, so they follow the project/year filter; card titles are not mixed in
@@ -81,7 +81,7 @@ export async function getAggPomodoroInfo(
             usedTime: yearRecords.reduce((a, b) => a + b.spentTimeInHour, 0),
         },
         wordWeights: getTokenWeights(yearRecords),
-        pieChart: await getTimeSpentDataFromRecords(yearRecords),
+        timeSpent: await getTimeSpentDataFromRecords(yearRecords),
         calendarCount: getPomodoroCalendarData(yearRecords),
     };
 }

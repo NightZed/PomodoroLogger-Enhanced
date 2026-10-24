@@ -29,7 +29,11 @@ interface Props {
     onToggleAlwaysOnTop: () => void;
 }
 
-const TitleBar = styled.div<{ compact: boolean; maximized: boolean; sessionEnding: boolean }>`
+const TitleBar = styled.div<{
+    $compact: boolean;
+    $maximized: boolean;
+    $sessionEnding: boolean;
+}>`
     .ant-tabs-nav {
         position: relative;
         margin: 0 !important;
@@ -66,7 +70,7 @@ const TitleBar = styled.div<{ compact: boolean; maximized: boolean; sessionEndin
            be carried away at full size. See src/main/ipc/windowDrag.ts for the
            move itself and dragRegion.ts for what counts as a press on the bar.
            Normal windows keep drag, i.e. the native move and its Aero Snap. */
-        -webkit-app-region: ${({ maximized }) => (maximized ? 'no-drag' : 'drag')};
+        -webkit-app-region: ${({ $maximized }) => ($maximized ? 'no-drag' : 'drag')};
     }
 
     .ant-tabs-nav,
@@ -133,8 +137,8 @@ const TitleBar = styled.div<{ compact: boolean; maximized: boolean; sessionEndin
         height: ${TITLE_BAR_HEIGHT}px;
     }
 
-    ${({ compact }) =>
-        compact
+    ${({ $compact }) =>
+        $compact
             ? `
                 .ant-tabs-nav {
                     height: ${COMPACT_TITLE_BAR_HEIGHT}px !important;
@@ -188,8 +192,8 @@ const TitleBar = styled.div<{ compact: boolean; maximized: boolean; sessionEndin
        clicks; dimming the tab row says so instead of looking broken, and the
        pointer guard also covers the case where the mask sits behind another
        tab. The window controls stay live, they are not page switches. */
-    ${({ sessionEnding }) =>
-        sessionEnding
+    ${({ $sessionEnding }) =>
+        $sessionEnding
             ? `
                 .ant-tabs-nav {
                     pointer-events: none;
@@ -287,9 +291,9 @@ const AppTitleBar: React.FC<Props> = ({
 
     return (
         <TitleBar
-            compact={compact}
-            maximized={maximized}
-            sessionEnding={sessionEnding}
+            $compact={compact}
+            $maximized={maximized}
+            $sessionEnding={sessionEnding}
             onPointerDown={startWindowDrag}
             onPointerUp={endWindowDrag}
             onPointerCancel={endWindowDrag}

@@ -40,7 +40,7 @@ export function formatTimeYmdHm(time: number) {
 }
 
 export const PomodoroTimeline = (props: Props) => {
-    const data: any[] = [];
+    const items: { color: string; content: React.ReactNode }[] = [];
     let time = props.record.startTime;
     const indexToTitle = getIndexToTitleApp(props.record);
     for (let i = 0; i < props.record.stayTimeInSecond!.length; i += 1) {
@@ -50,16 +50,21 @@ export const PomodoroTimeline = (props: Props) => {
         const isDistracting = props.efficiencyAnalyser.getIsDistracting(app, title);
         const sTime = formatTimeHMS(time);
 
-        data.push(
-            <Timeline.Item color={isDistracting ? 'red' : 'green'}>
-                <p>{app}</p>
-                <p>{title}</p>
-                <p>{sTime}</p>
-            </Timeline.Item>
-        );
+        // antd v6: `Timeline children` / `Timeline.Item` are deprecated, the
+        // `items` array takes `content` (renamed from `children`) instead.
+        items.push({
+            color: isDistracting ? 'red' : 'green',
+            content: (
+                <React.Fragment>
+                    <p>{app}</p>
+                    <p>{title}</p>
+                    <p>{sTime}</p>
+                </React.Fragment>
+            ),
+        });
 
         time += stay;
     }
 
-    return <Timeline>{data}</Timeline>;
+    return <Timeline items={items} />;
 };

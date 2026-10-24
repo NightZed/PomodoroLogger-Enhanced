@@ -13,9 +13,6 @@ const mapDispatchToProps = genMapDispatchToProp<
 >({
     ...kanbanActions,
     ...actions,
-    ...boardActions
+    ...boardActions,
 });
-export default connect(
-    mapStateToProps,
-    mapDispatchToProps
-)(Timer);
+export default connect(mapStateToProps, mapDispatchToProps)(Timer);

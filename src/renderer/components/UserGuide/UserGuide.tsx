@@ -41,7 +41,7 @@ const clickTourTarget = (selector: string): boolean => {
     return true;
 };
 
-const _UserGuide: React.FC<UserGuideProps> = (props: UserGuideProps) => {
+const UserGuideInner: React.FC<UserGuideProps> = (props: UserGuideProps) => {
     const { story, next, prev, exit } = props;
     const [targetReady, setTargetReady] = useState(true);
     const advanceTimer = useRef<number | undefined>(undefined);
@@ -234,4 +234,4 @@ export const UserGuide = connect(
             exit: () => dispatch(actions.quit()),
         };
     }
-)(_UserGuide);
+)(UserGuideInner);

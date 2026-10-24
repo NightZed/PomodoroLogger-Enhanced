@@ -2,8 +2,8 @@ import { getBoardSearchTags } from './boardTags';
 import { Card, KanbanBoard, List } from './type';
 
 describe('getBoardSearchTags', () => {
-    const makeBoard = (listIds: string[]) => ({ lists: listIds } as KanbanBoard);
-    const makeList = (cardIds: string[]) => ({ _id: 'l', title: 'l', cards: cardIds } as List);
+    const makeBoard = (listIds: string[]) => ({ lists: listIds }) as KanbanBoard;
+    const makeList = (cardIds: string[]) => ({ _id: 'l', title: 'l', cards: cardIds }) as List;
     const makeCard = (content: string, labels?: { name: string; color: string }[]): Card => ({
         _id: 'c',
         title: 't',

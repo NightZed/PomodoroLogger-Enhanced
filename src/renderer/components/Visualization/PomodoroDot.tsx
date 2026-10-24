@@ -4,7 +4,7 @@ import * as React from 'react';
 const Svg = styled.svg`
     user-select: none;
     transition: transform 0.2s;
-    :hover {
+    &:hover {
         transform: scale(1.4);
     }
 `;

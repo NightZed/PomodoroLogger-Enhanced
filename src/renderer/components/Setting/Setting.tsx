@@ -3,16 +3,13 @@ import { TimerActionTypes, TimerState } from '../Timer/action';
 import styled from 'styled-components';
 import { GithubOutlined } from '@ant-design/icons';
 import { Button, Slider, Switch } from 'antd';
-import { AntdIcon as Icon } from '../antdIcon';
 import { deleteAllUserData } from '../../monitor/sessionManager';
-import { shell, ipcRenderer } from 'electron';
 import { feedback, FEEDBACK_MESSAGES } from '../feedback';
 import { DistractingListModalButton } from './DistractingList';
 import { isShallowEqualByKeys } from '../../utils';
 import pkg from '../../../../package.json';
-import { IpcEventName, UpdateErrorPayload, UpdateEventName } from '../../../main/ipc/type';
-import type { ExportResult, ImportResult } from '../../../main/ipc/type';
-import { refreshDbs } from '../../../main/db';
+import type { ExportResult, ImportResult, UpdateErrorPayload } from '../../../main/ipc/type';
+import { refreshDbs } from '../../dbs';
 import { BUILTIN_THEMES, ThemeDefinition } from '../../theme/tokens';
 import SettingNav from './SettingNav';
 import { DEFAULT_SECTION, SectionId, SHORTCUTS, SHORTCUT_DISCLAIMER } from './sections';
@@ -76,10 +73,10 @@ const ColorInput = styled.input`
     cursor: pointer;
     vertical-align: middle;
 
-    ::-webkit-color-swatch-wrapper {
+    &::-webkit-color-swatch-wrapper {
         padding: 0;
     }
-    ::-webkit-color-swatch {
+    &::-webkit-color-swatch {
         border: 1px solid var(--pl-border);
         border-radius: 2px;
     }
@@ -151,7 +148,7 @@ const StyledIcon = styled(GithubOutlined)`
     color: var(--pl-text);
     transition: color 0.1s;
     margin: 0 0.3rem;
-    :hover {
+    &:hover {
         color: var(--pl-primary);
     }
 `;
@@ -164,7 +161,7 @@ const ThemeOptions = styled.div`
 `;
 
 interface ThemeButtonProps {
-    active: boolean;
+    $active: boolean;
 }
 
 const ThemeButton = styled.button<ThemeButtonProps>`
@@ -175,12 +172,16 @@ const ThemeButton = styled.button<ThemeButtonProps>`
     border-radius: 4px;
     font-size: 13px;
     cursor: pointer;
-    transition: border-color 0.15s, color 0.15s, background-color 0.15s;
-    background-color: ${({ active }) => (active ? 'var(--pl-bg-hover)' : 'var(--pl-bg-elevated)')};
-    border: 1px solid ${({ active }) => (active ? 'var(--pl-primary)' : 'var(--pl-border)')};
-    color: ${({ active }) => (active ? 'var(--pl-primary)' : 'var(--pl-text)')};
+    transition:
+        border-color 0.15s,
+        color 0.15s,
+        background-color 0.15s;
+    background-color: ${({ $active }) =>
+        $active ? 'var(--pl-bg-hover)' : 'var(--pl-bg-elevated)'};
+    border: 1px solid ${({ $active }) => ($active ? 'var(--pl-primary)' : 'var(--pl-border)')};
+    color: ${({ $active }) => ($active ? 'var(--pl-primary)' : 'var(--pl-text)')};
 
-    :hover {
+    &:hover {
         border-color: var(--pl-primary);
     }
 `;
@@ -357,41 +358,69 @@ const settingUiStates = [
 interface Props extends TimerState, TimerActionTypes {}
 export const Setting: React.FunctionComponent<Props> = React.memo(
     (props: Props) => {
+        const {
+            followSystemTheme,
+            setAutoUpdate,
+            setCalendarBaseColor,
+            setFocusDuration,
+            setFollowSystemTheme,
+            setLongBreakDuration,
+            setMinFinishDuration,
+            setRestDuration,
+            setScreenShotInterval,
+            setStartOnBoot: setStartOnBootAction,
+            setThemeId,
+            setUseHardwareAcceleration: setUseHardwareAccelerationAction,
+            setWallpaperPath,
+            setWarnBeforeFocusStart,
+        } = props;
         const [importing, setImporting] = useState(false);
         const [exporting, setExporting] = useState(false);
-        const onChangeFocus = React.useCallback((v: number | [number, number]) => {
-            if (v instanceof Array) {
-                return;
-            }
+        const onChangeFocus = React.useCallback(
+            (v: number | [number, number]) => {
+                if (v instanceof Array) {
+                    return;
+                }
 
-            props.setFocusDuration(v * 60);
-        }, []);
+                setFocusDuration(v * 60);
+            },
+            [setFocusDuration]
+        );
 
-        const onChangeRest = React.useCallback((v: number | [number, number]) => {
-            if (v instanceof Array) {
-                return;
-            }
+        const onChangeRest = React.useCallback(
+            (v: number | [number, number]) => {
+                if (v instanceof Array) {
+                    return;
+                }
 
-            props.setRestDuration(v * 60);
-        }, []);
+                setRestDuration(v * 60);
+            },
+            [setRestDuration]
+        );
 
-        const onChangeLongBreak = React.useCallback((v: number | [number, number]) => {
-            if (v instanceof Array) {
-                return;
-            }
+        const onChangeLongBreak = React.useCallback(
+            (v: number | [number, number]) => {
+                if (v instanceof Array) {
+                    return;
+                }
 
-            props.setLongBreakDuration(v * 60);
-        }, []);
+                setLongBreakDuration(v * 60);
+            },
+            [setLongBreakDuration]
+        );
 
-        const onChangeMinFinish = React.useCallback((v: number | [number, number]) => {
-            if (v instanceof Array) {
-                return;
-            }
+        const onChangeMinFinish = React.useCallback(
+            (v: number | [number, number]) => {
+                if (v instanceof Array) {
+                    return;
+                }
 
-            // The slider works in minutes, the setting is kept in seconds like
-            // every other duration of the timer.
-            props.setMinFinishDuration(v * 60);
-        }, []);
+                // The slider works in minutes, the setting is kept in seconds like
+                // every other duration of the timer.
+                setMinFinishDuration(v * 60);
+            },
+            [setMinFinishDuration]
+        );
 
         // The minimum can never be longer than the focus session it guards:
         // a longer one could not be reached before the session ends by itself.
@@ -402,23 +431,29 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
         // duration allows it.
         const minFinishMaxMinutes = Math.max(1, Math.floor(props.focusDuration / 60));
 
-        const switchScreenshot = React.useCallback((v: boolean) => {
-            if (v) {
-                props.setScreenShotInterval(1000 * 60 * 5);
-            } else {
-                props.setScreenShotInterval(undefined);
-            }
+        const switchScreenshot = React.useCallback(
+            (v: boolean) => {
+                if (v) {
+                    setScreenShotInterval(1000 * 60 * 5);
+                } else {
+                    setScreenShotInterval(undefined);
+                }
 
-            feedback.notice({
-                kind: 'warning',
-                title: FEEDBACK_MESSAGES.setting.restartToApply,
-                description: FEEDBACK_MESSAGES.setting.screenshotRestart,
-            });
-        }, []);
+                feedback.notice({
+                    kind: 'warning',
+                    title: FEEDBACK_MESSAGES.setting.restartToApply,
+                    description: FEEDBACK_MESSAGES.setting.screenshotRestart,
+                });
+            },
+            [setScreenShotInterval]
+        );
 
-        const switchAutoUpdate = React.useCallback((v: boolean) => {
-            props.setAutoUpdate(v);
-        }, []);
+        const switchAutoUpdate = React.useCallback(
+            (v: boolean) => {
+                setAutoUpdate(v);
+            },
+            [setAutoUpdate]
+        );
 
         const [checkingUpdate, setCheckingUpdate] = useState(false);
         const onCheckUpdate = useCallback(() => {
@@ -430,21 +465,22 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             // declaration would read the binding before it is initialised).
             // eslint-disable-next-line prefer-const
             let timeout: any;
+            const unsubscribers: Array<() => void> = [];
             const onResult = () => {
                 clearTimeout(timeout);
-                ipcRenderer.removeListener(UpdateEventName.Available, onAvailable);
-                ipcRenderer.removeListener(UpdateEventName.NotAvailable, onNotAvailable);
-                ipcRenderer.removeListener(UpdateEventName.Error, onError);
+                for (const unsubscribe of unsubscribers) {
+                    unsubscribe();
+                }
                 setCheckingUpdate(false);
             };
             const onAvailable = () => onResult();
-            const onNotAvailable = (event: any, info: string) => {
+            const onNotAvailable = (info: string) => {
                 // Receipt of the check: a toast, not a dialog. "You are on the
                 // latest version" does not need an acknowledgement.
                 feedback.toast({ kind: 'info', content: info });
                 onResult();
             };
-            const onError = (event: any, payload: UpdateErrorPayload) => {
+            const onError = (payload: UpdateErrorPayload) => {
                 feedback.toast({
                     kind: 'error',
                     content: FEEDBACK_MESSAGES.update.checkFailed(
@@ -453,38 +489,52 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 });
                 onResult();
             };
-            ipcRenderer.on(UpdateEventName.Available, onAvailable);
-            ipcRenderer.on(UpdateEventName.NotAvailable, onNotAvailable);
-            ipcRenderer.on(UpdateEventName.Error, onError);
+            unsubscribers.push(
+                window.api.onUpdateAvailable(onAvailable),
+                window.api.onUpdateNotAvailable(onNotAvailable),
+                window.api.onUpdateError(onError)
+            );
             timeout = setTimeout(onResult, 30000);
-            ipcRenderer.send(IpcEventName.CheckUpdate);
+            window.api.checkUpdate();
         }, []);
 
-        const setStartOnBoot = React.useCallback((v: boolean) => {
-            props.setStartOnBoot(v);
-            window.api.openAtLogin(v);
-        }, []);
+        const setStartOnBoot = React.useCallback(
+            (v: boolean) => {
+                setStartOnBootAction(v);
+                window.api.openAtLogin(v);
+            },
+            [setStartOnBootAction]
+        );
 
-        const setUseHardwareAcceleration = useCallback((v: boolean) => {
-            props.setUseHardwareAcceleration(v);
-            feedback.notice({
-                kind: 'warning',
-                title: FEEDBACK_MESSAGES.setting.restartToApply,
-                description: FEEDBACK_MESSAGES.setting.hardwareAccelerationRestart,
-            });
-        }, []);
+        const setUseHardwareAcceleration = useCallback(
+            (v: boolean) => {
+                setUseHardwareAccelerationAction(v);
+                feedback.notice({
+                    kind: 'warning',
+                    title: FEEDBACK_MESSAGES.setting.restartToApply,
+                    description: FEEDBACK_MESSAGES.setting.hardwareAccelerationRestart,
+                });
+            },
+            [setUseHardwareAccelerationAction]
+        );
 
-        const setCalendarColor = useCallback((v: string) => {
-            props.setCalendarBaseColor(v);
-        }, []);
+        const setCalendarColor = useCallback(
+            (v: string) => {
+                setCalendarBaseColor(v);
+            },
+            [setCalendarBaseColor]
+        );
 
-        const onToggleFocusStartWarning = useCallback((v: boolean) => {
-            props.setWarnBeforeFocusStart(v);
-        }, []);
+        const onToggleFocusStartWarning = useCallback(
+            (v: boolean) => {
+                setWarnBeforeFocusStart(v);
+            },
+            [setWarnBeforeFocusStart]
+        );
 
         const resetCalendarColor = useCallback(() => {
-            props.setCalendarBaseColor(DEFAULT_CALENDAR_BASE_COLOR);
-        }, []);
+            setCalendarBaseColor(DEFAULT_CALENDAR_BASE_COLOR);
+        }, [setCalendarBaseColor]);
 
         const themes = React.useMemo(
             () => (props.customThemes ? BUILTIN_THEMES.concat(props.customThemes) : BUILTIN_THEMES),
@@ -493,29 +543,32 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
 
         const onSelectTheme = useCallback(
             (themeId: string) => {
-                props.setThemeId(themeId);
+                setThemeId(themeId);
                 // Picking a theme explicitly takes over from the OS preference.
-                if (props.followSystemTheme) {
-                    props.setFollowSystemTheme(false);
+                if (followSystemTheme) {
+                    setFollowSystemTheme(false);
                 }
             },
-            [props.followSystemTheme]
+            [followSystemTheme, setFollowSystemTheme, setThemeId]
         );
 
-        const onToggleFollowSystem = useCallback((follow: boolean) => {
-            props.setFollowSystemTheme(follow);
-        }, []);
+        const onToggleFollowSystem = useCallback(
+            (follow: boolean) => {
+                setFollowSystemTheme(follow);
+            },
+            [setFollowSystemTheme]
+        );
 
         const onSelectWallpaper = useCallback(async () => {
             const path = await window.api.selectWallpaper();
             if (path) {
-                props.setWallpaperPath(path);
+                setWallpaperPath(path);
             }
-        }, []);
+        }, [setWallpaperPath]);
 
         const onClearWallpaper = useCallback(() => {
-            props.setWallpaperPath(undefined);
-        }, []);
+            setWallpaperPath(undefined);
+        }, [setWallpaperPath]);
 
         const onDeleteData = useCallback(() => {
             deleteAllUserData().then(() => {
@@ -524,10 +577,10 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                     content: FEEDBACK_MESSAGES.setting.dataRemoved,
                 });
                 setTimeout(() => {
-                    ipcRenderer.send(IpcEventName.Restart);
+                    window.api.restart();
                 }, 3000);
             });
-        }, [deleteAllUserData]);
+        }, []);
 
         /**
          * Reports a refused file: every problem the validator found, each with
@@ -752,7 +805,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                     {themes.map((theme: ThemeDefinition) => (
                                         <ThemeButton
                                             key={theme.id}
-                                            active={
+                                            $active={
                                                 !props.followSystemTheme &&
                                                 props.themeId === theme.id
                                             }
@@ -1019,6 +1072,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                     Open Source @GitHub
                     <StyledIcon
                         onClick={openGithubPage}
+                        aria-label="GitHub"
                         title="This project is open-source and hosted on GitHub"
                     />
                     Version v{pkg.version}
@@ -1050,12 +1104,12 @@ async function onImportData(): Promise<ImportResult> {
  * window mid-assertion.
  */
 function restartApp() {
-    ipcRenderer.send(IpcEventName.Restart);
+    window.api.restart();
 }
 
 /** The rejection of an IPC call is whatever the main process threw: a string. */
 function errorText(e: any): string {
-    return typeof e === 'string' ? e : e?.message ?? String(e);
+    return typeof e === 'string' ? e : (e?.message ?? String(e));
 }
 
 /** `C:\Users\me\Downloads\pomodoro-logger-data-...json` -> the file name. */
@@ -1065,9 +1119,9 @@ function fileNameOf(filePath: string): string {
 }
 
 function openIssuePage() {
-    shell.openExternal('https://github.com/NightZed/PomodoroLogger-Enhanced/issues/new');
+    window.api.openExternal('https://github.com/NightZed/PomodoroLogger-Enhanced/issues/new');
 }
 
 function openGithubPage() {
-    shell.openExternal('https://github.com/NightZed/PomodoroLogger-Enhanced');
+    window.api.openExternal('https://github.com/NightZed/PomodoroLogger-Enhanced');
 }

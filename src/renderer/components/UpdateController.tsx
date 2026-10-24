@@ -1,15 +1,8 @@
-import { ipcRenderer } from 'electron';
 import * as React from 'react';
 import { Button } from 'antd';
-import { IpcEventName, UpdateErrorPayload, UpdateEventName } from '../../main/ipc/type';
+import type { UpdateErrorPayload, UpdateInfoPayload } from '../../main/ipc/type';
 import { feedback, FEEDBACK_MESSAGES } from './feedback';
 import formatMarkdown from './Kanban/Card/formatMarkdown';
-
-interface UpdateInfo {
-    version: string;
-    releaseName?: string;
-    releaseNotes?: string;
-}
 
 const RELEASE_PAGE = 'https://github.com/NightZed/PomodoroLogger-Enhanced/releases';
 // Fixed keys keep repeated events from stacking up identical notices.
@@ -26,88 +19,74 @@ const DOWNLOADED_NOTIFICATION_KEY = 'update-downloaded';
  * Nothing is rendered by this component itself.
  */
 export class UpdateController extends React.Component<any> {
-    private updateAvailableHandler?: (event: any, info: UpdateInfo) => void;
-    private updateDownloadedHandler?: () => void;
-    private updateErrorHandler?: (event: any, payload: UpdateErrorPayload) => void;
-    private updateProgressHandler?: (event: any, info: { percent: number }) => void;
+    private unsubscribers: Array<() => void> = [];
 
     componentDidMount() {
-        this.updateAvailableHandler = (event: any, info: UpdateInfo) => this.notifyAvailable(info);
-        ipcRenderer.addListener(UpdateEventName.Available, this.updateAvailableHandler);
-
-        this.updateDownloadedHandler = () => {
-            feedback.closeNotice(PROGRESS_NOTIFICATION_KEY);
-            this.notifyDownloaded();
-        };
-        ipcRenderer.addListener(UpdateEventName.Downloaded, this.updateDownloadedHandler);
-
-        this.updateProgressHandler = (event: any, info: { percent: number }) => {
-            feedback.notice({
-                key: PROGRESS_NOTIFICATION_KEY,
-                kind: 'info',
-                title: FEEDBACK_MESSAGES.update.downloading,
-                description: `${Math.round(info.percent)}%`,
-            });
-        };
-        ipcRenderer.addListener(UpdateEventName.Progress, this.updateProgressHandler);
-
-        this.updateErrorHandler = (event: any, payload: UpdateErrorPayload) => {
-            if (payload?.skipped) {
-                // Not a failure: the page that asked for the check reports it
-                // itself (see AutoUpdater.checkUpdate), so the app wide notice
-                // would only duplicate it.
-                return;
-            }
-
-            const { update } = FEEDBACK_MESSAGES;
-            const phase =
-                payload?.phase === 'download'
-                    ? update.phase.download
-                    : payload?.phase === 'install'
-                    ? update.phase.install
-                    : update.phase.check;
-            feedback.closeNotice(PROGRESS_NOTIFICATION_KEY);
-            feedback.notice({
-                key: ERROR_NOTIFICATION_KEY,
-                kind: 'error',
-                title: update.failed(phase),
-                description: (
-                    <div>
-                        <div style={{ marginBottom: 4 }}>{payload?.message}</div>
-                        <div>
-                            {update.manualDownloadHint}{' '}
-                            <a href={RELEASE_PAGE} target="_blank" rel="noreferrer">
-                                {RELEASE_PAGE}
-                            </a>
-                        </div>
-                    </div>
-                ),
-            });
-        };
-        ipcRenderer.addListener(UpdateEventName.Error, this.updateErrorHandler);
+        this.unsubscribers.push(
+            window.api.onUpdateAvailable((info) => this.notifyAvailable(info)),
+            window.api.onUpdateDownloaded(() => {
+                feedback.closeNotice(PROGRESS_NOTIFICATION_KEY);
+                this.notifyDownloaded();
+            }),
+            window.api.onUpdateProgress((info) => {
+                feedback.notice({
+                    key: PROGRESS_NOTIFICATION_KEY,
+                    kind: 'info',
+                    title: FEEDBACK_MESSAGES.update.downloading,
+                    description: `${Math.round(info.percent)}%`,
+                });
+            }),
+            window.api.onUpdateError((payload) => this.onUpdateError(payload))
+        );
     }
 
     componentWillUnmount() {
-        if (this.updateAvailableHandler) {
-            ipcRenderer.removeListener(UpdateEventName.Available, this.updateAvailableHandler);
+        for (const unsubscribe of this.unsubscribers) {
+            unsubscribe();
         }
-        if (this.updateDownloadedHandler) {
-            ipcRenderer.removeListener(UpdateEventName.Downloaded, this.updateDownloadedHandler);
-        }
-        if (this.updateErrorHandler) {
-            ipcRenderer.removeListener(UpdateEventName.Error, this.updateErrorHandler);
-        }
-        if (this.updateProgressHandler) {
-            ipcRenderer.removeListener(UpdateEventName.Progress, this.updateProgressHandler);
-        }
+        this.unsubscribers = [];
     }
+
+    onUpdateError = (payload: UpdateErrorPayload) => {
+        if (payload?.skipped) {
+            // Not a failure: the page that asked for the check reports it
+            // itself (see AutoUpdater.checkUpdate), so the app wide notice
+            // would only duplicate it.
+            return;
+        }
+
+        const { update } = FEEDBACK_MESSAGES;
+        const phase =
+            payload?.phase === 'download'
+                ? update.phase.download
+                : payload?.phase === 'install'
+                  ? update.phase.install
+                  : update.phase.check;
+        feedback.closeNotice(PROGRESS_NOTIFICATION_KEY);
+        feedback.notice({
+            key: ERROR_NOTIFICATION_KEY,
+            kind: 'error',
+            title: update.failed(phase),
+            description: (
+                <div>
+                    <div style={{ marginBottom: 4 }}>{payload?.message}</div>
+                    <div>
+                        {update.manualDownloadHint}{' '}
+                        <a href={RELEASE_PAGE} target="_blank" rel="noreferrer">
+                            {RELEASE_PAGE}
+                        </a>
+                    </div>
+                </div>
+            ),
+        });
+    };
 
     /**
      * Announces an available update and asks whether to download it. The release
      * notes are rendered as markdown, so the dialog can get tall: the notes
      * scroll on their own instead of stretching the dialog.
      */
-    notifyAvailable = (info: UpdateInfo) => {
+    notifyAvailable = (info: UpdateInfoPayload) => {
         const { update } = FEEDBACK_MESSAGES;
         feedback.confirm({
             kind: 'info',
@@ -144,7 +123,7 @@ export class UpdateController extends React.Component<any> {
     };
 
     onDownload = () => {
-        ipcRenderer.send(IpcEventName.DownloadUpdate, 'manual');
+        window.api.downloadUpdate();
     };
 
     notifyDownloaded = () => {
@@ -176,7 +155,7 @@ export class UpdateController extends React.Component<any> {
             content: update.installingDescription,
         });
         setTimeout(() => {
-            ipcRenderer.send(IpcEventName.InstallUpdate);
+            window.api.installUpdate();
         }, 1500);
     };
 

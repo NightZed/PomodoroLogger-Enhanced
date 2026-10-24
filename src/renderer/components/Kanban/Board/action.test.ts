@@ -1,10 +1,7 @@
 import { actions, boardReducer, KanbanBoardState, defaultBoard } from './action';
 import { applyMiddleware, createStore, Dispatch } from 'redux';
-import reduxThunk from 'redux-thunk';
+import { thunk } from 'redux-thunk';
 import { reducer as kanbanReducer } from '../reducer';
-import { dbBaseDir, dbPaths } from '../../../../config';
-import { existsSync, unlink, mkdir } from 'fs';
-import { promisify } from 'util';
 import { uid } from '../../../../utils/uid';
 import dbs from '../../../dbs';
 import { AsyncDB } from '../../../../utils/dbHelper';
@@ -14,15 +11,6 @@ const db = new AsyncDB(dbs.kanbanDB);
 const listsDB = new AsyncDB(dbs.listsDB);
 const cardsDB = new AsyncDB(dbs.cardsDB);
 const sessionDB = new AsyncDB(dbs.sessionDB);
-beforeEach(async () => {
-    if (existsSync(dbPaths.kanbanDB)) {
-        await promisify(unlink)(dbPaths.kanbanDB).catch(() => {});
-    }
-
-    if (!existsSync(dbBaseDir)) {
-        await promisify(mkdir)(dbBaseDir).catch(() => {});
-    }
-});
 
 describe('boardReducer', () => {
     it('reduce MOVE_LIST', async () => {
@@ -362,7 +350,7 @@ describe('board actions', () => {
         // simulate the app wiring: a real store (thunk middleware) with the
         // combined kanban reducers, dispatching through Board.moveCard exactly
         // like Board.tsx's onDragEnd does
-        const store = createStore(kanbanReducer, applyMiddleware(reduxThunk));
+        const store = createStore(kanbanReducer, applyMiddleware(thunk));
         const dispatch = store.dispatch as any;
 
         await actions.addBoard('b-full', 'board')(dispatch);
@@ -416,7 +404,7 @@ describe('board actions', () => {
         await moveDB.insert({ cardId, fromListId: doneListId, toListId: todoId, time: 4000 });
         await moveDB.insert({ cardId, fromListId: todoId, toListId: doneListId, time: 5000 });
 
-        const store = createStore(kanbanReducer, applyMiddleware(reduxThunk));
+        const store = createStore(kanbanReducer, applyMiddleware(thunk));
         const dispatch = store.dispatch as any;
         await actions.fetchBoards()(dispatch);
 

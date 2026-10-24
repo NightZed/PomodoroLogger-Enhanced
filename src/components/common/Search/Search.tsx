@@ -22,8 +22,8 @@ export interface SearchProps {
 }
 
 interface StyledProps {
-    isSearching: boolean;
-    showPanel: boolean;
+    $isSearching: boolean;
+    $showPanel: boolean;
 }
 
 const fadeIn = keyframes`
@@ -43,14 +43,16 @@ const StyledSearch = styled.div<StyledProps>`
     padding: 5px;
     height: 32px;
     border-radius: 16px;
-    transition: width 200ms, padding 200ms;
+    transition:
+        width 200ms,
+        padding 200ms;
     border: 1px solid var(--pl-border);
     outline: none;
     color: var(--pl-text);
     z-index: 5;
 
-    ${({ isSearching }) =>
-        isSearching
+    ${({ $isSearching }) =>
+        $isSearching
             ? `
         width: 250px; 
         padding: 5px 12px;
@@ -60,7 +62,7 @@ const StyledSearch = styled.div<StyledProps>`
         input, .close { display: none;}
     `}
 
-    ${({ showPanel, isSearching }) => (isSearching && showPanel ? `height: auto;` : ``)}
+    ${({ $showPanel, $isSearching }) => ($isSearching && $showPanel ? `height: auto;` : ``)}
 
     header {
         display: flex;
@@ -83,7 +85,9 @@ const StyledSearch = styled.div<StyledProps>`
             cursor: pointer;
             border-radius: 10px;
             z-index: 6;
-            transition: background-color 300ms, opacity 200ms;
+            transition:
+                background-color 300ms,
+                opacity 200ms;
             animation: ${fadeIn} 300ms ease;
 
             &:hover {
@@ -105,10 +109,10 @@ const StyledSearch = styled.div<StyledProps>`
         }
     }
 
-    :focus {
+    &:focus {
         border: 1px solid var(--pl-primary);
     }
-    :hover {
+    &:hover {
         border: 1px solid var(--pl-primary);
     }
 `;
@@ -145,40 +149,49 @@ export const Search = ({
         setIsSearching(true);
     }, [searchStr]);
 
-    const clear = useCallback((event: React.MouseEvent) => {
-        event.stopPropagation();
-        setIsSearching(false);
-        setShowPanel(false);
-        setText('');
-        textRef.current = '';
-        setSearchStr('');
-    }, []);
+    const clear = useCallback(
+        (event: React.MouseEvent) => {
+            event.stopPropagation();
+            setIsSearching(false);
+            setShowPanel(false);
+            setText('');
+            textRef.current = '';
+            setSearchStr('');
+        },
+        [setSearchStr]
+    );
 
-    const search = useCallback((value: string) => {
-        setText(value);
-        textRef.current = value;
-        setSearchStr(value);
-    }, []);
+    const search = useCallback(
+        (value: string) => {
+            setText(value);
+            textRef.current = value;
+            setSearchStr(value);
+        },
+        [setSearchStr]
+    );
 
     const onChange = useCallback(
         (v: React.ChangeEvent<HTMLInputElement>) => {
             const value = v.target.value;
             search(value);
         },
-        [setSearchStr]
+        [search]
     );
 
-    const onKeydown = useCallback((event: React.KeyboardEvent) => {
-        if (event.key === 'Escape' || event.keyCode === 27) {
-            setText('');
-            textRef.current = '';
-            setSearchStr('');
-            setIsSearching(false);
-            setShowPanel(false);
-        } else if (event.key === 'Enter' || event.keyCode === 13) {
-            inputRef.current?.blur();
-        }
-    }, []);
+    const onKeydown = useCallback(
+        (event: React.KeyboardEvent) => {
+            if (event.key === 'Escape' || event.keyCode === 27) {
+                setText('');
+                textRef.current = '';
+                setSearchStr('');
+                setIsSearching(false);
+                setShowPanel(false);
+            } else if (event.key === 'Enter' || event.keyCode === 13) {
+                inputRef.current?.blur();
+            }
+        },
+        [setSearchStr]
+    );
 
     useEffect(() => {
         if (!enabled) {
@@ -233,11 +246,32 @@ export const Search = ({
         setShowPanel((v) => !v);
     }, []);
 
+    // `tags()` walks every card of the board and extracts its content tags.
+    // It used to be called from the JSX on every Search render, so each
+    // keystroke in the search box re-parsed every card while the panel was
+    // open. Compute the panel data only when the panel is actually shown and
+    // the underlying board data (the callback identity) changes.
+    const tagList = React.useMemo(
+        () => (showPanel && isSearching && tags ? tags() : undefined),
+        [showPanel, isSearching, tags]
+    );
+    const historyList = React.useMemo(
+        () => (showPanel && isSearching && searchHistory ? searchHistory() : undefined),
+        [showPanel, isSearching, searchHistory]
+    );
+    const panel = React.useMemo(
+        () =>
+            showPanel && isSearching ? (
+                <SearchPanel tags={tagList} history={historyList} search={search} />
+            ) : null,
+        [showPanel, isSearching, tagList, historyList, search]
+    );
+
     return (
         <StyledSearch
             onKeyDown={onKeydown}
-            isSearching={isSearching}
-            showPanel={showPanel}
+            $isSearching={isSearching}
+            $showPanel={showPanel}
             onClick={onClick}
             ref={selfRef}
         >
@@ -251,17 +285,12 @@ export const Search = ({
                         transition: 'transform 120ms',
                     }}
                     className="close"
+                    aria-label="Expand search panel"
                     onClick={togglePanel}
                 />
-                <Icon type="close" className="close" onClick={clear} />
+                <Icon type="close" className="close" aria-label="Clear" onClick={clear} />
             </header>
-            {showPanel && isSearching && (
-                <SearchPanel
-                    tags={tags && tags()}
-                    history={searchHistory && searchHistory()}
-                    search={search}
-                />
-            )}
+            {panel}
         </StyledSearch>
     );
 };

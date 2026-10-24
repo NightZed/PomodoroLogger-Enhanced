@@ -11,13 +11,13 @@ export const genMapDispatchToProp = <T>(actions: { [key: string]: any }) => {
             cachedDispatch = dispatch;
         }
 
-        for (const name in actions) {
-            const actionCreator = actions[name];
+        for (const key in actions) {
+            const actionCreator = actions[key];
             if (creatorMap.has(actionCreator)) {
-                dict[name] = creatorMap.get(actionCreator);
+                dict[key] = creatorMap.get(actionCreator);
             } else {
-                dict[name] = (...args: any) => dispatch(actionCreator(...args));
-                creatorMap.set(actionCreator, dict[name]);
+                dict[key] = (...args: any) => dispatch(actionCreator(...args));
+                creatorMap.set(actionCreator, dict[key]);
             }
         }
 
@@ -34,14 +34,18 @@ export function memorizeDispatchToProps<Props, T extends { [name: string]: Funct
     return (dispatch: Dispatch, props: Props) => {
         const newCacheMap = cacheMap(props);
         let newFunctions: T | undefined;
-        for (const name in newCacheMap) {
-            if (!cacheKeys[name] || newCacheMap[name].some((x, i) => x !== cacheKeys[name]![i])) {
-                cacheKeys[name] = newCacheMap[name];
+        // `key` rather than `name`: Terser's scope analysis for this nested
+        // closure over a loop variable called `name` produced `e[_name]` with
+        // no `_name` binding in the production bundle (`_name is not defined`
+        // on the first mapDispatchToProps call, i.e. a blank window).
+        for (const key in newCacheMap) {
+            if (!cacheKeys[key] || newCacheMap[key].some((x, i) => x !== cacheKeys[key]![i])) {
+                cacheKeys[key] = newCacheMap[key];
                 if (!newFunctions) {
                     newFunctions = funcMap(dispatch, props);
                 }
 
-                cachedFunctions[name] = newFunctions[name];
+                cachedFunctions[key] = newFunctions[key];
             }
         }
 

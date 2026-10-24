@@ -18,8 +18,7 @@
  * exercise end to end through the real component.
  */
 import * as React from 'react';
-import TestRenderer, { ReactTestRendererJSON, act } from 'react-test-renderer';
-import { Slider } from 'antd';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 
 const mockAlert = jest.fn();
 const mockToast = jest.fn();
@@ -61,21 +60,36 @@ jest.mock('../../monitor/sessionManager', () => ({
     deleteAllUserData: () => mockDeleteAllUserData(),
 }));
 
-const mockSend = jest.fn();
-jest.mock('electron', () => ({
-    shell: { openExternal: jest.fn() },
-    ipcRenderer: { send: (...args: any[]) => mockSend(...args) },
-}));
+const mockRestart = jest.fn();
 
 const mockRefreshDbs = jest.fn().mockResolvedValue(undefined);
-jest.mock('../../../main/db', () => ({
+jest.mock('../../dbs', () => ({
+    __esModule: true,
     refreshDbs: () => mockRefreshDbs(),
     loadDBs: jest.fn(),
-    DBs: {},
+    dbs: {},
 }));
 
+// The three slider tests care about the values Setting hands to antd, not the
+// pointer geometry of the real slider. A native range input exposes value/min/
+// max and calls the same onChange with a number.
+jest.mock('antd', () => {
+    const React = require('react');
+    const actual = jest.requireActual('antd');
+    const Slider = ({ value, min, max, onChange }: any) =>
+        React.createElement('input', {
+            type: 'range',
+            'data-testid': 'slider',
+            value,
+            min,
+            max,
+            onChange: (event: any) => onChange?.(Number(event.target.value)),
+        });
+    return { ...actual, Slider };
+});
+
 import { Setting } from './Setting';
-import { IpcEventName, ExportResult, ImportResult } from '../../../main/ipc/type';
+import type { ExportResult, ImportResult } from '../../../main/ipc/type';
 
 const exportData = jest.fn<Promise<ExportResult>, []>();
 const props = (): any => ({
@@ -118,73 +132,20 @@ const props = (): any => ({
     setCalendarBaseColor: jest.fn(),
 });
 
-/** Every string rendered anywhere in the tree, flattened. */
-const texts = (node: unknown): string[] => {
-    if (node == null) {
-        return [];
-    }
+/** The button whose accessible name contains `label`. */
+const button = (label: string) => screen.getByRole('button', { name: new RegExp(label) });
 
-    if (typeof node === 'string') {
-        return [node];
-    }
-
-    if (Array.isArray(node)) {
-        return (node as unknown[]).reduce<string[]>((acc, child) => acc.concat(texts(child)), []);
-    }
-
-    const { children } = node as ReactTestRendererJSON;
-    return (children ?? []).reduce<string[]>((acc, child) => acc.concat(texts(child)), []);
-};
-
-const findAll = (
-    node: unknown,
-    predicate: (n: ReactTestRendererJSON) => boolean
-): ReactTestRendererJSON[] => {
-    const result: ReactTestRendererJSON[] = [];
-    const walk = (n: unknown) => {
-        if (n == null || typeof n === 'string') {
-            return;
-        }
-
-        if (Array.isArray(n)) {
-            (n as unknown[]).forEach(walk);
-            return;
-        }
-
-        const found = n as ReactTestRendererJSON;
-        if (predicate(found)) {
-            result.push(found);
-        }
-
-        (found.children ?? []).forEach(walk);
-    };
-
-    walk(node);
-    return result;
-};
-
-/** The button whose label is exactly `label`. */
-const button = (r: TestRenderer.ReactTestRenderer, label: string) =>
-    findAll(r.toJSON(), (n) => n.type === 'button' && texts(n).join(' ').includes(label))[0];
-
-const isLoading = (node: ReactTestRendererJSON | undefined) => !!node?.props?.loading === true;
-
-let renderer!: TestRenderer.ReactTestRenderer;
+const isLoading = (element: HTMLElement) => element.classList.contains('ant-btn-loading');
 
 const mount = async () => {
-    await act(async () => {
-        renderer = TestRenderer.create(<Setting {...props()} />);
-    });
+    render(<Setting {...props()} />);
     // The page starts on the timer section; the data buttons live in `system`.
-    await act(async () => {
-        button(renderer, 'System')?.props.onClick();
-    });
+    const nav = screen.getByRole('navigation', { name: 'Settings sections' });
+    fireEvent.click(within(nav).getByRole('button', { name: /System/ }));
 };
 
 const click = async (label: string) => {
-    await act(async () => {
-        button(renderer, label)?.props.onClick();
-    });
+    fireEvent.click(button(label));
     // Only the import is guarded by a confirmation; the export writes a file
     // and is taken at face value.
     if (mockConfirm.mock.calls.length > 0) {
@@ -202,27 +163,39 @@ const click = async (label: string) => {
 /** Renders the content the last dialog was opened with, as flat text. */
 const alertText = () => {
     const content = mockAlert.mock.calls.slice(-1)[0][0].content;
-    return texts(TestRenderer.create(<>{content}</>).toJSON()).join('\n');
+    const { container, unmount } = render(<>{content}</>);
+    const text = container.textContent ?? '';
+    unmount();
+    return text;
 };
 
 beforeEach(() => {
     mockAlert.mockClear();
     mockToast.mockClear();
     mockConfirm.mockClear();
-    mockSend.mockClear();
+    mockRestart.mockClear();
     mockDeleteAllUserData.mockClear();
     exportData.mockReset();
     importData.mockReset();
-    (window as any).api = { exportData, importData };
+    (window as any).api = {
+        exportData,
+        importData,
+        restart: mockRestart,
+        checkUpdate: jest.fn(),
+        onUpdateAvailable: jest.fn(() => jest.fn()),
+        onUpdateNotAvailable: jest.fn(() => jest.fn()),
+        onUpdateError: jest.fn(() => jest.fn()),
+        openAtLogin: jest.fn(),
+        openExternal: jest.fn(),
+        selectWallpaper: jest.fn(),
+    };
 });
 describe('minimum focus time before Finish', () => {
     it('renders the option on the timer section and saves the slider value in seconds', async () => {
         const p = props();
-        await act(async () => {
-            renderer = TestRenderer.create(<Setting {...p} />);
-        });
+        render(<Setting {...p} />);
 
-        const shown = texts(renderer.toJSON()).join(' ');
+        const shown = document.body.textContent ?? '';
         expect(shown).toContain('Minimum Focus Time before Finish');
         // The hint has to explain the off switch: 0 allows finishing at any
         // time, which is what the "Any" mark of the slider stands for.
@@ -230,24 +203,20 @@ describe('minimum focus time before Finish', () => {
 
         // Focus, short break, long break, then the minimum: the last slider of
         // the (default) timer section is the new one.
-        const sliders = renderer.root.findAllByType(Slider as any);
+        const sliders = screen.getAllByTestId('slider') as HTMLInputElement[];
         expect(sliders.length).toBe(4);
-        await act(async () => {
-            sliders[3].props.onChange(5);
-        });
+        fireEvent.change(sliders[3], { target: { value: '5' } });
         expect(p.setMinFinishDuration).toHaveBeenCalledWith(5 * 60);
     });
 
     it('offers up to the focus duration, so a 50 minute session allows a 40 minute minimum', async () => {
         const p = { ...props(), focusDuration: 50 * 60, minFinishDuration: 40 * 60 };
-        await act(async () => {
-            renderer = TestRenderer.create(<Setting {...p} />);
-        });
+        render(<Setting {...p} />);
 
-        const sliders = renderer.root.findAllByType(Slider as any);
+        const sliders = screen.getAllByTestId('slider') as HTMLInputElement[];
         // The old flat maximum of 30 minutes made this unreachable.
-        expect(sliders[3].props.max).toBe(50);
-        expect(sliders[3].props.value).toBe(40);
+        expect(sliders[3].max).toBe('50');
+        expect(sliders[3].value).toBe('40');
     });
 
     it('shows a stored minimum above the focus duration at the effective value', async () => {
@@ -256,13 +225,11 @@ describe('minimum focus time before Finish', () => {
         // stored setting is left alone, it applies again once the focus
         // duration allows it.
         const p = { ...props(), focusDuration: 25 * 60, minFinishDuration: 30 * 60 };
-        await act(async () => {
-            renderer = TestRenderer.create(<Setting {...p} />);
-        });
+        render(<Setting {...p} />);
 
-        const sliders = renderer.root.findAllByType(Slider as any);
-        expect(sliders[3].props.max).toBe(25);
-        expect(sliders[3].props.value).toBe(25);
+        const sliders = screen.getAllByTestId('slider') as HTMLInputElement[];
+        expect(sliders[3].max).toBe('25');
+        expect(sliders[3].value).toBe('25');
         // Rendering must never rewrite the setting on its own.
         expect(p.setMinFinishDuration).not.toHaveBeenCalled();
     });
@@ -283,7 +250,7 @@ describe('export', () => {
         expect(mockToast.mock.calls[0][0].content).toBe(
             'Data exported to pomodoro-logger-data-2026-10-04-15-04-05.json'
         );
-        expect(isLoading(button(renderer, 'Export Data'))).toBe(false);
+        expect(isLoading(button('Export Data'))).toBe(false);
     });
 
     it('says nothing when the save dialog was cancelled', async () => {
@@ -305,7 +272,7 @@ describe('export', () => {
         expect(mockAlert).toHaveBeenCalledTimes(1);
         expect(mockAlert.mock.calls[0][0].title).toBe('Export Failed');
         expect(alertText()).toContain('EACCES: permission denied');
-        expect(isLoading(button(renderer, 'Export Data'))).toBe(false);
+        expect(isLoading(button('Export Data'))).toBe(false);
     });
 });
 
@@ -332,8 +299,8 @@ describe('import of a file that cannot be used', () => {
         expect(shown).toContain('is missing; a finite number is required');
         expect(shown).toContain('cards["a1"].spentTimeInHour');
         // The whole point of the refusal: no restart, no data touched.
-        expect(mockSend).not.toHaveBeenCalled();
-        expect(isLoading(button(renderer, 'Import Data'))).toBe(false);
+        expect(mockRestart).not.toHaveBeenCalled();
+        expect(isLoading(button('Import Data'))).toBe(false);
     });
 
     it('reports an unexpected failure instead of leaving the button spinning', async () => {
@@ -344,8 +311,8 @@ describe('import of a file that cannot be used', () => {
 
         expect(mockAlert.mock.calls[0][0].title).toBe('Import Failed');
         expect(alertText()).toContain('ENOENT: no such file');
-        expect(mockSend).not.toHaveBeenCalled();
-        expect(isLoading(button(renderer, 'Import Data'))).toBe(false);
+        expect(mockRestart).not.toHaveBeenCalled();
+        expect(isLoading(button('Import Data'))).toBe(false);
     });
 
     it('stays quiet when the open dialog was cancelled', async () => {
@@ -356,7 +323,7 @@ describe('import of a file that cannot be used', () => {
 
         expect(mockAlert).not.toHaveBeenCalled();
         expect(mockToast).not.toHaveBeenCalled();
-        expect(mockSend).not.toHaveBeenCalled();
+        expect(mockRestart).not.toHaveBeenCalled();
     });
 });
 
@@ -368,7 +335,7 @@ describe('import of a usable file', () => {
         await click('Import Data');
 
         expect(mockToast.mock.calls[0][0].content).toBe('Data imported. Restarting');
-        expect(mockSend).toHaveBeenCalledWith(IpcEventName.Restart);
+        expect(mockRestart).toHaveBeenCalled();
     });
 
     it('shows the warnings first and restarts once they are acknowledged', async () => {
@@ -387,13 +354,13 @@ describe('import of a usable file', () => {
         expect(mockAlert.mock.calls[0][0].title).toBe('Imported with warnings');
         expect(alertText()).toContain('Card "a1" will be removed');
         // Still not restarted: the user has not closed the dialog yet.
-        expect(mockSend).not.toHaveBeenCalled();
+        expect(mockRestart).not.toHaveBeenCalled();
 
         await act(async () => {
             mockAlert.mock.calls[0][0].onOk();
         });
 
-        expect(mockSend).toHaveBeenCalledWith(IpcEventName.Restart);
+        expect(mockRestart).toHaveBeenCalled();
     });
 });
 
@@ -416,13 +383,13 @@ describe('delete of all data', () => {
                 'All user data is removed. Your settings are kept.'
             );
             // The restart is on a timer: nothing is sent while the toast shows.
-            expect(mockSend).not.toHaveBeenCalled();
+            expect(mockRestart).not.toHaveBeenCalled();
 
             await act(async () => {
                 jest.advanceTimersByTime(3000);
             });
 
-            expect(mockSend).toHaveBeenCalledWith(IpcEventName.Restart);
+            expect(mockRestart).toHaveBeenCalled();
         } finally {
             jest.useRealTimers();
         }

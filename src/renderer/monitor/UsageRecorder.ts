@@ -1,6 +1,6 @@
 import { PomodoroRecord } from './type';
 import { ActiveWinListener } from './activeWinMonitor';
-import type { BaseResult } from 'active-win';
+import type { BaseResult } from 'get-windows';
 import { cloneDeep } from 'lodash';
 import { uid } from '../../utils/uid';
 

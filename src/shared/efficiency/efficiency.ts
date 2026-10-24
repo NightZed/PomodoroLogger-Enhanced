@@ -43,7 +43,7 @@ export function getEfficiency(isDistractionArr: boolean[], stayTimeArr: number[]
 
 export function compressArray(isDistractionArr: boolean[], stayTimeArr: number[]) {
     let rmNum = 0;
-    for (let i = 0; i < isDistractionArr.length - 1; ) {
+    for (let i = 0; i < isDistractionArr.length - 1;) {
         let index = 1;
         while (
             i + index < isDistractionArr.length &&

@@ -110,6 +110,31 @@ describe('App KNN', () => {
         const pred = knn.predict(inputs);
         expect(pred).toStrictEqual(ans);
     });
+
+    it('round-trips a serialized model without retraining', () => {
+        const { inputs, records, ans } = createKnnTestCase();
+        const knn = new KNN();
+        knn.fit(records);
+
+        const restored = KNN.fromJson(knn.toJson());
+        expect(restored.isTrained).toBe(true);
+        expect(restored.length).toBe(knn.length);
+        expect(restored.predict(inputs)).toStrictEqual(ans);
+    });
+
+    it('still reads the legacy `encoding` field', () => {
+        const { inputs, records, ans } = createKnnTestCase();
+        const knn = new KNN();
+        knn.fit(records);
+        const json = knn.toJson();
+        const legacy = {
+            encoder: json.encoder,
+            encoding: json.encodings,
+            k: json.k,
+        };
+
+        expect(KNN.fromJson(legacy).predict(inputs)).toStrictEqual(ans);
+    });
 });
 
 describe('AppName NameEncoder', () => {

@@ -10,7 +10,4 @@ const mapStateToProps = (state: RootState, props: InputProps) => {
 };
 
 const mapDispatchToProps = genMapDispatchToProp<BoardActionTypes>(actions);
-export default connect(
-    mapStateToProps,
-    mapDispatchToProps
-)(Board);
+export default connect(mapStateToProps, mapDispatchToProps)(Board);

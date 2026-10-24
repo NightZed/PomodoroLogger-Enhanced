@@ -1,0 +1,86 @@
+/* istanbul ignore file */
+import { existsSync, mkdirSync } from 'fs';
+import { dirname, join } from 'path';
+import { uid } from '../utils/uid';
+
+/**
+ * Main-process filesystem layout.
+ *
+ * The renderer only needs the pure time-scale helpers from `src/config.ts`;
+ * keeping every `fs`/`path` access here is what lets the renderer run with
+ * `nodeIntegration: false` and `sandbox: true`.
+ */
+
+const appdataDir =
+    process.env.APPDATA ||
+    (process.platform === 'darwin'
+        ? process.env.HOME + '/Library/Preferences'
+        : process.env.HOME + '/.local/share');
+export const baseDir = join(appdataDir, 'PomodoroLogger');
+if (!existsSync(baseDir)) {
+    // recursive: the platform appdata parent (e.g. ~/.local/share on a fresh CI
+    // container) is not guaranteed to exist yet.
+    mkdirSync(baseDir, { recursive: true });
+}
+
+const dbDir = process.env.NODE_ENV !== 'test' ? 'db' : '__test__db';
+const dbBkDir = process.env.NODE_ENV !== 'test' ? 'db-bk' : '__test__db-bk';
+const scDir = process.env.NODE_ENV !== 'test' ? 'screenshots' : '__test__screenshots';
+export const dbBaseDir = process.env.NODE_ENV === 'production' ? join(baseDir, dbDir) : dbDir;
+export const dbBkBaseDir = process.env.NODE_ENV === 'production' ? join(baseDir, dbBkDir) : dbBkDir;
+export const screenshotDir = process.env.NODE_ENV === 'production' ? join(baseDir, scDir) : scDir;
+
+if (!existsSync(dbBaseDir)) {
+    mkdirSync(dbBaseDir);
+}
+
+if (!existsSync(screenshotDir)) {
+    mkdirSync(screenshotDir);
+}
+
+/**
+ * Legacy NeDB files. They are read once by the migrator and then kept on disk
+ * untouched for at least one major version (see MIGRATION.md).
+ */
+export const dbPaths = {
+    sessionDB: join(dbBaseDir, 'session.nedb'),
+    settingDB: join(dbBaseDir, 'setting.nedb'),
+    kanbanDB: join(dbBaseDir, 'kanban.nedb'),
+    cardsDB: join(dbBaseDir, 'cards.nedb'),
+    listsDB: join(dbBaseDir, 'lists.nedb'),
+    moveDB: join(dbBaseDir, 'moveCard.nedb'),
+};
+
+export const sqlitePath = join(dbBaseDir, 'pomodoro.sqlite');
+
+if (process.env.NODE_ENV === 'test') {
+    for (const key in dbPaths) {
+        // @ts-ignore
+        dbPaths[key] = `${dbPaths[key]}${uid()}`;
+    }
+}
+
+let asarDirName;
+let dir = __dirname;
+let oldDir = undefined;
+while (!dir.endsWith('.asar')) {
+    if (oldDir === dir) {
+        break;
+    }
+
+    oldDir = dir;
+    dir = dirname(dir);
+}
+
+if (dir.endsWith('.asar')) {
+    asarDirName = dirname(dir);
+}
+
+export const env = {
+    electronAsarDir: asarDirName ? join(asarDirName, 'electron.asar') : undefined,
+    appAsarDir: asarDirName ? join(asarDirName, 'app.asar') : undefined,
+};
+
+export const modelPath = {
+    knnPath: join(dbBaseDir, 'modelKnn.json'),
+};

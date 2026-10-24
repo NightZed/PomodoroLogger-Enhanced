@@ -1,6 +1,4 @@
 import AppIcon from '../../../res/icon.png';
-import { ipcRenderer } from 'electron';
-import { IpcEventName } from '../../../main/ipc/type';
 
 function drawText(ctx: CanvasRenderingContext2D, isMac: boolean, size: number, leftTime: string) {
     // #dcdcdc (user picked it over the brighter #fff tried before) ...
@@ -167,7 +165,7 @@ async function makeIcon(
                 drawCircleProgress(ctx, !!isFocus, size, progress ?? 0);
                 // The mac/windows text differs only in vertical centring; the
                 // platform check moved here with the canvas size change.
-                drawText(ctx, process.platform === 'darwin', size, leftTime);
+                drawText(ctx, window.api.platform === 'darwin', size, leftTime);
                 if (isPause) {
                     drawPausedDim(ctx, size);
                     drawPause(ctx, size);
@@ -225,5 +223,5 @@ export async function setTrayImageWithMadeIcon(
     const icon = await makeIcon(leftTime, progress, isFocus, isPause, isConfirming);
     // Payload is an object (not a bare dataURL) since 方案一: the main process
     // needs `scaleFactor` to declare the image at the DPI it was drawn for.
-    ipcRenderer.send(IpcEventName.SetTray, icon);
+    window.api.setTrayImage(icon);
 }

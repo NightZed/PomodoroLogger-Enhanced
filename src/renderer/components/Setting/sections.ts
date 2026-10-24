@@ -27,7 +27,7 @@ export const SECTIONS: SectionMeta[] = [
 export const DEFAULT_SECTION: SectionId = 'timer';
 
 export interface ShortcutEntry {
-    /** Key combination, as `react-hot-keys` spells it. */
+    /** Key combination, as the shared `Hotkeys` wrapper spells it. */
     keys: string;
     /** What it does, in the wording of the screen it acts on. */
     description: string;

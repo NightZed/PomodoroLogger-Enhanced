@@ -3,30 +3,16 @@ import {
     removeSession,
     getAllSession,
     renameIllegalName,
-    loadDB,
-    loadDBSync,
     getTodaySessions,
-    deleteFolderRecursive,
     deleteScreenshots,
     deleteAllUserData,
 } from './sessionManager';
-import { basename, join } from 'path';
-import { dbBaseDir, dbPaths } from '../../config';
-import { existsSync, unlinkSync, mkdirSync, writeFileSync } from 'fs';
 import { generateRandomName } from '../utils';
 import { PomodoroRecord } from './type';
 import { createRecord } from '../../../test/utils';
-const { sessionDB } = dbPaths;
+import dbs from '../dbs';
 
 describe('sessionManager', () => {
-    beforeAll(() => {
-        if (existsSync(sessionDB)) {
-            try {
-                unlinkSync(sessionDB);
-            } catch (e) {}
-        }
-    });
-
     it('addSession', async () => {
         const record: PomodoroRecord = {
             switchActivities: [],
@@ -82,86 +68,33 @@ describe('sessionManager', () => {
         }
     });
 
-    it('should rm folder recursively', () => {
-        const root = generateRandomName();
-        let child = root;
-        let index = 0;
-        while (index < 20) {
-            mkdirSync(child);
-            writeFileSync(join(child, generateRandomName()), 'hello');
-            child = join(child, generateRandomName());
-            index += 1;
-        }
+    it('forwards the screenshots of a discarded session to the main process', () => {
+        const deleteScreenshotsApi = jest.fn().mockResolvedValue(undefined);
+        (window as any).api = { ...(window as any).api, deleteScreenshots: deleteScreenshotsApi };
 
-        deleteFolderRecursive(root);
-        expect(existsSync(root)).toBeFalsy();
+        const paths = ['drop1.jpg', 'drop2.jpg', 'missing.jpg'];
+        deleteScreenshots(paths);
+
+        expect(deleteScreenshotsApi).toHaveBeenCalledWith(paths);
     });
 
-    it('should delete the screenshots of a discarded session', () => {
-        const root = generateRandomName();
-        mkdirSync(root);
-        const keep = join(root, 'keep.jpg');
-        const drop1 = join(root, 'drop1.jpg');
-        const drop2 = join(root, 'drop2.jpg');
-        const missing = join(root, 'missing.jpg');
-        writeFileSync(keep, 'keep');
-        writeFileSync(drop1, 'drop1');
-        writeFileSync(drop2, 'drop2');
+    it('deleteAllUserData clears sessions but keeps the settings', async () => {
+        const clearUserFiles = jest.fn().mockResolvedValue(undefined);
+        (window as any).api = { ...(window as any).api, clearUserFiles };
 
-        deleteScreenshots([drop1, drop2, missing]);
-        // A file that never existed (already deleted, or the write failed) is
-        // skipped without throwing.
-        expect(existsSync(drop1)).toBeFalsy();
-        expect(existsSync(drop2)).toBeFalsy();
-        // Files of a session that was NOT discarded stay untouched.
-        expect(existsSync(keep)).toBeTruthy();
+        const record = createRecord('delete-all', 0, []);
+        await addSession(record);
+        await dbs.settingDB.update(
+            { name: 'setting' },
+            { $set: { themeId: 'keep-me' } },
+            { upsert: true }
+        );
 
-        deleteFolderRecursive(root);
-    });
+        await deleteAllUserData();
 
-    it('deleteAllUserData clears the data files but keeps the settings', async () => {
-        // A directory of its own: the real dbBaseDir is shared with the other
-        // test files running in parallel jest workers.
-        const root = generateRandomName();
-        const settingFile = join(root, basename(dbPaths.settingDB));
-        mkdirSync(join(root, 'nested'), { recursive: true });
-        writeFileSync(settingFile, '{"name":"setting"}');
-        // nedb keeps a `~` copy next to the file while it compacts.
-        writeFileSync(`${settingFile}~`, 'temp');
-        writeFileSync(join(root, 'session.nedb'), '[]');
-        writeFileSync(join(root, 'modelKnn.json'), '{}');
-        writeFileSync(join(root, 'nested', 'cards.nedb'), '[]');
-
-        await deleteAllUserData(root);
-
-        // The settings database and its temporary sibling stay untouched.
-        expect(existsSync(settingFile)).toBeTruthy();
-        expect(existsSync(`${settingFile}~`)).toBeTruthy();
-        expect(existsSync(join(root, 'session.nedb'))).toBeFalsy();
-        expect(existsSync(join(root, 'modelKnn.json'))).toBeFalsy();
-        expect(existsSync(join(root, 'nested'))).toBeFalsy();
-        // The directory holds the settings file, so the directory stays too.
-        expect(existsSync(root)).toBeTruthy();
-
-        // A directory that is already gone is not an error.
-        await deleteAllUserData(join(root, 'missing'));
-
-        deleteFolderRecursive(root);
-    });
-
-    it('should load Db', async () => {
-        {
-            await loadDB(join(dbBaseDir, 'test_loading.db'));
-        }
-        {
-            await loadDB(join(dbBaseDir, 'test_loading.db'));
-        }
-        {
-            loadDBSync(join(dbBaseDir, 'test_loading.db'));
-        }
-        {
-            loadDBSync(join(dbBaseDir, 'test_loading.db'));
-        }
+        expect(clearUserFiles).toHaveBeenCalledTimes(1);
+        expect(await getAllSession()).toStrictEqual([]);
+        expect((await dbs.settingDB.findOne({ name: 'setting' }))?.themeId).toBe('keep-me');
     });
 
     it('should return today sessions', async () => {

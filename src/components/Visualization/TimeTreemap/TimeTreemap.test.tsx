@@ -1,5 +1,5 @@
 import React from 'react';
-import TestRenderer, { act } from 'react-test-renderer';
+import { act, render } from '@testing-library/react';
 
 // The real wrapper imports echarts at runtime, which cannot render under
 // jsdom; the stub captures the props so the click wiring can be asserted.
@@ -235,41 +235,39 @@ describe('TimeTreemap click wiring', () => {
         capturedProps = null;
     });
 
-    it('forwards project block clicks to onProjectClick', async () => {
+    it('forwards project block clicks to onProjectClick', () => {
         const onProjectClick = jest.fn();
-        await act(async () => {
-            TestRenderer.create(<TimeTreemap {...props({ onProjectClick })} />);
-        });
+        render(<TimeTreemap {...props({ onProjectClick })} />);
 
-        capturedProps.onEvents.click({ seriesIndex: 0, name: 'Board A' });
+        act(() => {
+            capturedProps.onEvents.click({ seriesIndex: 0, name: 'Board A' });
+        });
         expect(onProjectClick).toHaveBeenCalledWith('Board A');
     });
 
-    it('ignores app block clicks: only projects filter the view', async () => {
+    it('ignores app block clicks: only projects filter the view', () => {
         const onProjectClick = jest.fn();
-        await act(async () => {
-            TestRenderer.create(<TimeTreemap {...props({ onProjectClick })} />);
-        });
+        render(<TimeTreemap {...props({ onProjectClick })} />);
 
-        capturedProps.onEvents.click({ seriesIndex: 1, name: 'Code' });
+        act(() => {
+            capturedProps.onEvents.click({ seriesIndex: 1, name: 'Code' });
+        });
         expect(onProjectClick).not.toHaveBeenCalled();
     });
 
-    it('expands the application Others block without changing top-level values', async () => {
+    it('expands the application Others block without changing top-level values', () => {
         const apps = [
             { name: 'Large App', value: 90 },
             { name: 'Small App A', value: 1 },
             { name: 'Small App B', value: 1 },
         ];
-        await act(async () => {
-            TestRenderer.create(<TimeTreemap {...props({ appData: apps })} />);
-        });
+        render(<TimeTreemap {...props({ appData: apps })} />);
 
         expect(capturedProps.option.series[1].data).toEqual([
             { name: 'Large App', value: 90 },
             { name: APPLICATIONS_OTHER_NAME, value: 2 },
         ]);
-        await act(async () => {
+        act(() => {
             capturedProps.onEvents.click({
                 seriesIndex: 1,
                 name: APPLICATIONS_OTHER_NAME,
@@ -288,17 +286,15 @@ describe('TimeTreemap click wiring', () => {
         ]);
     });
 
-    it('collapses Others when another application block is clicked', async () => {
+    it('collapses Others when another application block is clicked', () => {
         const apps = [
             { name: 'Large App', value: 90 },
             { name: 'Small App A', value: 1 },
             { name: 'Small App B', value: 1 },
         ];
-        await act(async () => {
-            TestRenderer.create(<TimeTreemap {...props({ appData: apps })} />);
-        });
+        render(<TimeTreemap {...props({ appData: apps })} />);
 
-        await act(async () => {
+        act(() => {
             capturedProps.onEvents.click({
                 seriesIndex: 1,
                 name: APPLICATIONS_OTHER_NAME,
@@ -306,7 +302,7 @@ describe('TimeTreemap click wiring', () => {
         });
         expect(capturedProps.option.series[1].data[1].children).toHaveLength(2);
 
-        await act(async () => {
+        act(() => {
             capturedProps.onEvents.click({ seriesIndex: 1, name: 'Large App' });
         });
         expect(capturedProps.option.series[1].data).toEqual([
@@ -315,10 +311,8 @@ describe('TimeTreemap click wiring', () => {
         ]);
     });
 
-    it('renders without an onProjectClick handler', async () => {
-        await act(async () => {
-            TestRenderer.create(<TimeTreemap {...props()} />);
-        });
+    it('renders without an onProjectClick handler', () => {
+        render(<TimeTreemap {...props()} />);
 
         expect(() =>
             capturedProps.onEvents.click({ seriesIndex: 0, name: 'Board A' })

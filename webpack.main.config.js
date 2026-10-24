@@ -13,9 +13,44 @@ module.exports = merge(baseConfig, {
     module: {
         rules: [
             {
-                test: [/\.jsx?$/, /\.tsx?$/],
+                // TypeScript 7 ships the native compiler without the JavaScript
+                // compiler API that ts-loader depends on. Strip types with Babel
+                // (like the renderer build) and type-check separately through
+                // `yarn typecheck` (tsc --noEmit).
+                test: /\.(jsx?|tsx?)$/,
                 exclude: /node_modules/,
-                loader: 'ts-loader',
+                use: {
+                    loader: 'babel-loader',
+                    options: {
+                        cacheDirectory: true,
+                        babelrc: false,
+                        presets: [
+                            ['@babel/preset-env', {
+                                targets: { electron: '44' },
+                                modules: false
+                            }],
+                            // Babel 8 defaults `onlyRemoveTypeImports` to true,
+                            // so value imports that are only used in type
+                            // positions would survive and pull in `.d.ts` files
+                            // webpack cannot resolve. Keep Babel 7's behaviour:
+                            // elide imports that are provably type-only.
+                            ['@babel/preset-typescript', { onlyRemoveTypeImports: false }]
+                        ],
+                        // Babel 8 enables JSX parsing for every file when
+                        // preset-react is active, which makes generic arrow
+                        // functions in `.ts` files ambiguous (`<T>(...)`).
+                        // Only `.tsx` needs the React transform.
+                        overrides: [
+                            {
+                                test: /\.tsx$/,
+                                presets: ['@babel/preset-react']
+                            }
+                        ],
+                        plugins: [
+                            '@babel/plugin-transform-runtime'
+                        ]
+                    }
+                }
             },
             // Images and .dat files are emitted next to `main.js` and resolved at
             // runtime through `path.join(__dirname, ...)` (asset modules replace
@@ -36,7 +71,8 @@ module.exports = merge(baseConfig, {
         }),
     ],
     externals: {
-        'active-win': 'commonjs2 active-win',
+        'get-windows': 'commonjs2 get-windows',
+        'better-sqlite3': 'commonjs2 better-sqlite3',
         'electron-updater': 'commonjs2 electron-updater',
         'builder-util-runtime': 'commonjs2 builder-util-runtime',
     },

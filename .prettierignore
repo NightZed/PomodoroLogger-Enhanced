@@ -1,0 +1,18 @@
+# Generated / vendored content. Keep formatting runs away from lockfiles,
+# build output, packaged apps, local databases and release artefacts.
+node_modules/
+dist/
+release/
+coverage/
+webpack-visualization/
+db/
+db-bk/
+__test__db/
+__test__screenshots/
+screenshots/
+public/
+yarn.lock
+package-lock.json
+CHANGELOG.md
+junit.xml
+*.log

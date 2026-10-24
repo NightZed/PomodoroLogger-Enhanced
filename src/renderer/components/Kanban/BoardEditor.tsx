@@ -1,9 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { Button, Form, Input, Modal, Tabs } from 'antd';
 import type { RuleObject } from 'antd/es/form';
 import { ConfirmPopover } from '../feedback';
 import { getPopupContainer } from '../popupLayer';
-import TextArea from 'antd/es/input/TextArea';
 import { DistractingListModalButton } from '../Setting/DistractingList';
 import { EditorContainer } from './style/editorStyle';
 import { CreatedTime } from './style/CreatedTime';
@@ -27,8 +26,9 @@ interface FormProps {
 export const EditKanbanForm = (props: FormProps) => {
     const [internalForm] = Form.useForm();
     const form = props.form ?? internalForm;
-    const { onSave, isCreating, nameValidator } = props;
-    const [showMarkdownPreview, setShowMarkdownPreview] = useState(true);
+    const { onSave, isCreating, nameValidator, visible, onDelete, boardId, onCancel, createdTime } =
+        props;
+    const [showMarkdownPreview, setShowMarkdownPreview] = useState(false);
     const [description, setDescription] = useState('');
 
     const onKeydown = useCallback(
@@ -48,11 +48,13 @@ export const EditKanbanForm = (props: FormProps) => {
         setDescription(form.getFieldValue('description') || '');
     }, [form]);
 
-    useEffect(() => {
-        if (!isCreating) {
+    // Every time the dialog opens (for a new or an existing board) it has to
+    // start on the Edit tab, even if the previous visit ended on Preview.
+    useLayoutEffect(() => {
+        if (visible) {
             setShowMarkdownPreview(false);
         }
-    }, [isCreating]);
+    }, [visible, isCreating]);
 
     const validator = useCallback(
         (_rule: RuleObject, name: unknown) => {
@@ -75,7 +77,7 @@ export const EditKanbanForm = (props: FormProps) => {
         [form]
     );
 
-    const { visible, onDelete, boardId, onCancel, createdTime } = props;
+    const descriptionHtml = React.useMemo(() => formatMarkdown(description), [description]);
 
     return (
         <Modal
@@ -104,12 +106,15 @@ export const EditKanbanForm = (props: FormProps) => {
                         <Input onKeyDown={onKeydown} />
                     </Form.Item>
                     {!isCreating && createdTime !== undefined ? (
-                        <CreatedTime style={{ marginTop: 4 }}>
+                        <CreatedTime style={{ marginTop: -4, marginBottom: 8 }}>
                             Created: {formatTimeYmdHm(createdTime)}
                         </CreatedTime>
                     ) : undefined}
-                    {/* Avoid leaving Tabs' resize observers active inside a closed modal. */}
-                    {visible ? (
+                    {/* Mounted with the (force-rendered) dialog so opening the
+                        editor only has to run the fade-in: mounting Tabs and
+                        the auto-sizing textarea inside the click handler made
+                        the first click on a board feel frozen. */}
+                    {
                         <Tabs
                             onChange={onTabChange}
                             type="card"
@@ -121,7 +126,7 @@ export const EditKanbanForm = (props: FormProps) => {
                                     label: 'Edit',
                                     children: (
                                         <Form.Item name="description">
-                                            <TextArea
+                                            <Input.TextArea
                                                 autoSize={{ minRows: 3, maxRows: 5 }}
                                                 onKeyDown={onKeydown}
                                             />
@@ -141,14 +146,14 @@ export const EditKanbanForm = (props: FormProps) => {
                                                 minHeight: 120,
                                             }}
                                             dangerouslySetInnerHTML={{
-                                                __html: formatMarkdown(description),
+                                                __html: descriptionHtml,
                                             }}
                                         />
                                     ),
                                 },
                             ]}
                         />
-                    ) : null}
+                    }
                     {!isCreating ? (
                         <>
                             <Form.Item>

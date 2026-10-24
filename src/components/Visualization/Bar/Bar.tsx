@@ -33,31 +33,44 @@ interface BarProps {
     height?: number | string;
 }
 
+const MIN_HEIGHT_IN_PIXEL = 4;
+
 export const Bar: React.FC<BarProps> = (props: BarProps) => {
     const { height = '100%' } = props;
     const ref = useRef<any>(null);
-    const [maxItemInCol, setMaxItemInCol] = useState(20);
+    // The first render is the expensive one: every layer is a separate SVG
+    // rect. Starting at the old default of 20 drew up to 20 layers per column
+    // before the mount effect below read the real height and re-rendered with
+    // the correct (much smaller) count. The overview mounts one of these per
+    // board, so that wasted first pass dominated opening it. When the caller
+    // already knows the pixel height (the board briefs do), start with the
+    // count the effect would compute anyway; string heights keep the old
+    // fallback and get corrected after layout.
+    const initialMaxItemInCol =
+        typeof height === 'number' && height > 0
+            ? Math.max(1, Math.floor(height / MIN_HEIGHT_IN_PIXEL))
+            : 20;
+    const [maxItemInCol, setMaxItemInCol] = useState(initialMaxItemInCol);
     const [w2h, setW2H] = useState(1);
-    const minHeightInPixel = 4;
+    const minHeightInPixel = MIN_HEIGHT_IN_PIXEL;
     useEffect(() => {
-        if (ref.current == null) return;
+        const element = ref.current;
+        if (element == null) return;
         const lis = () => {
-            if (ref.current == null) return;
-            const h = ref.current.clientHeight;
+            const h = element.clientHeight;
             // h is 0 before layout (and always under jsdom): keep the aspect
             // ratio at its initial 1 instead of poisoning the `text` y with
             // NaN, and clamp the column count to >= 1 so the layer maths
             // below can never divide by zero.
             setMaxItemInCol(Math.max(1, Math.floor(h / minHeightInPixel)));
-            setW2H(h > 0 ? ref.current.clientWidth / h : 1);
+            setW2H(h > 0 ? element.clientWidth / h : 1);
         };
-        ref.current.addEventListener('resize', lis);
+        element.addEventListener('resize', lis);
         lis();
         return () => {
-            if (ref.current == null) return;
-            ref.current.removeEventListener('resize', lis);
+            element.removeEventListener('resize', lis);
         };
-    }, []);
+    }, [minHeightInPixel]);
     const { names, values } = props;
     if (names.length !== values.length) {
         throw new Error();
@@ -69,11 +82,10 @@ export const Bar: React.FC<BarProps> = (props: BarProps) => {
     // Keep the fixed-height <svg> mounted even when every list is empty
     // (maxV === 0): the kanban brief card reserves this strip for the chart,
     // and dropping the whole element made the card grow ~26px *after*
-    // react-stack-grid had measured it. stack-grid only re-measures when its
-    // children change, so the boards below kept their stale `top` and covered
-    // the bottom of the board above them (see SafeStackGrid in the kanban
-    // Overview). With `scale = 0` every column draws n = 0 rects, and
-    // 0 * 0 === 0 keeps the division-by-zero out.
+    // the overview layout. Its CSS columns now reflow when this content grows,
+    // and the reserved chart height keeps the card size stable as well. With
+    // `scale = 0` every column draws n = 0 rects, and 0 * 0 === 0 keeps the
+    // division-by-zero out.
     const scale = maxV > 0 ? maxItemInCol / maxV : 0;
     const layerHeight = (100 / maxItemInCol) * 0.6;
     const marginTop = (100 / maxItemInCol) * 0.4;

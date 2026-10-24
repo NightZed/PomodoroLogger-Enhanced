@@ -23,10 +23,10 @@ export const getTargetRectBySelector = (
         return null;
     }
     if (unionChildren) {
-        // Union of visible element-children. Used when the target itself is a
-        // zero-size/overflow container whose visible content lives in
-        // absolutely-positioned children (e.g. WorkRestIcon's FadeEffects):
-        // the union tightly wraps icon + label instead of the long strip.
+        // Union of visible element-children. Used when the target's visible
+        // content is spread over stacked children that overlap vertically
+        // (e.g. WorkRestIcon's icon and label share one slot): the union covers
+        // both layers, whichever of them is currently visible.
         const kids = Array.from(target.children) as HTMLElement[];
         let union: TargetRect | null = null;
         for (const kid of kids) {

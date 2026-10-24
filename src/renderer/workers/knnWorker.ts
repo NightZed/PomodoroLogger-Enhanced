@@ -1,7 +1,8 @@
 /* istanbul ignore file */
-import Worker from 'worker-loader!./trainKnn.worker';
 import { PomodoroRecord } from '../monitor/type';
 import { BaseWorker } from './BaseWorker';
+import { dbs } from '../dbs';
+import { createKnnWorker } from './nativeWorkerFactory';
 
 export class KnnWorker extends BaseWorker {
     protected worker?: Worker;
@@ -11,10 +12,20 @@ export class KnnWorker extends BaseWorker {
         super();
     }
 
+    /**
+     * The KNN worker used to open the session database file itself. Now that
+     * the main process owns SQLite, the renderer reads the records through the
+     * repository and sends them with the request.
+     */
+    private async getRecords(): Promise<PomodoroRecord[]> {
+        return dbs.sessionDB.find({}, { apps: 1, boardId: 1 });
+    }
+
     async train(onDone: (accuracy: number) => void, onProgress: (progress: number) => void) {
-        this.worker ??= new Worker();
+        this.worker ??= createKnnWorker();
+        const records = await this.getRecords();
         return this.createHandler(
-            { type: 'trainModel' },
+            { type: 'trainModel', payload: { records } },
             {
                 setProgress: onProgress,
                 setAcc: (acc, done) => {
@@ -27,9 +38,10 @@ export class KnnWorker extends BaseWorker {
     }
 
     async test(onDone: (accuracy: number) => void, onProgress: (progress: number) => void) {
-        this.worker ??= new Worker();
+        this.worker ??= createKnnWorker();
+        const records = await this.getRecords();
         return this.createHandler(
-            { type: 'testModel' },
+            { type: 'testModel', payload: { records } },
             {
                 setProgress: onProgress,
                 setAcc: (acc, done) => {
@@ -42,7 +54,7 @@ export class KnnWorker extends BaseWorker {
     }
 
     public async predict(record: PomodoroRecord | PomodoroRecord[]) {
-        this.worker ??= new Worker();
+        this.worker ??= createKnnWorker();
         let records = record;
         if (!Array.isArray(record)) {
             records = [record];
@@ -63,11 +75,18 @@ export class KnnWorker extends BaseWorker {
     }
 
     async loadModel(dbSize: number) {
-        this.worker ??= new Worker();
+        this.worker ??= createKnnWorker();
+        const records = await this.getRecords();
+        const model = await window.api.loadKnnModel();
         return this.createHandler(
-            { type: 'loadModel', payload: { dbSize } },
+            { type: 'loadModel', payload: { dbSize, records, model } },
             {
-                onDone: (payload, done) => done(),
+                loaded: async (payload: { model: any; save: boolean }, done) => {
+                    if (payload.save) {
+                        await window.api.saveKnnModel(payload.model);
+                    }
+                    done();
+                },
             },
             // Loading (and possibly retraining, which reads the whole session
             // DB) outlasts the 10s default. Without a real budget the request
@@ -78,11 +97,14 @@ export class KnnWorker extends BaseWorker {
     }
 
     async saveModel() {
-        this.worker ??= new Worker();
+        this.worker ??= createKnnWorker();
         return this.createHandler(
             { type: 'saveModel' },
             {
-                onDone: (payload, done) => done(),
+                saved: async (model: any, done) => {
+                    await window.api.saveKnnModel(model);
+                    done();
+                },
             }
         );
     }

@@ -9,7 +9,6 @@ import { Button, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Tabs, To
 import { AntdIcon as Icon } from '../../antdIcon';
 import { ConfirmPopover } from '../../feedback';
 import { getPopupContainer } from '../../popupLayer';
-import TextArea from 'antd/es/input/TextArea';
 import { uid } from '../../../../utils/uid';
 import dayjs, { Dayjs } from 'dayjs';
 import { Card, CardLabel } from '../type';
@@ -69,7 +68,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
     } = props;
     const isCreating = !card;
     const lastIsCreating = React.useRef<boolean | null>(null);
-    const thisIsCreating = visible ? isCreating : lastIsCreating.current ?? isCreating;
+    const thisIsCreating = visible ? isCreating : (lastIsCreating.current ?? isCreating);
     const { setFieldsValue, setFields, getFieldsValue, validateFields, resetFields } = form;
     useEffect(() => {
         lastIsCreating.current = isCreating;
@@ -300,7 +299,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
         if (!card) {
             // Creating
             const _id = uid();
-            // Await the insert before the follow-up updates: nedb `update`
+            // Await the insert before the follow-up updates: repository `update`
             // without upsert is a no-op for a not-yet-inserted doc, so firing
             // setEstimatedTime/setLabels concurrently with addCard could lose
             // them after a restart.
@@ -507,6 +506,14 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
         [insertCheckbox, insertBold, insertItalic, insertStrikethrough, openLinkModal]
     );
 
+    // Parse the markdown only while the preview tab is actually shown. The
+    // preview pane is not mounted for the Edit tab, but the `items` array used
+    // to call `formatMarkdown` on every keystroke anyway.
+    const previewHtml = React.useMemo(
+        () => (showMarkdownPreview ? formatMarkdown(cardContent || '') : ''),
+        [showMarkdownPreview, cardContent]
+    );
+
     const onTabChange = React.useCallback(
         (name: string) => {
             if (name === 'edit') {
@@ -574,6 +581,10 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             maskTransitionName="card-editor-fade"
             getContainer={getPopupContainer}
             wrapClassName={CARD_EDITOR_WRAP_CLASS}
+            // Same as the board editor: mount the dialog contents up front so
+            // the first click on a card starts the open animation immediately
+            // instead of first paying for the form's initial mount.
+            forceRender
         >
             <EditorAnimation />
             <EditorContainer>
@@ -590,8 +601,14 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                             Created: {formatTimeYmdHm(card.createdTime)}
                         </CreatedTime>
                     ) : undefined}
-                    {/* Avoid leaving Tabs' resize observers active inside a closed modal. */}
-                    {visible ? (
+                    {/* Mount the tab strip with the dialog (forceRender) instead
+                        of on the first open: mounting Tabs + the toolbar +
+                        the auto-sizing textarea synchronously inside the
+                        click handler was the remaining "frozen for a moment,
+                        then the dialog fades in" delay. The dialog is hidden
+                        while closed, so the round-trip through the observer is
+                        skipped by rc-tabs until it is shown. */}
+                    {
                         <Tabs
                             onChange={onTabChange}
                             type="card"
@@ -655,7 +672,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                                 </Tooltip>
                                             </div>
                                             <Form.Item name="content" noStyle>
-                                                <TextArea
+                                                <Input.TextArea
                                                     ref={contentRef}
                                                     autoSize={{ minRows: 6, maxRows: 16 }}
                                                     style={{ transition: 'none' }}
@@ -683,15 +700,13 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                                 maxHeight: 'calc(100vh - 600px)',
                                                 minHeight: 120,
                                             }}
-                                            dangerouslySetInnerHTML={{
-                                                __html: formatMarkdown(cardContent || ''),
-                                            }}
+                                            dangerouslySetInnerHTML={{ __html: previewHtml }}
                                         />
                                     ),
                                 },
                             ]}
                         />
-                    ) : null}
+                    }
                     <Row>
                         <Col span={12}>
                             <Form.Item label="Estimated Time In Hour">
@@ -797,46 +812,96 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
     );
 });
 
-export const CardInDetail = connect(
-    (state: RootState) => {
-        const { isEditing, _id, listId } = state.kanban.kanban.editCard;
-        const labelMap = new Map<string, string>();
-        const boardCards: { _id: string; labels?: CardLabel[] }[] = [];
-        let boardId: string | undefined = undefined;
-        for (const id of Object.keys(state.kanban.boards)) {
-            if (state.kanban.boards[id].lists.includes(listId)) {
-                boardId = id;
-                break;
-            }
-        }
+interface CardEditorStateProps {
+    listId: string;
+    boardCards: { _id: string; labels?: CardLabel[] }[];
+    isInDoneList: boolean;
+    card?: Card;
+    visible: boolean;
+    labelSuggestions: { name: string; color: string }[];
+}
 
-        if (boardId !== undefined) {
-            for (const lId of state.kanban.boards[boardId].lists) {
-                for (const cardId of state.kanban.lists[lId]?.cards ?? []) {
-                    const labels = state.kanban.cards[cardId]?.labels;
-                    boardCards.push({ labels, _id: cardId });
-                    for (const label of labels ?? []) {
-                        if (!labelMap.has(label.name)) {
-                            labelMap.set(label.name, label.color);
-                        }
+type CardEditorInputs = Pick<RootState['kanban'], 'boards' | 'lists' | 'cards'> & {
+    editCard: RootState['kanban']['kanban']['editCard'];
+};
+
+// The editor walks the whole board to build its label suggestions. Doing that
+// on every store notification also returned fresh arrays, so the (usually
+// closed) dialog re-rendered for unrelated dispatches. Cache the derived props
+// until one of their inputs actually changes.
+let lastCardEditorInputs: CardEditorInputs | undefined;
+let lastCardEditorProps: CardEditorStateProps | undefined;
+
+const mapCardEditorState = (state: RootState): CardEditorStateProps => {
+    const { boards, lists, cards, kanban } = state.kanban;
+    const { editCard } = kanban;
+
+    if (
+        lastCardEditorInputs !== undefined &&
+        lastCardEditorInputs.boards === boards &&
+        lastCardEditorInputs.lists === lists &&
+        lastCardEditorInputs.cards === cards &&
+        lastCardEditorInputs.editCard === editCard &&
+        lastCardEditorProps !== undefined
+    ) {
+        return lastCardEditorProps;
+    }
+
+    const { isEditing, _id, listId } = editCard;
+    const labelMap = new Map<string, string>();
+    const boardCards: { _id: string; labels?: CardLabel[] }[] = [];
+    let boardId: string | undefined = undefined;
+    for (const id of Object.keys(boards)) {
+        if (boards[id].lists.includes(listId)) {
+            boardId = id;
+            break;
+        }
+    }
+
+    if (boardId !== undefined) {
+        for (const lId of boards[boardId].lists) {
+            for (const cardId of lists[lId]?.cards ?? []) {
+                const labels = cards[cardId]?.labels;
+                boardCards.push({ labels, _id: cardId });
+                for (const label of labels ?? []) {
+                    if (!labelMap.has(label.name)) {
+                        labelMap.set(label.name, label.color);
                     }
                 }
             }
         }
+    }
 
-        const suggestions = Array.from(labelMap).map(([name, color]) => ({ name, color }));
-        return {
-            listId,
-            boardCards,
-            isInDoneList: boardId !== undefined && state.kanban.boards[boardId].doneList === listId,
-            card: _id === undefined ? undefined : state.kanban.cards[_id],
-            visible: isEditing,
-            labelSuggestions: suggestions,
-        };
-    },
+    const suggestions = Array.from(labelMap).map(([name, color]) => ({ name, color }));
+    const result: CardEditorStateProps = {
+        listId,
+        boardCards,
+        isInDoneList: boardId !== undefined && boards[boardId].doneList === listId,
+        card: _id === undefined ? undefined : cards[_id],
+        visible: isEditing,
+        labelSuggestions: suggestions,
+    };
+
+    lastCardEditorInputs = { boards, lists, cards, editCard };
+    lastCardEditorProps = result;
+    return result;
+};
+
+export const CardInDetail = connect(
+    mapCardEditorState,
     genMapDispatchToProp<CardActionTypes>({
         ...actions,
-        onCancel: () => (dispatch: any) =>
-            dispatch(kanbanActions.setEditCard(false, '', undefined)),
+        // Close the editor but KEEP `_id`/`listId`: the dialog is force-rendered,
+        // so it stays mounted for the whole fade-out and keeps rendering this
+        // card. Clearing the id here made `card` undefined in the very first
+        // closing render -- the `Created: ...` line (gated on `card`) vanished
+        // while the dialog was still visible, so the editor shrank during its
+        // own close, and `isCreating` flipped to true. The id is replaced by
+        // the next setEditCard anyway (a card click or the create action), so
+        // nothing stale leaks into the next open.
+        onCancel: () => (dispatch: any, getState: any) => {
+            const { editCard } = getState().kanban.kanban;
+            dispatch(kanbanActions.setEditCard(false, editCard.listId, editCard._id));
+        },
     })
 )(_CardInDetail);

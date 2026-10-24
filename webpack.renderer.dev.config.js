@@ -1,15 +1,12 @@
 const { merge } = require('webpack-merge');
 const spawn = require('child_process').spawn;
+const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
 
 const baseConfig = require('./webpack.renderer.config');
 
 module.exports = merge(baseConfig, {
     stats: 'errors-only',
-    resolve: {
-        alias: {
-            'react-dom': '@hot-loader/react-dom'
-        }
-    },
+    plugins: [new ReactRefreshWebpackPlugin()],
     devServer: {
         port: 2003,
         compress: false,

@@ -1,14 +1,13 @@
 /**
  * Regression tests for the shared `Hotkeys` wrapper (see Hotkeys.tsx).
  *
- * react-hot-keys@3.0.0 only drains the internal "already down" set it uses to
- * swallow key-repeat when an `onKeyUp` prop is passed, and no call site of the
- * app listens to keyup -- so after the 3.0.0 bump every binding (Ctrl+Tab,
- * Ctrl+Shift+Tab, Tab, F5, ...) fired exactly once per mount and then went
- * dead. The wrapper supplies that prop; these tests pin the behaviour down.
+ * These pin down the wrapper's contract independently of the underlying
+ * library: every press fires once, a held combination does not auto-repeat,
+ * keyup releases it for the next press, and the input/window-focus/modal
+ * guards stay in force.
  */
 import React from 'react';
-import TestRenderer, { act } from 'react-test-renderer';
+import { act, render } from '@testing-library/react';
 import { Hotkeys, WINDOW_FOCUS_GRACE_MS, shouldPreventTabDefault } from './Hotkeys';
 
 const dispatch = (type: 'keydown' | 'keyup', key: string, init: KeyboardEventInit = {}) => {
@@ -18,8 +17,7 @@ const dispatch = (type: 'keydown' | 'keyup', key: string, init: KeyboardEventIni
 };
 
 /**
- * The wrapper's release path lives in a `setTimeout(0)` behind the library's
- * document-level keyup listener, so a press is only "finished" after it ran.
+ * Let React flush the keyup bookkeeping before asserting a subsequent press.
  */
 const flushRelease = () =>
     act(async () => {
@@ -31,10 +29,10 @@ const press = async (key: string, init: KeyboardEventInit = {}) => {
     const modifiers = init.ctrlKey
         ? ['Control']
         : init.shiftKey
-        ? ['Shift']
-        : init.altKey
-        ? ['Alt']
-        : [];
+          ? ['Shift']
+          : init.altKey
+            ? ['Alt']
+            : [];
     await act(async () => {
         dispatch('keydown', key, init);
     });
@@ -49,30 +47,23 @@ const press = async (key: string, init: KeyboardEventInit = {}) => {
     await flushRelease();
 };
 
-const mount = (keyName: string, onKeyDown: (shortcut: string) => void) => {
-    let renderer!: TestRenderer.ReactTestRenderer;
-    act(() => {
-        renderer = TestRenderer.create(<Hotkeys keyName={keyName} onKeyDown={onKeyDown} />);
-    });
-    return renderer;
-};
+const mount = (keyName: string, onKeyDown: (shortcut: string) => void) =>
+    render(<Hotkeys keyName={keyName} onKeyDown={onKeyDown} />);
 
-const unmount = async (renderer: TestRenderer.ReactTestRenderer) => {
-    await act(async () => {
-        renderer.unmount();
-    });
+const unmount = async (view: ReturnType<typeof render>) => {
+    view.unmount();
     await flushRelease();
 };
 
-describe('Hotkeys wrapper (react-hot-keys 3.0.0 release tracking)', () => {
+describe('Hotkeys wrapper (press / repeat tracking)', () => {
     it('fires a combination again on every press', async () => {
         const onKeyDown = jest.fn();
-        const renderer = mount('ctrl+tab', onKeyDown);
+        const view = mount('ctrl+tab', onKeyDown);
 
         await press('Tab', { ctrlKey: true });
         await press('Tab', { ctrlKey: true });
         await press('Tab', { ctrlKey: true });
-        await unmount(renderer);
+        await unmount(view);
 
         expect(onKeyDown).toHaveBeenCalledTimes(3);
         expect(onKeyDown.mock.calls.map((call) => call[0])).toEqual([
@@ -84,7 +75,7 @@ describe('Hotkeys wrapper (react-hot-keys 3.0.0 release tracking)', () => {
 
     it('fires once while the combination stays held (key-repeat is swallowed)', async () => {
         const onKeyDown = jest.fn();
-        const renderer = mount('ctrl+tab', onKeyDown);
+        const view = mount('ctrl+tab', onKeyDown);
 
         await act(async () => {
             dispatch('keydown', 'Control', { ctrlKey: true });
@@ -103,21 +94,21 @@ describe('Hotkeys wrapper (react-hot-keys 3.0.0 release tracking)', () => {
 
         // ...and the next press fires again.
         await press('Tab', { ctrlKey: true });
-        await unmount(renderer);
+        await unmount(view);
 
         expect(onKeyDown).toHaveBeenCalledTimes(2);
     });
 
     it('keeps the shortcuts of one keyName independent and repeatable', async () => {
         const onKeyDown = jest.fn();
-        const renderer = mount('f5,f6,tab', onKeyDown);
+        const view = mount('f5,f6,tab', onKeyDown);
 
         await press('Tab', {});
         await press('Tab', {});
         await press('F5', {});
         await press('F6', {});
         await press('F5', {});
-        await unmount(renderer);
+        await unmount(view);
 
         expect(onKeyDown.mock.calls.map((call) => call[0])).toEqual([
             'tab',
@@ -130,17 +121,27 @@ describe('Hotkeys wrapper (react-hot-keys 3.0.0 release tracking)', () => {
 
     it('leaves the repeat matching of a modified combination intact', async () => {
         const onKeyDown = jest.fn();
-        const renderer = mount('ctrl+shift+tab', onKeyDown);
+        const view = mount('ctrl+shift+tab', onKeyDown);
 
         await press('Tab', { ctrlKey: true, shiftKey: true });
         await press('Tab', { ctrlKey: true, shiftKey: true });
-        await unmount(renderer);
+        await unmount(view);
 
         expect(onKeyDown).toHaveBeenCalledTimes(2);
         expect(onKeyDown.mock.calls.map((call) => call[0])).toEqual([
             'ctrl+shift+tab',
             'ctrl+shift+tab',
         ]);
+    });
+
+    it('keeps the call-site spelling for Escape', async () => {
+        const onKeyDown = jest.fn();
+        const view = mount('esc', onKeyDown);
+
+        await press('Escape', {});
+        await unmount(view);
+
+        expect(onKeyDown.mock.calls.map((call) => call[0])).toEqual(['esc']);
     });
 });
 
@@ -153,7 +154,7 @@ describe('Hotkeys wrapper (react-hot-keys 3.0.0 release tracking)', () => {
 describe('Hotkeys wrapper (input / window-focus guards)', () => {
     it('never fires from a keyup alone (focus moved between keydown and keyup)', async () => {
         const onKeyDown = jest.fn();
-        const renderer = mount('tab', onKeyDown);
+        const view = mount('tab', onKeyDown);
 
         // keydown inside a textarea is filtered out, so no "already down"
         // state is recorded -- and the browser's default moves focus.
@@ -175,13 +176,13 @@ describe('Hotkeys wrapper (input / window-focus guards)', () => {
         await flushRelease();
         expect(onKeyDown).not.toHaveBeenCalled();
 
-        await unmount(renderer);
+        await unmount(view);
         textarea.remove();
     });
 
     it('ignores keys typed into editable elements but still fires outside them', async () => {
         const onKeyDown = jest.fn();
-        const renderer = mount('tab', onKeyDown);
+        const view = mount('tab', onKeyDown);
 
         const textarea = document.createElement('textarea');
         document.body.appendChild(textarea);
@@ -195,13 +196,13 @@ describe('Hotkeys wrapper (input / window-focus guards)', () => {
         await press('Tab', {});
         expect(onKeyDown).toHaveBeenCalledTimes(1);
 
-        await unmount(renderer);
+        await unmount(view);
         textarea.remove();
     });
 
     it('stays silent during the window-focus grace period, then fires again', async () => {
         const onKeyDown = jest.fn();
-        const renderer = mount('tab', onKeyDown);
+        const view = mount('tab', onKeyDown);
 
         // Alt+Tab residue arrives right after the window regains focus...
         await act(async () => {
@@ -220,12 +221,12 @@ describe('Hotkeys wrapper (input / window-focus guards)', () => {
         await press('Tab', {});
         expect(onKeyDown).toHaveBeenCalledTimes(1);
 
-        await unmount(renderer);
+        await unmount(view);
     });
 
     it('hands the call site the live event so the binding can swallow its default', async () => {
         // `Timer.onKeyDown`'s 'tab' branch relies on this contract: it calls
-        // preventDefault on the very event hotkeys-js dispatches, so the mode
+        // preventDefault on the very event the wrapper dispatches, so the mode
         // switch and the suppressed focus jump (the focus ring that used to
         // land on the first focusable element after clicking a blank spot)
         // cannot come apart.
@@ -234,7 +235,7 @@ describe('Hotkeys wrapper (input / window-focus guards)', () => {
             received = args[1] as KeyboardEvent;
             received.preventDefault();
         });
-        const renderer = mount('tab', onKeyDown);
+        const view = mount('tab', onKeyDown);
 
         // dispatch() reports whether preventDefault() reached the event.
         const notPrevented = document.dispatchEvent(
@@ -244,7 +245,7 @@ describe('Hotkeys wrapper (input / window-focus guards)', () => {
         expect(received?.defaultPrevented).toBe(true);
         expect(notPrevented).toBe(false);
 
-        await unmount(renderer);
+        await unmount(view);
     });
 });
 
@@ -339,7 +340,7 @@ describe('Hotkeys wrapper (modal gate)', () => {
 
     it('does not fire a binding while a dialog is open', async () => {
         const onKeyDown = jest.fn();
-        const renderer = mount('ctrl+tab', onKeyDown);
+        const view = mount('ctrl+tab', onKeyDown);
         addOpenDialog();
 
         await press('Tab', { ctrlKey: true });
@@ -349,29 +350,29 @@ describe('Hotkeys wrapper (modal gate)', () => {
         await press('Tab', { ctrlKey: true });
         expect(onKeyDown).toHaveBeenCalledTimes(1);
 
-        await unmount(renderer);
+        await unmount(view);
     });
 
     it('keeps Ctrl+F12 (dev tools) alive while a dialog is open', async () => {
         const onKeyDown = jest.fn();
-        const renderer = mount('ctrl+f12', onKeyDown);
+        const view = mount('ctrl+f12', onKeyDown);
         addOpenDialog();
 
         await press('F12', { ctrlKey: true });
         expect(onKeyDown).toHaveBeenCalledTimes(1);
 
-        await unmount(renderer);
+        await unmount(view);
     });
 
     it('fires again when the closed dialog is only its hidden root', async () => {
         const onKeyDown = jest.fn();
-        const renderer = mount('ctrl+tab', onKeyDown);
+        const view = mount('ctrl+tab', onKeyDown);
         addOpenDialog();
         closeDialog();
 
         await press('Tab', { ctrlKey: true });
         expect(onKeyDown).toHaveBeenCalledTimes(1);
 
-        await unmount(renderer);
+        await unmount(view);
     });
 });

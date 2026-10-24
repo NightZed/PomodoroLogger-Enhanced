@@ -1,6 +1,5 @@
 import * as React from 'react';
-import * as ReactDOM from 'react-dom';
-import { act, Simulate } from 'react-dom/test-utils';
+import { cleanup, fireEvent, render } from '@testing-library/react';
 import { Button, ConfigProvider } from 'antd';
 
 describe('session ending start button', () => {
@@ -25,25 +24,18 @@ describe('session ending start button', () => {
         });
 
         try {
-            act(() => {
-                ReactDOM.render(
-                    <ConfigProvider wave={{ disabled: true }}>
-                        <Button onClick={onClick}>Start Focusing</Button>
-                    </ConfigProvider>,
-                    container
-                );
-            });
-
-            act(() => {
-                Simulate.click(container.querySelector('button')!);
-            });
+            render(
+                <ConfigProvider wave={{ disabled: true }}>
+                    <Button onClick={onClick}>Start Focusing</Button>
+                </ConfigProvider>,
+                { container }
+            );
+            fireEvent.click(container.querySelector('button')!);
 
             expect(onClick).toHaveBeenCalledTimes(1);
             expect(observers).toHaveLength(0);
         } finally {
-            act(() => {
-                ReactDOM.unmountComponentAtNode(container);
-            });
+            cleanup();
             Object.defineProperty(window, 'ResizeObserver', {
                 configurable: true,
                 value: previousResizeObserver,

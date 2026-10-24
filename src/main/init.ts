@@ -4,27 +4,27 @@ import {
     BrowserWindow,
     protocol,
     Menu,
-    ipcMain,
-    MenuItem,
     app,
     nativeTheme,
-    shell,
+    dialog,
 } from 'electron';
+import type { MenuItemConstructorOptions } from 'electron';
 import * as path from 'path';
 import * as url from 'url';
 import * as db from './db';
 import logo from '../res/icon_sm.png';
-import fs from 'fs';
-import { dbPaths } from '../config';
 import { DAY_THEME_ID } from '../renderer/theme/tokens';
-import { build } from '../../package.json';
+import packageJson from '../../package.json';
 import { AutoUpdater } from './AutoUpdater';
-import { initialize } from './ipc/ipc';
-import { IpcEventName, UpdateEventName, WindowEventName } from './ipc/type';
+import { handleCommand, initialize } from './ipc/ipc';
+import { IpcEventName, TrayEventName, UpdateEventName, WindowEventName } from './ipc/type';
+import type { TrayIconPayload, TrayMenuItem } from './ipc/type';
+import { assertTrayIconPayload } from './ipc/validate';
 import { stopWindowDrag } from './ipc/windowDrag';
-import * as remoteMain from '@electron/remote/main';
 import { initActiveWin } from './activeWin';
-remoteMain.initialize();
+import { openExternalUrl } from './openExternal';
+
+const { build } = packageJson;
 
 protocol.registerSchemesAsPrivileged([
     {
@@ -38,7 +38,6 @@ protocol.registerSchemesAsPrivileged([
     },
 ]);
 
-const { refreshDbs, loadDBs } = db;
 export let win: BrowserWindow | undefined;
 
 /**
@@ -185,44 +184,26 @@ if (!gotTheLock) {
 }
 
 const mGlobal: typeof global & {
-    sharedDB?: typeof db.DBs;
-    utils?: {
-        refreshDbs: typeof refreshDbs;
-        loadDBs: typeof loadDBs;
-    };
     tray?: Tray;
-    setMenuItems?: any;
     learner?: any;
 } = global;
-mGlobal.sharedDB = db.DBs;
-mGlobal.utils = {
-    refreshDbs,
-    loadDBs,
-};
 if (process.platform === 'win32') {
     app.setAppUserModelId('com.electron.time-logger');
 }
 
 /**
- * Settings live in a single nedb document that is persisted as one JSON object
- * per line, so the last line holds the most recent state. Reading it
- * synchronously lets the window pick the right background color (and the right
- * `prefers-color-scheme`) before anything is painted, which avoids a white
- * flash when the night theme is active.
+ * Settings are synchronously readable before the window exists. On the first
+ * start after the upgrade this falls back to the old NeDB file; once the
+ * migration has run it reads the SQLite settings table. Keeping this sync is
+ * what lets the window pick the right background color (and the right
+ * `prefers-color-scheme`) before anything is painted.
  */
 function readThemeSetting(): { themeId?: string; followSystemTheme?: boolean } {
-    try {
-        const content = fs.readFileSync(dbPaths.settingDB, { encoding: 'utf-8' });
-        const lines = content.split('\n').filter((line) => !!line);
-        if (lines.length === 0) {
-            return {};
-        }
-
-        const latest = JSON.parse(lines[lines.length - 1]);
-        return { themeId: latest.themeId, followSystemTheme: latest.followSystemTheme };
-    } catch (e) {
-        return {};
-    }
+    const settings = db.readSettingsSync();
+    return {
+        themeId: settings.themeId,
+        followSystemTheme: settings.followSystemTheme,
+    };
 }
 
 const createWindow = async () => {
@@ -230,8 +211,8 @@ const createWindow = async () => {
     nativeTheme.themeSource = followSystemTheme
         ? 'system'
         : themeId === DAY_THEME_ID
-        ? 'light'
-        : 'dark';
+          ? 'light'
+          : 'dark';
 
     win = new BrowserWindow({
         width: 1440,
@@ -251,14 +232,17 @@ const createWindow = async () => {
         icon: nativeImage.createFromPath(path.join(__dirname, logo)),
         title: 'Pomodoro Logger',
         webPreferences: {
-            nodeIntegrationInWorker: true,
-            nodeIntegration: true,
-            contextIsolation: false,
-            // preload: path.join(__dirname, 'preload.js'),
+            // Renderer code only reaches the main process through the narrow
+            // preload bridge (see src/main/preload.ts). Workers are pure web
+            // workers now; no Node globals are available to either side.
+            nodeIntegration: false,
+            nodeIntegrationInWorker: false,
+            contextIsolation: true,
+            sandbox: true,
+            preload: path.join(__dirname, 'preload.js'),
         },
     });
 
-    remoteMain.enable(win.webContents);
     win.removeMenu();
     if (process.env.NODE_ENV === 'production') {
         win.removeMenu();
@@ -290,7 +274,7 @@ const createWindow = async () => {
     const handleRedirect = (e: any, url: string) => {
         if (url !== win?.webContents.getURL()) {
             e.preventDefault();
-            shell.openExternal(url);
+            openExternalUrl(url);
         }
     };
 
@@ -299,7 +283,7 @@ const createWindow = async () => {
     // target URL is handed over to the default browser instead.
     win.webContents.setWindowOpenHandler((details) => {
         if (details.url !== win?.webContents.getURL()) {
-            shell.openExternal(details.url);
+            openExternalUrl(details.url);
         }
 
         return { action: 'deny' };
@@ -335,7 +319,7 @@ const createWindow = async () => {
         }
     });
 
-    ipcMain.addListener(IpcEventName.Quit, () => {
+    handleCommand(IpcEventName.Quit, () => {
         if (process.env.NODE_ENV === 'development') {
             console.log('receive quit-app');
             return;
@@ -345,7 +329,7 @@ const createWindow = async () => {
         app.exit();
     });
 
-    ipcMain.addListener(IpcEventName.Restart, restart);
+    handleCommand(IpcEventName.Restart, restart);
 
     // 方案一 + 附带清理: the renderer draws the icon at the physical size it
     // will be SHOWN at (16 logical px x display scale, see `trayCanvasSize`),
@@ -353,16 +337,17 @@ const createWindow = async () => {
     // re-scales it -- no blur. Memory direct `setImage(dataURL-backed
     // nativeImage)` instead of the old write-tray@2x.png-then-read-path round
     // trip, which added file IO latency to every icon update.
-    ipcMain.addListener(
+    handleCommand(
         IpcEventName.SetTray,
-        (event: any, payload: { src: string; scaleFactor: number }) => {
+        (payload: TrayIconPayload) => {
             const scaleFactor = payload.scaleFactor > 0 ? payload.scaleFactor : 1;
             const image = nativeImage.createFromBuffer(
                 nativeImage.createFromDataURL(payload.src).toPNG(),
                 { scaleFactor }
             );
             mGlobal.tray?.setImage(image);
-        }
+        },
+        [(value) => assertTrayIconPayload(value)]
     );
 
     if (process.platform === 'darwin') {
@@ -446,29 +431,41 @@ app.on('ready', async () => {
         }
     }
 
-    await db.loadDBs(['settingDB']);
+    try {
+        await db.loadDBs(['settingDB']);
+    } catch (error) {
+        dialog.showErrorBox(
+            'Database migration failed',
+            'Pomodoro Logger could not migrate the old database.\n\n' +
+                'The original .nedb files were left untouched. Please back up the db folder and report this error:\n\n' +
+                String(error)
+        );
+        app.exit(1);
+        return;
+    }
 
     await createWindow();
 
-    db.DBs.settingDB.findOne({ name: 'setting' }, (err, settings) => {
-        if (err) {
-            console.error(err);
-            return;
-        }
+    void (async () => {
+        try {
+            const settings = await db.DBs.settingDB.findOne({ name: 'setting' });
+            if (settings != null && 'autoUpdate' in settings && !settings.autoUpdate) {
+                return;
+            }
 
-        if (settings != null && 'autoUpdate' in settings && !settings.autoUpdate) {
-            return;
-        }
+            // An unpackaged app cannot install an update and electron-updater
+            // would still hit the network, so only check when running a
+            // packaged build.
+            if (!app.isPackaged) {
+                console.log('[updater] skip update check: application is not packaged');
+                return;
+            }
 
-        // An unpackaged app cannot install an update and electron-updater would
-        // still hit the network, so only check when running a packaged build.
-        if (!app.isPackaged) {
-            console.log('[updater] skip update check: application is not packaged');
-            return;
+            autoUpdaterCheck.checkUpdate();
+        } catch (error) {
+            console.error(error);
         }
-
-        autoUpdaterCheck.checkUpdate();
-    });
+    })();
 });
 
 export function restart(): void {
@@ -512,15 +509,15 @@ function update() {
 
     const autoUpdater = new AutoUpdater(sendStatusToWindow);
 
-    ipcMain.on(IpcEventName.DownloadUpdate, () => {
+    handleCommand(IpcEventName.DownloadUpdate, () => {
         autoUpdater.download();
     });
 
-    ipcMain.on(IpcEventName.CheckUpdate, () => {
+    handleCommand(IpcEventName.CheckUpdate, () => {
         autoUpdater.checkUpdate(true);
     });
 
-    ipcMain.on(IpcEventName.InstallUpdate, () => {
+    handleCommand(IpcEventName.InstallUpdate, () => {
         if (process.env.NODE_ENV === 'development') {
             console.log('receive install-update');
             return;
@@ -545,15 +542,35 @@ const autoUpdaterCheck = update();
  * out nor reorder them. `enabled: false` renders an entry greyed out; it is how
  * the renderer says "this action cannot run right now".
  */
-function setMenuItems(items: { label: string; type: string; click: any; enabled?: boolean }[]) {
+export function setMenuItems(items: TrayMenuItem[]) {
     if (!mGlobal.tray) {
         return;
     }
 
-    const menuItems = items.concat([
-        new MenuItem({
+    const menuItems: MenuItemConstructorOptions[] = items
+        .filter(
+            (item) =>
+                item != null && typeof item.label === 'string' && typeof item.enabled === 'boolean'
+        )
+        // The renderer builds five entries; the cap only bounds a malformed
+        // payload, it never truncates a real menu.
+        .slice(0, 10)
+        .map(({ key, label, enabled }) => ({
+            label,
+            type: 'normal',
+            enabled,
+            click: () => {
+                if (!win || win.isDestroyed()) {
+                    return;
+                }
+
+                win.webContents.send(TrayEventName.Action, key);
+            },
+        }));
+    menuItems.push(
+        {
             type: 'separator',
-        }),
+        },
         {
             label: 'Open',
             type: 'normal',
@@ -568,13 +585,11 @@ function setMenuItems(items: { label: string; type: string; click: any; enabled?
                 win = undefined;
                 app.exit();
             },
-        },
-    ]);
-    // @ts-ignore
+        }
+    );
     const contextMenu = Menu.buildFromTemplate(menuItems);
     mGlobal.tray.setContextMenu(contextMenu);
 }
-mGlobal.setMenuItems = setMenuItems;
 app.on('window-all-closed', () => {
     win = undefined;
     app.exit();

@@ -48,14 +48,14 @@ const LabelCloud = styled.div`
  * ellipsis keep long names from blowing up a cloud row; the cross lives in
  * its own flex child so it stays visible regardless of the name length.
  */
-const LabelChip = styled.span<{ color: string }>`
+const LabelChip = styled.span<{ $color: string }>`
     display: inline-flex;
     align-items: stretch;
     border-radius: 1em;
     font-size: 0.9em;
     line-height: 1.7;
     color: #fff;
-    background-color: ${(props) => props.color};
+    background-color: ${(props) => props.$color};
     white-space: nowrap;
     max-width: 160px;
     overflow: hidden;
@@ -97,7 +97,9 @@ const ChipRemove = styled.span`
     align-items: center;
     padding: 2px 0.6em 2px 0.15em;
     opacity: 0.75;
-    transition: background-color 0.15s ease, opacity 0.15s ease;
+    transition:
+        background-color 0.15s ease,
+        opacity 0.15s ease;
 
     &:hover {
         background-color: rgba(0, 0, 0, 0.3);
@@ -105,19 +107,19 @@ const ChipRemove = styled.span`
     }
 `;
 
-const ColorDot = styled.span<{ color: string; selected: boolean }>`
+const ColorDot = styled.span<{ $color: string; $selected: boolean }>`
     display: inline-block;
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background-color: ${(props) => props.color};
+    background-color: ${(props) => props.$color};
     cursor: pointer;
     margin-right: 4px;
     /* Selection ring follows the theme: the old hard-coded #333 was invisible
        on the night theme (#1f1f1f) popover surface. The --pl-text token keeps
        the old dark look in the day theme (rgba(0,0,0,0.85)) and turns it into
        a light ring at night (rgba(255,255,255,0.85)). */
-    border: ${(props) => (props.selected ? '2px solid var(--pl-text)' : '2px solid transparent')};
+    border: ${(props) => (props.$selected ? '2px solid var(--pl-text)' : '2px solid transparent')};
     box-sizing: border-box;
 `;
 
@@ -153,10 +155,10 @@ const EditPanelBox = styled.div`
  * rc-trigger caches the popup after the first open, so the key is what makes
  * every open remount -- and therefore refocus -- the panel.
  */
-const EditPanel: FC<{ onKeyDown: (event: React.KeyboardEvent) => void }> = ({
-    onKeyDown,
-    children,
-}) => {
+const EditPanel: FC<{
+    onKeyDown: (event: React.KeyboardEvent) => void;
+    children: React.ReactNode;
+}> = ({ onKeyDown, children }) => {
     const panelRef = React.useRef<HTMLDivElement>(null);
     React.useEffect(() => {
         const input = panelRef.current ? panelRef.current.querySelector('input') : null;
@@ -184,13 +186,13 @@ const EditActions = styled.div`
     margin-top: 10px;
 `;
 
-const SuggestionChip = styled.span<{ color: string }>`
+const SuggestionChip = styled.span<{ $color: string }>`
     display: inline-block;
     border-radius: 1em;
     padding: 1px 0.6em;
     font-size: 0.85em;
     color: #fff;
-    background-color: ${(props) => props.color};
+    background-color: ${(props) => props.$color};
     margin-right: 0;
     white-space: nowrap;
     max-width: 110px;
@@ -207,18 +209,24 @@ const SuggestionChip = styled.span<{ color: string }>`
  * (SearchPanel's Group), instead of antd's vertical list. Ant Design injects
  * component styles at runtime, so the rules that fight its `:not(.…-disabled)`
  * hover/active selectors carry the `html` prefix to stay specific enough.
+ *
+ * The scrolling holder and its flex container are addressed by antd's own
+ * class names, which the v6 migration renamed: the option list moved from
+ * `rc-virtual-list` to `@rc-component/virtual-list`, and antd now prefixes it
+ * with the select's `-dropdown-list` (`Select.style` styles
+ * `${componentCls}-dropdown-list-scrollbar`). The old `rc-virtual-list-*`
+ * selectors matched nothing under v6, so `-holder-inner` kept rc-virtual-list's
+ * inline `flex-direction: column` and the chips collapsed back into one
+ * option per row. Keep these in sync with `@rc-component/virtual-list`
+ * (List/Filler) when antd changes its list prefix again.
  */
 const LabelSuggestDropdownStyle = createGlobalStyle`
-    html .pl-label-suggest-dropdown .ant-select-dropdown {
-        padding: 0;
-    }
-
-    html .pl-label-suggest-dropdown .rc-virtual-list-holder {
+    html .pl-label-suggest-dropdown .ant-select-dropdown-list-holder {
         max-height: 240px;
         overflow-y: auto;
     }
 
-    html .pl-label-suggest-dropdown .rc-virtual-list-holder-inner {
+    html .pl-label-suggest-dropdown .ant-select-dropdown-list-holder-inner {
         display: flex;
         flex-direction: row !important;
         flex-wrap: wrap !important;
@@ -527,7 +535,7 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
         getLabelSuggestions(suggestions ?? [], excludeLabels, input).map(({ name, color }) => ({
             value: name,
             label: (
-                <SuggestionChip className="pl-suggest-chip" color={color}>
+                <SuggestionChip className="pl-suggest-chip" $color={color}>
                     {name}
                 </SuggestionChip>
             ),
@@ -582,7 +590,7 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                                     getPopupContainer={getEditDropdownContainer}
                                     onSelect={onEditNameSelect}
                                     onChange={(value: any) => setEditName(value)}
-                                    filterOption={false}
+                                    showSearch={{ filterOption: false }}
                                 >
                                     <Input onPressEnter={onEditNamePressEnter} />
                                 </AutoComplete>
@@ -591,8 +599,8 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                                     {LABEL_COLORS.map((c) => (
                                         <ColorDot
                                             key={c}
-                                            color={c}
-                                            selected={c === editColor}
+                                            $color={c}
+                                            $selected={c === editColor}
                                             onClick={() => {
                                                 setEditColor(c);
                                                 setEditColorTouched(true);
@@ -608,7 +616,7 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                             </EditPanel>
                         }
                     >
-                        <LabelChip color={label.color}>
+                        <LabelChip $color={label.color}>
                             <ChipName title={label.name}>{label.name}</ChipName>
                             <ChipRemove
                                 title="Remove label"
@@ -641,7 +649,7 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                     getPopupContainer={getPopupContainer}
                     onSelect={onNewNameSelect}
                     onChange={(value: any) => setNewName(value)}
-                    filterOption={false}
+                    showSearch={{ filterOption: false }}
                 >
                     <Input placeholder={'Label name'} onPressEnter={onNewNamePressEnter} />
                 </AutoComplete>
@@ -662,8 +670,8 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                     {LABEL_COLORS.map((c) => (
                         <ColorDot
                             key={c}
-                            color={c}
-                            selected={c === newColor}
+                            $color={c}
+                            $selected={c === newColor}
                             onClick={() => {
                                 setNewColor(c);
                                 setColorTouched(true);

@@ -1,10 +1,9 @@
 import * as React from 'react';
-import * as ReactDOM from 'react-dom';
-import { act, Simulate } from 'react-dom/test-utils';
+import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { Form, FormInstance } from 'antd';
 import { EditKanbanForm } from './BoardEditor';
 
-jest.mock('antd/es/input/TextArea', () => ({ __esModule: true, default: () => null }));
+jest.mock('antd/lib/input/TextArea', () => ({ __esModule: true, default: () => null }));
 
 const createBoardForm = (
     container: HTMLDivElement,
@@ -29,11 +28,53 @@ const createBoardForm = (
         );
     };
 
-    act(() => {
-        ReactDOM.render(<FormHarness />, container);
-    });
+    render(<FormHarness />, { container });
     return formRef.current!;
 };
+
+describe('EditKanbanForm board editor tab', () => {
+    const EditorHarness = (props: { visible: boolean; isCreating: boolean }) => {
+        const [form] = Form.useForm();
+        return (
+            <EditKanbanForm
+                boardId=""
+                form={form}
+                visible={props.visible}
+                isCreating={props.isCreating}
+                onSave={jest.fn()}
+                onCancel={jest.fn()}
+                onDelete={jest.fn()}
+                nameValidator={() => true}
+            />
+        );
+    };
+
+    const activeTabLabel = () =>
+        document.body.querySelector('.ant-tabs-tab-active')?.textContent?.trim();
+
+    afterEach(() => {
+        cleanup();
+        document.body.innerHTML = '';
+    });
+
+    it.each([true, false])(
+        'reopens on the Edit tab instead of Preview (isCreating=%s)',
+        (isCreating) => {
+            const { rerender } = render(<EditorHarness visible={true} isCreating={isCreating} />);
+
+            const previewTab = Array.from(document.body.querySelectorAll('[role="tab"]')).find(
+                (tab) => tab.textContent?.trim() === 'Preview'
+            );
+            expect(previewTab).toBeDefined();
+            fireEvent.click(previewTab!);
+            expect(activeTabLabel()).toBe('Preview');
+
+            rerender(<EditorHarness visible={false} isCreating={isCreating} />);
+            rerender(<EditorHarness visible={true} isCreating={isCreating} />);
+            expect(activeTabLabel()).toBe('Edit');
+        }
+    );
+});
 
 describe('EditKanbanForm board name validation', () => {
     let container: HTMLDivElement;
@@ -45,9 +86,7 @@ describe('EditKanbanForm board name validation', () => {
     });
 
     afterEach(() => {
-        act(() => {
-            ReactDOM.unmountComponentAtNode(container);
-        });
+        cleanup();
         document.body.innerHTML = '';
         warn.mockRestore();
     });
@@ -73,7 +112,7 @@ describe('EditKanbanForm board name validation', () => {
             );
             expect(createButton).toBeDefined();
             await act(async () => {
-                Simulate.click(createButton!);
+                fireEvent.click(createButton!);
                 await new Promise((resolve) => setTimeout(resolve, 0));
             });
 

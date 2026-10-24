@@ -1,4 +1,4 @@
-import { DragDropContext, Droppable, DropResult } from 'react-beautiful-dnd';
+import { DragDropContext, Droppable, DropResult } from '@hello-pangea/dnd';
 import React, { FC } from 'react';
 import { BoardActionTypes, defaultBoard } from './action';
 import styled from 'styled-components';

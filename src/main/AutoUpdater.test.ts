@@ -19,6 +19,7 @@ jest.mock('electron-updater', () => {
 
 describe('AutoUpdater', () => {
     const mockUpdater = autoUpdater as any;
+    let consoleError: jest.SpyInstance;
 
     function createUpdater() {
         const events: { type: string; info: any }[] = [];
@@ -31,8 +32,15 @@ describe('AutoUpdater', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        // Several cases trigger the updater's expected error path; the events
+        // they assert are the observable contract, not the console line.
+        consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
         // AutoUpdater registers its listeners on the shared autoUpdater instance
         mockUpdater.removeAllListeners();
+    });
+
+    afterEach(() => {
+        consoleError.mockRestore();
     });
 
     it('should report one failure with a single event', () => {

@@ -233,6 +233,19 @@ pomodoro-logger [C:\code\pomodoro-logger] .\src\renderer\components\src\Applicat
 平台支持： **Windows 10 / macOS 13+ / Linux**，
 下载：[发布页面](https://github.com/NightZed/PomodoroLogger-Enhanced/releases)。
 
+| 平台 | 下载这个文件 |
+| --- | --- |
+| Windows 10+（x64） | `Pomodoro-Logger-Enhanced-<version>-win-x64-setup.exe` |
+| macOS 13+（Apple 芯片） | `Pomodoro-Logger-Enhanced-<version>-mac-arm64.dmg` |
+| macOS 13+（Intel 芯片） | `Pomodoro-Logger-Enhanced-<version>-mac-x64.dmg` |
+| Debian / Ubuntu / Mint | `pomodoro-logger-enhanced_<version>_amd64.deb` |
+| Fedora / RHEL / openSUSE | `Pomodoro-Logger-Enhanced-<version>-linux-x86_64.rpm` |
+| 任意 Linux（免安装） | `Pomodoro-Logger-Enhanced-<version>-linux-x86_64.AppImage` |
+
+`.zip`（`-mac-arm64.zip`、`-mac-x64.zip`）仅供应用内自动更新使用。
+每个版本还会附带 `SHA256SUMS.txt`，可用 `sha256sum -c SHA256SUMS.txt` 校验。
+Ubuntu 22.04 及以上运行 AppImage 需要先安装 `libfuse2`，或加 `--appimage-extract-and-run` 参数运行。
+
 ## 🤝 参与贡献
 
 欢迎你的参与！开发环境搭建、代码规范与发版流程都写在[贡献指南](./.github/CONTRIBUTING.md)里。

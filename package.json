@@ -47,9 +47,22 @@
         "mac": {
             "category": "public.app-category.productivity",
             "target": [
-                "zip",
-                "dmg"
+                {
+                    "target": "dmg",
+                    "arch": [
+                        "arm64",
+                        "x64"
+                    ]
+                },
+                {
+                    "target": "zip",
+                    "arch": [
+                        "arm64",
+                        "x64"
+                    ]
+                }
             ],
+            "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
             "hardenedRuntime": true,
             "gatekeeperAssess": false,
             "entitlements": "build/entitlements.mac.plist",
@@ -104,15 +117,30 @@
             "**/node_modules/get-windows/main"
         ],
         "win": {
-            "target": "nsis"
+            "target": "nsis",
+            "icon": "build/icon.ico"
         },
         "nsis": {
+            "artifactName": "${productName}-${version}-${os}-${arch}-setup.${ext}",
             "oneClick": false,
             "allowToChangeInstallationDirectory": true,
             "differentialPackage": false
         },
         "linux": {
-            "target": "deb"
+            "target": [
+                "deb",
+                "AppImage",
+                "rpm"
+            ]
+        },
+        "deb": {
+            "artifactName": "${name}_${version}_${arch}.${ext}"
+        },
+        "appImage": {
+            "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
+        },
+        "rpm": {
+            "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
         }
     },
     "repository": {

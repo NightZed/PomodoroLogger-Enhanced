@@ -233,6 +233,19 @@ These raw records are aggregated into the time proportion chart and word cloud i
 Platforms: **Windows 10 / macOS 13+ / Linux**.
 Download: [release page](https://github.com/NightZed/PomodoroLogger-Enhanced/releases).
 
+| Platform | Pick this file |
+| --- | --- |
+| Windows 10+ (x64) | `Pomodoro-Logger-Enhanced-<version>-win-x64-setup.exe` |
+| macOS 13+ (Apple Silicon) | `Pomodoro-Logger-Enhanced-<version>-mac-arm64.dmg` |
+| macOS 13+ (Intel) | `Pomodoro-Logger-Enhanced-<version>-mac-x64.dmg` |
+| Debian / Ubuntu / Mint | `pomodoro-logger-enhanced_<version>_amd64.deb` |
+| Fedora / RHEL / openSUSE | `Pomodoro-Logger-Enhanced-<version>-linux-x86_64.rpm` |
+| Any Linux (no install) | `Pomodoro-Logger-Enhanced-<version>-linux-x86_64.AppImage` |
+
+The `.zip` files (`-mac-arm64.zip`, `-mac-x64.zip`) are only used by the built-in updater.
+Every release also ships `SHA256SUMS.txt` (`sha256sum -c SHA256SUMS.txt` to verify).
+On Ubuntu 22.04+ the AppImage needs `libfuse2` (or run it with `--appimage-extract-and-run`).
+
 ## 🤝 CONTRIBUTING
 
 Welcome! The development setup, coding conventions, and release process are all documented in [the CONTRIBUTING Guide](./.github/CONTRIBUTING.md).

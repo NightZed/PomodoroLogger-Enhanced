@@ -10,7 +10,7 @@ import { TimeBadge } from '../../../../components/Visualization/Badge/Badge';
 import { BadgeHolder } from '../style/Badge';
 import { Markdown } from '../style/Markdown';
 import { PomodoroDot } from '../../Visualization/PomodoroDot';
-import { Card as CardType } from '../type';
+import { Card as CardType, CardView } from '../type';
 import { matchParent } from '../../../utils';
 import { formatTimeYmdHm } from '../../Visualization/Timeline';
 import { CreatedTime } from '../style/CreatedTime';
@@ -169,7 +169,7 @@ interface CardDispatchProps {
 }
 
 interface Props extends CardType, InputProps, CardDispatchProps {
-    collapsed?: boolean;
+    cardView?: CardView;
     // whether this card currently lives in the done list of its board
     isInDoneList?: boolean;
 }
@@ -188,6 +188,9 @@ export const Card: FC<Props> = React.memo((props: Props) => {
         }
     }, []);
     const { index, _id, listId, setContent, setEditCard, setSearchReg } = props;
+    const cardView = props.cardView ?? 'preview';
+    const isTitleOnly = cardView === 'title';
+    const isFull = cardView === 'full';
     const shouldRenderContent = useNearViewport(cardRef, props.initiallyVisible === true);
     const onClick = React.useCallback(
         (e: React.MouseEvent<HTMLDivElement>) => {
@@ -294,7 +297,7 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                                     (snapshot.isDragging ? 'is-dragging' : undefined)
                                 }
                             >
-                                {props.collapsed ? (
+                                {isTitleOnly ? (
                                     <CardContent>
                                         <h3
                                             style={{
@@ -355,10 +358,11 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                                         {renderLabels(props.labels)}
                                         {shouldRenderContent ? (
                                             <Markdown
+                                                $full={isFull}
                                                 dangerouslySetInnerHTML={{
                                                     __html: renderedMarkdown,
                                                 }}
-                                                style={{ maxHeight: 250 }}
+                                                style={isFull ? undefined : { maxHeight: 250 }}
                                                 ref={markdownRef}
                                             />
                                         ) : (

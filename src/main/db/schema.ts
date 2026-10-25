@@ -65,7 +65,7 @@ export const boardSpec: TableSpec = {
         f('createdTime', 'created_time', 'integer'),
         f('aggInfo', 'agg_info', 'json'),
         f('pin', 'pin', 'boolean', false),
-        f('collapsed', 'collapsed', 'boolean', false),
+        f('cardView', 'card_view', 'text', 'preview'),
         f('distractionList', 'distraction_list', 'json'),
     ],
 };
@@ -166,7 +166,7 @@ export function createSchema(db: Database) {
             created_time      INTEGER,
             agg_info          TEXT,
             pin               INTEGER NOT NULL DEFAULT 0,
-            collapsed         INTEGER NOT NULL DEFAULT 0,
+            card_view         TEXT,
             distraction_list  TEXT,
             doc               TEXT NOT NULL
         );

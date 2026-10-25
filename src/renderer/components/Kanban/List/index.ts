@@ -5,13 +5,14 @@ import { RootState } from '../../../reducers';
 import { ListActionTypes, actions } from './action';
 import { actions as cardActions, CardActionTypes } from '../Card/action';
 import { genMapDispatchToProp } from '../../../utils';
+import { getCardView } from '../Board/action';
 
 const mapStateToProps = (state: RootState, props: InputProps) => {
     return {
         ...state.kanban.lists[props.listId],
         searchReg: state.kanban.kanban.searchReg,
         cardsState: state.kanban.cards,
-        collapsed: state.kanban.boards[props.boardId]?.collapsed ?? false,
+        cardView: getCardView(state.kanban.boards[props.boardId]),
     };
 };
 

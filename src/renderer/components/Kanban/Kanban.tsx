@@ -1,8 +1,8 @@
 import React, { FunctionComponent, useCallback, useEffect, useState } from 'react';
 import { KanbanActionTypes } from './action';
 import { KanbanState, uiStateNames } from './reducer';
-import { BoardActionTypes } from './Board/action';
-import { Button, Form, Layout, Select, Switch, Tooltip } from 'antd';
+import { BoardActionTypes, getCardView } from './Board/action';
+import { Button, Form, Layout, Segmented, Select, Switch, Tooltip } from 'antd';
 import { AntdIcon as Icon, IconComponent } from '../antdIcon';
 import { feedback, FEEDBACK_MESSAGES } from '../feedback';
 import Board from './Board';
@@ -23,9 +23,41 @@ import { PlayPauseButton } from './Board/PlayPauseButton';
 import { Search } from '../../../components/common/Search/Search';
 import { getBoardSearchTags } from './boardTags';
 import { PomodoroRecord } from '../../monitor/type';
+import { CardView } from './type';
 import { debounce } from 'lodash';
 
 const { Option } = Select;
+
+/**
+ * The board's card display modes. Icons keep the header compact; the Tooltip
+ * on each segment names the mode without needing a text label per option.
+ */
+const CARD_VIEW_OPTIONS: { value: CardView; label: React.ReactNode }[] = [
+    {
+        value: 'title',
+        label: (
+            <Tooltip title="Title only">
+                <Icon type="align-left" aria-label="Title only" />
+            </Tooltip>
+        ),
+    },
+    {
+        value: 'preview',
+        label: (
+            <Tooltip title="Preview (limited height)">
+                <Icon type="file-text" aria-label="Preview (limited height)" />
+            </Tooltip>
+        ),
+    },
+    {
+        value: 'full',
+        label: (
+            <Tooltip title="Full content">
+                <Icon type="expand" aria-label="Full content" />
+            </Tooltip>
+        ),
+    },
+];
 
 const Content = styled.main`
     margin: 0;
@@ -109,7 +141,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
             isFocusingOnChosenBoard,
             isTimerRunning,
             setChosenBoardId,
-            setCollapsed,
+            setCardView,
             setSortDirection,
             timerManager,
         } = props;
@@ -268,13 +300,13 @@ export const Kanban: FunctionComponent<Props> = React.memo(
             [addBoard, changeAppTab, chosenBoardId, chosenRecord, goBack]
         );
 
-        const onCollapsedChange = React.useCallback(
-            (v: boolean) => {
+        const onCardViewChange = React.useCallback(
+            (v: CardView) => {
                 if (chosenBoardId) {
-                    setCollapsed(chosenBoardId, v);
+                    setCardView(chosenBoardId, v);
                 }
             },
-            [chosenBoardId, setCollapsed]
+            [chosenBoardId, setCardView]
         );
         const toggleSortDirection = React.useCallback(() => {
             setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -386,13 +418,16 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                             paddingTop: 6,
                                         }}
                                     >
-                                        <label style={{ userSelect: 'none' }}>Collapse View</label>
-                                        <Switch
-                                            checked={
-                                                props.boards[props.kanban.chosenBoardId].collapsed
+                                        <label style={{ userSelect: 'none' }}>Card view</label>
+                                        <Segmented
+                                            size="small"
+                                            options={CARD_VIEW_OPTIONS}
+                                            value={getCardView(
+                                                props.boards[props.kanban.chosenBoardId]
+                                            )}
+                                            onChange={(value) =>
+                                                onCardViewChange(value as CardView)
                                             }
-                                            onChange={onCollapsedChange}
-                                            size={'small'}
                                         />
                                     </div>
                                     <PlayPauseButton

@@ -1,4 +1,4 @@
-import { actions, boardReducer, KanbanBoardState, defaultBoard } from './action';
+import { actions, boardReducer, KanbanBoardState, defaultBoard, getCardView } from './action';
 import { applyMiddleware, createStore, Dispatch } from 'redux';
 import { thunk } from 'redux-thunk';
 import { reducer as kanbanReducer } from '../reducer';
@@ -482,5 +482,41 @@ describe('board actions', () => {
 
         const card = await cardsDB.findOne({ _id: cardId });
         expect(card.completedTime).toBe(1111);
+    });
+
+    it('stores cardView and drops the retired collapsed flag', async () => {
+        const _id = uid();
+        let state: KanbanBoardState = {};
+        // @ts-ignore
+        const dispatch: Dispatch = (action: any) => {
+            try {
+                state = boardReducer(state, action);
+            } catch (e) {
+                console.warn(e);
+            }
+        };
+        await actions.addBoard(_id, 'B0')(dispatch);
+        expect(state[_id].cardView).toBe('preview');
+
+        await actions.setCardView(_id, 'full')(dispatch);
+        expect(state[_id].cardView).toBe('full');
+        const stored: KanbanBoard = await db.findOne({ _id });
+        expect(stored.cardView).toBe('full');
+
+        // A board written by the previous version still carries `collapsed`.
+        // The fetch removes the retired key and the selector falls back to
+        // `preview` (the old default) for the missing `cardView`.
+        const legacyId = uid();
+        await db.insert({
+            ...defaultBoard,
+            _id: legacyId,
+            name: 'legacy',
+            collapsed: true,
+        } as any);
+        await actions.fetchBoards()(dispatch);
+
+        const legacy = await db.findOne({ _id: legacyId });
+        expect((legacy as any).collapsed).toBeUndefined();
+        expect(getCardView(legacy)).toBe('preview');
     });
 });

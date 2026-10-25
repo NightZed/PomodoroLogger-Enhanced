@@ -119,4 +119,20 @@ describe('Data Merger', () => {
         const output = merger.merge(a, b);
         expect(output.cards.c.completedTime).toBe(3000);
     });
+
+    it('takes cardView from the side with the latest visit', () => {
+        const merger = new DataMerger();
+        const a = emptyData({ ...legacyBoard(), lastVisitTime: 1000, cardView: 'title' });
+        const b = emptyData({ ...legacyBoard(), lastVisitTime: 2000, cardView: 'full' });
+        const output = merger.merge(a, b);
+        expect(output.boards.board.cardView).toBe('full');
+    });
+
+    it('keeps the base cardView when the newer side has none', () => {
+        const merger = new DataMerger();
+        const a = emptyData({ ...legacyBoard(), lastVisitTime: 1000, cardView: 'title' });
+        const b = emptyData({ ...legacyBoard(), lastVisitTime: 2000 });
+        const output = merger.merge(a, b);
+        expect(output.boards.board.cardView).toBe('title');
+    });
 });

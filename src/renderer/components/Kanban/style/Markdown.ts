@@ -1,8 +1,15 @@
 import styled from 'styled-components';
 import { thinScrollBar } from '../../../style/scrollbar';
 
-export const Markdown = styled.div`
-    overflow: auto;
+/**
+ * `$full` is the board's "full content" card view: the body must not clip or
+ * scroll, so the list column is the only scroll container. The sticky
+ * before/after gradients exist to fade content under the scroll edges of the
+ * limited-height preview; in full mode they would paint stray bands over the
+ * card, so they are hidden.
+ */
+export const Markdown = styled.div<{ $full?: boolean }>`
+    overflow: ${({ $full }) => ($full ? 'visible' : 'auto')};
     font-size: 14px;
     color: var(--pl-text);
     position: relative;
@@ -14,7 +21,7 @@ export const Markdown = styled.div`
         content: '';
         top: 0px;
         position: sticky;
-        display: block;
+        display: ${({ $full }) => ($full ? 'none' : 'block')};
         width: 100%;
         height: 0.4rem;
         background: linear-gradient(
@@ -28,7 +35,7 @@ export const Markdown = styled.div`
         content: '';
         bottom: -4px;
         position: sticky;
-        display: block;
+        display: ${({ $full }) => ($full ? 'none' : 'block')};
         width: 100%;
         height: 0.4rem;
         background: linear-gradient(

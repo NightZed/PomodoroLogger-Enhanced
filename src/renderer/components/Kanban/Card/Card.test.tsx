@@ -176,6 +176,30 @@ describe('Card content clicks', () => {
         expect(event.defaultPrevented).toBe(true);
     });
 
+    it('renders only the title in title view', () => {
+        renderCard('body text', { cardView: 'title' });
+
+        expect(container.querySelector('h3')?.textContent).toBe('Test card');
+        expect(container.querySelector('p')).toBeNull();
+        expect(container.textContent).not.toContain('body text');
+    });
+
+    it('limits the body height in preview view', () => {
+        renderCard('body text', { cardView: 'preview' });
+
+        const body = container.querySelector('p')?.parentElement as HTMLElement;
+        expect(body).not.toBeNull();
+        expect(body.style.maxHeight).toBe('250px');
+    });
+
+    it('leaves the body unclipped in full view', () => {
+        renderCard('body text', { cardView: 'full' });
+
+        const body = container.querySelector('p')?.parentElement as HTMLElement;
+        expect(body).not.toBeNull();
+        expect(body.style.maxHeight).toBe('');
+    });
+
     it('defers markdown for off-screen cards until they intersect the viewport', () => {
         const original = (globalThis as any).IntersectionObserver;
         const callbacks: Array<(entries: any[]) => void> = [];

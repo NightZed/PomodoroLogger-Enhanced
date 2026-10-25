@@ -10,7 +10,7 @@ import { actions as timerActions, DistractingRow } from '../../Timer/action';
 import { RootState } from '../../../reducers';
 import { workers } from '../../../workers';
 import { PomodoroRecord } from '../../../monitor/type';
-import { AggInfo, Card, KanbanBoard, List, MoveInfo } from '../type';
+import { AggInfo, Card, CardView, KanbanBoard, List, MoveInfo } from '../type';
 
 const db = workers.dbWorkers.kanbanDB;
 const listsDB = workers.dbWorkers.listsDB;
@@ -25,13 +25,21 @@ export const defaultBoard: KanbanBoard = {
     focusedList: '',
     doneList: '',
     description: '',
-    collapsed: false,
+    cardView: 'preview',
     relatedSessions: [],
     spentHours: 0,
     createdTime: 0,
 };
 
 export type KanbanBoardState = { [_id: string]: KanbanBoard };
+
+/**
+ * Boards stored before `cardView` existed (and boards created by an older
+ * backup import) have no value; `preview` is the old default view. `collapsed`
+ * is deliberately not consulted any more -- the field was replaced outright.
+ */
+export const getCardView = (board?: Pick<KanbanBoard, 'cardView'>): CardView =>
+    board?.cardView ?? 'preview';
 
 const addBoard = createAction(
     '[Board]ADD',
@@ -93,8 +101,8 @@ const setDistractionList = createAction(
     (_id: string, distractionList?: DistractingRow[]) => ({ payload: { _id, distractionList } })
 );
 
-const setCollapsed = createAction('[Board]SET_COLLAPSED', (_id: string, collapsed: boolean) => ({
-    payload: { _id, collapsed },
+const setCardView = createAction('[Board]SET_CARD_VIEW', (_id: string, cardView: CardView) => ({
+    payload: { _id, cardView },
 }));
 
 export const boardReducer = createReducer<KanbanBoardState>({}, (builder) => {
@@ -199,11 +207,11 @@ export const boardReducer = createReducer<KanbanBoardState>({}, (builder) => {
                 distractionList,
             },
         }))
-        .addCase(setCollapsed, (state, { payload: { _id, collapsed } }) => ({
+        .addCase(setCardView, (state, { payload: { _id, cardView } }) => ({
             ...state,
             [_id]: {
                 ...state[_id],
-                collapsed,
+                cardView,
             },
         }));
 });
@@ -362,8 +370,24 @@ async function backfillCompletedTimes(boardMap: KanbanBoardState) {
     }
 }
 
+/**
+ * Drop the retired `collapsed` display flag from stored boards. It was
+ * replaced by `cardView`; keeping both would leave two competing view-state
+ * fields in `doc`. The physical SQLite column stays (the schema only ever adds
+ * columns), but it is no longer part of `boardSpec`, so it is never read or
+ * written. Runs at most one real cleanup per database: after the first pass
+ * the query matches nothing.
+ */
+async function removeLegacyCollapsedFlag() {
+    const legacy = await db.find({ collapsed: { $exists: true } }, {});
+    for (const board of legacy) {
+        await db.update({ _id: board._id }, { $unset: { collapsed: true } });
+    }
+}
+
 export const actions = {
     fetchBoards: () => async (dispatch: Dispatch) => {
+        await removeLegacyCollapsedFlag();
         const boards: KanbanBoard[] = await db.find({}, {});
         const boardMap: KanbanBoardState = {};
         for (const board of boards) {
@@ -508,9 +532,9 @@ export const actions = {
             await db.update({ _id }, { $set: { distractionList } });
         },
 
-    setCollapsed: (_id: string, collapsed: boolean) => async (dispatch: Dispatch) => {
-        dispatch(setCollapsed(_id, collapsed));
-        await db.update({ _id }, { $set: { collapsed } });
+    setCardView: (_id: string, cardView: CardView) => async (dispatch: Dispatch) => {
+        dispatch(setCardView(_id, cardView));
+        await db.update({ _id }, { $set: { cardView } });
     },
 };
 

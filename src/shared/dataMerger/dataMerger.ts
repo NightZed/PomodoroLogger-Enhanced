@@ -122,8 +122,8 @@ export class DataMerger {
             aBoard.name = bBoard.name;
             aBoard.lastVisitTime = bBoard.lastVisitTime;
             aBoard.description = bBoard.description;
-            if (aBoard.collapsed || bBoard.collapsed) {
-                aBoard.collapsed = bBoard.collapsed;
+            if (bBoard.cardView !== undefined) {
+                aBoard.cardView = bBoard.cardView;
             }
             if (aBoard.pin || bBoard.pin) {
                 aBoard.pin = bBoard.pin;

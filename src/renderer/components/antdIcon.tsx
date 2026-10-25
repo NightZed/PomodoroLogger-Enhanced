@@ -1,5 +1,6 @@
 import * as React from 'react';
 import Icon, {
+    AlignLeftOutlined,
     BellOutlined,
     BorderOutlined,
     BulbOutlined,
@@ -9,6 +10,8 @@ import Icon, {
     CloseOutlined,
     DeleteOutlined,
     DownOutlined,
+    ExpandOutlined,
+    FileTextOutlined,
     FullscreenExitOutlined,
     FullscreenOutlined,
     GithubOutlined,
@@ -50,6 +53,7 @@ import Icon, {
 export { Icon as IconComponent };
 
 const MAP = {
+    'align-left': AlignLeftOutlined,
     bell: BellOutlined,
     border: BorderOutlined,
     bulb: BulbOutlined,
@@ -61,7 +65,9 @@ const MAP = {
     'close-circle': CloseOutlined,
     delete: DeleteOutlined,
     down: DownOutlined,
+    expand: ExpandOutlined,
     'exclamation-circle': InfoCircleOutlined,
+    'file-text': FileTextOutlined,
     'fullscreen-exit': FullscreenExitOutlined,
     fullscreen: FullscreenOutlined,
     github: GithubOutlined,

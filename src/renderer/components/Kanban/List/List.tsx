@@ -11,7 +11,7 @@ import { AntdIcon as Icon, IconComponent } from '../../antdIcon';
 import { ConfirmPopover, feedback, FEEDBACK_MESSAGES } from '../../feedback';
 import { KanbanActionTypes } from '../action';
 import { CardActionTypes, CardsState } from '../Card/action';
-import { List as ListType } from '../type';
+import { CardView, List as ListType } from '../type';
 import { mergeRefs } from '../../../utils';
 import { throttle, debounce } from 'lodash';
 
@@ -197,7 +197,7 @@ export interface InputProps {
 interface Props extends ListType, InputProps, ListActionTypes, KanbanActionTypes {
     searchReg?: string;
     cardsState: CardsState;
-    collapsed: boolean;
+    cardView: CardView;
     setContent: CardActionTypes['setContent'];
 }
 
@@ -543,7 +543,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
                                                     isDragDisabled={
                                                         renderLimit < filteredCards.length
                                                     }
-                                                    collapsed={props.collapsed}
+                                                    cardView={props.cardView}
                                                     setEditCard={props.setEditCard}
                                                     setSearchReg={props.setSearchReg}
                                                     setContent={props.setContent}

@@ -201,6 +201,30 @@ interface Props extends ListType, InputProps, ListActionTypes, KanbanActionTypes
     setContent: CardActionTypes['setContent'];
 }
 
+/**
+ * Whether two `visibleCards` values describe the same filter result.
+ *
+ * `visibleCards` is derived by every mounted `List` of a list id but stored in
+ * the shared list state. More than one `List` can be mounted for the same id:
+ * the board renders the focused list, and so does the Timer sider's
+ * focused-list preview (the Timer page stays mounted, see `APP_TABS.forceRender`).
+ * Each instance filters into its own array -- same contents, different
+ * identity -- so comparing by reference made the two overwrite each other
+ * forever while typing in the board search ("Maximum update depth exceeded").
+ * The store only needs to learn when the *result* actually changed.
+ */
+const isSameVisibleCards = (a?: string[], b?: string[]) => {
+    if (a === b) {
+        return true;
+    }
+
+    if (a === undefined || b === undefined || a.length !== b.length) {
+        return false;
+    }
+
+    return a.every((id, index) => id === b[index]);
+};
+
 export const List: FC<Props> = React.memo((props: Props) => {
     const {
         focused = false,
@@ -278,8 +302,10 @@ export const List: FC<Props> = React.memo((props: Props) => {
         // "visible cards = undefined" action for each one even when the store
         // already held the same value. Each dispatch notified every connected
         // card, so a board with many lists/cards paid that cost on open. Only
-        // write when the filter actually changed.
-        if (visibleCards === storedVisibleCards) {
+        // write when the filter actually changed. The comparison is by content
+        // because duplicate List instances for one id derive equal arrays with
+        // different identities (see `isSameVisibleCards`).
+        if (isSameVisibleCards(visibleCards, storedVisibleCards)) {
             return;
         }
         setVisibleCards(_id, visibleCards);

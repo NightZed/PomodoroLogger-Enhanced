@@ -64,6 +64,7 @@
         },
         "compression": "maximum",
         "asar": true,
+        "afterPack": "build/afterPack.js",
         "electronLanguages": [
             "en-US",
             "zh-CN"
@@ -88,6 +89,8 @@
             "!**/node_modules/.bin",
             "!**/*.{o,h,cc,cpp,cxx,gyp,gypi,ipdb,iobj,vcxproj,filters,tlog,recipe,lastbuildstate,obj,res,pdb,exp,ilk}",
             "!**/node_modules/node-gyp{,/**}",
+            "!**/node_modules/better-sqlite3/{deps,src,build}{,/**}",
+            "!**/node_modules/better-sqlite3/binding.gyp",
             "!**/node_modules/get-windows/{Sources,build,test,ava.config.js,binding.gyp}",
             "!**/node_modules/get-windows/lib/binding/napi-*-darwin-*{,/**}",
             "!**/node_modules/get-windows/lib/binding/napi-*-linux-*{,/**}",
@@ -109,11 +112,7 @@
             "differentialPackage": false
         },
         "linux": {
-            "target": "deb",
-            "files": [
-                "!**/node_modules/get-windows/lib/binding/napi-*-darwin-*{,/**}",
-                "!**/node_modules/get-windows/lib/binding/napi-*-win32-*{,/**}"
-            ]
+            "target": "deb"
         }
     },
     "repository": {
@@ -165,6 +164,7 @@
         "cross-env": "^10.1.0",
         "css-loader": "^7.1.5",
         "dayjs": "^1.11.13",
+        "dompurify": "^3.4.17",
         "echarts": "^6.1.0",
         "echarts-for-react": "^3.0.6",
         "electron": "^44.9.3",
@@ -208,7 +208,6 @@
     },
     "dependencies": {
         "better-sqlite3": "^13.0.0",
-        "dompurify": "^3.4.17",
         "electron-updater": "^6.8.9",
         "get-windows": "9.3.0"
     },

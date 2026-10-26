@@ -496,27 +496,29 @@ describe('board actions', () => {
             }
         };
         await actions.addBoard(_id, 'B0')(dispatch);
-        expect(state[_id].cardView).toBe('preview');
-
-        await actions.setCardView(_id, 'full')(dispatch);
         expect(state[_id].cardView).toBe('full');
-        const stored: KanbanBoard = await db.findOne({ _id });
-        expect(stored.cardView).toBe('full');
 
-        // A board written by the previous version still carries `collapsed`.
-        // The fetch removes the retired key and the selector falls back to
-        // `preview` (the old default) for the missing `cardView`.
+        await actions.setCardView(_id, 'title')(dispatch);
+        expect(state[_id].cardView).toBe('title');
+        const stored: KanbanBoard = await db.findOne({ _id });
+        expect(stored.cardView).toBe('title');
+
+        // A board written by the previous version still carries `collapsed`
+        // and has no `cardView`. The fetch removes the retired key and the
+        // selector falls back to the default (`full`).
         const legacyId = uid();
-        await db.insert({
+        const legacyBoard: any = {
             ...defaultBoard,
             _id: legacyId,
             name: 'legacy',
             collapsed: true,
-        } as any);
+        };
+        delete legacyBoard.cardView;
+        await db.insert(legacyBoard);
         await actions.fetchBoards()(dispatch);
 
         const legacy = await db.findOne({ _id: legacyId });
         expect((legacy as any).collapsed).toBeUndefined();
-        expect(getCardView(legacy)).toBe('preview');
+        expect(getCardView(legacy)).toBe('full');
     });
 });

@@ -197,7 +197,7 @@ export const Card: FC<Props> = React.memo((props: Props) => {
         }
     }, []);
     const { index, _id, listId, setContent, setEditCard, setSearchReg } = props;
-    const cardView = props.cardView ?? 'preview';
+    const cardView = props.cardView ?? 'full';
     const isTitleOnly = cardView === 'title';
     const isFull = cardView === 'full';
     const shouldRenderContent = useNearViewport(cardRef, props.initiallyVisible === true);

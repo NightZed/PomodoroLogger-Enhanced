@@ -25,7 +25,7 @@ export const defaultBoard: KanbanBoard = {
     focusedList: '',
     doneList: '',
     description: '',
-    cardView: 'preview',
+    cardView: 'full',
     relatedSessions: [],
     spentHours: 0,
     createdTime: 0,
@@ -35,11 +35,11 @@ export type KanbanBoardState = { [_id: string]: KanbanBoard };
 
 /**
  * Boards stored before `cardView` existed (and boards created by an older
- * backup import) have no value; `preview` is the old default view. `collapsed`
- * is deliberately not consulted any more -- the field was replaced outright.
+ * backup import) have no value; `full` is the default view. `collapsed` is
+ * deliberately not consulted any more -- the field was replaced outright.
  */
 export const getCardView = (board?: Pick<KanbanBoard, 'cardView'>): CardView =>
-    board?.cardView ?? 'preview';
+    board?.cardView ?? 'full';
 
 const addBoard = createAction(
     '[Board]ADD',

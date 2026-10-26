@@ -65,7 +65,7 @@ export const boardSpec: TableSpec = {
         f('createdTime', 'created_time', 'integer'),
         f('aggInfo', 'agg_info', 'json'),
         f('pin', 'pin', 'boolean', false),
-        f('cardView', 'card_view', 'text', 'preview'),
+        f('cardView', 'card_view', 'text', 'full'),
         f('distractionList', 'distraction_list', 'json'),
     ],
 };

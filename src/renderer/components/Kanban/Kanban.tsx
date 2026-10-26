@@ -29,35 +29,68 @@ import { debounce } from 'lodash';
 const { Option } = Select;
 
 /**
- * The board's card display modes. Icons keep the header compact; the Tooltip
- * on each segment names the mode without needing a text label per option.
+ * The board's card display modes. Icons keep the header compact; the per-option
+ * `tooltip` names each mode, so the header does not need a "Card view" label.
  */
-const CARD_VIEW_OPTIONS: { value: CardView; label: React.ReactNode }[] = [
-    {
-        value: 'title',
-        label: (
-            <Tooltip title="Title only">
-                <Icon type="align-left" aria-label="Title only" />
-            </Tooltip>
-        ),
-    },
+const CARD_VIEW_OPTIONS: { value: CardView; icon: React.ReactNode; tooltip: string }[] = [
+    { value: 'title', icon: <Icon type="align-left" />, tooltip: 'Title only' },
     {
         value: 'preview',
-        label: (
-            <Tooltip title="Preview (limited height)">
-                <Icon type="file-text" aria-label="Preview (limited height)" />
-            </Tooltip>
-        ),
+        icon: <Icon type="file-text" />,
+        tooltip: 'Preview (limited height)',
     },
-    {
-        value: 'full',
-        label: (
-            <Tooltip title="Full content">
-                <Icon type="expand" aria-label="Full content" />
-            </Tooltip>
-        ),
-    },
+    { value: 'full', icon: <Icon type="expand" />, tooltip: 'Full content' },
 ];
+
+/**
+ * antd's Segmented track uses `colorBgLayout`, which this app maps to the page
+ * background, so the track disappeared into the board header. Style it as a
+ * 32px bordered pill that matches the search bar and the circular icon buttons;
+ * the selected segment uses the same elevated surface as those buttons.
+ */
+const CardViewSwitch = styled.div`
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    height: 32px;
+    margin: 0 4px;
+
+    /* Double the wrapper class so the rules beat antd's cssinjs output
+       regardless of injection order (see the GlobalStyle specificity notes). */
+    && .ant-segmented {
+        height: 32px;
+        padding: 2px;
+        box-sizing: border-box;
+        background: var(--pl-bg-sunken);
+        border: 1px solid var(--pl-border);
+        border-radius: 9999px;
+        color: var(--pl-text-secondary);
+
+        .ant-segmented-item {
+            border-radius: 9999px;
+        }
+
+        .ant-segmented-item-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 26px;
+            line-height: 26px;
+            padding: 0 8px;
+        }
+
+        .ant-segmented-item:not(.ant-segmented-item-selected):hover {
+            color: var(--pl-text);
+        }
+
+        .ant-segmented-item-selected,
+        .ant-segmented-thumb {
+            background: var(--pl-bg-elevated);
+            color: var(--pl-text);
+            box-shadow: 0 0 0 1px var(--pl-border);
+        }
+    }
+`;
 
 const Content = styled.main`
     margin: 0;
@@ -427,17 +460,10 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                         searchStr={props.kanban.searchReg}
                                         tags={getSuggestions}
                                     />
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            flexDirection: 'row',
-                                            alignItems: 'center',
-                                            paddingTop: 6,
-                                        }}
-                                    >
-                                        <label style={{ userSelect: 'none' }}>Card view</label>
+                                    <CardViewSwitch>
                                         <Segmented
-                                            size="small"
+                                            shape="round"
+                                            aria-label="Card view"
                                             options={CARD_VIEW_OPTIONS}
                                             value={getCardView(
                                                 props.boards[props.kanban.chosenBoardId]
@@ -446,7 +472,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                                 onCardViewChange(value as CardView)
                                             }
                                         />
-                                    </div>
+                                    </CardViewSwitch>
                                     <PlayPauseButton
                                         showPlay={
                                             !(props.isFocusingOnChosenBoard && props.isTimerRunning)

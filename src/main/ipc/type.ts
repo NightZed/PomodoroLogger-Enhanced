@@ -30,6 +30,8 @@ export enum IpcEventName {
     FocusOnWindow = 'focusOnWindow',
     DesktopSource = 'desktopSource',
     OpenExternal = 'openExternal',
+    /** Opens the database/screenshot folder in the OS file manager. */
+    OpenDataDir = 'openDataDir',
     SaveScreenshot = 'saveScreenshot',
     DeleteScreenshots = 'deleteScreenshots',
     ClearUserFiles = 'clearUserFiles',
@@ -181,6 +183,7 @@ export type ExposedAPI = {
     [IpcEventName.Notify](title: string, body: string): Promise<void>;
     [IpcEventName.FocusOnWindow](): Promise<void>;
     [IpcEventName.DesktopSource](): Promise<DesktopSourceInfo | undefined>;
+    [IpcEventName.OpenDataDir](): Promise<void>;
     [IpcEventName.SetTrayMenu](items: TrayMenuItem[]): Promise<void>;
     [IpcEventName.WindowAction](action: WindowAction): Promise<void>;
     [IpcEventName.WindowDrag](phase: WindowDragPhase): Promise<void>;

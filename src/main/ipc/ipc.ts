@@ -38,6 +38,7 @@ import {
 import { validateSourceData } from '../../shared/dataTransfer/validate';
 import { initializeDbIpc } from '../db/ipc';
 import { openExternalUrl } from '../openExternal';
+import { openDataDir } from '../openDataDir';
 import {
     clearUserFiles,
     deleteScreenshots,
@@ -148,6 +149,7 @@ export function initialize() {
         (value) => assertScreenshotPaths(value),
     ]);
     handle(IpcEventName.ClearUserFiles, () => clearUserFiles());
+    handle(IpcEventName.OpenDataDir, () => openDataDir());
     handle(IpcEventName.LoadKnnModel, () => loadKnnModel());
     handle(IpcEventName.SaveKnnModel, (model: KnnModel) => saveKnnModel(model), [
         (value) => assertKnnModel(value),

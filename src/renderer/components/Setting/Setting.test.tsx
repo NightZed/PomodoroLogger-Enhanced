@@ -46,6 +46,9 @@ jest.mock('../feedback', () => ({
             exportFailedDetail: (reason: string) => `Could not export: ${reason}`,
             deleteAllConfirm: 'Delete all sessions, projects and boards? Your settings are kept.',
             dataRemoved: 'All user data is removed. Your settings are kept.',
+            openDataDirFailed: 'Could Not Open Data Folder',
+            openDataDirFailedDetail: (reason: string) =>
+                `Could not open the data folder: ${reason}`,
         },
     },
 }));
@@ -92,6 +95,7 @@ import { Setting } from './Setting';
 import type { ExportResult, ImportResult } from '../../../main/ipc/type';
 
 const exportData = jest.fn<Promise<ExportResult>, []>();
+const openDataDir = jest.fn<Promise<void>, []>();
 const props = (): any => ({
     focusDuration: 1500,
     restDuration: 300,
@@ -177,9 +181,11 @@ beforeEach(() => {
     mockDeleteAllUserData.mockClear();
     exportData.mockReset();
     importData.mockReset();
+    openDataDir.mockReset();
     (window as any).api = {
         exportData,
         importData,
+        openDataDir,
         restart: mockRestart,
         checkUpdate: jest.fn(),
         onUpdateAvailable: jest.fn(() => jest.fn()),
@@ -232,6 +238,29 @@ describe('minimum focus time before Finish', () => {
         expect(sliders[3].value).toBe('25');
         // Rendering must never rewrite the setting on its own.
         expect(p.setMinFinishDuration).not.toHaveBeenCalled();
+    });
+});
+
+describe('open data folder', () => {
+    it('asks the main process to open the folder that holds the data', async () => {
+        openDataDir.mockResolvedValue(undefined);
+        await mount();
+
+        await click('Open Data Folder');
+
+        expect(openDataDir).toHaveBeenCalledTimes(1);
+        expect(mockAlert).not.toHaveBeenCalled();
+    });
+
+    it('explains why the folder could not be opened', async () => {
+        openDataDir.mockRejectedValue(new Error('EACCES: permission denied'));
+        await mount();
+
+        await click('Open Data Folder');
+
+        expect(mockAlert).toHaveBeenCalledTimes(1);
+        expect(mockAlert.mock.calls[0][0].title).toBe('Could Not Open Data Folder');
+        expect(alertText()).toContain('EACCES: permission denied');
     });
 });
 

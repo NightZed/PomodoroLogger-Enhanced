@@ -52,6 +52,9 @@ export const FEEDBACK_MESSAGES = {
         hardwareAccelerationRestart:
             'Hardware acceleration setting change needs restart to be applied',
         dataRemoved: 'All user data is removed. Your settings are kept. Pomodoro needs to restart.',
+        openDataDirFailed: 'Could Not Open Data Folder',
+        openDataDirFailedDetail: (reason: string) =>
+            `The data folder could not be opened: ${reason}`,
         importConfirm: 'Pomodoro Logger will restart after importing. Continue?',
         deleteAllConfirm: 'Delete all sessions, projects and boards? Your settings are kept.',
         /** Export / import results, and the report of a refused file. */

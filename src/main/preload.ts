@@ -83,6 +83,7 @@ const api: ExposedAPI = {
     [IpcEventName.FocusOnWindow]: () => invoke<void>(IpcEventName.FocusOnWindow),
     [IpcEventName.DesktopSource]: () =>
         invoke<DesktopSourceInfo | undefined>(IpcEventName.DesktopSource),
+    [IpcEventName.OpenDataDir]: () => invoke<void>(IpcEventName.OpenDataDir),
     [IpcEventName.SetTrayMenu]: (items) => invoke<void>(IpcEventName.SetTrayMenu, items),
     [IpcEventName.WindowAction]: (action: WindowAction) =>
         invoke<void>(IpcEventName.WindowAction, action),

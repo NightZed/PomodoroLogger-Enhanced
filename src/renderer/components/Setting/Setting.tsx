@@ -570,6 +570,18 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             setWallpaperPath(undefined);
         }, [setWallpaperPath]);
 
+        const onOpenDataDir = useCallback(async () => {
+            try {
+                await window.api.openDataDir();
+            } catch (e) {
+                feedback.alert({
+                    kind: 'error',
+                    title: FEEDBACK_MESSAGES.setting.openDataDirFailed,
+                    content: FEEDBACK_MESSAGES.setting.openDataDirFailedDetail(errorText(e)),
+                });
+            }
+        }, []);
+
         const onDeleteData = useCallback(() => {
             deleteAllUserData().then(() => {
                 feedback.toast({
@@ -1037,6 +1049,9 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
 
                             <Field>
                                 <h4>Data Management</h4>
+                                <ButtonWrapper>
+                                    <Button onClick={onOpenDataDir}>Open Data Folder</Button>
+                                </ButtonWrapper>
                                 <ButtonWrapper>
                                     <Button onClick={onExportClick} loading={exporting}>
                                         Export Data

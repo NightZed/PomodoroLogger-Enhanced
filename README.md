@@ -194,7 +194,11 @@ These raw records are aggregated into the time proportion chart and word cloud i
 
 -   **Local storage**: all data is saved on your own machine.
 -   **Export / import / delete**: back up, migrate, or clear all data (your settings are kept) with one click in the settings.
--   **Data directory**: in the installed app, `db/` holds the databases and `screenshots/` holds the periodic screenshots. When running from source (`yarn start`), the same layout lives under `.local/dev/` in the repository root; that folder is ignored by git and can be deleted at any time.
+-   **Data directory**: 
+    -   in the installed app, `db/` holds the databases and `screenshots/` holds the periodic screenshots. 
+    -   When running from source (`yarn start`), the same layout lives under `.local/dev/` in the repository root; that folder is ignored by git and can be deleted at any time. 
+    -   Use **Open Data Folder** on the settings page to open it in your file manager.
+
 
 | Platform | Data directory                          |
 | :------- | :-------------------------------------- |

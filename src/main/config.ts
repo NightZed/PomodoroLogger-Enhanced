@@ -41,6 +41,13 @@ export const screenshotDir = isProduction
     ? join(baseDir, 'screenshots')
     : join(localDataDir, 'screenshots');
 
+/**
+ * Folder that holds everything above (`db`, `db-bk`, `screenshots`), i.e. what
+ * the settings page's "Open Data Folder" button shows in the file manager.
+ * Created as a side effect of the `mkdirSync` calls below.
+ */
+export const dataDir = isProduction ? baseDir : localDataDir;
+
 if (!existsSync(dbBaseDir)) {
     // recursive: the development/test parent (`.local/<env>`) is not guaranteed
     // to exist yet.

@@ -127,6 +127,8 @@ export interface InputProps {
      * unambiguous.
      */
     preview?: boolean;
+    /** Optional `data-tour` anchor (the board's first card). */
+    dataTour?: string;
 }
 
 const canObserve = () => typeof IntersectionObserver !== 'undefined';
@@ -304,6 +306,7 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                             <CardContainer
                                 ref={setCardRef}
                                 $preview={props.preview}
+                                data-tour={props.dataTour}
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
                                 onClick={onClick}

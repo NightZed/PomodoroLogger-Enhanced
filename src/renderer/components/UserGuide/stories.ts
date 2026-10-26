@@ -5,6 +5,10 @@ import { Story } from './type';
  * - `[data-tour="kanban-tab"]` — Kanban tab in AppTitleBar (was `.ant-tabs-nav div:nth-child(2)`)
  * - `[data-tour="create-kanban-button"]` — plus button on Kanban overview
  * - `[data-tour="kanban-brief-card"]` — first board card (was `.kanban-brief-card`)
+ * - `[data-tour="focused-list"]` — focused list inside the board (NOT the Timer
+ *   sider's preview, which is a second mounted copy of the same list id)
+ * - `[data-tour="kanban-card"]` — first card of each list inside the board; the
+ *   visible-target lookup picks the first one that actually exists (same caveat)
  * - `[data-tour="timer-mode"]` — work/rest icon+label (tight box, see WorkRestIcon)
  *
  * Interaction convention ("demo, don't touch"):
@@ -146,7 +150,7 @@ export const kanbanStories: Story[] = [
         useMask: true,
         spotlight: true,
         hasConfirm: true,
-        pointerTargetSelector: '#focused-list',
+        pointerTargetSelector: '[data-tour="focused-list"]',
         pointerDirection: -Math.PI / 2,
         hint:
             'When focusing on this Kanban, the related Pomodoro records will be add to the cards ' +
@@ -160,7 +164,7 @@ export const kanbanStories: Story[] = [
         spotlight: true,
         advanceOnTargetClick: true,
         hasConfirm: false,
-        pointerTargetSelector: '.kanban-card',
+        pointerTargetSelector: '[data-tour="kanban-card"]',
         hint: "Let's go to card configure page",
         waitForTargetMs: 8000,
     },

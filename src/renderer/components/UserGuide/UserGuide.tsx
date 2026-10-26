@@ -10,7 +10,7 @@ import { RootState } from '../../reducers';
 import { Dispatch } from 'redux';
 import { Button } from 'antd';
 import { AntdIcon as Icon } from '../antdIcon';
-import { TargetRect } from './utils';
+import { findVisibleTarget, TargetRect } from './utils';
 
 const Mask = styled.div`
     top: 0;
@@ -33,7 +33,9 @@ export interface UserGuideProps {
 
 /** Click the real tour target (tab / button / card). Used by dialog OK on cross-page steps. */
 const clickTourTarget = (selector: string): boolean => {
-    const el = document.querySelector<HTMLElement>(selector);
+    // Use the visible match, not the first DOM match: a hidden/off-screen
+    // duplicate (e.g. the Timer sider's preview) would swallow the click.
+    const el = findVisibleTarget(selector);
     if (!el) {
         return false;
     }

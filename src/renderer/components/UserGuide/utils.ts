@@ -13,38 +13,85 @@ const unionRects = (a: TargetRect, b: TargetRect): TargetRect => {
     return { x, y, w: r - x, h: bt - y };
 };
 
+/**
+ * Whether an element is rendered and at least partly inside the viewport.
+ *
+ * An element can exist and still be a bad tour target: an inactive TabPane is
+ * `display: none` (0x0 rect) and the Timer sider is shifted off-screen with a
+ * negative margin (non-zero rect, left of the window). Both must be skipped.
+ */
+const isVisibleInViewport = (rect: DOMRect): boolean => {
+    if (rect.width === 0 && rect.height === 0) {
+        return false;
+    }
+
+    return (
+        rect.right > 0 &&
+        rect.bottom > 0 &&
+        rect.left < window.innerWidth &&
+        rect.top < window.innerHeight
+    );
+};
+
+/**
+ * The first matching element that is actually visible.
+ *
+ * The same selector can match more than one mounted view: the Timer page stays
+ * mounted (`APP_TABS.forceRender`) and its sider renders the focused list, so
+ * the first DOM match of a board selector may be the hidden copy. A plain
+ * `querySelector` would measure/click that one.
+ */
+export const findVisibleTarget = (selector: string): HTMLElement | null => {
+    const candidates = document.querySelectorAll<HTMLElement>(selector);
+    for (const target of Array.from(candidates)) {
+        if (isVisibleInViewport(target.getBoundingClientRect())) {
+            return target;
+        }
+    }
+
+    return null;
+};
+
+const unionVisibleChildren = (target: HTMLElement): TargetRect | null => {
+    // Union of visible element-children. Used when the target's visible content
+    // is spread over stacked children that overlap vertically (e.g.
+    // WorkRestIcon's icon and label share one slot): the union covers both
+    // layers, whichever of them is currently visible.
+    let union: TargetRect | null = null;
+    for (const kid of Array.from(target.children) as HTMLElement[]) {
+        const r = kid.getBoundingClientRect();
+        if (!isVisibleInViewport(r)) {
+            continue;
+        }
+        const cur: TargetRect = { x: r.left, y: r.top, w: r.width, h: r.height };
+        union = union ? unionRects(union, cur) : cur;
+    }
+
+    return union;
+};
+
 /** Viewport-relative rect. Works with transformed ancestors (StackGrid) unlike offsetLeft accumulation. */
 export const getTargetRectBySelector = (
     selector: string,
     unionChildren: boolean = false
 ): TargetRect | null => {
-    const target = document.querySelector<HTMLElement>(selector);
-    if (!target) {
-        return null;
-    }
-    if (unionChildren) {
-        // Union of visible element-children. Used when the target's visible
-        // content is spread over stacked children that overlap vertically
-        // (e.g. WorkRestIcon's icon and label share one slot): the union covers
-        // both layers, whichever of them is currently visible.
-        const kids = Array.from(target.children) as HTMLElement[];
-        let union: TargetRect | null = null;
-        for (const kid of kids) {
-            const r = kid.getBoundingClientRect();
-            if (r.width === 0 && r.height === 0) {
-                continue;
+    const candidates = document.querySelectorAll<HTMLElement>(selector);
+    for (const target of Array.from(candidates)) {
+        if (unionChildren) {
+            const union = unionVisibleChildren(target);
+            if (union) {
+                return union;
             }
-            const cur: TargetRect = { x: r.left, y: r.top, w: r.width, h: r.height };
-            union = union ? unionRects(union, cur) : cur;
+            continue;
         }
-        return union;
+
+        const rect = target.getBoundingClientRect();
+        if (isVisibleInViewport(rect)) {
+            return { x: rect.left, y: rect.top, w: rect.width, h: rect.height };
+        }
     }
-    const rect = target.getBoundingClientRect();
-    // Element may exist but be hidden (e.g. inactive TabPane with forceRender=false).
-    if (rect.width === 0 && rect.height === 0) {
-        return null;
-    }
-    return { x: rect.left, y: rect.top, w: rect.width, h: rect.height };
+
+    return null;
 };
 
 export const waitForTargetBySelector = (

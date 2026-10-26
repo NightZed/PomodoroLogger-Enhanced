@@ -480,6 +480,10 @@ export const List: FC<Props> = React.memo((props: Props) => {
                                   ? 'done-list'
                                   : undefined
                         }
+                        // The tour anchor lives on the board's list only: the
+                        // Timer sider's preview is a second mounted copy of the
+                        // same list id and must never own the same selector.
+                        data-tour={props.focused && !preview ? 'focused-list' : undefined}
                         {...provided.draggableProps}
                     >
                         <ListHead {...provided.dragHandleProps}>
@@ -573,6 +577,16 @@ export const List: FC<Props> = React.memo((props: Props) => {
                                                         renderLimit < filteredCards.length
                                                     }
                                                     preview={preview}
+                                                    // The first card of each list
+                                                    // is a tour candidate; the
+                                                    // lookup picks the first
+                                                    // visible one. The preview
+                                                    // renders its own cards.
+                                                    dataTour={
+                                                        !preview && index === 0
+                                                            ? 'kanban-card'
+                                                            : undefined
+                                                    }
                                                     cardView={preview ? 'full' : props.cardView}
                                                     setEditCard={props.setEditCard}
                                                     setSearchReg={props.setSearchReg}

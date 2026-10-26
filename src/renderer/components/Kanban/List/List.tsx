@@ -192,6 +192,12 @@ export interface InputProps {
     boardId: string;
     focused?: boolean;
     done?: boolean;
+    /**
+     * The Timer sider's read-only preview of the focused list. It always shows
+     * the whole body, ignores the board search and never writes the shared
+     * `visibleCards`, so the board view stays the only owner of that filter.
+     */
+    preview?: boolean;
 }
 
 interface Props extends ListType, InputProps, ListActionTypes, KanbanActionTypes {
@@ -228,6 +234,7 @@ const isSameVisibleCards = (a?: string[], b?: string[]) => {
 export const List: FC<Props> = React.memo((props: Props) => {
     const {
         focused = false,
+        preview = false,
         searchReg,
         cards,
         cardsState,
@@ -272,6 +279,12 @@ export const List: FC<Props> = React.memo((props: Props) => {
     }, []);
 
     const visibleCards = React.useMemo(() => {
+        // The preview is not part of the board's search view; it always shows
+        // every card of the focused list.
+        if (preview) {
+            return undefined;
+        }
+
         let reg: RegExp | undefined;
         try {
             reg = searchReg ? new RegExp(searchReg, 'gimsu') : undefined;
@@ -295,9 +308,16 @@ export const List: FC<Props> = React.memo((props: Props) => {
             );
         });
         return visibleCards_;
-    }, [searchReg, cardsState, cards]);
+    }, [preview, searchReg, cardsState, cards]);
 
     React.useEffect(() => {
+        // Only the board view owns the shared filter. The preview reads and
+        // writes nothing here, so a board search can never be overwritten by
+        // the Timer sider (and vice versa).
+        if (preview) {
+            return;
+        }
+
         // Opening a board mounts every list, and this used to dispatch a
         // "visible cards = undefined" action for each one even when the store
         // already held the same value. Each dispatch notified every connected
@@ -309,7 +329,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
             return;
         }
         setVisibleCards(_id, visibleCards);
-    }, [_id, visibleCards, storedVisibleCards, setVisibleCards]);
+    }, [_id, preview, visibleCards, storedVisibleCards, setVisibleCards]);
 
     const filteredCards = React.useMemo(
         () => visibleCards ?? props.cards ?? [],
@@ -445,13 +465,21 @@ export const List: FC<Props> = React.memo((props: Props) => {
     );
 
     return (
-        <Draggable draggableId={props.listId} index={props.index}>
+        <Draggable draggableId={props.listId} index={props.index} isDragDisabled={preview}>
             {(provided, _snapshot) => (
                 <div>
                     <Container
                         ref={provided.innerRef}
                         className={'kanban-list'}
-                        id={props.focused ? 'focused-list' : props.done ? 'done-list' : undefined}
+                        // The preview must not duplicate the board's tour anchor
+                        // (or any other id): only one element may own it.
+                        id={
+                            props.focused && !preview
+                                ? 'focused-list'
+                                : props.done
+                                  ? 'done-list'
+                                  : undefined
+                        }
                         {...provided.draggableProps}
                     >
                         <ListHead {...provided.dragHandleProps}>
@@ -541,9 +569,11 @@ export const List: FC<Props> = React.memo((props: Props) => {
                                                     searchReg={searchReg}
                                                     initiallyVisible={index < 3}
                                                     isDragDisabled={
+                                                        preview ||
                                                         renderLimit < filteredCards.length
                                                     }
-                                                    cardView={props.cardView}
+                                                    preview={preview}
+                                                    cardView={preview ? 'full' : props.cardView}
                                                     setEditCard={props.setEditCard}
                                                     setSearchReg={props.setSearchReg}
                                                     setContent={props.setContent}

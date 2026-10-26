@@ -60,6 +60,19 @@ describe('Search Ctrl+F scoping', () => {
         textarea.remove();
     });
 
+    it('clears its local query when its page becomes inactive', () => {
+        const setSearchStr = jest.fn();
+        const view = render(<Search enabled={true} setSearchStr={setSearchStr} />);
+        const input = view.container.querySelector('input') as HTMLInputElement;
+
+        fireEvent.change(input, { target: { value: 'old query' } });
+        expect(input.value).toBe('old query');
+
+        view.rerender(<Search enabled={false} setSearchStr={setSearchStr} />);
+        expect((view.container.querySelector('input') as HTMLInputElement).value).toBe('');
+        view.unmount();
+    });
+
     it('computes the tag panel once per open, not on every keystroke', () => {
         const tags = jest.fn(() => ['#one']);
         const view = render(<Search enabled={true} setSearchStr={jest.fn()} tags={tags} />);

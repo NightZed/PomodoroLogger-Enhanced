@@ -149,6 +149,22 @@ export const Search = ({
         setIsSearching(true);
     }, [searchStr]);
 
+    useEffect(() => {
+        if (enabled) {
+            return;
+        }
+
+        // The page that owns this bar is no longer active. Its owner clears
+        // the store filter (see Kanban); drop the local text too, otherwise
+        // coming back would show a stale query over an unfiltered board.
+        // `searchStr == null` cannot be used for this: while the user types,
+        // the debounced store update legitimately lags behind the input.
+        setText('');
+        textRef.current = '';
+        setIsSearching(false);
+        setShowPanel(false);
+    }, [enabled]);
+
     const clear = useCallback(
         (event: React.MouseEvent) => {
             event.stopPropagation();

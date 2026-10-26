@@ -37,7 +37,12 @@ const ListPlaceholder = styled.div`
 
 export interface InputProps {
     boardId: string;
-    doesOnlyShowFocusedList?: boolean;
+    /**
+     * Read-only preview of the board's focused list (the Timer sider). The
+     * preview owns its display mode (`full`) and never inherits the board's
+     * search filter or card view, nor writes the shared `visibleCards`.
+     */
+    preview?: boolean;
     showHeader?: boolean;
 }
 
@@ -85,9 +90,9 @@ export const Board: FC<Props> = React.memo(
             return null;
         }
 
-        const { doesOnlyShowFocusedList = false } = props;
+        const { preview = false } = props;
         let lists;
-        if (doesOnlyShowFocusedList) {
+        if (preview) {
             lists = (provided: any) => (
                 <ListContainer ref={provided.innerRef} {...provided.droppableProps}>
                     <List
@@ -96,6 +101,7 @@ export const Board: FC<Props> = React.memo(
                         key={0}
                         boardId={props.boardId}
                         focused={true}
+                        preview={true}
                     />
                     {provided.placeholder}
                 </ListContainer>

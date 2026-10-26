@@ -136,12 +136,14 @@ export const Kanban: FunctionComponent<Props> = React.memo(
         const {
             changeAppTab,
             chosenRecord,
+            currentTab,
             fetchBoards,
             focusOn,
             isFocusingOnChosenBoard,
             isTimerRunning,
             setChosenBoardId,
             setCardView,
+            setSearchReg,
             setSortDirection,
             timerManager,
         } = props;
@@ -176,8 +178,23 @@ export const Kanban: FunctionComponent<Props> = React.memo(
         // Recreating the debounced function on every render leaves a pending
         // timer behind each time and never cancels the previous one; keep a
         // single instance and cancel it on unmount instead.
-        const search = React.useMemo(() => debounce(props.setSearchReg, 200), [props.setSearchReg]);
+        const search = React.useMemo(() => debounce(setSearchReg, 200), [setSearchReg]);
         useEffect(() => () => search.cancel(), [search]);
+        // The search is a transient filter of this page. Leaving it must not
+        // keep the board (or the Timer sider's focused-list preview) filtered
+        // with no search box in sight. Cancel the pending debounce first: a
+        // keystroke from the last 200ms would otherwise write the old query
+        // back after the clear. `currentTab` is used instead of `enabled` on
+        // the Search bar because this component outlives its page (the
+        // DestroyOnTimeoutWrapper grace) and the store must be clean even
+        // while it is only hidden.
+        useEffect(() => {
+            if (currentTab === 'kanban') {
+                return;
+            }
+            search.cancel();
+            setSearchReg(undefined);
+        }, [currentTab, setSearchReg, search]);
         const valueHandler: (values: FormValue) => void = ({ name, description }: FormValue) => {
             if (editingBoardId === undefined) {
                 props.addBoard(uid(), name, description);

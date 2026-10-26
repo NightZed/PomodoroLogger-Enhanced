@@ -8,11 +8,17 @@ import { genMapDispatchToProp } from '../../../utils';
 import { getCardView } from '../Board/action';
 
 const mapStateToProps = (state: RootState, props: InputProps) => {
+    const list = state.kanban.lists[props.listId];
+    const preview = props.preview === true;
     return {
-        ...state.kanban.lists[props.listId],
-        searchReg: state.kanban.kanban.searchReg,
+        ...list,
+        // The Timer sider is a separate view of the same data, not a second
+        // owner of the board's view state: it never receives the search filter
+        // and never reads/writes the shared `visibleCards`.
+        searchReg: preview ? undefined : state.kanban.kanban.searchReg,
+        visibleCards: preview ? undefined : list?.visibleCards,
         cardsState: state.kanban.cards,
-        cardView: getCardView(state.kanban.boards[props.boardId]),
+        cardView: preview ? 'full' : getCardView(state.kanban.boards[props.boardId]),
     };
 };
 

@@ -152,6 +152,19 @@ describe('Card content clicks', () => {
         expect(actions.setEditCard).not.toHaveBeenCalled();
     });
 
+    it('does not trigger the board search from a preview card', () => {
+        const actions = renderCard('deploy #prod now', { preview: true });
+
+        const tag = container.querySelector('.pl-tag') as HTMLElement;
+        expect(tag).not.toBeNull();
+        click(tag);
+
+        expect(actions.setSearchReg).not.toHaveBeenCalled();
+        expect(actions.setEditCard).not.toHaveBeenCalled();
+        expect(container.querySelector('.kanban-card-preview')).not.toBeNull();
+        expect(container.querySelector('.kanban-card')).toBeNull();
+    });
+
     it('still sets the search regex when a #tag is clicked', () => {
         const actions = renderCard('deploy #prod now');
 

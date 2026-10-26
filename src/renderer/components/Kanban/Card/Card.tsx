@@ -21,14 +21,15 @@ import { CompletedTime } from './CompletedTime';
  * Wherever you use z-index in your css, define the position of that element. (Absolute, relative, inherit...)
  * https://stackoverflow.com/a/23067835/8169341
  */
-const CardContainer = styled.div`
+const CardContainer = styled.div<{ $preview?: boolean }>`
     position: relative;
     width: 262px;
     word-break: break-word;
     background-color: var(--pl-bg-elevated);
     margin: 8px 4px 0 4px;
     border-radius: 6px;
-    cursor: grab;
+    /* The preview has no drag interaction, so it must not advertise one. */
+    cursor: ${({ $preview }) => ($preview ? 'default' : 'grab')};
     box-shadow: 0 0 rgba(0, 0, 0, 0);
     transition: box-shadow 200ms;
     z-index: 0;
@@ -120,6 +121,12 @@ export interface InputProps {
     initiallyVisible?: boolean;
     /** The list is still mounting its progressive first pages. */
     isDragDisabled?: boolean;
+    /**
+     * The Timer sider's read-only preview: no drag, no search-triggering
+     * clicks, and a class that keeps the board's `.kanban-card` selectors
+     * unambiguous.
+     */
+    preview?: boolean;
 }
 
 const canObserve = () => typeof IntersectionObserver !== 'undefined';
@@ -200,10 +207,17 @@ export const Card: FC<Props> = React.memo((props: Props) => {
             const checkbox = matchParent(target, '[type="checkbox"]');
             const link = matchParent(target, 'a');
             if (cardLabel && cardLabel.textContent) {
-                setSearchReg('#' + cardLabel.textContent);
+                // The preview is not part of the board search, so a label/tag
+                // click there must neither set the global filter nor fall
+                // through to the card editor.
+                if (!props.preview) {
+                    setSearchReg('#' + cardLabel.textContent);
+                }
                 e.stopPropagation();
             } else if (tag && tag.textContent) {
-                setSearchReg(tag.textContent);
+                if (!props.preview) {
+                    setSearchReg(tag.textContent);
+                }
                 e.stopPropagation();
             } else if (checkbox) {
                 if (!markdownRef.current) {
@@ -234,7 +248,7 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                 setEditCard(true, listId, _id);
             }
         },
-        [listId, _id, props.content, setSearchReg, setContent, setEditCard]
+        [listId, _id, props.content, props.preview, setSearchReg, setContent, setEditCard]
     );
     const content = React.useMemo(() => {
         if (!props.searchReg) {
@@ -289,13 +303,16 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                         <>
                             <CardContainer
                                 ref={setCardRef}
+                                $preview={props.preview}
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
                                 onClick={onClick}
-                                className={
-                                    'kanban-card ' +
-                                    (snapshot.isDragging ? 'is-dragging' : undefined)
-                                }
+                                className={[
+                                    props.preview ? 'kanban-card-preview' : 'kanban-card',
+                                    snapshot.isDragging ? 'is-dragging' : undefined,
+                                ]
+                                    .filter(Boolean)
+                                    .join(' ')}
                             >
                                 {isTitleOnly ? (
                                     <CardContent>

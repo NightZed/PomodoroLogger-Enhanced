@@ -1485,11 +1485,7 @@ class Timer extends Component<Props, State> {
                                     <IconComponent component={backIcon} />
                                 </Button>
                             </KanbanName>
-                            <Board
-                                boardId={boardId}
-                                doesOnlyShowFocusedList={true}
-                                showHeader={false}
-                            />
+                            <Board boardId={boardId} preview={true} showHeader={false} />
                             <Button
                                 icon={<Icon type={'more'} />}
                                 style={{

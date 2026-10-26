@@ -78,6 +78,38 @@ describe('List progressive card mounting', () => {
         expect(container.querySelectorAll('.kanban-card')).toHaveLength(6);
     });
 
+    it('preview ignores the board search and never writes visibleCards', () => {
+        const { ids, cards } = makeCards(3);
+        const setVisibleCards = jest.fn();
+        const props: any = {
+            _id: 'list-1',
+            listId: 'list-1',
+            index: 0,
+            boardId: 'board-1',
+            title: 'List',
+            cards: ids,
+            cardsState: cards,
+            cardView: 'full',
+            preview: true,
+            searchReg: 'Card 1',
+            setVisibleCards,
+            setEditCard: noop,
+            setSearchReg: noop,
+            setContent: noop,
+            deleteList: noop,
+            renameList: noop,
+            addCard: noop,
+        };
+
+        const { container } = render(<List {...props} />);
+
+        // All cards, even though the board search only matches one of them.
+        expect(container.querySelectorAll('.kanban-card-preview')).toHaveLength(3);
+        expect(container.querySelectorAll('.kanban-card')).toHaveLength(0);
+        // The preview is not allowed to touch the board's filter state.
+        expect(setVisibleCards).not.toHaveBeenCalled();
+    });
+
     it('settles when one list is mounted twice (board + Timer preview)', () => {
         // The board renders the focused list and the Timer sider renders the
         // same list as a preview (the Timer page stays mounted, see

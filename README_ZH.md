@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="./screenshots/promo-head-mini.png" width="200" alt="迷你宣传头图"/>
+  <img src="./docs/images/promo-head-mini.png" width="200" alt="迷你宣传头图"/>
 </p>
 
 <p align="center">
-  <img src="./screenshots/promo-head-compact.png" height="400" alt="小屏宣传头图"/>
+  <img src="./docs/images/promo-head-compact.png" height="400" alt="小屏宣传头图"/>
 </p>
 
 <p align="center">
@@ -52,8 +52,8 @@
 > 下图：看板（图1）与历史视图（图2）——从任务规划到历史回顾。
 
 <p align="center">
-  <img width="800" src="./screenshots/kanban.png" alt="看板页面"/>
-  <img width="800" src="./screenshots/history-main-view.png" alt="历史视图主界面"/>
+  <img width="800" src="./docs/images/kanban.png" alt="看板页面"/>
+  <img width="800" src="./docs/images/history-main-view.png" alt="历史视图主界面"/>
 </p>
 
 <a id="pomodoro"></a>
@@ -65,7 +65,7 @@
 看板创建任务后，在计时器页选中来进行任务追踪。
 
 <p align="center">
-  <img width="800" src="./screenshots/normal-timer-shadow.png" alt="普通模式"/>
+  <img width="800" src="./docs/images/normal-timer-shadow.png" alt="普通模式"/>
 </p>
 
 ### 托盘 / 迷你 / 小屏 / 夜间模式 / 透明度 / 壁纸
@@ -73,29 +73,29 @@
 - **托盘**：关闭主页面缩放到系统托盘
 
 <p align="center">
-  <img width="" src="./screenshots/tray.png" alt="系统托盘上的倒计时"/>
+  <img width="" src="./docs/images/tray.png" alt="系统托盘上的倒计时"/>
 </p>
 
 
 - **迷你模式**：用 `F12` 在完整界面与迷你模式之间切换。
 
 <p align="center">
-  <img width="200" src="./screenshots/mini-day-shadow.png" alt="日间迷你模式"/>
-  <img width="200" src="./screenshots/mini-night-shadow.png" alt="夜间迷你模式"/>
+  <img width="200" src="./docs/images/mini-day-shadow.png" alt="日间迷你模式"/>
+  <img width="200" src="./docs/images/mini-night-shadow.png" alt="夜间迷你模式"/>
 </p>
 
 - **小屏模式**：用 `F11` 在完整界面与小屏模式之间切换。
 
 <p align="center">
-  <img height="300" src="./screenshots/compact-wallpaper-day-shadow.png" alt="日间小屏模式"/>
-  <img height="300" src="./screenshots/compact-wallpaper-night-shadow.png" alt="夜间小屏模式"/>
+  <img height="300" src="./docs/images/compact-wallpaper-day-shadow.png" alt="日间小屏模式"/>
+  <img height="300" src="./docs/images/compact-wallpaper-night-shadow.png" alt="夜间小屏模式"/>
 </p>
 
 - **夜间模式 / 透明度 / 壁纸**：可以在白天和夜间模式之间切换；支持自由设置应用透明度和壁纸。
 
 <p align="center">
-  <img width="400" src="./screenshots/normal-day-night-shadow.png" alt="日间夜间模式切换"/>
-  <img width="400" src="./screenshots/setting-shadow.png" alt="设置页面"/>
+  <img width="400" src="./docs/images/normal-day-night-shadow.png" alt="日间夜间模式切换"/>
+  <img width="400" src="./docs/images/setting-shadow.png" alt="设置页面"/>
 </p>
 
 <a id="kanban-board"></a>
@@ -113,8 +113,8 @@
 > 💡 提示：`In Progress` 中的卡片越少，统计越准确。
 
 <p align="center">
-  <img width="800" src="./screenshots/kanban-board-shadow.png" alt="看板 board 页面"/>
-  <img width="800" src="./screenshots/kanban-shadow.png" alt="看板页面"/>
+  <img width="800" src="./docs/images/kanban-board-shadow.png" alt="看板 board 页面"/>
+  <img width="800" src="./docs/images/kanban-shadow.png" alt="看板页面"/>
 </p>
 
 ### 🃏 卡片
@@ -125,7 +125,7 @@
 - **预估耗时**：卡片上可以填写预估耗时，实际投入由番茄钟自动累计。
 
 <p align="center">
-  <img width="800" src="./screenshots/kanban-card-editor-shadow.png" alt="看板卡片编辑页面"/>
+  <img width="800" src="./docs/images/kanban-card-editor-shadow.png" alt="看板卡片编辑页面"/>
 </p>
 
 <a id="statistics"></a>
@@ -137,7 +137,7 @@
 按**项目 + 年份**统计总耗时与完成的番茄钟数量。
 
 <p align="center">
-  <img width="480" src="./screenshots/project-cost-time.png" alt="项目消耗时间"/>
+  <img width="480" src="./docs/images/project-cost-time.png" alt="项目消耗时间"/>
 </p>
 
 ### 🗓️ 日历热力图
@@ -145,7 +145,7 @@
 **历史视图**把所有记录汇总到一张日历热力图上，颜色深浅代表当天投入的多少；可以切换年份或查看全部时间，点开任意一天即可展开当天详情。热力图的基色可以在设置页自定义。
 
 <p align="center">
-  <img width="720" src="./screenshots/heatmap.png" alt="日历热力图"/>
+  <img width="720" src="./docs/images/heatmap.png" alt="日历热力图"/>
 </p>
 
 ### ⚡ 效率分析
@@ -153,13 +153,13 @@
 **效率**以圆点呈现：**圆点中的空洞越大，效率越低**；点击圆点即可查看该时段的分心应用桑基图。效率计算见[效率与分心](#efficiency-distraction)。
 
 <p align="center">
-  <img width="160" src="./screenshots/da.gif" alt="效率圆点演示"/>
+  <img width="160" src="./docs/images/da.gif" alt="效率圆点演示"/>
 </p>
 
 **桑基图**把分心应用与时间去向连成一张流向图。
 
 <p align="center">
-  <img width="520" src="./screenshots/sankey-diagram.png" alt="分心应用桑基图"/>
+  <img width="520" src="./docs/images/sankey-diagram.png" alt="分心应用桑基图"/>
 </p>
 
 ### 🥧 时间占比图表 · 词云
@@ -167,8 +167,8 @@
 **图表**看各项目 / 应用的时间占比，**词云**看窗口标题里出现最多的关键词。点开热力图中的某一天，或切换项目与年月，图表都会跟着更新。
 
 <p align="center">
-  <img width="800" src="./screenshots/time-proportion-chart.png" alt="时间占比图表"/>
-  <img width="800" src="./screenshots/word-cloud.png" alt="词云"/>
+  <img width="800" src="./docs/images/time-proportion-chart.png" alt="时间占比图表"/>
+  <img width="800" src="./docs/images/word-cloud.png" alt="词云"/>
 </p>
 
 <a id="features"></a>
@@ -194,7 +194,7 @@ pomodoro-logger [C:\code\pomodoro-logger] .\src\renderer\components\src\Applicat
 
 - **本地存储**：所有数据保存在本地。
 - **导出 / 导入 / 删除**：在设置页一键备份、迁移或清空全部数据（应用设置会保留）。
-- **数据目录**：`db/` 存数据库，`screenshots/` 存定时截图。
+- **数据目录**：安装版中 `db/` 存数据库，`screenshots/` 存定时截图。以源码方式运行（`yarn start`）时，同样的结构位于仓库根目录的 `.local/dev/` 下；该目录已被 git 忽略，可随时删除。
 
 | 平台    | 数据目录                                |
 | :------ | :-------------------------------------- |

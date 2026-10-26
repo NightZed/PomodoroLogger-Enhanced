@@ -5,11 +5,7 @@ dist/
 release/
 coverage/
 webpack-visualization/
-db/
-db-bk/
-__test__db/
-__test__screenshots/
-screenshots/
+.local/
 public/
 yarn.lock
 package-lock.json

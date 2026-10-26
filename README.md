@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="./screenshots/promo-head-mini.png" width="200" alt="Mini Mode promo head image"/>
+  <img src="./docs/images/promo-head-mini.png" width="200" alt="Mini Mode promo head image"/>
 </p>
 
 <p align="center">
-  <img src="./screenshots/promo-head-compact.png" height="400" alt="Compact mode promo head image"/>
+  <img src="./docs/images/promo-head-compact.png" height="400" alt="Compact mode promo head image"/>
 </p>
 
 <p align="center">
@@ -52,8 +52,8 @@ Pomodoro Logger 🕢 [^1] —— [Pomodoro Technique](https://en.wikipedia.org/w
 > Below: the Kanban (p1) and the History view (p2) — from planning tasks to reviewing your time.
 
 <p align="center">
-  <img width="800" src="./screenshots/kanban.png" alt="Kanban"/>
-  <img width="800" src="./screenshots/history-main-view.png" alt="History view"/>
+  <img width="800" src="./docs/images/kanban.png" alt="Kanban"/>
+  <img width="800" src="./docs/images/history-main-view.png" alt="History view"/>
 </p>
 
 <a id="pomodoro"></a>
@@ -65,7 +65,7 @@ A work cycle = **focus + rest**: 25 minutes of focus and a 5-minute short break 
 After creating a task on the Kanban board, select it on the timer page to track the task.
 
 <p align="center">
-  <img width="800" src="./screenshots/normal-timer-shadow.png" alt="Normal Mode"/>
+  <img width="800" src="./docs/images/normal-timer-shadow.png" alt="Normal Mode"/>
 </p>
 
 ### Tray / Mini / Small / Night Mode / Transparency / Wallpaper
@@ -73,29 +73,29 @@ After creating a task on the Kanban board, select it on the timer page to track 
 -   **Tray**: closing the main window minimizes the app to the system tray.
 
 <p align="center">
-  <img width="" src="./screenshots/tray.png" alt="Countdown in the system tray"/>
+  <img width="" src="./docs/images/tray.png" alt="Countdown in the system tray"/>
 </p>
 
 
 -   **Mini mode**: use `F12` to switch between the full interface and mini mode.
 
 <p align="center">
-  <img width="200" src="./screenshots/mini-day-shadow.png" alt="Day Mini Mode"/>
-  <img width="200" src="./screenshots/mini-night-shadow.png" alt="Night Mini Mode"/>
+  <img width="200" src="./docs/images/mini-day-shadow.png" alt="Day Mini Mode"/>
+  <img width="200" src="./docs/images/mini-night-shadow.png" alt="Night Mini Mode"/>
 </p>
 
 -   **Compact mode**: use `F11` to switch between the full interface and compact mode.
 
 <p align="center">
-  <img height="300" src="./screenshots/compact-wallpaper-day-shadow.png" alt="Day Compact Mode"/>
-  <img height="300" src="./screenshots/compact-wallpaper-night-shadow.png" alt="Night Compact Mode"/>
+  <img height="300" src="./docs/images/compact-wallpaper-day-shadow.png" alt="Day Compact Mode"/>
+  <img height="300" src="./docs/images/compact-wallpaper-night-shadow.png" alt="Night Compact Mode"/>
 </p>
 
 -   **Night Mode / Transparency / Wallpaper**：switch between day and night mode. Support free setting of application transparency and wallpaper.
 
 <p align="center">
-  <img width="400" src="./screenshots/normal-day-night-shadow.png" alt="Night Mode"/>
-  <img width="400" src="./screenshots/setting-shadow.png" alt="Setting View"/>
+  <img width="400" src="./docs/images/normal-day-night-shadow.png" alt="Night Mode"/>
+  <img width="400" src="./docs/images/setting-shadow.png" alt="Setting View"/>
 </p>
 
 <a id="kanban-board"></a>
@@ -113,8 +113,8 @@ The built-in [Kanban board](https://en.wikipedia.org/wiki/Kanban_board) works to
 > 💡 Tip: the fewer cards in `In Progress`, the more accurate your statistics.
 
 <p align="center">
-  <img width="800" src="./screenshots/kanban-board-shadow.png" alt="Kanban board"/>
-  <img width="800" src="./screenshots/kanban-shadow.png" alt="Kanban"/>
+  <img width="800" src="./docs/images/kanban-board-shadow.png" alt="Kanban board"/>
+  <img width="800" src="./docs/images/kanban-shadow.png" alt="Kanban"/>
 </p>
 
 ### 🃏 Cards
@@ -125,7 +125,7 @@ The built-in [Kanban board](https://en.wikipedia.org/wiki/Kanban_board) works to
 -   **Estimated time**: set an estimate on a card, and the Pomodoro timer accumulates the actual time spent.
 
 <p align="center">
-  <img width="800" src="./screenshots/kanban-card-editor-shadow.png" alt="kanban Card Editor"/>
+  <img width="800" src="./docs/images/kanban-card-editor-shadow.png" alt="kanban Card Editor"/>
 </p>
 
 <a id="statistics"></a>
@@ -137,7 +137,7 @@ The built-in [Kanban board](https://en.wikipedia.org/wiki/Kanban_board) works to
 Total time and pomodoro count, broken down by **project + year**.
 
 <p align="center">
-  <img width="480" src="./screenshots/project-cost-time.png" alt="Time spent per project"/>
+  <img width="480" src="./docs/images/project-cost-time.png" alt="Time spent per project"/>
 </p>
 
 ### 🗓️ Calendar Heat Map
@@ -145,7 +145,7 @@ Total time and pomodoro count, broken down by **project + year**.
 The **History view** aggregates all records into a calendar heat map: the denser the color, the more time you put in that day. You can switch between years or view all time, and click any day to expand its details. The base color of the heat map can be customized in the settings.
 
 <p align="center">
-  <img width="720" src="./screenshots/heatmap.png" alt="Calendar heat map"/>
+  <img width="720" src="./docs/images/heatmap.png" alt="Calendar heat map"/>
 </p>
 
 ### ⚡ Efficiency Analysis
@@ -153,13 +153,13 @@ The **History view** aggregates all records into a calendar heat map: the denser
 **Efficiency** is shown as dots: **the larger the hole in a dot, the lower your efficiency**. Click a dot to open the distraction Sankey diagram of that session. How efficiency is computed: see [Efficiency & Distractions](#efficiency-distraction).
 
 <p align="center">
-  <img width="160" src="./screenshots/da.gif" alt="Efficiency dots demo"/>
+  <img width="160" src="./docs/images/da.gif" alt="Efficiency dots demo"/>
 </p>
 
 The **Sankey diagram** connects distracting apps with where your time went.
 
 <p align="center">
-  <img width="520" src="./screenshots/sankey-diagram.png" alt="Distraction Sankey diagram"/>
+  <img width="520" src="./docs/images/sankey-diagram.png" alt="Distraction Sankey diagram"/>
 </p>
 
 ### 🥧 Time Proportion Chart · Word Cloud
@@ -167,8 +167,8 @@ The **Sankey diagram** connects distracting apps with where your time went.
 The **chart** shows the share of time per project / app, and the **word cloud** shows the keywords that appear most often in window titles. Click a day on the heat map, or switch the project and year/month, and the charts update accordingly.
 
 <p align="center">
-  <img width="800" src="./screenshots/time-proportion-chart.png" alt="Time proportion chart"/>
-  <img width="800" src="./screenshots/word-cloud.png" alt="Word cloud"/>
+  <img width="800" src="./docs/images/time-proportion-chart.png" alt="Time proportion chart"/>
+  <img width="800" src="./docs/images/word-cloud.png" alt="Word cloud"/>
 </p>
 
 <a id="features"></a>
@@ -194,7 +194,7 @@ These raw records are aggregated into the time proportion chart and word cloud i
 
 -   **Local storage**: all data is saved on your own machine.
 -   **Export / import / delete**: back up, migrate, or clear all data (your settings are kept) with one click in the settings.
--   **Data directory**: `db/` holds the databases, `screenshots/` holds the periodic screenshots.
+-   **Data directory**: in the installed app, `db/` holds the databases and `screenshots/` holds the periodic screenshots. When running from source (`yarn start`), the same layout lives under `.local/dev/` in the repository root; that folder is ignored by git and can be deleted at any time.
 
 | Platform | Data directory                          |
 | :------- | :-------------------------------------- |

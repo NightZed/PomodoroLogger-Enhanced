@@ -23,19 +23,32 @@ if (!existsSync(baseDir)) {
     mkdirSync(baseDir, { recursive: true });
 }
 
-const dbDir = process.env.NODE_ENV !== 'test' ? 'db' : '__test__db';
-const dbBkDir = process.env.NODE_ENV !== 'test' ? 'db-bk' : '__test__db-bk';
-const scDir = process.env.NODE_ENV !== 'test' ? 'screenshots' : '__test__screenshots';
-export const dbBaseDir = process.env.NODE_ENV === 'production' ? join(baseDir, dbDir) : dbDir;
-export const dbBkBaseDir = process.env.NODE_ENV === 'production' ? join(baseDir, dbBkDir) : dbBkDir;
-export const screenshotDir = process.env.NODE_ENV === 'production' ? join(baseDir, scDir) : scDir;
+const isProduction = process.env.NODE_ENV === 'production';
+const isTest = process.env.NODE_ENV === 'test';
+
+/**
+ * Development and test runs keep their files inside one ignored folder at the
+ * repository root (`<repo>/.local/dev` or `<repo>/.local/test`) instead of
+ * scattering `db/`, `db-bk/` and `screenshots/` next to the sources. The whole
+ * folder can be deleted at any time without touching tracked files, and it
+ * never collides with the README assets in `docs/images/`.
+ */
+const localDataDir = join(process.cwd(), '.local', isTest ? 'test' : 'dev');
+
+export const dbBaseDir = isProduction ? join(baseDir, 'db') : join(localDataDir, 'db');
+export const dbBkBaseDir = isProduction ? join(baseDir, 'db-bk') : join(localDataDir, 'db-bk');
+export const screenshotDir = isProduction
+    ? join(baseDir, 'screenshots')
+    : join(localDataDir, 'screenshots');
 
 if (!existsSync(dbBaseDir)) {
-    mkdirSync(dbBaseDir);
+    // recursive: the development/test parent (`.local/<env>`) is not guaranteed
+    // to exist yet.
+    mkdirSync(dbBaseDir, { recursive: true });
 }
 
 if (!existsSync(screenshotDir)) {
-    mkdirSync(screenshotDir);
+    mkdirSync(screenshotDir, { recursive: true });
 }
 
 /**

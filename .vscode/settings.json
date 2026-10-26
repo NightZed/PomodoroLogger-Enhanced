@@ -1,5 +1,11 @@
 {
     "explorer.experimental.fileNesting.patterns": {
         "webpack.main.config.js": "webpack.*"
+    },
+    "files.watcherExclude": {
+        "**/.local/**": true
+    },
+    "search.exclude": {
+        "**/.local/**": true
     }
 }

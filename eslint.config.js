@@ -19,11 +19,7 @@ module.exports = tseslint.config(
             'release/**',
             'coverage/**',
             'webpack-visualization/**',
-            'db/**',
-            'db-bk/**',
-            '__test__db/**',
-            '__test__screenshots/**',
-            'screenshots/**',
+            '.local/**',
             'public/**',
             'node_modules/**'
         ]

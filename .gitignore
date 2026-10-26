@@ -1,15 +1,8 @@
 node_modules/
 dist/
 release/
-*db/
-db-bk/
-!/src/main/db/
-screenshots/*
-!screenshots/.gitkeep
-!screenshots/*.png
-!screenshots/*.jpg
-!screenshots/*.jpeg
-!screenshots/*.gif
+# Development/test runtime data (databases, backups, screenshots, logs).
+.local/
 .idea/
 coverage/
 yarn.error

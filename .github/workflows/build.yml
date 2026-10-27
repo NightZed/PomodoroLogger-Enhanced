@@ -89,7 +89,7 @@ jobs:
         run: yarn lint
 
       - name: Test
-        run: yarn test -- --ci --runInBand
+        run: yarn test -- --ci
 
       - name: Semantic Release
         id: semantic

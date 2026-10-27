@@ -1,5 +1,21 @@
+const os = require('os');
+
+const babelJest = (presets) => [
+    'babel-jest',
+    {
+        babelrc: false,
+        configFile: false,
+        presets,
+    },
+];
+
+const nodeEnvPreset = ['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }];
+const typescriptPreset = ['@babel/preset-typescript', { onlyRemoveTypeImports: false }];
+
 module.exports = {
-    collectCoverage: true,
+    // Coverage instrumentation slows every suite down. Run `yarn test:coverage`
+    // when a report is actually needed.
+    collectCoverage: false,
     // Pins NODE_ENV=test and installs jsdom polyfills before any test module.
     setupFiles: ['<rootDir>/test/setup-env.js'],
     setupFilesAfterEnv: [
@@ -23,39 +39,19 @@ module.exports = {
     // TypeScript 7 has no JavaScript compiler API, so ts-jest cannot be used.
     // Babel strips the types for Jest; `yarn typecheck` is the type-checking
     // step (the previous ts-jest setup already had diagnostics disabled).
+    //
+    // Keep the transform options free of RegExp/function values: Jest sends the
+    // project config to parallel workers with JSON serialization, which turns a
+    // RegExp into `{}`. A `test` override would then fail Babel validation
+    // ("overrides[0].test must be a string/Function/RegExp"), so `.ts` and `.tsx`
+    // use separate transform entries instead of one transform with overrides.
     transform: {
-        '^.+\\.tsx?$': [
-            'babel-jest',
-            {
-                babelrc: false,
-                configFile: false,
-                presets: [
-                    ['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }],
-                    ['@babel/preset-typescript', { onlyRemoveTypeImports: false }],
-                ],
-                // As in webpack: keep JSX parsing (and its conflict with
-                // generic arrow functions) out of `.ts` files.
-                overrides: [
-                    {
-                        test: /\.tsx$/,
-                        presets: ['@babel/preset-react'],
-                    },
-                ],
-            },
-        ],
+        '^.+\\.tsx$': babelJest([nodeEnvPreset, typescriptPreset, '@babel/preset-react']),
+        '^.+\\.ts$': babelJest([nodeEnvPreset, typescriptPreset]),
         // marked 18 and react-hotkeys-hook 5 are ESM-only (no CJS entry).
         // Jest's VM runtime cannot require() their ESM files directly, so
         // transpile those dependencies.
-        'node_modules[/\\\\](marked|react-hotkeys-hook)[/\\\\].+\\.js$': [
-            'babel-jest',
-            {
-                babelrc: false,
-                configFile: false,
-                presets: [
-                    ['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }],
-                ],
-            },
-        ],
+        'node_modules[/\\\\](marked|react-hotkeys-hook)[/\\\\].+\\.js$': babelJest([nodeEnvPreset]),
     },
     // Keep the default node_modules exclusion, but allow the ESM dependencies
     // above through the transform. Other dependencies stay untouched.
@@ -78,6 +74,11 @@ module.exports = {
     // Action tests exercise real SQLite transactions; give them room so a
     // loaded machine does not trip the default 5s per-test timeout.
     testTimeout: 30000,
+    // Most of the wall time is jsdom/antd setup and timer waiting rather than
+    // raw CPU work, so Jest's default (cores - 1) leaves a core idle. Use all
+    // available cores, capped so a many-core machine does not spawn a worker
+    // per test file.
+    maxWorkers: Math.min(8, os.cpus().length),
     // Nothing consumes the HTML coverage report (locally or in CI), so emit flat
     // files only. This also avoids Windows-specific problems in reporters that
     // turn source paths into directories.

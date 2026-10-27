@@ -51,4 +51,4 @@ jobs:
         run: yarn typecheck
 
       - name: Test
-        run: yarn test -- --ci --runInBand
+        run: yarn test -- --ci

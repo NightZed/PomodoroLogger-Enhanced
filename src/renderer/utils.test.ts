@@ -41,12 +41,10 @@ describe('renderer.utils', () => {
     });
 
     it('should generate random name', () => {
-        const nameSet = new Set();
-        for (let i = 0; i < 1e5; i += 1) {
-            const name = utils.generateRandomName();
-            expect(nameSet.has(name)).toBeFalsy();
-            nameSet.add(name);
-        }
+        // Generate in bulk and check once: calling `expect` inside the loop
+        // dominated the runtime of this suite (~10s on a 4-core machine).
+        const names = Array.from({ length: 1e5 }, () => utils.generateRandomName());
+        expect(new Set(names).size).toBe(names.length);
     });
 
     it('should map actions dict to dispatch', async () => {

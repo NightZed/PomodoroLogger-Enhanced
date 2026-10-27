@@ -18,7 +18,8 @@ import packageJson from '../../package.json';
 import { AutoUpdater } from './AutoUpdater';
 import { handleCommand, initialize } from './ipc/ipc';
 import { IpcEventName, TrayEventName, UpdateEventName, WindowEventName } from './ipc/type';
-import type { TrayIconPayload, TrayMenuItem } from './ipc/type';
+import type { InitialThemeSetting, TrayIconPayload, TrayMenuItem } from './ipc/type';
+import { encodeInitialTheme } from './ipc/initialTheme';
 import { assertTrayIconPayload } from './ipc/validate';
 import { stopWindowDrag } from './ipc/windowDrag';
 import { initActiveWin } from './activeWin';
@@ -198,19 +199,19 @@ if (process.platform === 'win32') {
  * what lets the window pick the right background color (and the right
  * `prefers-color-scheme`) before anything is painted.
  */
-function readThemeSetting(): { themeId?: string; followSystemTheme?: boolean } {
+function readThemeSetting(): InitialThemeSetting {
     const settings = db.readSettingsSync();
     return {
         themeId: settings.themeId,
-        followSystemTheme: settings.followSystemTheme,
+        followSystemTheme: settings.followSystemTheme === true,
     };
 }
 
 const createWindow = async () => {
-    const { themeId, followSystemTheme } = readThemeSetting();
-    nativeTheme.themeSource = followSystemTheme
+    const initialTheme = readThemeSetting();
+    nativeTheme.themeSource = initialTheme.followSystemTheme
         ? 'system'
-        : themeId === DAY_THEME_ID
+        : initialTheme.themeId === DAY_THEME_ID
           ? 'light'
           : 'dark';
 
@@ -240,6 +241,10 @@ const createWindow = async () => {
             contextIsolation: true,
             sandbox: true,
             preload: path.join(__dirname, 'preload.js'),
+            // Read by the preload script and exposed as `window.api.initialTheme`
+            // so the renderer's first applyTheme() agrees with the native theme
+            // already set above instead of flipping it dark and back.
+            additionalArguments: [encodeInitialTheme(initialTheme)],
         },
     });
 

@@ -136,6 +136,16 @@ export type TrayIconPayload = {
 export type NativeThemeSource = 'light' | 'dark' | 'system';
 
 /**
+ * Theme settings the main process already resolved before the window exists
+ * (see `init.ts readThemeSetting`). Handed to the renderer so its very first
+ * paint uses the persisted theme instead of the night-theme reducer default.
+ */
+export type InitialThemeSetting = {
+    themeId?: string;
+    followSystemTheme: boolean;
+};
+
+/**
  * What an export actually did.
  *
  * The dialog is cancellable, so "wrote a file" is only one of the possible
@@ -171,6 +181,12 @@ export type ImportResult =
  */
 export type ExposedAPI = {
     readonly platform: NodeJS.Platform;
+    /**
+     * Theme resolved by the main process before this window was created.
+     * `undefined` only when the renderer was not started by the app (e.g. a
+     * plain browser or a test).
+     */
+    readonly initialTheme?: InitialThemeSetting;
 
     [IpcEventName.ImportData](): Promise<ImportResult>;
     [IpcEventName.SelectWallpaper](): Promise<string | undefined>;

@@ -24,6 +24,7 @@ import type { BaseResult } from 'get-windows';
 import type { DbName } from './db/types';
 import type { KnnModel } from './learner/appKnn';
 import type { TrayActionKey } from '../renderer/components/Timer/sessionState';
+import { parseInitialTheme } from './ipc/initialTheme';
 
 const invoke = <T>(channel: string, ...args: unknown[]): Promise<T> =>
     ipcRenderer.invoke(channel, ...args) as Promise<T>;
@@ -69,6 +70,10 @@ function currentPlatform(): NodeJS.Platform {
 
 const api: ExposedAPI = {
     platform: currentPlatform(),
+    initialTheme:
+        typeof process !== 'undefined' && Array.isArray(process.argv)
+            ? parseInitialTheme(process.argv)
+            : undefined,
 
     [IpcEventName.ImportData]: () => invoke<ImportResult>(IpcEventName.ImportData),
     [IpcEventName.SelectWallpaper]: () => invoke<string | undefined>(IpcEventName.SelectWallpaper),

@@ -16,6 +16,11 @@ module.exports = {
     // Coverage instrumentation slows every suite down. Run `yarn test:coverage`
     // when a report is actually needed.
     collectCoverage: false,
+    // Without this, Jest only reports files that a test happened to import, so
+    // a module nobody exercises is simply missing from the report (the old
+    // "76%" excluded 67 of 185 source files). Count every source file instead;
+    // the report is lower but it is the real number.
+    collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.test.{ts,tsx}', '!src/**/*.d.ts'],
     // Pins NODE_ENV=test and installs jsdom polyfills before any test module.
     setupFiles: ['<rootDir>/test/setup-env.js'],
     setupFilesAfterEnv: [

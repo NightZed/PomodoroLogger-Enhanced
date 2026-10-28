@@ -184,7 +184,8 @@ export function isShallowEqualByKeys(
 
 function equal(a: any, b: any, equalKey: string) {
     const keys = equalKey.split('.');
-    for (const key of keys) {
+    for (let index = 0; index < keys.length; index += 1) {
+        const key = keys[index];
         const hasNum = (key in a ? 1 : 0) + (key in b ? 1 : 0);
         if (hasNum === 0) {
             return true;
@@ -194,15 +195,18 @@ function equal(a: any, b: any, equalKey: string) {
             return false;
         }
 
-        if (a[key] !== b[key]) {
-            return false;
+        // Only the leaf is compared by value. Intermediate objects are just the
+        // path to the next key; comparing them by reference made every dotted
+        // selector fail as soon as either side re-created the object.
+        if (index === keys.length - 1) {
+            return a[key] === b[key];
         }
 
         a = a[key];
         b = b[key];
     }
 
-    return a === b;
+    return true;
 }
 
 export function mergeRefs<T = any>(

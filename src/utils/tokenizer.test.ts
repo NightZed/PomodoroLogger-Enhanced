@@ -181,5 +181,24 @@ describe('Tokenizer.getTokenWeightsFromRecords', () => {
 });
 
 describe('Tokenizer.getTokenWeightsFromCards', () => {
-    it('should calc cards weight correctly', () => {});
+    it('should calc cards weight correctly', () => {
+        // Card titles count double, card content half. With one title token at
+        // weight 4 and one content token at weight 1, they normalize to the
+        // configured 56/8 endpoints.
+        const cards = [
+            {
+                _id: 'card-1',
+                title: 'alpha beta',
+                content: 'gamma',
+                sessionIds: [],
+                spentTimeInHour: { estimated: 0, actual: 2 },
+            },
+        ];
+
+        expect(Object.fromEntries(getWeightsFromPomodoros([], cards))).toEqual({
+            alpha: 56,
+            beta: 56,
+            gamma: 8,
+        });
+    });
 });

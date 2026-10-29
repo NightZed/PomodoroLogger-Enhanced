@@ -6,7 +6,7 @@
  * stable as the first card arrives and the CSS column layout can reflow.
  */
 import * as React from 'react';
-import { cleanup, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { Bar } from './Bar';
 
 describe('Bar', () => {
@@ -37,6 +37,27 @@ describe('Bar', () => {
         render(<Bar names={['a', 'b']} values={[0, 3]} height={26} />, { container });
 
         expect(container.querySelector('svg')).not.toBeNull();
+    });
+
+    it('only enables column labels after the pointer dwells', () => {
+        jest.useFakeTimers();
+        try {
+            render(<Bar names={['a', 'b']} values={[0, 3]} height={26} />, { container });
+            const svg = container.querySelector('svg')!;
+
+            fireEvent.mouseEnter(svg);
+            expect(svg.classList.contains('bars-active')).toBe(false);
+
+            act(() => {
+                jest.advanceTimersByTime(200);
+            });
+            expect(svg.classList.contains('bars-active')).toBe(true);
+
+            fireEvent.mouseLeave(svg);
+            expect(svg.classList.contains('bars-active')).toBe(false);
+        } finally {
+            jest.useRealTimers();
+        }
     });
 
     it('throws on mismatched names/values (guard kept)', () => {

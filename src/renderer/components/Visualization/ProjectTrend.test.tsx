@@ -1,6 +1,7 @@
 import React from 'react';
-import { render } from '@testing-library/react';
-import { ProjectTrend } from './ProjectTrend';
+import { render, waitFor } from '@testing-library/react';
+import { IdTrend, ProjectTrend } from './ProjectTrend';
+import { workers } from '../../workers';
 
 jest.mock('../../workers', () => ({
     workers: {
@@ -11,6 +12,8 @@ jest.mock('../../workers', () => ({
         },
     },
 }));
+
+const mockSessionFind = workers.dbWorkers.sessionDB.find as jest.Mock;
 
 describe('ProjectTrend sparkline', () => {
     it('renders a responsive SVG path with the gradient stops', () => {
@@ -41,5 +44,17 @@ describe('ProjectTrend sparkline', () => {
         expect(hover.container.textContent).toContain('TREND');
         expect(hover.container.querySelector('svg')).not.toBeNull();
         hover.unmount();
+    });
+
+    it('queries only start times inside the trend window', async () => {
+        mockSessionFind.mockClear();
+        const view = render(<IdTrend boardId="b1" />);
+
+        await waitFor(() => expect(mockSessionFind).toHaveBeenCalledTimes(1));
+        const [query, projection] = mockSessionFind.mock.calls[0];
+        expect(query.boardId).toBe('b1');
+        expect(typeof query.startTime.$gte).toBe('number');
+        expect(projection).toEqual({ startTime: 1 });
+        view.unmount();
     });
 });

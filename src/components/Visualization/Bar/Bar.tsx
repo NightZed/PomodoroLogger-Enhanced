@@ -8,7 +8,11 @@ const Svg = styled.svg`
         transition: opacity 0.2s;
     }
 
-    .bg:hover {
+    /* Column labels are enabled only after the pointer rests on the chart (see
+       BAR_HOVER_DELAY_MS). Hover is still tracked while inactive so the label
+       appears as soon as the class lands, but no opacity change is applied, so
+       a quick sweep does not repaint the chart column by column. */
+    &.bars-active .bg:hover {
         rect,
         text {
             opacity: 1;
@@ -24,6 +28,9 @@ const Svg = styled.svg`
         font-weight: 700;
     }
 `;
+
+/** Pointer dwell before the per-column labels become interactive. */
+const BAR_HOVER_DELAY_MS = 200;
 
 interface BarProps {
     values: number[];
@@ -52,6 +59,28 @@ export const Bar: React.FC<BarProps> = (props: BarProps) => {
             : 20;
     const [maxItemInCol, setMaxItemInCol] = useState(initialMaxItemInCol);
     const [w2h, setW2H] = useState(1);
+    const [hoverActive, setHoverActive] = useState(false);
+    const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const cancelHoverTimer = () => {
+        if (hoverTimer.current !== null) {
+            clearTimeout(hoverTimer.current);
+            hoverTimer.current = null;
+        }
+    };
+    const onBarMouseEnter = () => {
+        if (hoverActive || hoverTimer.current !== null) {
+            return;
+        }
+        hoverTimer.current = setTimeout(() => {
+            hoverTimer.current = null;
+            setHoverActive(true);
+        }, BAR_HOVER_DELAY_MS);
+    };
+    const onBarMouseLeave = () => {
+        cancelHoverTimer();
+        setHoverActive(false);
+    };
+    useEffect(() => cancelHoverTimer, []);
     const minHeightInPixel = MIN_HEIGHT_IN_PIXEL;
     useEffect(() => {
         const element = ref.current;
@@ -92,11 +121,14 @@ export const Bar: React.FC<BarProps> = (props: BarProps) => {
     return (
         // @ts-ignore
         <Svg
+            className={hoverActive ? 'bars-active' : undefined}
             width="100%"
             height={height}
             viewBox={'0 0 100 100'}
             preserveAspectRatio="none"
             ref={ref}
+            onMouseEnter={onBarMouseEnter}
+            onMouseLeave={onBarMouseLeave}
         >
             {values.map((v, i) => {
                 const n = scale < 1 ? Math.ceil(v * scale) : v;

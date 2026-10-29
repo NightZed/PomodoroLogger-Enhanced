@@ -1,8 +1,8 @@
 import React from 'react';
-import { cleanup, fireEvent, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { createStore } from 'redux';
-import { BoardBrief } from './BoardBrief';
+import { BoardBrief, TREND_HOVER_DELAY_MS } from './BoardBrief';
 import { actions } from './action';
 import { actions as kanbanActions } from '../action';
 import { actions as timerActions } from '../../Timer/action';
@@ -135,18 +135,69 @@ describe('BoardBrief', () => {
         expect(getByTestId('time-badge').textContent).toBe('spent-1-left-1');
     });
 
-    it('mounts the trend chart on the first hover and hides it again', () => {
-        const { getByText, queryByTestId, container } = renderBrief();
+    it('mounts the trend chart after the pointer dwells and keeps it for later hovers', () => {
+        jest.useFakeTimers();
+        try {
+            const { getByText, getByTestId, queryByTestId, container } = renderBrief();
 
-        expect(queryByTestId('trend')).toBeNull();
+            expect(queryByTestId('trend')).toBeNull();
 
-        const card = container.querySelector('[data-tour="kanban-brief-card"]')!;
-        fireEvent.mouseEnter(card);
-        expect(queryByTestId('trend')).not.toBeNull();
-        expect(getByText('Board One')).toBeTruthy();
+            const card = container.querySelector('[data-tour="kanban-brief-card"]')!;
+            fireEvent.mouseEnter(card);
+            expect(queryByTestId('trend')).toBeNull();
 
-        fireEvent.mouseLeave(card);
-        expect(queryByTestId('trend')!.parentElement!.style.display).toBe('none');
+            act(() => {
+                jest.advanceTimersByTime(TREND_HOVER_DELAY_MS);
+            });
+            expect(queryByTestId('trend')).not.toBeNull();
+            expect(getByText('Board One')).toBeTruthy();
+
+            fireEvent.mouseLeave(card);
+            expect(getByTestId('trend-animation').classList.contains('pl-trend')).toBe(true);
+            expect(queryByTestId('trend')).not.toBeNull();
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('does not replay the trend reveal after it has finished', () => {
+        jest.useFakeTimers();
+        try {
+            const { getByTestId, queryByTestId, container } = renderBrief();
+            const card = container.querySelector('[data-tour="kanban-brief-card"]')!;
+
+            fireEvent.mouseEnter(card);
+            act(() => {
+                jest.advanceTimersByTime(TREND_HOVER_DELAY_MS);
+            });
+            fireEvent.animationEnd(getByTestId('trend-cover'));
+            expect(queryByTestId('trend-cover')).toBeNull();
+
+            fireEvent.mouseLeave(card);
+            fireEvent.mouseEnter(card);
+            expect(queryByTestId('trend')).not.toBeNull();
+            expect(queryByTestId('trend-cover')).toBeNull();
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('does not mount the trend chart when the pointer only sweeps past', () => {
+        jest.useFakeTimers();
+        try {
+            const { queryByTestId, container } = renderBrief();
+
+            const card = container.querySelector('[data-tour="kanban-brief-card"]')!;
+            fireEvent.mouseEnter(card);
+            fireEvent.mouseLeave(card);
+            act(() => {
+                jest.advanceTimersByTime(TREND_HOVER_DELAY_MS * 2);
+            });
+
+            expect(queryByTestId('trend')).toBeNull();
+        } finally {
+            jest.useRealTimers();
+        }
     });
 
     it('starts focusing on this board', () => {

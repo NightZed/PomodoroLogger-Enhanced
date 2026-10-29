@@ -167,7 +167,13 @@ interface InputProps extends Partial<Props> {
     boardId: string;
 }
 
-export function countRecordNum(records: PomodoroRecord[], spanInDay: number = 30): number[] {
+/** Number of days shown by every trend sparkline; also the query range. */
+export const TREND_SPAN_IN_DAYS = 30;
+
+export function countRecordNum(
+    records: Pick<PomodoroRecord, 'startTime'>[],
+    spanInDay: number = TREND_SPAN_IN_DAYS
+): number[] {
     const data: number[] = Array(spanInDay).fill(0);
     const now = new Date().getTime();
     for (const record of records) {
@@ -189,16 +195,25 @@ export const IdTrend: React.FC<InputProps> = (props: InputProps) => {
     useEffect(() => {
         let cancelled = false;
         const worker = workers.dbWorkers.sessionDB;
-        worker.find({ boardId }, {}).then((values: PomodoroRecord[]) => {
-            // 切换项目/图表时丢弃过期的查询结果，避免旧状态覆盖新状态
-            if (cancelled) {
-                return;
-            }
+        // The sparkline only needs one number per session (its start time).
+        // The query used to return the complete session documents, so the main
+        // process parsed every full `doc` (apps, screenshots, switch history,
+        // ...) and cloned all of them over IPC just to throw them away here.
+        // Projecting `startTime` also lets the repository read a single scalar
+        // column, and the range filter uses the (board_id, start_time) index.
+        const since = Date.now() - TREND_SPAN_IN_DAYS * 24 * 3600 * 1000;
+        worker
+            .find({ boardId, startTime: { $gte: since } }, { startTime: 1 })
+            .then((values: Pick<PomodoroRecord, 'startTime'>[]) => {
+                // 切换项目/图表时丢弃过期的查询结果，避免旧状态覆盖新状态
+                if (cancelled) {
+                    return;
+                }
 
-            const counter = countRecordNum(values);
-            counter[counter.length - 1] += 0.001;
-            setData(counter);
-        });
+                const counter = countRecordNum(values);
+                counter[counter.length - 1] += 0.001;
+                setData(counter);
+            });
         return () => {
             cancelled = true;
         };

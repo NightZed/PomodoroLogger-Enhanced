@@ -1,35 +1,79 @@
 import { AntdIcon as Icon } from '../../../renderer/components/antdIcon';
 import * as React from 'react';
-import styled from 'styled-components';
+import styled, { css } from 'styled-components';
 
 import PinSvg from '../../../res/pin.svg';
 
-const RoundedContainer = styled.button``;
+/**
+ * The pin is entirely CSS driven.
+ *
+ * It belongs to a hovered card, so a CSS `:hover` rule on the card reveals it;
+ * a React state change per mouseenter/mouseleave would re-render the whole
+ * card on every sweep. Its own hover (rotation and color) is a deliberate,
+ * isolated interaction: the transition is delayed so the pointer merely
+ * crossing the icon during a sweep does not start an animation.
+ */
+const pinStyles = css`
+    color: var(--pl-text);
+
+    .anticon {
+        opacity: 0;
+        transform: rotate(45deg);
+        transition:
+            transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+            color 0.3s;
+    }
+
+    &.is-pinned {
+        color: rgb(141, 84, 61);
+
+        .anticon {
+            opacity: 1;
+            transform: rotate(0deg);
+        }
+    }
+
+    &.is-rounded .anticon {
+        opacity: 1;
+    }
+
+    &:hover .anticon {
+        opacity: 1;
+        transform: rotate(53deg);
+        transition-delay: 0.15s;
+    }
+
+    &.is-pinned:hover .anticon {
+        transform: rotate(8deg);
+    }
+
+    &:hover {
+        color: var(--pl-text-secondary);
+    }
+
+    &.is-pinned:hover {
+        color: #ee3500;
+    }
+`;
+
+const RoundedContainer = styled.button`
+    ${pinStyles}
+`;
 
 const Container = styled.div`
     display: inline-block;
+    ${pinStyles}
 `;
 
 interface Props {
     isPin: boolean;
-    isHover?: boolean;
     isRounded?: boolean;
     onClick?: () => void;
     style?: any;
 }
 
 export const Pin: React.FC<Props> = (props: Props) => {
-    const [isHover, setIsHover] = React.useState(false);
     const { isRounded = false } = props;
-    let color = 'var(--pl-text-secondary)';
-    if (isHover) {
-        if (props.isPin) color = '#ee3500';
-        if (!props.isPin) color = 'var(--pl-text-secondary)';
-    } else {
-        if (props.isPin) color = 'rgb(141, 84, 61)';
-        if (!props.isPin) color = 'var(--pl-text)';
-    }
-
     const onClick = (e: any) => {
         if (props.onClick) {
             props.onClick();
@@ -43,25 +87,20 @@ export const Pin: React.FC<Props> = (props: Props) => {
     return (
         // @ts-ignore
         <C
-            className={
+            className={[
                 isRounded
                     ? 'ant-btn ant-btn-default ant-btn-circle ant-btn-sm ant-btn-icon-only'
-                    : ''
-            }
-            style={{ ...props.style, color }}
-            onMouseEnter={React.useCallback(() => setIsHover(true), [])}
-            onMouseLeave={React.useCallback(() => setIsHover(false), [])}
+                    : '',
+                'pl-pin',
+                props.isPin ? 'is-pinned' : '',
+                isRounded ? 'is-rounded' : '',
+            ]
+                .filter(Boolean)
+                .join(' ')}
+            style={props.style}
             onClick={onClick}
         >
-            <Icon
-                type={'pin' as any}
-                component={PinSvg}
-                style={{
-                    transform: `rotate(${(props.isPin ? 0 : 45) + (isHover ? 8 : 0)}deg)`,
-                    transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                    opacity: isRounded || props.isPin || isHover || props.isHover ? 1 : 0,
-                }}
-            />
+            <Icon type={'pin' as any} component={PinSvg} />
         </C>
     );
 };

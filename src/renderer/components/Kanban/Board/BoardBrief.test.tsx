@@ -2,7 +2,7 @@ import React from 'react';
 import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { createStore } from 'redux';
-import { BoardBrief, TREND_HOVER_DELAY_MS } from './BoardBrief';
+import { BoardBrief, TREND_HOVER_DELAY_MS, TREND_UNMOUNT_DELAY_MS } from './BoardBrief';
 import { actions } from './action';
 import { actions as kanbanActions } from '../action';
 import { actions as timerActions } from '../../Timer/action';
@@ -177,6 +177,66 @@ describe('BoardBrief', () => {
             fireEvent.mouseEnter(card);
             expect(queryByTestId('trend')).not.toBeNull();
             expect(queryByTestId('trend-cover')).toBeNull();
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('unmounts the chart after a long idle and remounts it without replaying the reveal', () => {
+        jest.useFakeTimers();
+        try {
+            const { getByTestId, queryByTestId, container } = renderBrief();
+            const card = container.querySelector('[data-tour="kanban-brief-card"]')!;
+
+            fireEvent.mouseEnter(card);
+            act(() => {
+                jest.advanceTimersByTime(TREND_HOVER_DELAY_MS);
+            });
+            fireEvent.animationEnd(getByTestId('trend-cover'));
+            fireEvent.mouseLeave(card);
+
+            // Leaving keeps the (invisible) chart for a while, so coming back
+            // immediately is instant.
+            expect(queryByTestId('trend')).not.toBeNull();
+
+            act(() => {
+                jest.advanceTimersByTime(TREND_UNMOUNT_DELAY_MS);
+            });
+            expect(queryByTestId('trend')).toBeNull();
+
+            fireEvent.mouseEnter(card);
+            act(() => {
+                jest.advanceTimersByTime(TREND_HOVER_DELAY_MS);
+            });
+            expect(queryByTestId('trend')).not.toBeNull();
+            // The reveal is a first-run affordance; it must not play again.
+            expect(queryByTestId('trend-cover')).toBeNull();
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('cancels the idle unmount when the pointer returns', () => {
+        jest.useFakeTimers();
+        try {
+            const { getByTestId, queryByTestId, container } = renderBrief();
+            const card = container.querySelector('[data-tour="kanban-brief-card"]')!;
+
+            fireEvent.mouseEnter(card);
+            act(() => {
+                jest.advanceTimersByTime(TREND_HOVER_DELAY_MS);
+            });
+            fireEvent.mouseLeave(card);
+            act(() => {
+                jest.advanceTimersByTime(TREND_UNMOUNT_DELAY_MS - 1);
+            });
+            fireEvent.mouseEnter(card);
+            act(() => {
+                jest.advanceTimersByTime(TREND_UNMOUNT_DELAY_MS);
+            });
+
+            expect(queryByTestId('trend')).not.toBeNull();
+            expect(getByTestId('trend-animation')).toBeTruthy();
         } finally {
             jest.useRealTimers();
         }

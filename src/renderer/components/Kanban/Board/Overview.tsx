@@ -113,7 +113,9 @@ const columns = [
         dataIndex: 'trend',
         key: 'trend',
         render: (text: any, record: AggBoardInfo) => {
-            return <IdTrend boardId={record._id} />;
+            // Share the grid's module-level cache and invalidate it as soon as
+            // the board records another pomodoro.
+            return <IdTrend boardId={record._id} sessionCount={record.pomodoroCount} />;
         },
     },
 ];

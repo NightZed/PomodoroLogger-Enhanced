@@ -2,16 +2,37 @@ import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 const Svg = styled.svg`
+    /* Keep the bars and labels out of hit testing while the chart is idle. The
+       root <svg> is the single hover target of a card's chart: a sweep costs
+       one hit test per card instead of one per rect/column, and no per-column
+       :hover invalidation happens until the pointer actually rests here. */
+    rect,
+    text {
+        pointer-events: none;
+    }
+
+    /* One transparent full-size target keeps the dwell reliable even when no
+       child (bar, label) is hit-testable. */
+    .bars-hit {
+        pointer-events: all;
+    }
+
     .bg rect {
         opacity: 0;
         fill: rgba(200, 80, 60, 0.4);
         transition: opacity 0.2s;
     }
 
-    /* Column labels are enabled only after the pointer rests on the chart (see
-       BAR_HOVER_DELAY_MS). Hover is still tracked while inactive so the label
-       appears as soon as the class lands, but no opacity change is applied, so
-       a quick sweep does not repaint the chart column by column. */
+    /* Column hover is enabled only after the pointer rests on the chart (see
+       BAR_HOVER_DELAY_MS). Once the class lands the pointer is already inside a
+       column, so its label appears immediately; a quick sweep never turns the
+       columns into hover targets or repaints the chart column by column. */
+    &.bars-active .bg,
+    &.bars-active .bg rect,
+    &.bars-active .bg text {
+        pointer-events: auto;
+    }
+
     &.bars-active .bg:hover {
         rect,
         text {
@@ -59,7 +80,6 @@ export const Bar: React.FC<BarProps> = (props: BarProps) => {
             : 20;
     const [maxItemInCol, setMaxItemInCol] = useState(initialMaxItemInCol);
     const [w2h, setW2H] = useState(1);
-    const [hoverActive, setHoverActive] = useState(false);
     const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const cancelHoverTimer = () => {
         if (hoverTimer.current !== null) {
@@ -67,18 +87,26 @@ export const Bar: React.FC<BarProps> = (props: BarProps) => {
             hoverTimer.current = null;
         }
     };
+    // Toggle the class imperatively instead of storing it in state: enabling
+    // the labels used to re-render the whole chart (one <rect> per layer per
+    // list) twice per hovered card -- once when the dwell elapsed and once on
+    // mouseleave. A class change only invalidates style/paint, and React never
+    // touches this attribute because it is not a prop.
+    const setBarsActive = (active: boolean) => {
+        ref.current?.classList.toggle('bars-active', active);
+    };
     const onBarMouseEnter = () => {
-        if (hoverActive || hoverTimer.current !== null) {
+        if (ref.current?.classList.contains('bars-active') || hoverTimer.current !== null) {
             return;
         }
         hoverTimer.current = setTimeout(() => {
             hoverTimer.current = null;
-            setHoverActive(true);
+            setBarsActive(true);
         }, BAR_HOVER_DELAY_MS);
     };
     const onBarMouseLeave = () => {
         cancelHoverTimer();
-        setHoverActive(false);
+        setBarsActive(false);
     };
     useEffect(() => cancelHoverTimer, []);
     const minHeightInPixel = MIN_HEIGHT_IN_PIXEL;
@@ -121,7 +149,6 @@ export const Bar: React.FC<BarProps> = (props: BarProps) => {
     return (
         // @ts-ignore
         <Svg
-            className={hoverActive ? 'bars-active' : undefined}
             width="100%"
             height={height}
             viewBox={'0 0 100 100'}
@@ -130,6 +157,14 @@ export const Bar: React.FC<BarProps> = (props: BarProps) => {
             onMouseEnter={onBarMouseEnter}
             onMouseLeave={onBarMouseLeave}
         >
+            <rect
+                className={'bars-hit'}
+                x={0}
+                y={0}
+                width={100}
+                height={100}
+                fill={'transparent'}
+            />
             {values.map((v, i) => {
                 const n = scale < 1 ? Math.ceil(v * scale) : v;
                 const arr = Array.from(Array(n).keys());

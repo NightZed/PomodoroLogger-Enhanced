@@ -89,6 +89,18 @@ const BriefCard = styled.div`
 export const TREND_HOVER_DELAY_MS = 200;
 
 /**
+ * Once the pointer has left a card, its chart only stays mounted for a short
+ * while: it is invisible anyway (CSS opacity), and every mounted chart keeps
+ * an SVG, a gradient and 30 data points alive. Unmounting it after this idle
+ * period keeps the grid's resident DOM proportional to the cards the user
+ * actually looks at. Remounting is cheap because the aggregated data is
+ * module-cached (see ProjectTrend) and the reveal cover has already been
+ * dropped, so a later hover shows the chart immediately with no query and no
+ * animation.
+ */
+export const TREND_UNMOUNT_DELAY_MS = 30 * 1000;
+
+/**
  * The trend chart used to be revealed by an infinite `clip-path` animation on
  * the SVG. `clip-path` is a paint property, so Chromium re-rasterized the
  * gradient-stroked path on every frame for as long as a board card was
@@ -230,13 +242,22 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
     const [trendRevealed, setTrendRevealed] = useState(false);
     const onTrendRevealEnd = React.useCallback(() => setTrendRevealed(true), []);
     const trendTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const trendUnmountTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const cancelTrendTimer = React.useCallback(() => {
         if (trendTimer.current !== null) {
             clearTimeout(trendTimer.current);
             trendTimer.current = null;
         }
     }, []);
+    const cancelTrendUnmountTimer = React.useCallback(() => {
+        if (trendUnmountTimer.current !== null) {
+            clearTimeout(trendUnmountTimer.current);
+            trendUnmountTimer.current = null;
+        }
+    }, []);
     const onMouseEnter = () => {
+        // The pointer came back before the idle unmount fired: keep the chart.
+        cancelTrendUnmountTimer();
         if (showTrend || trendTimer.current !== null) {
             return;
         }
@@ -247,8 +268,23 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
     };
     const onMouseLeave = () => {
         cancelTrendTimer();
+        if (!showTrend || trendUnmountTimer.current !== null) {
+            return;
+        }
+        // Drop the invisible SVG after a while instead of keeping one per
+        // visited card in the DOM for the lifetime of the overview.
+        trendUnmountTimer.current = setTimeout(() => {
+            trendUnmountTimer.current = null;
+            setShowTrend(false);
+        }, TREND_UNMOUNT_DELAY_MS);
     };
-    React.useEffect(() => cancelTrendTimer, [cancelTrendTimer]);
+    React.useEffect(
+        () => () => {
+            cancelTrendTimer();
+            cancelTrendUnmountTimer();
+        },
+        [cancelTrendTimer, cancelTrendUnmountTimer]
+    );
 
     // Aggregating every card of this board ran on each render (including the
     // hover state updates below). It only depends on the board's own lists and
@@ -408,7 +444,7 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
                 {relatedSessions.length && showTrend ? (
                     <AnimTrend className="pl-trend" data-testid="trend-animation">
                         <TrendChart>
-                            <IdTrend boardId={props._id} />
+                            <IdTrend boardId={props._id} sessionCount={relatedSessions.length} />
                         </TrendChart>
                         {trendRevealed ? undefined : (
                             <TrendCover

@@ -60,6 +60,29 @@ describe('Bar', () => {
         }
     });
 
+    it('keeps the active class across React re-renders (no state involved)', () => {
+        jest.useFakeTimers();
+        try {
+            const view = render(<Bar names={['a', 'b']} values={[0, 3]} height={26} />, {
+                container,
+            });
+            const svg = container.querySelector('svg')!;
+
+            fireEvent.mouseEnter(svg);
+            act(() => {
+                jest.advanceTimersByTime(200);
+            });
+            expect(svg.classList.contains('bars-active')).toBe(true);
+
+            // New chart data re-renders the SVG without touching the class,
+            // because the class is not a prop anymore.
+            view.rerender(<Bar names={['a', 'b']} values={[0, 4]} height={26} />);
+            expect(svg.classList.contains('bars-active')).toBe(true);
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
     it('throws on mismatched names/values (guard kept)', () => {
         const spy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
         expect(() => {

@@ -30,16 +30,50 @@ const CardContainer = styled.div<{ $preview?: boolean }>`
     border-radius: 6px;
     /* The preview has no drag interaction, so it must not advertise one. */
     cursor: ${({ $preview }) => ($preview ? 'default' : 'grab')};
-    box-shadow: 0 0 rgba(0, 0, 0, 0);
-    transition: box-shadow 200ms;
     z-index: 0;
+
+    /* The hover shadow used to be a box-shadow transition on the card. A
+       box-shadow is paint-only, so Chromium re-rasterized the 18px blur on
+       every frame while the pointer moved between cards -- and a board can
+       keep a whole Done list (100+ cards) mounted, so the invalidated area is
+       large. Paint the shadow once on a pseudo-element and only flip its
+       opacity: crossing cards costs one paint per card instead of ~12 frames
+       per transition, with no per-frame work at all. */
+    &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        border-radius: inherit;
+        box-shadow: 0 0 18px 8px var(--pl-shadow);
+        opacity: 0;
+        pointer-events: none;
+    }
+
     &.is-dragging {
         z-index: 1;
         box-shadow: 0 0 18px 8px var(--pl-shadow);
+
+        /* The drag lift already has a shadow. */
+        &::before {
+            opacity: 0;
+        }
     }
+
     &:hover {
+        /* Keep the hovered card above its neighbours so the shadow is visible.
+           (Measured in the overview work: raising z-index is cheap compared
+           with the shadow transition this replaces.) */
         z-index: 5;
-        box-shadow: 0 0 18px 8px var(--pl-shadow);
+
+        &::before {
+            opacity: 1;
+        }
+    }
+
+    /* While dragging the card is also hovered; keep the single drag shadow. */
+    &.is-dragging:hover::before {
+        opacity: 0;
     }
 `;
 

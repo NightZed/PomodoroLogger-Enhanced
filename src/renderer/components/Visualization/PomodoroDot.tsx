@@ -6,6 +6,9 @@ const Svg = styled.svg`
     transition: transform 0.2s;
     &:hover {
         transform: scale(1.4);
+        /* Like the pin: a pointer merely crossing the dot during a sweep must
+           not start a scale animation; a deliberate hover still shows it. */
+        transition-delay: 0.15s;
     }
 `;
 

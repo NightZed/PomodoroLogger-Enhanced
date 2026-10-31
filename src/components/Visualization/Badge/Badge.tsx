@@ -1,8 +1,7 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { formatTime } from '../../../renderer/utils';
 import { uid } from '../../../utils/uid';
 import styled from 'styled-components';
-import { throttle } from 'lodash';
 import { useThemeTokens } from '../../../renderer/theme/useThemeTokens';
 
 const AnimeSvg = styled.svg`
@@ -10,9 +9,12 @@ const AnimeSvg = styled.svg`
     user-select: none;
     cursor: default;
     font-weight: 600;
-    .clip-path {
-        transition: all 0.6s 0.1s;
-    }
+    /* The clip paths slide between the spent/left halves while the pointer
+       moves over the badge. They used to carry a 0.6s transition-all, which
+       made every crossing re-clip (and repaint) the badge for ~36 frames.
+       Clip geometry is a paint property, so it snaps now: the detail still
+       follows the pointer, but a sweep costs one paint instead of an
+       animation. */
     .label {
         font-weight: 700;
     }
@@ -101,10 +103,15 @@ interface TimeBadgeProps {
     collapsed?: boolean;
 }
 
+/** Pointer dwell before the spent/left detail becomes interactive. */
+export const TIME_BADGE_HOVER_DELAY_MS = 200;
+
+type ClipState = 'default' | 'spent' | 'left';
+
 export const TimeBadge = React.memo((props: TimeBadgeProps) => {
     const { collapsed = false } = props;
     const { tokens, isDark } = useThemeTokens();
-    const [clipState, setClipState] = React.useState('default');
+    const [clipState, setClipState] = React.useState<ClipState>('default');
     const id = React.useMemo(() => uid(), []);
     const id1 = id + '1';
     let exceeded = false;
@@ -123,38 +130,115 @@ export const TimeBadge = React.memo((props: TimeBadgeProps) => {
     const totalWidth = 168;
     const spentWidth = sum ? ((totalWidth - 100) / sum) * spentTime + 50 : 90;
     const estimatedWidth = totalWidth - spentWidth;
-    const _onMove = useMemo(
-        () =>
-            throttle((event: React.MouseEvent<HTMLOrSVGElement>) => {
-                let node = event.nativeEvent.target as Element | null;
-                while (node && node.tagName !== 'svg') {
-                    node = node.parentElement;
-                }
-                if (!node) {
-                    return;
-                }
 
-                const x = node.getBoundingClientRect().x;
-                const offset = event.clientX - x;
-                if (offset < totalWidth / 4) {
-                    setClipState('spent');
-                } else if (offset > (totalWidth / 4) * 3) {
-                    setClipState('left');
-                } else {
-                    setClipState('default');
-                }
-            }, 100),
-        []
-    );
-    const onMove = (event: React.MouseEvent<any>) => {
-        event.persist();
-        _onMove(event);
+    // The badge is hovered constantly while a card is crossed, so the detail
+    // interaction waits for a dwell (like the pin and the list bar). The badge
+    // is also one of several TimeBadges on screen (the Done list keeps its
+    // cards mounted), so avoid doing work on every mouse move:
+    //  - the left edge is measured once on enter instead of via
+    //    getBoundingClientRect() on every move (which can force layout);
+    //  - moves are ignored until the dwell elapses, so a sweep never flips the
+    //    clip paths or re-renders the badge.
+    const clipStateRef = React.useRef<ClipState>('default');
+    const interactiveRef = React.useRef(false);
+    const hoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const leaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const badgeLeftRef = React.useRef<number | null>(null);
+    const lastClientXRef = React.useRef<number | null>(null);
+
+    const applyClientX = (clientX: number) => {
+        const left = badgeLeftRef.current;
+        if (left === null) {
+            return;
+        }
+
+        const offset = clientX - left;
+        let next: ClipState = 'default';
+        if (offset < totalWidth / 4) {
+            next = 'spent';
+        } else if (offset > (totalWidth / 4) * 3) {
+            next = 'left';
+        }
+        if (next === clipStateRef.current) {
+            return;
+        }
+
+        clipStateRef.current = next;
+        setClipState(next);
     };
+
+    const onEnter = (event: React.MouseEvent<SVGSVGElement>) => {
+        if (collapsed) {
+            return;
+        }
+        if (leaveTimerRef.current !== null) {
+            clearTimeout(leaveTimerRef.current);
+            leaveTimerRef.current = null;
+        }
+
+        badgeLeftRef.current = event.currentTarget.getBoundingClientRect().left;
+        lastClientXRef.current = event.clientX;
+        if (interactiveRef.current || hoverTimerRef.current !== null) {
+            return;
+        }
+
+        hoverTimerRef.current = setTimeout(() => {
+            hoverTimerRef.current = null;
+            interactiveRef.current = true;
+            // The pointer may already have stopped over one of the halves;
+            // apply the stored position instead of waiting for the next move.
+            const clientX = lastClientXRef.current;
+            if (clientX !== null) {
+                applyClientX(clientX);
+            }
+        }, TIME_BADGE_HOVER_DELAY_MS);
+    };
+
+    const onMove = (event: React.MouseEvent<SVGSVGElement>) => {
+        if (collapsed) {
+            return;
+        }
+        lastClientXRef.current = event.clientX;
+        if (interactiveRef.current) {
+            applyClientX(event.clientX);
+        }
+    };
+
     const onLeave = () => {
-        setTimeout(() => {
+        if (hoverTimerRef.current !== null) {
+            clearTimeout(hoverTimerRef.current);
+            hoverTimerRef.current = null;
+        }
+        interactiveRef.current = false;
+        badgeLeftRef.current = null;
+        lastClientXRef.current = null;
+
+        if (leaveTimerRef.current !== null) {
+            clearTimeout(leaveTimerRef.current);
+        }
+        // Short grace period, as before: briefly crossing the badge edge must
+        // not flash "default" before the pointer comes back.
+        leaveTimerRef.current = setTimeout(() => {
+            leaveTimerRef.current = null;
+            if (clipStateRef.current === 'default') {
+                return;
+            }
+            clipStateRef.current = 'default';
             setClipState('default');
         }, 110);
     };
+
+    React.useEffect(
+        () => () => {
+            if (hoverTimerRef.current !== null) {
+                clearTimeout(hoverTimerRef.current);
+            }
+            if (leaveTimerRef.current !== null) {
+                clearTimeout(leaveTimerRef.current);
+            }
+        },
+        []
+    );
     let state = clipState;
     if (estimatedWidth < 53) {
         state = 'spent';
@@ -178,8 +262,6 @@ export const TimeBadge = React.memo((props: TimeBadgeProps) => {
                 width={totalWidth}
                 height="20"
                 style={{ margin: '0 0 2px 6px', fontSize: 12 }}
-                onMouseMove={onMove}
-                onMouseLeave={onLeave}
             >
                 <g clipPath={`url(#${id1})`}>
                     <text
@@ -202,13 +284,13 @@ export const TimeBadge = React.memo((props: TimeBadgeProps) => {
             width={totalWidth}
             height="20"
             style={{ margin: '0 0 2px 6px', fontSize: 12 }}
+            onMouseEnter={onEnter}
             onMouseMove={onMove}
             onMouseLeave={onLeave}
         >
             <defs>
                 <clipPath id={id}>
                     <path
-                        className={'clip-path'}
                         d={`M ${spentWidth} -10 L ${spentWidth} 30 L ${totalWidth * 2} 30 L ${
                             totalWidth * 2
                         } -10 Z`}
@@ -218,7 +300,6 @@ export const TimeBadge = React.memo((props: TimeBadgeProps) => {
                 </clipPath>
                 <clipPath id={id1}>
                     <path
-                        className={'clip-path'}
                         d={`M -${totalWidth} -10 H ${spentWidth} V 40 L ${-totalWidth} 30 Z`}
                         fill={'white'}
                         transform={transform}

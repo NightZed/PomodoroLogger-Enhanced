@@ -35,7 +35,7 @@
 
 > **轻松投资你的时间**
 
-番茄日志🕢 [^1] ——[番茄钟工作法](https://zh.wikipedia.org/wiki/番茄工作法) [^2] + [看板任务管理](https://en.wikipedia.org/wiki/Kanban_board) [^3] + 桌面活动追踪 + 数据可视化分析。
+番茄日志🕢 [^1] ——[番茄钟工作法](https://zh.wikipedia.org/wiki/番茄工作法) [^2] + [看板任务管理](https://en.wikipedia.org/wiki/Kanban_board) [^3] + 桌面活动追踪 + 数据可视化分析 + 跨平台。
 
 [^1]: 本仓库是[原版 Pomodoro Logger](https://github.com/zxch3n/PomodoroLogger) 的增强版，主要加强了**主题**、**卡片编辑**与**历史视图回顾**，并优化了**内存占用与 CPU 占用**。
 
@@ -159,7 +159,7 @@
 **桑基图**把分心应用与时间去向连成一张流向图。
 
 <p align="center">
-  <img width="520" src="./docs/images/sankey-diagram.png" alt="分心应用桑基图"/>
+  <img width="720" src="./docs/images/sankey-diagram.png" alt="分心应用桑基图"/>
 </p>
 
 ### 🥧 时间占比图表 · 词云
@@ -247,7 +247,6 @@ pomodoro-logger [C:\code\pomodoro-logger] .\src\renderer\components\src\Applicat
 | 任意 Linux（免安装） | `Pomodoro-Logger-Enhanced-<version>-linux-x86_64.AppImage` |
 
 `.zip`（`-mac-arm64.zip`、`-mac-x64.zip`）仅供应用内自动更新使用。
-每个版本还会附带 `SHA256SUMS.txt`，可用 `sha256sum -c SHA256SUMS.txt` 校验。
 Ubuntu 22.04 及以上运行 AppImage 需要先安装 `libfuse2`，或加 `--appimage-extract-and-run` 参数运行。
 
 ## 🤝 参与贡献

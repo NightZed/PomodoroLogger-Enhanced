@@ -33,7 +33,7 @@ jest.mock('../feedback', () => ({
     },
     FEEDBACK_MESSAGES: {
         setting: {
-            importConfirm: 'Pomodoro Logger will restart after importing. Continue?',
+            importConfirm: 'Pomodoro Logger Enhanced will restart after importing. Continue?',
             importInvalidTitle: 'This file cannot be imported',
             importInvalidIntro: 'Nothing was imported.',
             importWarningTitle: 'Imported with warnings',

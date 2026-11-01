@@ -35,7 +35,7 @@
 
 > **Invest your time easily**
 
-Pomodoro Logger 🕢 [^1] —— [Pomodoro Technique](https://en.wikipedia.org/wiki/Pomodoro_Technique) [^2] + [Kanban task management](https://en.wikipedia.org/wiki/Kanban_board) [^3] + desktop activity tracking + data visualization.
+Pomodoro Logger 🕢 [^1] : [Pomodoro Technique](https://en.wikipedia.org/wiki/Pomodoro_Technique) [^2] + [Kanban task management](https://en.wikipedia.org/wiki/Kanban_board) [^3] + desktop activity tracking + data visualization + cross-platform.
 
 [^1]: This repository is an enhanced edition of the [original Pomodoro Logger](https://github.com/zxch3n/PomodoroLogger), with a focus on **theme**, **card editing** and **history view review**, plus optimizations to **memory usage and CPU usage**.
 
@@ -159,7 +159,7 @@ The **History view** aggregates all records into a calendar heat map: the denser
 The **Sankey diagram** connects distracting apps with where your time went.
 
 <p align="center">
-  <img width="520" src="./docs/images/sankey-diagram.png" alt="Distraction Sankey diagram"/>
+  <img width="720" src="./docs/images/sankey-diagram.png" alt="Distraction Sankey diagram"/>
 </p>
 
 ### 🥧 Time Proportion Chart · Word Cloud
@@ -247,7 +247,6 @@ Download: [release page](https://github.com/NightZed/PomodoroLogger-Enhanced/rel
 | Any Linux (no install) | `Pomodoro-Logger-Enhanced-<version>-linux-x86_64.AppImage` |
 
 The `.zip` files (`-mac-arm64.zip`, `-mac-x64.zip`) are only used by the built-in updater.
-Every release also ships `SHA256SUMS.txt` (`sha256sum -c SHA256SUMS.txt` to verify).
 On Ubuntu 22.04+ the AppImage needs `libfuse2` (or run it with `--appimage-extract-and-run`).
 
 ## 🤝 CONTRIBUTING

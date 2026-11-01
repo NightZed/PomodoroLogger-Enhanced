@@ -174,7 +174,7 @@ export const kanbanStories: Story[] = [
         useMask: false,
         hasConfirm: true,
         hint:
-            'Pomodoro Logger enables you to manage your time accurately. ' +
+            'Pomodoro Logger Enhanced enables you to manage your time accurately. ' +
             'It will track your exact focusing time on this task.' +
             "Once you set your estimation, it's able to rate your estimation.",
         dialogPosition: { left: 24, bottom: 24 },

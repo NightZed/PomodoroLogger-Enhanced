@@ -231,7 +231,7 @@ const createWindow = async () => {
         useContentSize: true,
         backgroundColor: '#00000000',
         icon: nativeImage.createFromPath(path.join(__dirname, logo)),
-        title: 'Pomodoro Logger',
+        title: 'Pomodoro Logger Enhanced',
         webPreferences: {
             // Renderer code only reaches the main process through the narrow
             // preload bridge (see src/main/preload.ts). Workers are pure web
@@ -407,7 +407,7 @@ app.on('ready', async () => {
 
     // @ts-ignore
     const contextMenu = Menu.buildFromTemplate(menuItems);
-    mGlobal.tray.setToolTip('Pomodoro Logger');
+    mGlobal.tray.setToolTip('Pomodoro Logger Enhanced');
     if (process.platform === 'darwin') {
         mGlobal.tray.on('click', async () => {
             if (!win) {
@@ -441,7 +441,7 @@ app.on('ready', async () => {
     } catch (error) {
         dialog.showErrorBox(
             'Database migration failed',
-            'Pomodoro Logger could not migrate the old database.\n\n' +
+            'Pomodoro Logger Enhanced could not migrate the old database.\n\n' +
                 'The original .nedb files were left untouched. Please back up the db folder and report this error:\n\n' +
                 String(error)
         );

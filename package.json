@@ -150,8 +150,8 @@
         "url": "git@github.com:NightZed/PomodoroLogger-Enhanced.git"
     },
     "author": {
-        "name": "Zixuan Chen",
-        "email": "remch183@outlook.com"
+        "name": "NightZed",
+        "email": "NightZed@outlook.com"
     },
     "license": "LGPL-3.0-or-later",
     "bugs": {

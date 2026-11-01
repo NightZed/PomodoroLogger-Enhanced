@@ -55,7 +55,7 @@ export const FEEDBACK_MESSAGES = {
         openDataDirFailed: 'Could Not Open Data Folder',
         openDataDirFailedDetail: (reason: string) =>
             `The data folder could not be opened: ${reason}`,
-        importConfirm: 'Pomodoro Logger will restart after importing. Continue?',
+        importConfirm: 'Pomodoro Logger Enhanced will restart after importing. Continue?',
         deleteAllConfirm: 'Delete all sessions, projects and boards? Your settings are kept.',
         /** Export / import results, and the report of a refused file. */
         exportDone: (fileName: string) => `Data exported to ${fileName}`,

@@ -1,5 +1,5 @@
 import { Dispatch } from 'redux';
-import { MapDispatchToPropsParam } from 'react-redux';
+import { MapDispatchToPropsFunction } from 'react-redux';
 
 let creatorMap = new WeakMap();
 let cachedDispatch: Dispatch | undefined;
@@ -28,7 +28,7 @@ export const genMapDispatchToProp = <T>(actions: { [key: string]: any }) => {
 export function memorizeDispatchToProps<Props, T extends { [name: string]: Function }>(
     funcMap: (dispatch: Dispatch, props: Props) => T,
     cacheMap: (props: Props) => { [name in keyof T]: any[] }
-): MapDispatchToPropsParam<T, Props> {
+): MapDispatchToPropsFunction<T, Props> {
     const cacheKeys: { [name in keyof T]?: any[] } = {};
     const cachedFunctions: Partial<T> = {};
     return (dispatch: Dispatch, props: Props) => {

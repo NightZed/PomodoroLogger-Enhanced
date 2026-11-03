@@ -12,7 +12,10 @@ export const EditorContainer = styled.div`
 `;
 
 /**
- * Card editor motion.
+ * Kanban dialog motion.
+ *
+ * Shared by every dialog in the Kanban feature (the card editor and the board
+ * editor), hence it is mounted once at the app root in `Application.tsx`.
  *
  * The editor is shown and hidden in a single frame; only a 1ms "hold"
  * animation runs on the `-active` classes. That animation has no visible

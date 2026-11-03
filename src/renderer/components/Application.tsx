@@ -12,6 +12,7 @@ import History from './History';
 import { actions as historyActions, HistoryActionCreatorTypes } from './History/action';
 import Kanban from './Kanban';
 import { CardInDetail } from './Kanban/Card/CardEditor';
+import { EditorAnimation } from './Kanban/style/editorStyle';
 import { kanbanActions } from './Kanban/reducer';
 import Setting from './Setting';
 import Timer from './Timer';
@@ -366,6 +367,10 @@ class Application extends React.Component<Props, State> {
                         layer so those surfaces fade with the page instead of
                         escaping to <body>, see popupLayer.ts. */}
                     <div id={POPUP_CONTAINER_ID} />
+                    {/* Shared by the card editor and the board editor; mounted
+                        once here so neither dialog depends on the other being
+                        rendered to get its motion classes. */}
+                    <EditorAnimation />
                     <AppTitleBar
                         currentTab={currentTab}
                         minimize={minimize}
@@ -457,7 +462,17 @@ const ThemedApplication: React.FC<React.ComponentProps<typeof ApplicationContain
     );
 
     return (
-        <ConfigProvider getPopupContainer={getPopupContainer} theme={theme}>
+        <ConfigProvider
+            getPopupContainer={getPopupContainer}
+            theme={theme}
+            // antd's click ripple (`.ant-wave`) is a 2s animation. With the
+            // default software rendering it makes the compositor redraw the
+            // whole window at ~60fps for those two seconds: measured on
+            // 2560x1410, opening the board editor from its settings button cost
+            // ~1.0s CPU with the ripple and ~0.5s without it. The ripple is
+            // purely decorative, so it is not worth that.
+            wave={{ disabled: true }}
+        >
             <AntdApp
                 component={false}
                 message={{ getContainer: getPopupContainer }}

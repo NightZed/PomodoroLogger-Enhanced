@@ -16,7 +16,7 @@ import { Markdown } from '../style/Markdown';
 import formatMarkdown from './formatMarkdown';
 import { getCheckboxIndex, toggleNthCheckbox } from './toggleCheckbox';
 import { findFormatBlock } from './selectionFormat';
-import { EditorContainer, EditorAnimation } from '../style/editorStyle';
+import { EditorContainer } from '../style/editorStyle';
 import { CreatedTime } from '../style/CreatedTime';
 import { formatTimeYmdHm } from '../../Visualization/Timeline';
 import { LabelEditor } from './LabelEditor';
@@ -586,7 +586,6 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             // instead of first paying for the form's initial mount.
             forceRender
         >
-            <EditorAnimation />
             <EditorContainer>
                 <Form form={form} layout="vertical">
                     <Form.Item

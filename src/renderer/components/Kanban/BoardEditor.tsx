@@ -89,6 +89,8 @@ export const EditKanbanForm = (props: FormProps) => {
             onOk={() => form.submit()}
             style={{ minWidth: 300 }}
             width={'60vw'}
+            transitionName="card-editor-panel"
+            maskTransitionName="card-editor-fade"
             getContainer={getPopupContainer}
             forceRender
         >
@@ -111,9 +113,10 @@ export const EditKanbanForm = (props: FormProps) => {
                         </CreatedTime>
                     ) : undefined}
                     {/* Mounted with the (force-rendered) dialog so opening the
-                        editor only has to run the fade-in: mounting Tabs and
-                        the auto-sizing textarea inside the click handler made
-                        the first click on a board feel frozen. */}
+                        editor only has to show the already-mounted form:
+                        mounting Tabs and the auto-sizing textarea inside the
+                        click handler made the first click on a board feel
+                        frozen. */}
                     {
                         <Tabs
                             onChange={onTabChange}

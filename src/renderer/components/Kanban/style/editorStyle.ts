@@ -12,13 +12,38 @@ export const EditorContainer = styled.div`
 `;
 
 /**
- * Fade the editor dialog without scaling it, so its content does not appear to
- * grow as the modal opens. `will-change` is limited to the animation classes.
+ * Card editor motion.
+ *
+ * The editor is shown and hidden in a single frame; only a 1ms "hold"
+ * animation runs on the `-active` classes. That animation has no visible
+ * effect, it exists because rc-motion advances its state machine (and releases
+ * the wrap / starts the leave step) on `animationend`. Without it the dialog
+ * gets stuck in `enter` and can never close.
+ *
+ * Why no fade: the app runs with software rendering by default
+ * (`useHardwareAcceleration` is off out of the box). The dialog panel is a
+ * 960px wide surface over the board; animating its opacity or transform makes
+ * the software compositor redraw the whole window every frame. Measured on a
+ * 2560x1410 window with the real board data: a 150ms fade stretched to ~500ms
+ * of wall time and cost ~0.5s CPU per open (plus ~0.35s per close), while the
+ * same open with the animation removed costs ~0.35s and ~0.2s. That is the
+ * "fullscreen opens slower / uses more CPU than the Timer sider" report. The
+ * mask was animated separately before as well; fading it is cheaper per frame
+ * but still composites the full window, so it now appears with the panel.
+ *
+ * The animation must live on the `-enter-active`/`-leave-active` class, not on
+ * `-enter`: rc-motion only attaches its animationend listener when it enters
+ * the active step, so an animation that starts (and finishes) a frame earlier
+ * is never observed. `animation-fill-mode: both` keeps the end state between
+ * commits; without it on leave the panel is visible for a frame between the
+ * end of the animation and rc-motion applying display:none (the "reopened and
+ * instantly closed again" blink).
  */
 export const EditorAnimation = createGlobalStyle`
-    @keyframes cardEditorFadeIn {
+    /* Constant state: no visual change, just an animationend for rc-motion. */
+    @keyframes cardEditorHold {
         from {
-            opacity: 0;
+            opacity: 1;
         }
         to {
             opacity: 1;
@@ -35,27 +60,27 @@ export const EditorAnimation = createGlobalStyle`
     }
 
     .card-editor-fade-enter,
-    .card-editor-fade-appear {
-        will-change: opacity;
-        animation-name: cardEditorFadeIn;
-        animation-duration: 0.15s;
-        animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
-        /* Hold the start/end state between commits, like antd's own motion
-           styles (theme initMotion sets animationFillMode: 'both'). */
+    .card-editor-fade-appear,
+    .card-editor-fade-leave,
+    .card-editor-panel-enter,
+    .card-editor-panel-appear,
+    .card-editor-panel-leave {
+        animation: none;
+    }
+
+    .card-editor-fade-enter-active,
+    .card-editor-fade-appear-active,
+    .card-editor-panel-enter-active,
+    .card-editor-panel-appear-active {
+        animation-name: cardEditorHold;
+        animation-duration: 0.001s;
         animation-fill-mode: both;
     }
 
-    .card-editor-fade-leave {
-        will-change: opacity;
+    .card-editor-fade-leave-active,
+    .card-editor-panel-leave-active {
         animation-name: cardEditorFadeOut;
-        animation-duration: 0.15s;
-        animation-timing-function: ease-in;
-        /* Without fill-mode the panel is back at its base opacity (1) in the
-           frame between the end of the 150ms leave animation and rc-motion
-           removing the leave class + applying display:none. The dialog then
-           blinks fully visible for a frame -- it reads as "reopened and
-           instantly closed again". Keep the final opacity 0 until the panel is
-           hidden. (Verified with per-frame computed styles in Chromium.) */
+        animation-duration: 0.001s;
         animation-fill-mode: both;
     }
 `;

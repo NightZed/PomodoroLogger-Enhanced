@@ -1,12 +1,12 @@
 /**
  * Regression: closing the editor must not blank the card it is still showing.
  *
- * The dialog is force-rendered, so it stays on screen for the whole fade-out.
- * The close action used to clear `editCard._id`, which made `card` undefined in
- * the first closing render: the "Created: ..." line (gated on `card`) vanished
- * mid-fade, the dialog shrank before it disappeared, and `isCreating` flipped
- * so a re-render during the fade swapped in the create layout. Closing now
- * keeps `_id`/`listId`; only `isEditing` changes.
+ * The dialog is force-rendered, so it stays on screen while the close motion
+ * runs. The close action used to clear `editCard._id`, which made `card`
+ * undefined in the first closing render: the "Created: ..." line (gated on
+ * `card`) vanished while closing, the dialog shrank before it disappeared, and
+ * `isCreating` flipped so a re-render during the close swapped in the create
+ * layout. Closing now keeps `_id`/`listId`; only `isEditing` changes.
  */
 import * as React from 'react';
 import { Provider } from 'react-redux';
@@ -80,7 +80,7 @@ describe('CardEditor close', () => {
 
     const modalText = () => document.querySelector('.ant-modal')?.textContent ?? '';
 
-    it('keeps the card rendered while the dialog fades out', async () => {
+    it('keeps the card rendered while the dialog closes', async () => {
         await act(async () => {
             store.dispatch(actions.setEditCard(true, 'list-1', 'card-1') as any);
             await new Promise((resolve) => setTimeout(resolve, 0));

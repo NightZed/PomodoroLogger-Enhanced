@@ -577,7 +577,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             onCancel={onCancel}
             style={{ minWidth: 300 }}
             width={960}
-            transitionName="card-editor-fade"
+            transitionName="card-editor-panel"
             maskTransitionName="card-editor-fade"
             getContainer={getPopupContainer}
             wrapClassName={CARD_EDITOR_WRAP_CLASS}

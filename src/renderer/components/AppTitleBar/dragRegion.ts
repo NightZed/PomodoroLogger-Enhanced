@@ -1,12 +1,18 @@
 /**
  * Which presses on the title bar start a window drag.
  *
- * Only the maximized title bar asks this: while the window is maximized the bar
- * is `-webkit-app-region: no-drag` and the press is handled in the renderer
- * (see `AppTitleBar`), so the press has to be told apart from the tab clicks
- * that share the same row. `isDragSurface` is that decision, kept out of the
- * component so it can be unit tested against real DOM elements (see the jsdom
- * test next to it) instead of through a rendered antd tab bar.
+ * A press reaches the renderer in two cases:
+ *
+ * - the window is maximized, where the bar is `-webkit-app-region: no-drag`
+ *   (see `AppTitleBar`), and
+ * - Chromium has clipped the native drag region after a scroller was scrolled.
+ *   The cut segment is client area, so the press arrives here instead of
+ *   starting the OS move.
+ *
+ * In both cases the press has to be told apart from the tab clicks that share
+ * the same row. `isDragSurface` is that decision, kept out of the component so
+ * it can be unit tested against real DOM elements (see the jsdom test next to
+ * it) instead of through a rendered antd tab bar.
  *
  * The bar itself is the drag region; the entries inside it are not:
  * `.ant-tabs-tab` (the page entries, also arrow-key navigable),

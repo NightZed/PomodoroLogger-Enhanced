@@ -14,8 +14,8 @@ import { APP_TABS, nextTabKey } from '../appTabs';
 import { tabType } from '../Timer/action';
 import AppTitleBar from './AppTitleBar';
 
-// The window buttons and the maximized-title-bar drag talk to the main process
-// through `window.api`.
+// The window buttons and the title-bar drag talk to the main process through
+// `window.api`.
 (window as any).api = { windowAction: jest.fn(), windowDrag: jest.fn() };
 
 const build = (
@@ -178,10 +178,13 @@ describe('AppTitleBar', () => {
         expect(windowDrag).toHaveBeenLastCalledWith('end');
     });
 
-    it('leaves a press on a normal window to the native drag region', () => {
-        // Not maximized: Chromium's drag region moves the window itself -- and
-        // keeps Aero Snap working -- so the renderer must not start a second,
-        // competing drag.
+    it('drives a normal window when the native drag region yields the press', () => {
+        // The native region normally takes the press itself, so this handler
+        // never runs. Chromium clips that region to the bounds of a scroller
+        // that was scrolled, though (docs/title-bar-drag-after-scroll.md), and
+        // the cut segment reaches the renderer as a normal client press. Those
+        // segments still have to move the window, so a normal window starts the
+        // renderer-driven drag too.
         const windowDrag = jest.fn();
         (window as any).api = { windowAction: jest.fn(), windowDrag };
 
@@ -193,7 +196,10 @@ describe('AppTitleBar', () => {
 
         pointerDown(bar);
 
-        expect(windowDrag).not.toHaveBeenCalled();
-        expect(setPointerCapture).not.toHaveBeenCalled();
+        expect(windowDrag).toHaveBeenCalledWith('start');
+        expect(setPointerCapture).toHaveBeenCalledWith(7);
+
+        pointerUp(bar);
+        expect(windowDrag).toHaveBeenLastCalledWith('end');
     });
 });

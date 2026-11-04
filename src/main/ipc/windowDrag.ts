@@ -1,18 +1,25 @@
 import { BrowserWindow, Point, Rectangle, screen } from 'electron';
 
 /*
- * Window move of a title bar drag on a *maximized* window.
+ * Window move of a title bar drag that the renderer has to drive.
  *
- * The native drag region (`-webkit-app-region: drag`) cannot handle that
- * gesture here. On Windows a transparent window is never a real maximized
- * window: Electron emulates the state by resizing to the display work area (see
- * `NativeWindowViews::Maximize`), and it swallows the system's maximize command
- * for such windows. Windows' own "dragging a maximized window restores it and
- * carries it along" move therefore never runs -- the window is just carried
- * away at full size. `AppTitleBar` hands the press over to the renderer while
- * the window is maximized and reports the two ends of the gesture; this module
- * reproduces the native move: restore first (Electron's `unmaximize()` puts the
- * pre-maximize bounds back), then follow the cursor until the gesture ends.
+ * The native drag region (`-webkit-app-region: drag`) handles ordinary presses,
+ * but two cases reach the renderer instead:
+ *
+ * 1. A maximized window. On Windows a transparent window is never a real
+ *    maximized window: Electron emulates the state by resizing to the display
+ *    work area (see `NativeWindowViews::Maximize`), and it swallows the
+ *    system's maximize command for such windows. Windows' own "dragging a
+ *    maximized window restores it and carries it along" move therefore never
+ *    runs -- the window is just carried away at full size. `AppTitleBar` hands
+ *    the press over to the renderer while the window is maximized and reports
+ *    the two ends of the gesture; this module reproduces the native move:
+ *    restore first (Electron's `unmaximize()` puts the pre-maximize bounds
+ *    back), then follow the cursor until the gesture ends.
+ * 2. A normal window whose native region Chromium clipped after a scroller was
+ *    scrolled (see docs/title-bar-drag-after-scroll.md). The cut segment is a
+ *    client area, so the press reaches the renderer and starts the same move
+ *    from the window's current bounds.
  */
 
 /**

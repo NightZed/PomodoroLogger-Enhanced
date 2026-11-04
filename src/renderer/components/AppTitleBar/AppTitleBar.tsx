@@ -69,7 +69,12 @@ const TitleBar = styled.div<{
            and carries it along" move therefore never runs, and the window would
            be carried away at full size. See src/main/ipc/windowDrag.ts for the
            move itself and dragRegion.ts for what counts as a press on the bar.
-           Normal windows keep drag, i.e. the native move and its Aero Snap. */
+
+           Normal windows keep drag, i.e. the native move and its Aero Snap.
+           Chromium clips that region to the bounds of whichever scroller was
+           last scrolled, though: the clipped part arrives as an ordinary client
+           press. The same pointer handler covers it, so the bar keeps moving
+           the window while the untouched segments keep the native move. */
         -webkit-app-region: ${({ $maximized }) => ($maximized ? 'no-drag' : 'drag')};
     }
 
@@ -219,8 +224,10 @@ const AppTitleBar: React.FC<Props> = ({
 }) => {
     /**
      * Pointer that started a drag on the bar, or null while none is running.
-     * Only the maximized window gets here; the main process moves the window
-     * (see `src/main/ipc/windowDrag.ts`), this side only reports the gesture.
+     * Only a press the native region did not take gets here (maximized window,
+     * or a segment Chromium clipped after a scroll); the main process moves the
+     * window (see `src/main/ipc/windowDrag.ts`), this side only reports the
+     * gesture.
      */
     const dragPointerId = React.useRef<number | null>(null);
 
@@ -234,14 +241,25 @@ const AppTitleBar: React.FC<Props> = ({
     }, []);
 
     /**
-     * Turns a press on the maximized bar into a window drag.
+     * Turns a press on the title bar into a window drag.
      *
-     * Deliberately does nothing on a normal window: there the bar keeps
-     * Chromium's drag region, which moves the window natively and keeps Aero
-     * Snap working (see the `no-drag` note in `TitleBar`).
+     * The native drag region normally takes the press before the renderer sees
+     * it, which keeps the OS move and Aero Snap. A press still arrives here in
+     * two cases:
+     *
+     * - the window is maximized, where the bar is `no-drag` (see the note in
+     *   `TitleBar`), and
+     * - Chromium has clipped the native region to a scroller that was scrolled,
+     *   which turns exactly the cut segment into client area. The segment
+     *   follows the scroller's horizontal span: scrolling one Kanban column
+     *   only cuts the title bar above that column.
+     *
+     * Both cases need the renderer to move the window; segments the native
+     * region still owns never reach this handler, so the two paths do not
+     * compete.
      */
     const startWindowDrag = (event: React.PointerEvent<HTMLDivElement>) => {
-        if (!maximized || event.button !== 0 || !isDragSurface(event.target as Element)) {
+        if (event.button !== 0 || !isDragSurface(event.target as Element)) {
             return;
         }
 

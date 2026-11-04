@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
-import { Button, Form, Input, Modal, Tabs } from 'antd';
+import { Button, Form, Input, Tabs } from 'antd';
 import type { RuleObject } from 'antd/es/form';
 import { ConfirmPopover } from '../feedback';
+import { AppModal } from '../AppModal';
 import { getPopupContainer } from '../popupLayer';
 import { DistractingListModalButton } from '../Setting/DistractingList';
 import { EditorContainer } from './style/editorStyle';
@@ -80,7 +81,7 @@ export const EditKanbanForm = (props: FormProps) => {
     const descriptionHtml = React.useMemo(() => formatMarkdown(description), [description]);
 
     return (
-        <Modal
+        <AppModal
             open={visible}
             title={isCreating ? 'Create a new board' : 'Edit'}
             okText={isCreating ? 'Create' : 'Save'}
@@ -89,8 +90,6 @@ export const EditKanbanForm = (props: FormProps) => {
             onOk={() => form.submit()}
             style={{ minWidth: 300 }}
             width={'60vw'}
-            transitionName="card-editor-panel"
-            maskTransitionName="card-editor-fade"
             getContainer={getPopupContainer}
             forceRender
         >
@@ -171,6 +170,6 @@ export const EditKanbanForm = (props: FormProps) => {
                     ) : undefined}
                 </Form>
             </EditorContainer>
-        </Modal>
+        </AppModal>
     );
 };

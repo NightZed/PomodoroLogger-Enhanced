@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { Provider } from 'react-redux';
 
 import Application from './components/Application';
+import { DialogMotion } from './components/AppModal';
 import { ThemeController } from './components/ThemeController';
 import { applyTheme, GlobalStyle, resolveTheme } from './theme';
 import store from './store';
@@ -45,6 +46,7 @@ createRoot(mainElement).render(
     <Provider store={store}>
         <React.Fragment>
             <GlobalStyle />
+            <DialogMotion />
             <ThemeController />
             <Application />
         </React.Fragment>

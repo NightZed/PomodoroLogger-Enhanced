@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { App as AntdApp, Checkbox, Popconfirm } from 'antd';
+import { dialogMotionProps } from '../AppModal';
 import { getPopupContainer } from '../popupLayer';
 import { FEEDBACK_MESSAGES } from './messages';
 import {
@@ -167,6 +168,7 @@ export const confirm = ({
     onCancel,
 }: ConfirmOptions) => {
     return getFeedbackAppApi().modal.confirm({
+        ...dialogMotionProps,
         className: dialogClassName(kind),
         title,
         content: <ConfirmContent content={content} checkbox={checkbox} />,
@@ -192,6 +194,7 @@ export const alert = ({
     onOk,
 }: AlertOptions) => {
     return getFeedbackAppApi().modal.info({
+        ...dialogMotionProps,
         className: dialogClassName(kind),
         title,
         content: <div className={FEEDBACK_TEXT_CLASS}>{content}</div>,

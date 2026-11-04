@@ -4,8 +4,9 @@ import { actions as boardActions } from '../Kanban/Board/action';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../reducers';
 import { Dispatch } from 'redux';
-import { Form, Input, Button, Modal } from 'antd';
+import { Form, Input, Button } from 'antd';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { AppModal } from '../AppModal';
 import { getPopupContainer } from '../popupLayer';
 import styled from 'styled-components';
 
@@ -244,7 +245,7 @@ export const DistractingListModalButton = (props: InputProps) => {
         <>
             {/* tslint:disable-next-line:jsx-no-lambda */}
             <Button onClick={() => setEditingDistracting(true)}>Distracting App Setting</Button>
-            <Modal
+            <AppModal
                 title={'Distracting App Setting'}
                 open={editingDistracting}
                 /* tslint:disable-next-line:jsx-no-lambda */
@@ -261,7 +262,7 @@ export const DistractingListModalButton = (props: InputProps) => {
                     }}
                     onSaved={() => setEditingDistracting(false)}
                 />
-            </Modal>
+            </AppModal>
         </>
     );
 };

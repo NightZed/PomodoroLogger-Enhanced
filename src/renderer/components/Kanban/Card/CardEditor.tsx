@@ -5,7 +5,8 @@ import { actions, CardActionTypes } from './action';
 import { actions as kanbanActions } from '../action';
 import { RootState } from '../../../reducers';
 import { genMapDispatchToProp, matchParent } from '../../../utils';
-import { Button, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Tabs, Tooltip } from 'antd';
+import { Button, Col, DatePicker, Form, Input, InputNumber, Row, Tabs, Tooltip } from 'antd';
+import { AppModal } from '../../AppModal';
 import { AntdIcon as Icon } from '../../antdIcon';
 import { ConfirmPopover } from '../../feedback';
 import { getPopupContainer } from '../../popupLayer';
@@ -556,7 +557,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
     );
 
     return (
-        <Modal
+        <AppModal
             open={visible}
             title={thisIsCreating ? 'Create a new card' : 'Edit'}
             // custom footer: wrap the Save button in an antd Tooltip so the
@@ -577,8 +578,6 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             onCancel={onCancel}
             style={{ minWidth: 300 }}
             width={960}
-            transitionName="card-editor-panel"
-            maskTransitionName="card-editor-fade"
             getContainer={getPopupContainer}
             wrapClassName={CARD_EDITOR_WRAP_CLASS}
             // Same as the board editor: mount the dialog contents up front so
@@ -780,7 +779,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                     )}
                 </Form>
             </EditorContainer>
-            <Modal
+            <AppModal
                 title={'Insert link'}
                 open={linkModalVisible}
                 okText={'Insert'}
@@ -806,8 +805,8 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                     onChange={(e) => setLinkUrl(e.target.value)}
                     onPressEnter={confirmLink}
                 />
-            </Modal>
-        </Modal>
+            </AppModal>
+        </AppModal>
     );
 });
 

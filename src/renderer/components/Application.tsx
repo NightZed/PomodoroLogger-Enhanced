@@ -12,7 +12,6 @@ import History from './History';
 import { actions as historyActions, HistoryActionCreatorTypes } from './History/action';
 import Kanban from './Kanban';
 import { CardInDetail } from './Kanban/Card/CardEditor';
-import { EditorAnimation } from './Kanban/style/editorStyle';
 import { kanbanActions } from './Kanban/reducer';
 import Setting from './Setting';
 import Timer from './Timer';
@@ -367,10 +366,6 @@ class Application extends React.Component<Props, State> {
                         layer so those surfaces fade with the page instead of
                         escaping to <body>, see popupLayer.ts. */}
                     <div id={POPUP_CONTAINER_ID} />
-                    {/* Shared by the card editor and the board editor; mounted
-                        once here so neither dialog depends on the other being
-                        rendered to get its motion classes. */}
-                    <EditorAnimation />
                     <AppTitleBar
                         currentTab={currentTab}
                         minimize={minimize}

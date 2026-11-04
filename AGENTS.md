@@ -86,7 +86,7 @@ CI (`.github/workflows/test.yml`) runs `yarn lint`, `yarn typecheck` and `yarn t
 
 - `src/main/main.ts` reads the hardware-acceleration setting synchronously (before `app.ready`) and then dynamically imports `src/main/init.ts`, which creates the frameless/transparent `BrowserWindow` (`sandbox: true`, `contextIsolation: true`, `nodeIntegration: false`), the tray, close-to-tray behavior, window-mode handling and the auto-updater.
 - The renderer reaches the main process only through `src/main/preload.ts`, which exposes a narrow `window.api` (`ExposedAPI` in `src/main/ipc/type.ts`). Every channel name, payload shape and sender is validated on the main side (`src/main/ipc/ipc.ts` `handleCommand` + `src/main/ipc/validate.ts`). When adding a capability, extend the type union, the preload method and the main handler together.
-- All in-app messages go through the feedback layer (`src/renderer/components/feedback`): `feedback.toast` / `notice` / `confirm` / `alert`. Importing antd's `message` / `notification` directly is blocked by `no-restricted-imports`.
+- All in-app messages go through the feedback layer (`src/renderer/components/feedback`): `feedback.toast` / `notice` / `confirm` / `alert`. Importing antd's `message` / `notification` directly is blocked by `no-restricted-imports`. Content dialogs must use `AppModal` (`src/renderer/components/AppModal.tsx`), which applies the shared instant dialog motion; importing antd's `Modal` directly is blocked too. antd's click ripple is disabled globally in `Application` because software rendering (the default) turns its 2s animation into a full-window 60fps repaint.
 
 ### Data layer (single writer)
 

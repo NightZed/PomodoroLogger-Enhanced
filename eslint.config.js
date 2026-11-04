@@ -93,23 +93,31 @@ module.exports = tseslint.config(
         rules: {
             // Every in-app message goes through the feedback layer, which is what
             // keeps channel (toast / notice / dialog), position, lifetime, styling
-            // and copy consistent. `Modal` stays allowed for content dialogs
-            // (editors, forms) -- use `feedback.confirm` / `feedback.alert` for
-            // decisions and acknowledgements.
+            // and copy consistent. Content dialogs go through AppModal so they
+            // share the instant software-rendering-friendly motion; use
+            // `feedback.confirm` / `feedback.alert` for decisions and
+            // acknowledgements.
             'no-restricted-imports': [
                 'warn',
                 {
                     paths: [
                         {
                             name: 'antd',
-                            importNames: ['message', 'notification'],
+                            importNames: ['message', 'notification', 'Modal'],
                             message:
-                                'Use the feedback layer instead ' +
-                                '(src/renderer/components/feedback): feedback.toast / feedback.notice.'
+                                'Use the feedback layer for toasts/notices and AppModal for ' +
+                                'dialogs (src/renderer/components/AppModal).'
                         }
                     ]
                 }
             ]
+        }
+    },
+    {
+        // AppModal is the one place that imports antd's Modal directly.
+        files: ['src/renderer/components/AppModal.tsx'],
+        rules: {
+            'no-restricted-imports': 'off'
         }
     },
     {

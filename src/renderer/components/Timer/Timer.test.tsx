@@ -5,6 +5,7 @@ import { getTodaySessions } from '../../monitor/sessionManager';
 import { setTrayImageWithMadeIcon } from './iconMaker';
 import { Monitor } from '../../monitor';
 import { DAY_THEME_ID, NIGHT_THEME_ID } from '../../theme/tokens';
+import { scaleMs } from '../../../config';
 
 const mockMonitorInstances: any[] = [];
 
@@ -235,14 +236,20 @@ describe('Timer page', () => {
     });
 
     it('counts down with wall time and repaints the tray icon', async () => {
-        const now = Date.now();
-        // The dev clock runs at 120x, so 5s of wall time is one nominal minute.
-        const { container } = await renderTimer({ isRunning: true, targetTime: now + 5000 });
+        // The clock runs at `timeScale()` (120x in development, 1x in
+        // production), and `targetTime` is wall time. Both sides are built from
+        // `scaleMs` so the test asserts the same nominal values at any scale
+        // and never asks the app config to bend to it.
+        const { container } = await renderTimer({
+            isRunning: true,
+            targetTime: Date.now() + scaleMs(10 * 60 * 1000),
+        });
 
         expect(container.textContent).toContain('10:00');
 
         await act(async () => {
-            jest.advanceTimersByTime(500);
+            // One nominal minute of wall time.
+            jest.advanceTimersByTime(scaleMs(60 * 1000));
         });
 
         expect(container.textContent).toContain('09:00');
@@ -497,7 +504,9 @@ describe('Timer page', () => {
         const { ref, actions } = await renderTimer({
             minFinishDuration: 600,
             isRunning: true,
-            targetTime: Date.now() + 10000,
+            // A freshly started session: the whole focus duration is still
+            // ahead, so nothing has been focused yet at any clock scale.
+            targetTime: Date.now() + scaleMs(baseTimer.focusDuration * 1000),
         });
         const { feedback } = require('../feedback');
 
@@ -520,7 +529,11 @@ describe('Timer page', () => {
         });
 
         await act(async () => {
-            jest.advanceTimersByTime(500);
+            // Two 500ms ticks. A single tick only reaches "00:00":
+            // `countdownSeconds` rounds to the nearest second, so a session
+            // that is 499ms past its target is still 0 seconds left. The second
+            // tick goes negative and ends the session -- at any clock scale.
+            jest.advanceTimersByTime(1000);
         });
 
         expect(api.notify).toHaveBeenCalled();

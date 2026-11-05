@@ -11,6 +11,7 @@ import { DEBUG_TIME_SCALE, scaleMs } from '../../../config';
 import { AsyncDB } from '../../../utils/dbHelper';
 import { DEFAULT_THEME_ID, ThemeDefinition } from '../../theme/tokens';
 import type { LanguagePreference } from '../../../shared/i18n';
+import type { LogLevel } from '../../../shared/log';
 
 export const LONG_BREAK_INTERVAL = 4;
 const settingDB = new AsyncDB(dbs.settingDB);
@@ -109,6 +110,12 @@ export interface Setting {
      * `'system'` is not a language.
      */
     language: LanguagePreference;
+    /**
+     * Verbosity of the files in `<dataDir>/logs`. Applied to the main process
+     * immediately through `window.api.setLogLevel`; the value read at startup
+     * comes from the settings table, which this object persists.
+     */
+    logLevel: LogLevel;
 }
 
 export interface TimerManager {
@@ -202,6 +209,7 @@ export const defaultState: TimerState = {
     followSystemTheme: false,
     customThemes: undefined,
     language: 'system',
+    logLevel: 'info',
     currentTab: 'timer',
 };
 
@@ -292,6 +300,7 @@ export const setThemeId = createAction<string>('[Setting]SET_THEME_ID');
 export const setFollowSystemTheme = createAction<boolean>('[Setting]SET_FOLLOW_SYSTEM_THEME');
 export const setCustomThemes = createAction<ThemeDefinition[]>('[Setting]SET_CUSTOM_THEMES');
 export const setLanguage = createAction<LanguagePreference>('[Setting]SET_LANGUAGE');
+export const setLogLevel = createAction<LogLevel>('[Setting]SET_LOG_LEVEL');
 export const changeAppTab = createAction<tabType>('[App]CHANGE_APP_TAB');
 
 /**
@@ -384,6 +393,7 @@ export const actions = {
             ['followSystemTheme', setFollowSystemTheme],
             ['customThemes', setCustomThemes],
             ['language', setLanguage],
+            ['logLevel', setLogLevel],
         ];
         for (const key of settingKeywords) {
             if (key[0] in settings) {
@@ -559,6 +569,20 @@ export const actions = {
         dispatch(setLanguage(language));
         await settingDB.update({ name: 'setting' }, { $set: { language } }, { upsert: true });
     },
+    /**
+     * Applies immediately: the main process owns the log files, so the change
+     * is sent over IPC rather than waiting for a restart (the startup read of
+     * the settings table only provides the initial value).
+     */
+    setLogLevel: (level: LogLevel) => async (dispatch: Dispatch) => {
+        dispatch(setLogLevel(level));
+        await settingDB.update(
+            { name: 'setting' },
+            { $set: { logLevel: level } },
+            { upsert: true }
+        );
+        window.api.setLogLevel(level);
+    },
     timerFinished:
         (sessionData?: PomodoroRecord, cardIds: string[] = [], boardId?: string | undefined) =>
         async (dispatch: Dispatch) => {
@@ -631,6 +655,10 @@ export const reducer = createReducer<TimerState>(defaultState, (builder) => {
             // Project: persistence
             ({ ...state, restDuration: payload })
         )
+        .addCase(setLogLevel, (state, { payload }) => ({
+            ...state,
+            logLevel: payload,
+        }))
         .addCase(setAutoUpdate, (state, { payload }) => ({
             ...state,
             autoUpdate: payload,

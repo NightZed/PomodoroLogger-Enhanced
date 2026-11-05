@@ -413,6 +413,16 @@ export const zh: CatalogShape<typeof en> = {
             checkUpdate: '检查更新',
             dataManagement: '数据管理',
             openDataFolder: '打开数据文件夹',
+            logging: '日志',
+            logLevel: '日志级别',
+            logLevelHint:
+                '立即生效。Debug 会记录应用在后台做了什么——' +
+                '除非要反馈问题，否则保持 Info 即可。',
+            logLevelDebug: 'Debug',
+            logLevelInfo: 'Info',
+            logLevelWarn: 'Warn',
+            logLevelError: 'Error',
+            openLogFolder: '打开日志文件夹',
             exportData: '导出数据',
             importData: '导入数据',
             deleteAllData: '删除所有数据',
@@ -476,6 +486,9 @@ export const zh: CatalogShape<typeof en> = {
             quit: '退出',
         },
         dialog: {
+            crashTitle: 'Pomodoro Logger Enhanced 意外停止',
+            crashBody: (logDir: string): string =>
+                '应用遇到无法恢复的错误，必须关闭。\n\n' + `详细信息已写入：\n${logDir}`,
             migrationTitle: '数据库迁移失败',
             migrationBody: (error: string): string =>
                 'Pomodoro Logger Enhanced 无法迁移旧数据库。\n\n' +
@@ -494,6 +507,23 @@ export const zh: CatalogShape<typeof en> = {
             notAvailable: (version: string): string => `当前已是最新版本（v${version}）`,
             artifactsMissing: '发布文件仍在上传中，请稍后再试',
         },
+    },
+
+    /** 整窗错误页：在 ConfigProvider 之外渲染，不依赖任何状态库。 */
+    crash: {
+        title: 'Pomodoro Logger Enhanced 出错了',
+        body: '界面发生了故障，已经记录的番茄数据都安全保存在数据库里。',
+        hint:
+            '错误已写入日志文件。通常重启即可恢复；' +
+            '如果反复出现，请打开日志文件夹，把文件附加到问题反馈中。',
+        restart: '重启',
+        quit: '退出',
+        copy: '复制详情',
+        copied: '已复制',
+        details: '技术细节',
+        logFolder: '打开日志文件夹',
+        logLocation: (dir: string): string => `日志：${dir}`,
+        session: (id: string): string => `会话：${id}`,
     },
 
     feedback: {
@@ -523,6 +553,8 @@ export const zh: CatalogShape<typeof en> = {
             dataRemoved: '所有用户数据已删除，设置保留。番茄钟需要重启。',
             openDataDirFailed: '无法打开数据文件夹',
             openDataDirFailedDetail: (reason: string): string => `无法打开数据文件夹：${reason}`,
+            openLogDirFailed: '无法打开日志文件夹',
+            openLogDirFailedDetail: (reason: string): string => `无法打开日志文件夹：${reason}`,
             importConfirm: '导入后 Pomodoro Logger Enhanced 将重启，是否继续？',
             deleteAllConfirm: '删除所有会话、项目和看板？你的设置会被保留。',
             exportDone: (fileName: string): string => `数据已导出到 ${fileName}`,

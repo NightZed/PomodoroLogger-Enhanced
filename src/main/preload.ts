@@ -12,6 +12,8 @@ import type {
     ExportResult,
     ExposedAPI,
     ImportResult,
+    LogInfo,
+    RendererErrorPayload,
     TrayIconPayload,
     UpdateErrorPayload,
     UpdateInfoPayload,
@@ -23,6 +25,7 @@ import type {
 import type { BaseResult } from 'get-windows';
 import type { DbName } from './db/types';
 import type { KnnModel } from './learner/appKnn';
+import type { LogLevel } from '../shared/log';
 import type { TrayActionKey } from '../renderer/components/Timer/sessionState';
 import { parseInitialTheme } from './ipc/initialTheme';
 import { parseInitialLanguage } from './ipc/initialLanguage';
@@ -94,6 +97,8 @@ const api: ExposedAPI = {
     [IpcEventName.DesktopSource]: () =>
         invoke<DesktopSourceInfo | undefined>(IpcEventName.DesktopSource),
     [IpcEventName.OpenDataDir]: () => invoke<void>(IpcEventName.OpenDataDir),
+    [IpcEventName.OpenLogDir]: () => invoke<void>(IpcEventName.OpenLogDir),
+    [IpcEventName.LogInfo]: () => invoke<LogInfo>(IpcEventName.LogInfo),
     [IpcEventName.SetTrayMenu]: (items) => invoke<void>(IpcEventName.SetTrayMenu, items),
     [IpcEventName.WindowAction]: (action: WindowAction) =>
         invoke<void>(IpcEventName.WindowAction, action),
@@ -103,6 +108,8 @@ const api: ExposedAPI = {
 
     quit: () => send(IpcEventName.Quit),
     restart: () => send(IpcEventName.Restart),
+    reportError: (payload: RendererErrorPayload) => send(IpcEventName.ReportError, payload),
+    setLogLevel: (level: LogLevel) => send(IpcEventName.SetLogLevel, level),
     downloadUpdate: () => send(IpcEventName.DownloadUpdate),
     checkUpdate: () => send(IpcEventName.CheckUpdate),
     installUpdate: () => send(IpcEventName.InstallUpdate),

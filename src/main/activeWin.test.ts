@@ -1,12 +1,12 @@
 import { existsSync, readFileSync, unlinkSync } from 'fs';
 import path from 'path';
-import { dbBaseDir } from './config';
+import { logDir } from './config';
 
 // get-windows is ESM-only and loads a native addon; jest runs in plain Node,
 // so the module is replaced by a controllable stub.
 jest.mock('get-windows', () => ({ activeWindow: jest.fn() }));
 
-const statusLogPath = path.join(dbBaseDir, 'active-win.log');
+const statusLogPath = path.join(logDir, 'active-win.log');
 
 type ActiveWinModule = typeof import('./activeWin');
 

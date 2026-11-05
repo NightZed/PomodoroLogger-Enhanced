@@ -439,6 +439,16 @@ export const en = {
             checkUpdate: 'Check Update',
             dataManagement: 'Data Management',
             openDataFolder: 'Open Data Folder',
+            logging: 'Logging',
+            logLevel: 'Log Level',
+            logLevelHint:
+                'Applies immediately. Debug records what the app does in the background — ' +
+                'keep it on Info unless you are reporting a problem.',
+            logLevelDebug: 'Debug',
+            logLevelInfo: 'Info',
+            logLevelWarn: 'Warn',
+            logLevelError: 'Error',
+            openLogFolder: 'Open Log Folder',
             exportData: 'Export Data',
             importData: 'Import Data',
             deleteAllData: 'Delete All Data',
@@ -513,6 +523,10 @@ export const en = {
             quit: 'Quit',
         },
         dialog: {
+            crashTitle: 'Pomodoro Logger Enhanced stopped unexpectedly',
+            crashBody: (logDir: string): string =>
+                'The application hit an unrecoverable error and has to close.\n\n' +
+                `Details were written to:\n${logDir}`,
             migrationTitle: 'Database migration failed',
             migrationBody: (error: string): string =>
                 'Pomodoro Logger Enhanced could not migrate the old database.\n\n' +
@@ -546,6 +560,26 @@ export const en = {
      * is what makes "same situation -> same wording" enforceable. Whole-screen
      * copy stays next to its screen.
      */
+    /**
+     * The full-window error page. Rendered outside `ConfigProvider` and
+     * without React state libraries, so it can appear when nothing else works.
+     */
+    crash: {
+        title: 'Pomodoro Logger Enhanced stopped working',
+        body: 'Something in the interface failed. Everything recorded so far is safe in the database.',
+        hint:
+            'The error was written to the log file. Restarting usually brings the app back; ' +
+            'if it keeps happening, open the log folder and attach the files to a bug report.',
+        restart: 'Restart',
+        quit: 'Quit',
+        copy: 'Copy Details',
+        copied: 'Copied',
+        details: 'Technical Details',
+        logFolder: 'Open Log Folder',
+        logLocation: (dir: string): string => `Logs: ${dir}`,
+        session: (id: string): string => `Session: ${id}`,
+    },
+
     feedback: {
         /** Cards / kanban board actions. */
         kanban: {
@@ -596,6 +630,9 @@ export const en = {
             openDataDirFailed: 'Could Not Open Data Folder',
             openDataDirFailedDetail: (reason: string): string =>
                 `The data folder could not be opened: ${reason}`,
+            openLogDirFailed: 'Could Not Open Log Folder',
+            openLogDirFailedDetail: (reason: string): string =>
+                `The log folder could not be opened: ${reason}`,
             importConfirm: 'Pomodoro Logger Enhanced will restart after importing. Continue?',
             deleteAllConfirm: 'Delete all sessions, projects and boards? Your settings are kept.',
             /** Export / import results, and the report of a refused file. */

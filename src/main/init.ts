@@ -33,6 +33,7 @@ import { assertTrayIconPayload } from './ipc/validate';
 import { stopWindowDrag } from './ipc/windowDrag';
 import { initActiveWin } from './activeWin';
 import { openExternalUrl } from './openExternal';
+import { log, logError } from './log';
 
 const { build } = packageJson;
 
@@ -173,6 +174,86 @@ function notifyWindowState(): void {
 
     lastNotifiedMaximized = maximized;
     win.webContents.send(WindowEventName.MaximizedChanged, maximized);
+}
+
+let windowDiagnosticsInstalled = false;
+
+/**
+ * Failures that happen before any JavaScript can react: a page that never
+ * loaded, a preload script that threw, a renderer that stopped answering or
+ * died (OOM, GPU/sandbox crash, native fault). The renderer cannot report any
+ * of these itself -- if the renderer is gone, nothing in it runs -- so the main
+ * process is the only witness. They all go to `crash.log`.
+ */
+function installWindowDiagnostics(window: BrowserWindow): void {
+    const contents = window.webContents;
+
+    contents.on('did-fail-load', (_event, code, description, url, isMainFrame) => {
+        if (!isMainFrame) {
+            return;
+        }
+        logError('crash', `renderer: did-fail-load ${code} ${description} ${url}`, description);
+    });
+
+    contents.on('preload-error', (_event, preloadPath, error) => {
+        logError('crash', `renderer: preload failed (${preloadPath})`, error);
+    });
+
+    // A page that stops answering is recoverable, but it explains a frozen
+    // window in a later bug report.
+    contents.on('unresponsive', () => {
+        log('crash', 'warn', 'renderer: unresponsive');
+    });
+
+    if (windowDiagnosticsInstalled) {
+        return;
+    }
+    windowDiagnosticsInstalled = true;
+
+    // App-level, so the record survives the window being destroyed.
+    app.on('render-process-gone', (_event, _contents, details) => {
+        log(
+            'crash',
+            'error',
+            `renderer process gone: reason=${details.reason} exitCode=${details.exitCode}`
+        );
+    });
+
+    app.on('child-process-gone', (_event, details) => {
+        log('app', 'warn', `child process gone: type=${details.type} reason=${details.reason}`);
+    });
+}
+
+/**
+ * Puts the window back into a state where the renderer's error page is
+ * readable. A crash can happen in mini (200x90) or compact mode, while
+ * maximized, always-on-top or hidden in the tray: in any of those the page
+ * would be invisible, clipped or unreachable.
+ */
+export function restoreWindowForError(): void {
+    if (!win || win.isDestroyed()) {
+        return;
+    }
+
+    if (win.isMinimized()) {
+        win.restore();
+    }
+    if (win.isMaximized()) {
+        win.unmaximize();
+    }
+
+    win.setAlwaysOnTop(false);
+    win.setSkipTaskbar(false);
+    skipTaskbarWanted = false;
+    forcedSkipTaskbar = false;
+
+    const [width, height] = win.getContentSize();
+    if (width < 900 || height < 640) {
+        win.setContentSize(900, 640);
+    }
+
+    win.show();
+    win.focus();
 }
 
 // In development, isolate userData to prevent locking conflicts with installed / production app
@@ -333,6 +414,7 @@ const createWindow = async () => {
         }
     };
 
+    installWindowDiagnostics(win);
     win.webContents.on('will-navigate', handleRedirect);
     // `new-window` was removed in Electron 22. Popups are denied and their
     // target URL is handed over to the default browser instead.
@@ -437,7 +519,7 @@ app.on('ready', async () => {
             }
             callback({ path: wallpaperPath });
         } catch (error) {
-            console.error('Failed to resolve wallpaper path:', error);
+            logError('app', 'wallpaper protocol: cannot resolve the path', error);
             callback({ error: -2 });
         }
     });

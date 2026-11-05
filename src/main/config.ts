@@ -42,6 +42,15 @@ export const screenshotDir = isProduction
     : join(localDataDir, 'screenshots');
 
 /**
+ * Where `src/main/log.ts` writes. Logs deliberately live beside the data
+ * directory rather than inside `db/`: they are diagnostics, not user data, and
+ * a bug report can carry the folder without the databases. The folder is not
+ * created here -- the logger creates it on its first write, so a read-only or
+ * oddly permissioned profile cannot make the app fail at startup over logging.
+ */
+export const logDir = isProduction ? join(baseDir, 'logs') : join(localDataDir, 'logs');
+
+/**
  * Folder that holds everything above (`db`, `db-bk`, `screenshots`), i.e. what
  * the settings page's "Open Data Folder" button shows in the file manager.
  * Created as a side effect of the `mkdirSync` calls below.

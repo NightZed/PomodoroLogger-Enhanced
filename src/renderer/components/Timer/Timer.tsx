@@ -38,6 +38,7 @@ import { setTrayImageWithMadeIcon } from './iconMaker';
 import { PomodoroNumView } from './PomodoroNumView';
 import Progress from './Progress';
 import { feedback, FEEDBACK_MESSAGES } from '../feedback';
+import { reportRendererError } from '../../errorReporting';
 import {
     countdownSeconds,
     effectiveMinFinishDuration,
@@ -1385,7 +1386,14 @@ class Timer extends Component<Props, State> {
         return;
     };
 
-    componentDidCatch(error: Error, _errorInfo: React.ErrorInfo): void {
+    componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
+        // A failure inside the timer page is contained here (the rest of the
+        // app keeps working), but it still has to reach crash.log -- otherwise
+        // the most frequent crash would be the one nobody can see.
+        reportRendererError('component', error, {
+            scope: 'timer',
+            componentStack: errorInfo.componentStack,
+        });
         feedback.toast({ kind: 'error', content: error.toString() });
     }
 

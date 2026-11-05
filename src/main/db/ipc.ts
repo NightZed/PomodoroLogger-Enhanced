@@ -3,6 +3,7 @@ import type { IpcMainInvokeEvent } from 'electron';
 import { DbEventName, WorkerMessageType } from '../ipc/type';
 import { sendWorkerMessage } from '../worker/fork';
 import { DBs, loadDBs } from './index';
+import { log } from '../log';
 import { dbNames, DbName } from './types';
 
 type SenderGuard = (event: IpcMainInvokeEvent) => boolean;
@@ -90,6 +91,12 @@ export function initializeDbIpc(isTrustedSender: SenderGuard = () => true) {
                 } catch (error) {
                     // A worker/package problem must not take History down. The
                     // in-process path is slower but still correct.
+                    log(
+                        'app',
+                        'warn',
+                        '[db] history aggregate worker failed, falling back',
+                        error instanceof Error ? error.message : String(error)
+                    );
                     console.error('[db] history aggregate worker failed, falling back', error);
                     return repository.aggHistory(...args);
                 }

@@ -95,6 +95,13 @@ CI (`.github/workflows/test.yml`) runs `yarn lint`, `yarn typecheck` and `yarn t
 - Legacy NeDB → SQLite migration runs inside `initializeDatabaseFile()` (`migrate.ts`), keeping the old `.nedb` files untouched and backing up to `db-bk/pre-sqlite-<ts>`.
 - `NODE_ENV=test` switches the database to `:memory:` and pins the data directory to `.local/test` (`src/main/config.ts`); dev runs use `.local/dev`; production uses `%APPDATA%\PomodoroLogger`.
 
+### Diagnostics (logs & crash page)
+
+- `src/main/log.ts` is the only component that writes log files. They live in `<dataDir>/logs` (production `%APPDATA%\PomodoroLogger\logs`), split by scope: `app.log`, `active-win.log`, `crash.log`; `migration.log` is written once by `migrate.ts` into the same folder. Diagnostics never go into `db/` and never into the asar.
+- Levels are `debug < info < warn < error` (`src/shared/log.ts`); production defaults to `info`, dev and tests to `debug`, and `--log-level` / `POMODORO_LOG_LEVEL` override the stored setting. `crash` ignores the level entirely. Writes are synchronous (a crash report has to survive `app.exit`), bounded by a 1 MiB rotation per file, a 5 s identical-message window and 20 lines per second.
+- A renderer crash is sent over `IpcEventName.ReportError` (`send`), written to `crash.log`, and then shown on the full-window `src/renderer/components/ErrorScreen.tsx`. **The app no longer restarts itself**; restart is a button on that page. `AppErrorBoundary` must stay *outside* `Application` in `app.tsx` — a boundary inside it unmounts together with the tree it is supposed to replace. The page draws its own drag bar and caption buttons because the frameless window has no native ones.
+- Main-process failures are recorded by `src/main/crashHandlers.ts` (`uncaughtException` / `unhandledRejection`) and `installWindowDiagnostics()` in `init.ts` (`did-fail-load`, `preload-error`, `unresponsive`, `render-process-gone`, `child-process-gone`).
+
 ### CPU-heavy work
 
 - `src/main/worker/fork.ts` lazily forks `worker.js` for History aggregation (tokenizing every window title for the word cloud). It shuts the child down after 60s idle and `src/main/db/ipc.ts` falls back to in-process aggregation if the worker fails.
@@ -104,7 +111,7 @@ CI (`.github/workflows/test.yml`) runs `yarn lint`, `yarn typecheck` and `yarn t
 
 - `src/renderer/store/index.ts` is plain Redux + thunk; `src/renderer/reducers/index.ts` combines `timer`, `history`, `kanban`, `story`. Each feature folder (`components/Timer`, `History`, `Kanban`, `UserGuide`) owns its `action.ts` + reducer + tests — follow that pattern rather than adding cross-cutting slices.
 - `src/renderer/components/appTabs.ts` is the single source of truth for pages; the tab bar, Ctrl+Tab handling and compact-mode transitions all derive from `APP_TABS` / `planTabChange`. Do not add a parallel tab list.
-- The title bar keeps `-webkit-app-region: drag` so normal windows get the native move and Aero Snap, but Chromium clips that region once a scroller is scrolled (the cut strip follows the scroller's width). Any press that still reaches the renderer on the bar must therefore start `windowDrag` too, otherwise the window cannot be moved after scrolling — see `docs/title-bar-drag-after-scroll.md`.
+- The title bar keeps `-webkit-app-region: drag` so normal windows get the native move and Aero Snap, but Chromium clips that region once a scroller is scrolled (the cut strip follows the scroller's width). Any press that still reaches the renderer on the bar must therefore start `windowDrag` too, otherwise the window cannot be moved after scrolling — see `src/renderer/components/AppTitleBar/dragRegion.ts` and `src/main/ipc/windowDrag.ts`.
 - `src/components/**` is the shared visualization/widget library (`Visualization/*`, `common/*`) imported from the renderer with relative paths — it is not the renderer's own component tree.
 - Theme: `src/renderer/theme` (tokens + `applyTheme`, CSS custom properties `--pl-*`) is applied through `ThemeController`. The first-paint theme crosses the process boundary via `additionalArguments` → `window.api.initialTheme` so the renderer never flashes the wrong theme; keep both sides in sync when touching startup theming.
 - Styling is styled-components (plus a few `.scss` global files); do not add standalone CSS files for components.
@@ -127,7 +134,7 @@ whitelists. See `docs/i18n.md`.
 
 ### Activity tracking & statistics
 
-`src/renderer/monitor` collects the active window (`src/main/activeWin.ts` wraps `get-windows`, lazily imported and logged to `active-win.log`), aggregates per-app/per-title time into a `PomodoroRecord`, optionally captures screenshots, and saves sessions through the DB proxy. Efficiency scoring lives in `src/shared/efficiency/efficiency.ts`; history aggregation in `src/utils/aggPomodoro.ts` and `src/shared/dataMerger`.
+`src/renderer/monitor` collects the active window (`src/main/activeWin.ts` wraps `get-windows`, lazily imported and logged to `logs/active-win.log`), aggregates per-app/per-title time into a `PomodoroRecord`, optionally captures screenshots, and saves sessions through the DB proxy. Efficiency scoring lives in `src/shared/efficiency/efficiency.ts`; history aggregation in `src/utils/aggPomodoro.ts` and `src/shared/dataMerger`.
 
 ### Development time scale
 

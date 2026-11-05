@@ -6,6 +6,7 @@ import type { DbName, HistoryData } from '../db/types';
 import type { KnnModel } from '../learner/appKnn';
 import type { AggPomodoroInfo } from '../../renderer/components/History/op';
 import type { Language, LanguagePreference } from '../../shared/i18n';
+import type { LogLevel } from '../../shared/log';
 import type { TrayActionKey, TrayMenuItem } from '../../renderer/components/Timer/sessionState';
 
 export type { TrayMenuItem };
@@ -33,6 +34,14 @@ export enum IpcEventName {
     OpenExternal = 'openExternal',
     /** Opens the database/screenshot folder in the OS file manager. */
     OpenDataDir = 'openDataDir',
+    /** Opens the folder that holds app.log / crash.log / active-win.log. */
+    OpenLogDir = 'openLogDir',
+    /** Returns where the logs are and the id that prefixes every line. */
+    LogInfo = 'logInfo',
+    /** Fire-and-forget renderer crash report, written synchronously. */
+    ReportError = 'reportError',
+    /** Applies a new log level without restarting. */
+    SetLogLevel = 'setLogLevel',
     SaveScreenshot = 'saveScreenshot',
     DeleteScreenshots = 'deleteScreenshots',
     ClearUserFiles = 'clearUserFiles',
@@ -186,6 +195,34 @@ export type ExportResult =
  * The restart is the renderer's decision (`warnings` has to be seen first),
  * so it is not done here.
  */
+/**
+ * A crash or uncaught error reported by the renderer.
+ *
+ * The renderer is the only place that knows about React render failures, so it
+ * sends this before showing the error page. It travels as a `send` (not an
+ * `invoke`): a crash report must not depend on the main process answering.
+ */
+export interface RendererErrorPayload {
+    /** `component` is used by a nested boundary (e.g. the Timer page). */
+    kind: 'react' | 'window-error' | 'unhandledrejection' | 'component';
+    /** Optional area, e.g. `timer`; free-form but length limited. */
+    scope?: string;
+    message: string;
+    stack?: string;
+    componentStack?: string;
+    /** ISO timestamp from the renderer, for correlating with its own output. */
+    timestamp: string;
+    /** Page URL, so a dev-server crash is distinguishable from a packaged one. */
+    href: string;
+    /** Active tab, when the renderer could still read its own state. */
+    tab?: string;
+}
+
+export interface LogInfo {
+    dir: string;
+    sessionId: string;
+}
+
 export type ImportResult =
     | { status: 'cancelled' }
     | { status: 'invalid'; issues: ValidationIssue[] }
@@ -226,6 +263,8 @@ export type ExposedAPI = {
     [IpcEventName.FocusOnWindow](): Promise<void>;
     [IpcEventName.DesktopSource](): Promise<DesktopSourceInfo | undefined>;
     [IpcEventName.OpenDataDir](): Promise<void>;
+    [IpcEventName.OpenLogDir](): Promise<void>;
+    [IpcEventName.LogInfo](): Promise<LogInfo>;
     [IpcEventName.SetTrayMenu](items: TrayMenuItem[]): Promise<void>;
     [IpcEventName.WindowAction](action: WindowAction): Promise<void>;
     [IpcEventName.WindowDrag](phase: WindowDragPhase): Promise<void>;
@@ -233,6 +272,8 @@ export type ExposedAPI = {
 
     quit(): void;
     restart(): void;
+    reportError(payload: RendererErrorPayload): void;
+    setLogLevel(level: LogLevel): void;
     downloadUpdate(): void;
     checkUpdate(): void;
     installUpdate(): void;

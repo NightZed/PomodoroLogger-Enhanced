@@ -20,8 +20,17 @@ jest.mock('electron', () => ({
 jest.mock('../init', () => ({
     win: undefined,
     revealWindow: jest.fn(),
+    restoreWindowForError: jest.fn(),
     setMenuItems: jest.fn(),
     setSkipTaskbar: jest.fn(),
+}));
+
+jest.mock('../log', () => ({
+    log: jest.fn(),
+    logError: jest.fn(),
+    configureLogging: jest.fn(),
+    getLogDir: () => '/tmp/logs',
+    getSessionId: () => 'sid123',
 }));
 
 jest.mock('../db/ipc', () => ({ initializeDbIpc: jest.fn() }));
@@ -51,6 +60,7 @@ import { startWindowDrag, stopWindowDrag } from './windowDrag';
 import { readAllData } from '../io/read';
 import { writeAllFile } from '../io/write';
 import { sendWorkerMessage } from '../worker/fork';
+import { configureLogging, log } from '../log';
 
 const init = require('../init');
 const handleMock = () => (require('electron').ipcMain.handle as jest.Mock).mock.calls;
@@ -244,6 +254,72 @@ describe('main/ipc', () => {
         channel(trustedEvent, 'bad');
         expect(callback).toHaveBeenCalledTimes(1);
         expect(consoleError).toHaveBeenCalled();
+    });
+
+    describe('crash reports and logging', () => {
+        const payload = {
+            kind: 'react' as const,
+            message: 'boom',
+            timestamp: '2026-01-01T00:00:00.000Z',
+            href: 'file:///app/index.html',
+        };
+
+        function report(value: unknown) {
+            commands['reportError'](trustedEvent, value);
+        }
+
+        it('writes the report to crash.log and makes the window readable again', () => {
+            report({ ...payload, scope: 'timer', stack: 'Error: boom\n    at x', tab: 'timer' });
+
+            expect(log).toHaveBeenCalledTimes(1);
+            const [scope, level, message] = (log as jest.Mock).mock.calls[0];
+            expect(scope).toBe('crash');
+            expect(level).toBe('error');
+            expect(message).toContain('renderer react (timer): boom');
+            expect(message).toContain('tab=timer');
+            expect(init.restoreWindowForError).toHaveBeenCalled();
+        });
+
+        it('refuses an oversized or malformed report without writing anything', () => {
+            const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+            report({ ...payload, message: 'x'.repeat(4097) });
+            report({ ...payload, kind: 'not-a-kind' });
+            report({ ...payload, stack: 42 });
+
+            expect(log).not.toHaveBeenCalled();
+            expect(init.restoreWindowForError).not.toHaveBeenCalled();
+            expect(consoleError).toHaveBeenCalled();
+        });
+
+        it('drops a report from an untrusted sender', () => {
+            const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+            commands['reportError'](untrustedEvent, payload);
+
+            expect(log).not.toHaveBeenCalled();
+            expect(consoleWarn).toHaveBeenCalledWith(
+                '[ipc] blocked a command from an untrusted sender'
+            );
+        });
+
+        it('applies a new log level immediately and rejects an unknown one', () => {
+            const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+            commands['setLogLevel'](trustedEvent, 'debug');
+            expect(configureLogging).toHaveBeenCalledWith({ level: 'debug' });
+
+            commands['setLogLevel'](trustedEvent, 'verbose');
+            expect(configureLogging).toHaveBeenCalledTimes(1);
+            expect(consoleError).toHaveBeenCalled();
+        });
+
+        it('exposes the log folder and session id to the renderer', async () => {
+            await expect(handlers['logInfo'](trustedEvent)).resolves.toEqual({
+                dir: '/tmp/logs',
+                sessionId: 'sid123',
+            });
+        });
     });
 
     describe('data transfer', () => {

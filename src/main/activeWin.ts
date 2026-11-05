@@ -1,6 +1,4 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { dbBaseDir } from './config';
+import { log } from './log';
 
 let hasPermission = false;
 let available = false;
@@ -36,23 +34,11 @@ function loadGetWindows(): Promise<GetWindowsModule> {
  * was completely silent because of this. Keep the legacy `active-win.log`
  * filename so existing bug reports and instructions still find the file.
  */
-const statusLogPath = path.join(dbBaseDir, 'active-win.log');
 /** The monitor polls every second; log each distinct failure only once. */
 const loggedFailures = new Set<string>();
 
 function errorMessage(e: unknown): string {
     return e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-}
-
-function appendStatus(message: string): void {
-    try {
-        fs.appendFileSync(statusLogPath, `[${new Date().toISOString()}] ${message}\n`, {
-            encoding: 'utf-8',
-        });
-    } catch (e) {
-        // Diagnostics must never take the app down.
-        console.error('getWindows: cannot append to status log', e);
-    }
 }
 
 function logOnce(key: string, message: string): void {
@@ -61,7 +47,7 @@ function logOnce(key: string, message: string): void {
     }
 
     loggedFailures.add(key);
-    appendStatus(message);
+    log('active-win', 'warn', message);
 }
 
 export async function initActiveWin() {
@@ -72,18 +58,16 @@ export async function initActiveWin() {
         await activeWindow({ screenRecordingPermission: true, accessibilityPermission: true });
         hasPermission = true;
     } catch (e) {
-        console.error('getWindows init error:', e);
-        appendStatus(`init failed: ${errorMessage(e)}`);
+        log('active-win', 'error', `init failed: ${errorMessage(e)}`, e);
     }
-
-    console.log('Initialized with get-windows?', available);
-    console.log('Initialized with get-windows title permission?', hasPermission);
     // The line to look for first when activity data is missing: `available=false`
     // means nothing will be recorded for the rest of this run.
     // Name the backend here as well: this is the only line a packaged build
     // writes on a healthy start, so it is what tells a bug report which
     // package actually ran (and that the migration took effect).
-    appendStatus(
+    log(
+        'active-win',
+        'info',
         `initialized: backend=get-windows, available=${available}, titlePermission=${hasPermission}`
     );
 }

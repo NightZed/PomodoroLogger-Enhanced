@@ -14,6 +14,7 @@ import {
     ExportResult,
     ImportResult,
     IpcEventName,
+    RendererErrorPayload,
     WindowDragPhase,
     WorkerMessageType,
     WindowAction,
@@ -26,7 +27,14 @@ import { readFile, writeFile } from 'fs';
 import * as path from 'path';
 import logo from '../../res/icon_sm.png';
 import { writeAllFile } from '../io/write';
-import { revealWindow, rebuildTrayMenu, setMenuItems, setSkipTaskbar, win } from '../init';
+import {
+    revealWindow,
+    rebuildTrayMenu,
+    restoreWindowForError,
+    setMenuItems,
+    setSkipTaskbar,
+    win,
+} from '../init';
 import { getMainLanguage, m, setMainLanguage } from '../i18n';
 import type { Language } from '../../shared/i18n';
 import { readAllData } from '../io/read';
@@ -41,6 +49,10 @@ import { validateSourceData } from '../../shared/dataTransfer/validate';
 import { initializeDbIpc } from '../db/ipc';
 import { openExternalUrl } from '../openExternal';
 import { openDataDir } from '../openDataDir';
+import { openLogDir } from '../openLogDir';
+import { configureLogging, getLogDir, getSessionId, log, logError } from '../log';
+import { LOG_LEVELS } from '../../shared/log';
+import type { LogLevel } from '../../shared/log';
 import {
     clearUserFiles,
     deleteScreenshots,
@@ -52,6 +64,7 @@ import {
     assertBoolean,
     assertKnnModel,
     assertOpenExternalUrl,
+    assertRendererErrorPayload,
     assertOptionalBoolean,
     assertScreenshotDataUrl,
     assertScreenshotPaths,
@@ -100,6 +113,7 @@ function handle(
             runValidators(validators, args);
             return await callback(...args);
         } catch (e) {
+            logError('app', `ipc: ${name} failed`, e);
             console.error(e);
             throw e;
         }
@@ -121,6 +135,7 @@ export function handleCommand(
             runValidators(validators, args);
             callback(...args);
         } catch (e) {
+            logError('app', `ipc command: ${name} failed`, e);
             console.error(e);
         }
     });
@@ -169,6 +184,55 @@ export function initialize() {
     ]);
     handle(IpcEventName.ClearUserFiles, () => clearUserFiles());
     handle(IpcEventName.OpenDataDir, () => openDataDir());
+    handle(IpcEventName.OpenLogDir, () => openLogDir());
+    handle(IpcEventName.LogInfo, () => ({
+        dir: getLogDir(),
+        sessionId: getSessionId(),
+    }));
+
+    /**
+     * Crash report from the renderer. It is written before the window is
+     * restored (a restore can throw) and it is the only writer that ignores the
+     * configured log level -- a crash at `error` level would otherwise leave
+     * nothing behind.
+     */
+    handleCommand(
+        IpcEventName.ReportError,
+        (payload: RendererErrorPayload) => {
+            const where = [
+                payload.timestamp,
+                payload.href,
+                payload.tab === undefined ? undefined : `tab=${payload.tab}`,
+            ]
+                .filter(Boolean)
+                .join(' ');
+            const detail = [payload.stack, payload.componentStack]
+                .filter(Boolean)
+                .join('\n--- component stack ---\n');
+
+            log(
+                'crash',
+                'error',
+                `renderer ${payload.kind}${payload.scope ? ` (${payload.scope})` : ''}: ${
+                    payload.message
+                } [${where}]`,
+                detail || undefined
+            );
+
+            try {
+                // A crash can happen in mini/compact/maximized mode, where the
+                // error page would be invisible or clipped.
+                restoreWindowForError();
+            } catch (error) {
+                logError('crash', 'main: could not restore the window for the error page', error);
+            }
+        },
+        [(value) => assertRendererErrorPayload(value)]
+    );
+
+    handleCommand(IpcEventName.SetLogLevel, (level: LogLevel) => configureLogging({ level }), [
+        (value) => assertOneOf(value, 'log level', LOG_LEVELS),
+    ]);
     handle(IpcEventName.LoadKnnModel, () => loadKnnModel());
     handle(IpcEventName.SaveKnnModel, (model: KnnModel) => saveKnnModel(model), [
         (value) => assertKnnModel(value),

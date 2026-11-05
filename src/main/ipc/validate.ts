@@ -1,4 +1,4 @@
-import type { TrayIconPayload, TrayMenuItem } from './type';
+import type { RendererErrorPayload, TrayIconPayload, TrayMenuItem } from './type';
 
 /**
  * Small runtime validators for the preload boundary. TypeScript disappears at
@@ -98,6 +98,46 @@ export function assertKnnModel(value: unknown): Record<string, unknown> {
         throw new TypeError('KNN model.k must be a finite number');
     }
     return model;
+}
+
+const ERROR_KINDS = ['react', 'window-error', 'unhandledrejection', 'component'] as const;
+
+/**
+ * Validates a crash report from the renderer. Everything here can be attacker
+ * controlled (a compromised renderer calls `window.api.reportError` with any
+ * payload), and the payload is written straight to disk, so unknown fields are
+ * dropped and every string is capped.
+ */
+export function assertRendererErrorPayload(value: unknown): RendererErrorPayload {
+    const payload = assertPlainObject(value, 'error report');
+    const kind = assertOneOf(payload.kind, 'error report.kind', ERROR_KINDS);
+    const message = assertString(payload.message, 'error report.message', 4096);
+
+    const result: RendererErrorPayload = {
+        kind,
+        message,
+        timestamp: assertString(payload.timestamp, 'error report.timestamp', 64),
+        href: assertString(payload.href, 'error report.href', 2048),
+    };
+
+    if (payload.scope !== undefined) {
+        result.scope = assertString(payload.scope, 'error report.scope', 64);
+    }
+    if (payload.stack !== undefined) {
+        result.stack = assertString(payload.stack, 'error report.stack', 32 * 1024);
+    }
+    if (payload.componentStack !== undefined) {
+        result.componentStack = assertString(
+            payload.componentStack,
+            'error report.componentStack',
+            16 * 1024
+        );
+    }
+    if (payload.tab !== undefined) {
+        result.tab = assertString(payload.tab, 'error report.tab', 64);
+    }
+
+    return result;
 }
 
 export function assertOpenExternalUrl(value: unknown): string {

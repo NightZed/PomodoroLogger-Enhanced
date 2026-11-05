@@ -15,6 +15,7 @@ import SettingNav from './SettingNav';
 import { DEFAULT_SECTION, SectionId, SHORTCUTS } from './sections';
 import { t, useI18n } from '../../i18n';
 import type { LanguagePreference, PlainMessageKey } from '../../../shared/i18n';
+import type { LogLevel } from '../../../shared/log';
 
 /**
  * The settings page is split into the groups listed in `sections.ts` and driven
@@ -347,6 +348,7 @@ const settingUiStates = [
     'compactAlwaysOnTop',
     'contentOpacity',
     'themeBackgroundOpacity',
+    'logLevel',
     'wallpaperPath',
     'wallpaperOpacity',
     'startOnBoot',
@@ -363,6 +365,14 @@ const LANGUAGE_OPTIONS: { value: LanguagePreference; labelKey: PlainMessageKey }
     { value: 'system', labelKey: 'settings.language.system' },
     { value: 'zh', labelKey: 'settings.language.zh' },
     { value: 'en', labelKey: 'settings.language.en' },
+];
+
+/** Ordered loudest-last, matching `LOG_LEVELS`. */
+const LOG_LEVEL_OPTIONS: { value: LogLevel; labelKey: PlainMessageKey }[] = [
+    { value: 'debug', labelKey: 'settings.system.logLevelDebug' },
+    { value: 'info', labelKey: 'settings.system.logLevelInfo' },
+    { value: 'warn', labelKey: 'settings.system.logLevelWarn' },
+    { value: 'error', labelKey: 'settings.system.logLevelError' },
 ];
 
 interface Props extends TimerState, TimerActionTypes {}
@@ -583,6 +593,18 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
         const onClearWallpaper = useCallback(() => {
             setWallpaperPath(undefined);
         }, [setWallpaperPath]);
+
+        const onOpenLogDir = useCallback(async () => {
+            try {
+                await window.api.openLogDir();
+            } catch (e) {
+                feedback.alert({
+                    kind: 'error',
+                    title: FEEDBACK_MESSAGES.setting.openLogDirFailed,
+                    content: FEEDBACK_MESSAGES.setting.openLogDirFailedDetail(errorText(e)),
+                });
+            }
+        }, []);
 
         const onOpenDataDir = useCallback(async () => {
             try {
@@ -1029,6 +1051,33 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                         </ThemeButton>
                                     ))}
                                 </ThemeOptions>
+                            </Field>
+
+                            <Field>
+                                <h4>{t('settings.system.logging')}</h4>
+                                <SettingLabel>{t('settings.system.logLevel')}</SettingLabel>
+                                <Hint>{t('settings.system.logLevelHint')}</Hint>
+                                <ThemeOptions
+                                    role="group"
+                                    aria-label={t('settings.system.logLevel')}
+                                >
+                                    {LOG_LEVEL_OPTIONS.map((option) => (
+                                        <ThemeButton
+                                            key={option.value}
+                                            type="button"
+                                            $active={props.logLevel === option.value}
+                                            aria-pressed={props.logLevel === option.value}
+                                            onClick={() => props.setLogLevel(option.value)}
+                                        >
+                                            {t(option.labelKey)}
+                                        </ThemeButton>
+                                    ))}
+                                </ThemeOptions>
+                                <ButtonWrapper>
+                                    <Button onClick={onOpenLogDir}>
+                                        {t('settings.system.openLogFolder')}
+                                    </Button>
+                                </ButtonWrapper>
                             </Field>
 
                             <Field>

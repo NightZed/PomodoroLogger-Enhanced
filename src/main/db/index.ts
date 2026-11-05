@@ -1,7 +1,8 @@
 import Database from 'better-sqlite3';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { dbBkBaseDir, dbBaseDir, dbPaths, sqlitePath } from '../config';
+import { dbBkBaseDir, dbPaths, logDir, sqlitePath } from '../config';
+import { log } from '../log';
 import { aggHistory } from '../../utils/aggPomodoro';
 import { openSqlite } from './connection';
 import { migrateNedbToSqlite } from './migrate';
@@ -70,11 +71,21 @@ function initializeDatabaseFile(): Database.Database {
 
     if (targetVersion < SCHEMA_VERSION && hasLegacy) {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        migrateNedbToSqlite({
+        const stats = migrateNedbToSqlite({
             target: sqlitePath,
             backupDir: join(dbBkBaseDir, `pre-sqlite-${timestamp}`),
-            logPath: join(dbBaseDir, 'migration.log'),
+            logPath: join(logDir, 'migration.log'),
         });
+        // A one-line summary in app.log: the detailed report lives in
+        // migration.log, but "did this start migrate anything?" should be
+        // answerable from the main file alone.
+        log(
+            'app',
+            'info',
+            `migration: ${Object.keys(stats.imported)
+                .map((table) => `${table}=${stats.imported[table]}`)
+                .join(' ')}`
+        );
     }
 
     const db = openSqlite(sqlitePath);

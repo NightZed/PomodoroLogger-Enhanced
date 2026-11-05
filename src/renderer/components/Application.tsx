@@ -225,7 +225,6 @@ class Application extends React.Component<Props, State> {
         });
 
         setTrayImageWithMadeIcon(undefined).then();
-        window.addEventListener('error', this.onError);
 
         this.unsubscribeWindowMaximized = window.api.onWindowMaximizedChanged((maximized) =>
             this.setState({ maximized })
@@ -319,27 +318,8 @@ class Application extends React.Component<Props, State> {
     };
 
     componentWillUnmount() {
-        window.removeEventListener('error', this.onError);
         this.unsubscribeWindowMaximized?.();
         this.unsubscribeWindowMaximized = undefined;
-    }
-
-    onError = (event: ErrorEvent) => {
-        this.handleError(event.error || new Error(event.message));
-    };
-    handleError = (err: Error) => {
-        console.error(err);
-        setTimeout(() => {
-            if (process.env.NODE_ENV === 'production') {
-                window.api.restart();
-            }
-        }, 3000);
-    };
-
-    componentDidCatch(error: Error, _errorInfo: React.ErrorInfo): void {
-        if (process.env.NODE_ENV === 'production') {
-            this.handleError(error);
-        }
     }
 
     render() {

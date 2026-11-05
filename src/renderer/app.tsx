@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { Provider } from 'react-redux';
 
 import Application from './components/Application';
+import AppErrorBoundary from './components/AppErrorBoundary';
+import { reportRendererError } from './errorReporting';
 import { DialogMotion } from './components/AppModal';
 import { ThemeController } from './components/ThemeController';
 import { applyTheme, GlobalStyle, resolveTheme } from './theme';
@@ -11,11 +13,20 @@ import store from './store';
 
 import './echartsSetup';
 
+// Both are reported to `crash.log` but do **not** replace the UI: unlike a
+// React render failure the tree is still mounted and usable. Nothing here may
+// restart the app -- that decision belongs to the user, on the error page.
 window.addEventListener('error', (e) => {
-    console.error('[Renderer] uncaught error:', e.error || e.message);
+    if (process.env.NODE_ENV === 'development') {
+        console.error('[Renderer] uncaught error:', e.error || e.message);
+    }
+    reportRendererError('window-error', e.error || new Error(e.message));
 });
 window.addEventListener('unhandledrejection', (e) => {
-    console.error('[Renderer] unhandled rejection:', e.reason);
+    if (process.env.NODE_ENV === 'development') {
+        console.error('[Renderer] unhandled rejection:', e.reason);
+    }
+    reportRendererError('unhandledrejection', e.reason);
 });
 
 // Create main element
@@ -53,14 +64,25 @@ createRoot(mainElement).render(
             <DialogMotion />
             <ThemeController />
             <LanguageController />
-            <Application />
+            <AppErrorBoundary>
+                <Application />
+            </AppErrorBoundary>
         </React.Fragment>
     </Provider>
 );
 
+// The boundary removes the splash itself when the first render fails; this
+// timer must therefore tolerate the node being gone already.
 setTimeout(() => {
-    splashElement!.style.opacity = '0';
+    if (!splashElement || !splashElement.isConnected) {
+        return;
+    }
+    splashElement.style.opacity = '0';
     setTimeout(() => {
-        document.body.removeChild(splashElement!);
+        try {
+            splashElement.remove();
+        } catch {
+            // Already removed by the error boundary.
+        }
     }, 1000);
 }, 2000);

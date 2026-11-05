@@ -49,6 +49,8 @@ jest.mock('../feedback', () => ({
             openDataDirFailed: 'Could Not Open Data Folder',
             openDataDirFailedDetail: (reason: string) =>
                 `Could not open the data folder: ${reason}`,
+            openLogDirFailed: 'Could Not Open Log Folder',
+            openLogDirFailedDetail: (reason: string) => `Could not open the log folder: ${reason}`,
         },
     },
 }));
@@ -96,6 +98,7 @@ import type { ExportResult, ImportResult } from '../../../main/ipc/type';
 
 const exportData = jest.fn<Promise<ExportResult>, []>();
 const openDataDir = jest.fn<Promise<void>, []>();
+const openLogDir = jest.fn<Promise<void>, []>();
 const props = (): any => ({
     focusDuration: 1500,
     restDuration: 300,
@@ -118,6 +121,7 @@ const props = (): any => ({
     distractingList: [],
     calendarBaseColor: '#aceebb',
     language: 'system',
+    logLevel: 'info',
     setFocusDuration: jest.fn(),
     setRestDuration: jest.fn(),
     setLongBreakDuration: jest.fn(),
@@ -136,6 +140,7 @@ const props = (): any => ({
     setStartOnBoot: jest.fn(),
     setCalendarBaseColor: jest.fn(),
     setLanguage: jest.fn(),
+    setLogLevel: jest.fn(),
 });
 
 /** The button whose accessible name contains `label`. */
@@ -184,10 +189,12 @@ beforeEach(() => {
     exportData.mockReset();
     importData.mockReset();
     openDataDir.mockReset();
+    openLogDir.mockReset();
     (window as any).api = {
         exportData,
         importData,
         openDataDir,
+        openLogDir,
         restart: mockRestart,
         checkUpdate: jest.fn(),
         onUpdateAvailable: jest.fn(() => jest.fn()),
@@ -428,6 +435,42 @@ describe('delete of all data', () => {
 });
 
 const importData = jest.fn<Promise<ImportResult>, []>();
+
+describe('Setting logging option', () => {
+    it('offers the four levels and reports the chosen one', async () => {
+        const loggingProps = { ...props(), logLevel: 'info' as const };
+        render(<Setting {...loggingProps} />);
+
+        const nav = screen.getByRole('navigation', { name: 'Settings sections' });
+        fireEvent.click(within(nav).getByRole('button', { name: /System/ }));
+
+        fireEvent.click(screen.getByRole('button', { name: 'Debug' }));
+        expect(loggingProps.setLogLevel).toHaveBeenCalledWith('debug');
+
+        fireEvent.click(screen.getByRole('button', { name: 'Warn' }));
+        expect(loggingProps.setLogLevel).toHaveBeenCalledWith('warn');
+    });
+
+    it('opens the log folder', async () => {
+        openLogDir.mockResolvedValue(undefined);
+        await mount();
+
+        await click('Open Log Folder');
+
+        expect(openLogDir).toHaveBeenCalledTimes(1);
+        expect(mockAlert).not.toHaveBeenCalled();
+    });
+
+    it('explains why the log folder could not be opened', async () => {
+        openLogDir.mockRejectedValue(new Error('EACCES: permission denied'));
+        await mount();
+
+        await click('Open Log Folder');
+
+        expect(mockAlert).toHaveBeenCalledTimes(1);
+        expect(alertText()).toContain('EACCES: permission denied');
+    });
+});
 
 describe('Setting language option', () => {
     it('offers follow-system, Chinese and English, and reports the choice', () => {

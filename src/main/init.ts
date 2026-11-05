@@ -198,7 +198,16 @@ const mGlobal: typeof global & {
     learner?: any;
 } = global;
 if (process.platform === 'win32') {
-    app.setAppUserModelId('com.electron.time-logger');
+    // Windows groups taskbar buttons by AppUserModelID and resolves a button's
+    // icon and "Properties" target through the Start-menu shortcut that owns
+    // that ID. It must therefore match electron-builder's `appId`, which NSIS
+    // writes onto the installed shortcut. The value used here used to be
+    // `com.electron.time-logger`, inherited from the upstream project: the
+    // installed app then claimed an ID owned by an `Electron.lnk` that a dev
+    // run had registered, so the taskbar showed electron.exe's icon and path.
+    // The dev suffix keeps development runs from ever merging with the
+    // installed app again.
+    app.setAppUserModelId(app.isPackaged ? build.appId : `${build.appId}.dev`);
 }
 
 /**

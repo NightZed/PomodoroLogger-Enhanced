@@ -16,7 +16,7 @@ declare module '*.png' {
 }
 
 declare module '*/package.json' {
-    export const build: { productName: string };
+    export const build: { productName: string; appId: string };
 }
 
 declare module '*.dat' {

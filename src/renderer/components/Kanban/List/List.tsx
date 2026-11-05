@@ -13,7 +13,7 @@ import { KanbanActionTypes } from '../action';
 import { CardActionTypes, CardsState } from '../Card/action';
 import { CardView, List as ListType } from '../type';
 import { mergeRefs } from '../../../utils';
-import { throttle, debounce } from 'lodash';
+import { debounce } from 'lodash';
 
 // First page is deliberately small: each Card is a dnd draggable with markdown
 // and badges. Subsequent turns add a screenful at a time.
@@ -118,28 +118,25 @@ const AfterPlaceHolder = styled.div`
     z-index: 1;
 `;
 
-interface CardsProps {
-    $displayScrollbar: boolean;
-}
+/**
+ * Toggled on the scroll container while it scrolls (and for a moment after).
+ *
+ * It does two jobs:
+ *  - it reveals the scrollbar thumb;
+ *  - it tells the cards to drop their hover lift -- see the `.pl-list-scrolling`
+ *    block in `Card.tsx`.
+ *
+ * It is a plain DOM class rather than React state because a wheel gesture fires
+ * `scroll` up to 60 times a second, and a state update re-rendered this list
+ * (re-running every mounted card's memo comparison, then styled-components'
+ * class generation for the column) on every throttled tick, even though the flag
+ * itself only changes twice per gesture. Toggling the class costs one style
+ * invalidation. The class name is global because the cards are styled in
+ * `Card.tsx`, outside this module's styled-components scope.
+ */
+const SCROLLING_CLASS = 'pl-list-scrolling';
 
-// The thumb of `Cards` paints itself with `box-shadow: inset 0 0 0 10px`, i.e.
-// with `currentColor`, so `color` *is* the scrollbar color here and has to come
-// from the theme: a fixed dark color is invisible on a dark list body.
-const displayScrollbarFn = ({ $displayScrollbar }: CardsProps) => {
-    if ($displayScrollbar) {
-        return `
-            color: var(--pl-scrollbar-thumb);
-            transition: color 250ms;
-        `;
-    }
-
-    return `
-        color: rgba(0, 0, 0, 0);
-        transition: color 250ms;
-    `;
-};
-
-const Cards = styled.div<CardsProps>`
+const Cards = styled.div`
     position: relative;
     padding: 0;
     background-color: var(--pl-bg-sunken);
@@ -149,15 +146,29 @@ const Cards = styled.div<CardsProps>`
     overflow-x: visible;
     min-height: 200px;
     max-width: 270px;
+    /* The thumb paints itself with box-shadow: inset 0 0 0 10px, i.e. with
+       currentColor, so color *is* the scrollbar color here and has to come from
+       the theme: a fixed dark color is invisible on a dark list body. It stays on
+       this element (not on the thumb) because a transition on the custom
+       scrollbar pseudo-element does not run -- it has no layout object -- and
+       the 250ms reveal is part of the design. The cards below set their own
+       color (see the rule below), so the animated value only reaches the
+       scrollbar. */
+    color: rgba(0, 0, 0, 0);
+    transition: color 250ms;
     & > * {
         color: var(--pl-text);
+    }
+
+    &.${SCROLLING_CLASS} {
+        color: var(--pl-scrollbar-thumb);
     }
 
     /* The "&" matters here: styled-components v6 no longer turns a nested
        scrollbar pseudo-element selector into a self selector, so without it
        these rules would style the scrollbars of *descendants* (the card
        bodies) instead of the list column itself. */
-    ${displayScrollbarFn} &::-webkit-scrollbar {
+    &::-webkit-scrollbar {
         width: 4px;
         height: 4px;
         background-color: rgba(0, 0, 0, 0);
@@ -246,7 +257,6 @@ export const List: FC<Props> = React.memo((props: Props) => {
         deleteList,
     } = props;
     const cardListRef = React.useRef<HTMLElement>(null);
-    const [showScrollBar, setShowScrollBar] = useState(true);
     React.useEffect(() => {
         const cardList = cardListRef.current;
         if (!cardList) {
@@ -254,27 +264,31 @@ export const List: FC<Props> = React.memo((props: Props) => {
         }
 
         const hideScrollBar = debounce(() => {
-            setShowScrollBar(false);
+            cardList.classList.remove(SCROLLING_CLASS);
         }, 600);
 
-        const onScroll = throttle(() => {
-            setShowScrollBar(true);
+        // Passive: the handler only toggles a class and never prevents
+        // scrolling, so the browser can keep scrolling off the main thread
+        // instead of waiting for this listener. It writes the class at most
+        // once per gesture (`contains` is a plain attribute read and does not
+        // invalidate style), so a 60/s event stream costs no more than the
+        // boolean check itself.
+        const onScroll = () => {
+            if (!cardList.classList.contains(SCROLLING_CLASS)) {
+                cardList.classList.add(SCROLLING_CLASS);
+            }
             hideScrollBar();
-        }, 30);
+        };
 
-        // Passive: the handler only toggles the scrollbar visibility and never
-        // prevents scrolling, so the browser can keep scrolling off the main
-        // thread instead of waiting for this listener.
         cardList.addEventListener('scroll', onScroll, { passive: true });
+        // The bar is visible for a moment after the list appears, as before.
+        cardList.classList.add(SCROLLING_CLASS);
         hideScrollBar();
         return () => {
             cardList.removeEventListener('scroll', onScroll);
-            // Pending debounced/throttled callbacks would still call
-            // `setShowScrollBar` after unmount ("state update on an unmounted
-            // component" warning + a leaked timer per mount/unmount cycle),
-            // so cancel them explicitly here.
+            // A pending debounced callback would touch a detached node (and
+            // leak a timer per mount/unmount cycle), so cancel it explicitly.
             hideScrollBar.cancel();
-            onScroll.cancel();
         };
     }, []);
 
@@ -545,11 +559,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
                                     cardListRef,
                                 ]) as React.RefObject<HTMLDivElement>;
                                 return (
-                                    <Cards
-                                        ref={mergedRef}
-                                        $displayScrollbar={showScrollBar}
-                                        {...provided.droppableProps}
-                                    >
+                                    <Cards ref={mergedRef} {...provided.droppableProps}>
                                         <BeforePlaceHolder />
                                         {renderedCards.map((cardId, index) => {
                                             const card = cardsState[cardId];

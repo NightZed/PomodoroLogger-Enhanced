@@ -75,6 +75,26 @@ const CardContainer = styled.div<{ $preview?: boolean }>`
     &.is-dragging:hover::before {
         opacity: 0;
     }
+
+    /* A column that is being scrolled sweeps a different card under the
+       pointer every few frames, and Chromium re-resolves :hover for each of
+       them. Honouring the lift there means a blurred-shadow repaint (~18px
+       blur, which also enlarges the invalidated rect) plus a paint-order change,
+       because z-index: 5 moves the card in front of its neighbours; during a
+       continuous wheel scroll that measured ~10 points of renderer main-thread
+       time on a 128-card list. The lift is suspended while the column scrolls
+       (the pl-list-scrolling class is written by the list's scroll handler, see
+       List.tsx) and returns with the scrollbar, 600ms after the last scroll
+       event. Specificity: one class more than the plain &:hover rules above. */
+    .pl-list-scrolling & {
+        &:hover {
+            z-index: 0;
+
+            &::before {
+                opacity: 0;
+            }
+        }
+    }
 `;
 
 const CardContent = styled.div`

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { cleanup, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { List } from './List';
 
 jest.mock('@hello-pangea/dnd', () => ({
@@ -10,7 +10,13 @@ jest.mock('@hello-pangea/dnd', () => ({
         ),
     Droppable: (props: any) =>
         props.children(
-            { innerRef: () => undefined, droppableProps: {}, placeholder: null },
+            {
+                innerRef: () => undefined,
+                // `data-pl-scroller` gives the tests a stable handle on the
+                // scroll container (`Cards`), whose class name is generated.
+                droppableProps: { 'data-pl-scroller': 'true' },
+                placeholder: null,
+            },
             { isDraggingOver: false }
         ),
 }));
@@ -165,5 +171,57 @@ describe('List progressive card mounting', () => {
 
         expect(writes).toBeLessThanOrEqual(2);
         expect(lastValue).toEqual(['card-1']);
+    });
+});
+
+describe('List scroll state', () => {
+    afterEach(() => {
+        cleanup();
+        jest.useRealTimers();
+    });
+
+    const renderList = () => {
+        const { ids, cards } = makeCards(3);
+        const props: any = {
+            _id: 'list-1',
+            listId: 'list-1',
+            index: 0,
+            boardId: 'board-1',
+            title: 'List',
+            cards: ids,
+            cardsState: cards,
+            cardView: 'full',
+            setVisibleCards: noop,
+            setEditCard: noop,
+            setSearchReg: noop,
+            setContent: noop,
+            deleteList: noop,
+            renameList: noop,
+            addCard: noop,
+        };
+        return render(<List {...props} />);
+    };
+
+    it('marks the scroller while it scrolls and clears it after the gesture', () => {
+        jest.useFakeTimers();
+        const { container } = renderList();
+        const scroller = container.querySelector('[data-pl-scroller]') as HTMLElement;
+        // Visible for a moment after the list mounts, as before.
+        expect(scroller.classList.contains('pl-list-scrolling')).toBe(true);
+
+        act(() => {
+            jest.advanceTimersByTime(700);
+        });
+        expect(scroller.classList.contains('pl-list-scrolling')).toBe(false);
+
+        // The class is written directly on the node -- no React state, so no
+        // re-render of the list (or of any card) is needed while scrolling.
+        fireEvent.scroll(scroller);
+        expect(scroller.classList.contains('pl-list-scrolling')).toBe(true);
+
+        act(() => {
+            jest.advanceTimersByTime(700);
+        });
+        expect(scroller.classList.contains('pl-list-scrolling')).toBe(false);
     });
 });

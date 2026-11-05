@@ -3,6 +3,7 @@ import { App as AntdApp, Checkbox, Popconfirm } from 'antd';
 import { dialogMotionProps } from '../AppModal';
 import { getPopupContainer } from '../popupLayer';
 import { FEEDBACK_MESSAGES } from './messages';
+import { t } from '../../i18n';
 import {
     FEEDBACK_ICON_COLORS,
     FEEDBACK_ICONS,
@@ -160,8 +161,8 @@ export const confirm = ({
     title,
     content,
     kind = 'info',
-    okText = 'OK',
-    cancelText = 'Cancel',
+    okText = t('common.ok'),
+    cancelText = t('common.cancel'),
     checkbox,
     width = FEEDBACK_WIDTH,
     onOk,
@@ -189,7 +190,7 @@ export const alert = ({
     title,
     content,
     kind = 'info',
-    okText = 'OK',
+    okText = t('common.ok'),
     width = FEEDBACK_WIDTH,
     onOk,
 }: AlertOptions) => {
@@ -218,8 +219,8 @@ export const ConfirmPopover = React.forwardRef<any, ConfirmPopoverProps>((props,
         title = FEEDBACK_MESSAGES.confirm.defaultTitle,
         onConfirm,
         onCancel,
-        okText = 'OK',
-        cancelText = 'Cancel',
+        okText = t('common.ok'),
+        cancelText = t('common.cancel'),
         placement = 'top',
         children,
     } = props;

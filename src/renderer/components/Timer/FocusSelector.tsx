@@ -4,6 +4,7 @@ import { actions as timerActions } from './action';
 import { RootState } from '../../reducers';
 import { connect } from 'react-redux';
 import { Dispatch } from 'redux';
+import { t } from '../../i18n';
 
 const { Option } = Select;
 
@@ -55,7 +56,7 @@ const FocusSelectorInner: FunctionComponent<Props> = (props: Props) => {
             <Select
                 value={props.chosenId}
                 style={style}
-                placeholder="Choose Your Focus"
+                placeholder={t('timer.focusSelector.placeholder')}
                 onChange={onChange}
                 id="focus-selector"
             >
@@ -66,7 +67,7 @@ const FocusSelectorInner: FunctionComponent<Props> = (props: Props) => {
                     style={{ color: '#bfbfbf' }}
                     className="focus-option"
                 >
-                    No Focusing Project
+                    {t('timer.focusSelector.none')}
                 </Option>
             </Select>
         </ConfigProvider>

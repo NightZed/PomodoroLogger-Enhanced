@@ -21,6 +21,7 @@ import { EditorContainer } from '../style/editorStyle';
 import { CreatedTime } from '../style/CreatedTime';
 import { formatTimeYmdHm } from '../../Visualization/Timeline';
 import { LabelEditor } from './LabelEditor';
+import { useI18n } from '../../../i18n';
 /**
  * The class antd puts on the editor's dialog wrap (the Modal's wrapClassName
  * below). The document-level Ctrl+Enter/Esc listener uses it to tell THIS
@@ -53,6 +54,7 @@ interface FormData {
 }
 
 const _CardInDetail: FC<Props> = React.memo((props: Props) => {
+    const { t } = useI18n();
     const [form] = Form.useForm();
     const [showMarkdownPreview, setShowMarkdownPreview] = useState(false);
     const [cardContent, setCardContent] = useState('');
@@ -372,7 +374,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             setFields([
                 {
                     name: 'title',
-                    errors: ['Please input the title of card!'],
+                    errors: [t('kanban.cardEditor.titleRequired')],
                 },
             ]);
             return;
@@ -559,18 +561,22 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
     return (
         <AppModal
             open={visible}
-            title={thisIsCreating ? 'Create a new card' : 'Edit'}
+            title={
+                thisIsCreating
+                    ? t('kanban.cardEditor.createTitle')
+                    : t('kanban.cardEditor.editTitle')
+            }
             // custom footer: wrap the Save button in an antd Tooltip so the
             // Ctrl+Enter hint pops fast (~0.1s) instead of the slow native title
             footer={
                 thisIsCreating ? (
                     <Button type="primary" onClick={onSave}>
-                        Create
+                        {t('kanban.boardEditor.create')}
                     </Button>
                 ) : (
-                    <Tooltip title={'Ctrl+Enter'}>
+                    <Tooltip title={t('kanban.cardEditor.ctrlEnter')}>
                         <Button type="primary" onClick={onSave}>
-                            Save
+                            {t('common.save')}
                         </Button>
                     </Tooltip>
                 )
@@ -588,15 +594,20 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             <EditorContainer>
                 <Form form={form} layout="vertical">
                     <Form.Item
-                        label="Title"
+                        label={t('kanban.cardEditor.title')}
                         name="title"
-                        rules={[{ required: true, message: 'Please input the title of card!' }]}
+                        rules={[
+                            {
+                                required: true,
+                                message: t('kanban.cardEditor.titleRequired'),
+                            },
+                        ]}
                     >
-                        <Input placeholder={'Title'} />
+                        <Input placeholder={t('kanban.cardEditor.title')} />
                     </Form.Item>
                     {!thisIsCreating && card && card.createdTime !== undefined ? (
                         <CreatedTime style={{ marginTop: -4, marginBottom: 8 }}>
-                            Created: {formatTimeYmdHm(card.createdTime)}
+                            {t('kanban.page.created')}: {formatTimeYmdHm(card.createdTime)}
                         </CreatedTime>
                     ) : undefined}
                     {/* Mount the tab strip with the dialog (forceRender) instead
@@ -615,18 +626,16 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                             items={[
                                 {
                                     key: 'edit',
-                                    label: 'Edit',
+                                    label: t('kanban.cardEditor.edit'),
                                     children: (
                                         <>
                                             <div style={{ marginBottom: 4 }}>
-                                                <Tooltip
-                                                    title={'Insert task checkbox - [ ] (Ctrl+L)'}
-                                                >
+                                                <Tooltip title={t('kanban.cardEditor.checkbox')}>
                                                     <Button size={'small'} onClick={insertCheckbox}>
                                                         ☐
                                                     </Button>
                                                 </Tooltip>
-                                                <Tooltip title={'Toggle bold **text** (Ctrl+B)'}>
+                                                <Tooltip title={t('kanban.cardEditor.bold')}>
                                                     <Button
                                                         size={'small'}
                                                         style={{ marginLeft: 4 }}
@@ -635,7 +644,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                                         <b>B</b>
                                                     </Button>
                                                 </Tooltip>
-                                                <Tooltip title={'Toggle italic *text* (Ctrl+I)'}>
+                                                <Tooltip title={t('kanban.cardEditor.italic')}>
                                                     <Button
                                                         size={'small'}
                                                         style={{ marginLeft: 4 }}
@@ -645,9 +654,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                                     </Button>
                                                 </Tooltip>
                                                 <Tooltip
-                                                    title={
-                                                        'Toggle strikethrough ~~text~~ (Ctrl+Shift+X)'
-                                                    }
+                                                    title={t('kanban.cardEditor.strikethrough')}
                                                 >
                                                     <Button
                                                         size={'small'}
@@ -660,7 +667,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                                         S
                                                     </Button>
                                                 </Tooltip>
-                                                <Tooltip title={'Insert link [text](URL) (Ctrl+K)'}>
+                                                <Tooltip title={t('kanban.cardEditor.link')}>
                                                     <Button
                                                         size={'small'}
                                                         style={{ marginLeft: 4 }}
@@ -674,7 +681,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                                     ref={contentRef}
                                                     autoSize={{ minRows: 6, maxRows: 16 }}
                                                     style={{ transition: 'none' }}
-                                                    placeholder={'Description'}
+                                                    placeholder={t('kanban.cardEditor.description')}
                                                     onKeyDown={onContentKeyDown}
                                                     onChange={(e: any) =>
                                                         setCardContent(e.target.value)
@@ -686,7 +693,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                 },
                                 {
                                     key: 'preview',
-                                    label: 'Preview',
+                                    label: t('kanban.cardEditor.preview'),
                                     children: (
                                         <Markdown
                                             ref={previewRef}
@@ -707,28 +714,28 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                     }
                     <Row>
                         <Col span={12}>
-                            <Form.Item label="Estimated Time In Hour">
+                            <Form.Item label={t('kanban.cardEditor.estimatedTime')}>
                                 <Form.Item name="estimatedTime" noStyle>
                                     <InputNumber
                                         min={0}
                                         max={100}
                                         step={0.5}
                                         precision={1}
-                                        placeholder={'Estimated Time In Hour'}
+                                        placeholder={t('kanban.cardEditor.estimatedTime')}
                                     />
                                 </Form.Item>
                             </Form.Item>
                         </Col>
                         <Col span={12}>
                             {thisIsCreating ? undefined : (
-                                <Form.Item label="Actual Spent Time In Hour">
+                                <Form.Item label={t('kanban.cardEditor.actualSpentTime')}>
                                     <Form.Item name="actualTime" noStyle>
                                         <InputNumber
                                             disabled={!isEditingActualTime}
                                             precision={2}
                                             min={0}
                                             step={0.2}
-                                            placeholder={'Actual Time In Hour'}
+                                            placeholder={t('kanban.cardEditor.actualTime')}
                                         />
                                     </Form.Item>
                                     <Button
@@ -747,13 +754,19 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                         <Row>
                             <Col span={12}>
                                 <Form.Item
-                                    label={isInDoneList ? 'Completed Time' : 'Last Completed Time'}
+                                    label={
+                                        isInDoneList
+                                            ? t('kanban.cardEditor.completedTime')
+                                            : t('kanban.cardEditor.lastCompletedTime')
+                                    }
                                 >
                                     <Form.Item name="completedTime" noStyle>
                                         <DatePicker
                                             showTime={true}
                                             format={'YYYY-MM-DD HH:mm'}
-                                            placeholder={'Completion time'}
+                                            placeholder={t(
+                                                'kanban.cardEditor.completionPlaceholder'
+                                            )}
                                             style={{ width: 200 }}
                                         />
                                     </Form.Item>
@@ -761,7 +774,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                             </Col>
                         </Row>
                     )}
-                    <Form.Item label="Labels">
+                    <Form.Item label={t('kanban.cardEditor.labels')}>
                         <LabelEditor
                             labels={cardLabels}
                             onChange={setCardLabels}
@@ -772,7 +785,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                         <Row>
                             <ConfirmPopover onConfirm={onDelete}>
                                 <Button type="primary" danger icon={<Icon type={'delete'} />}>
-                                    Delete
+                                    {t('common.delete')}
                                 </Button>
                             </ConfirmPopover>
                         </Row>
@@ -780,10 +793,10 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                 </Form>
             </EditorContainer>
             <AppModal
-                title={'Insert link'}
+                title={t('kanban.cardEditor.insertLink')}
                 open={linkModalVisible}
-                okText={'Insert'}
-                cancelText={'Cancel'}
+                okText={t('kanban.cardEditor.insert')}
+                cancelText={t('common.cancel')}
                 width={360}
                 onOk={confirmLink}
                 onCancel={closeLinkModal}
@@ -792,7 +805,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             >
                 <Input
                     autoFocus={true}
-                    placeholder={'Title'}
+                    placeholder={t('kanban.cardEditor.title')}
                     value={linkText}
                     onChange={(e) => setLinkText(e.target.value)}
                     onPressEnter={onLinkTextPressEnter}

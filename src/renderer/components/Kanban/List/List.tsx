@@ -14,6 +14,7 @@ import { CardActionTypes, CardsState } from '../Card/action';
 import { CardView, List as ListType } from '../type';
 import { mergeRefs } from '../../../utils';
 import { debounce } from 'lodash';
+import { useI18n } from '../../../i18n';
 
 // First page is deliberately small: each Card is a dnd draggable with markdown
 // and badges. Subsequent turns add a screenful at a time.
@@ -243,6 +244,7 @@ const isSameVisibleCards = (a?: string[], b?: string[]) => {
 };
 
 export const List: FC<Props> = React.memo((props: Props) => {
+    const { t } = useI18n();
     const {
         focused = false,
         preview = false,
@@ -450,7 +452,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
                           {
                               key: '1',
                               icon: <Icon type={'setting'} />,
-                              label: 'Edit',
+                              label: t('common.edit'),
                               onClick: onEdit,
                           },
                           { type: 'divider' },
@@ -459,7 +461,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
                               icon: <Icon type={'delete'} />,
                               label: (
                                   <ConfirmPopover onConfirm={onDelete} ref={popConfirmRef as any}>
-                                      Delete
+                                      {t('common.delete')}
                                   </ConfirmPopover>
                               ),
                           },
@@ -470,12 +472,12 @@ export const List: FC<Props> = React.memo((props: Props) => {
                           {
                               key: '1',
                               icon: <Icon type={'setting'} />,
-                              label: 'Edit',
+                              label: t('common.edit'),
                               onClick: onEdit,
                           },
                       ],
                   },
-        [onDelete, focused, done, onEdit]
+        [onDelete, focused, done, onEdit, t]
     );
 
     return (
@@ -510,7 +512,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
                                     }}
                                 >
                                     <Input maxLength={25} value={value} onChange={onValueChange} />
-                                    <Button onClick={onSave}>Save</Button>
+                                    <Button onClick={onSave}>{t('common.save')}</Button>
                                 </div>
                             ) : (
                                 <>
@@ -518,10 +520,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
                                         <h1>{props.title}</h1>
                                         <span>
                                             {searchReg == null ? (
-                                                <>
-                                                    {cardCount} Card
-                                                    {cardCount > 1 ? 's ' : ' '}
-                                                </>
+                                                <>{t('kanban.list.cardCount', cardCount)} </>
                                             ) : (
                                                 <>
                                                     {filteredCards.length} / {cardCount}
@@ -532,14 +531,14 @@ export const List: FC<Props> = React.memo((props: Props) => {
                                     </span>
                                     <div className="list-head-icon">
                                         {focused ? (
-                                            <Tooltip title={'Focused List'}>
+                                            <Tooltip title={t('kanban.list.focused')}>
                                                 <span style={{ color: 'red', marginRight: 8 }}>
                                                     <IconComponent component={FocusIcon} />
                                                 </span>
                                             </Tooltip>
                                         ) : undefined}
                                         {done ? (
-                                            <Tooltip title={'Done List'}>
+                                            <Tooltip title={t('kanban.list.done')}>
                                                 <span style={{ color: 'green', marginRight: 8 }}>
                                                     <IconComponent component={DoneIcon} />
                                                 </span>

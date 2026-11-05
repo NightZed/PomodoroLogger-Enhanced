@@ -7,6 +7,8 @@
  * the large `Timer` component, where the mode-switch guard, the three layouts
  * and the tray menu drifted apart one bug at a time.
  */
+import { t } from '../../i18n';
+
 export interface SessionState {
     isRunning: boolean;
     isFocusing: boolean;
@@ -252,22 +254,22 @@ export function trayMenuItems(timer: TrayState): TrayMenuItem[] {
     const mayStart = !hasSession(timer) || timer.sessionEnding;
 
     return [
-        { key: 'startFocusing', label: 'Start Focusing', enabled: mayStart },
-        { key: 'startBreak', label: 'Start Break', enabled: mayStart },
+        { key: 'startFocusing', label: t('timer.tray.startFocusing'), enabled: mayStart },
+        { key: 'startBreak', label: t('timer.tray.startBreak'), enabled: mayStart },
         {
             key: 'pauseOrContinue',
-            label: timer.isRunning ? 'Pause' : 'Continue',
+            label: timer.isRunning ? t('timer.tray.pause') : t('timer.tray.continue'),
             // Never under the mask: resuming a timer that already expired is
             // the ghost session the mask exists to prevent.
             enabled: liveSession,
         },
-        { key: 'finish', label: 'Finish', enabled: liveSession },
+        { key: 'finish', label: t('timer.tray.finish'), enabled: liveSession },
         {
             key: 'stop',
             // Also disabled under the mask: the record is already written down
             // and waiting, so a "Stop" that cannot throw it away would lie.
             enabled: liveSession,
-            label: 'Stop',
+            label: t('timer.tray.stop'),
         },
     ];
 }

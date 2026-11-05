@@ -1,4 +1,5 @@
 import { tabType } from './Timer/action';
+import type { PlainMessageKey } from '../../shared/i18n';
 
 /**
  * The app's pages, in the order the title bar shows them.
@@ -17,7 +18,7 @@ import { tabType } from './Timer/action';
 export interface AppTabMeta {
     key: tabType;
     /** Shown next to the icon; compact mode keeps the icon only. */
-    title: string;
+    titleKey: PlainMessageKey;
     /** antd 3 icon type, the same set the settings navigation uses. */
     icon: string;
     /** `data-tour` hook of the guided tour, where there is one. */
@@ -32,20 +33,20 @@ export interface AppTabMeta {
 export const APP_TABS: AppTabMeta[] = [
     {
         key: 'timer',
-        title: 'Pomodoro',
+        titleKey: 'tabs.timer',
         icon: 'clock-circle',
         tourKey: 'pomodoro-tab',
         forceRender: true,
     },
     {
         key: 'kanban',
-        title: 'Kanban',
+        titleKey: 'tabs.kanban',
         icon: 'project',
         tourKey: 'kanban-tab',
         forceRender: false,
     },
-    { key: 'history', title: 'History', icon: 'history', forceRender: false },
-    { key: 'setting', title: 'Setting', icon: 'setting', forceRender: false },
+    { key: 'history', titleKey: 'tabs.history', icon: 'history', forceRender: false },
+    { key: 'setting', titleKey: 'tabs.setting', icon: 'setting', forceRender: false },
 ];
 
 /**

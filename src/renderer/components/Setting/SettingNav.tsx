@@ -1,6 +1,7 @@
 import React from 'react';
 import { AntdIcon as Icon } from '../antdIcon';
 import styled from 'styled-components';
+import { useI18n } from '../../i18n';
 import { SECTIONS, SectionId, SectionMeta } from './sections';
 
 /**
@@ -62,24 +63,28 @@ interface Props {
     onChange: (id: SectionId) => void;
 }
 
-const SettingNav: React.FC<Props> = ({ active, onChange }) => (
-    <Nav aria-label="Settings sections">
-        <NavList>
-            {SECTIONS.map((section: SectionMeta) => (
-                <li key={section.id}>
-                    <NavItem
-                        type="button"
-                        $active={active === section.id}
-                        aria-current={active === section.id}
-                        onClick={() => onChange(section.id)}
-                    >
-                        <Icon type={section.icon} />
-                        {section.title}
-                    </NavItem>
-                </li>
-            ))}
-        </NavList>
-    </Nav>
-);
+const SettingNav: React.FC<Props> = ({ active, onChange }) => {
+    const { t } = useI18n();
+
+    return (
+        <Nav aria-label={t('settings.sectionsLabel')}>
+            <NavList>
+                {SECTIONS.map((section: SectionMeta) => (
+                    <li key={section.id}>
+                        <NavItem
+                            type="button"
+                            $active={active === section.id}
+                            aria-current={active === section.id}
+                            onClick={() => onChange(section.id)}
+                        >
+                            <Icon type={section.icon} />
+                            {t(section.titleKey)}
+                        </NavItem>
+                    </li>
+                ))}
+            </NavList>
+        </Nav>
+    );
+};
 
 export default SettingNav;

@@ -1,3 +1,5 @@
+import type { PlainMessageKey } from '../../../shared/i18n';
+
 /**
  * Settings page sections.
  *
@@ -9,19 +11,19 @@ export type SectionId = 'timer' | 'appearance' | 'notification' | 'shortcuts' | 
 
 export interface SectionMeta {
     id: SectionId;
-    /** Group title, shown in the navigation and as the pane heading. */
-    title: string;
+    /** Dictionary key of the group title, see `settings.sections.*`. */
+    titleKey: PlainMessageKey;
     /** antd 3 icon type, same set as the main tab bar. */
     icon: string;
 }
 
 export const SECTIONS: SectionMeta[] = [
-    { id: 'timer', title: 'Timer', icon: 'clock-circle' },
-    { id: 'appearance', title: 'Appearance', icon: 'skin' },
-    { id: 'notification', title: 'Notifications', icon: 'bell' },
-    { id: 'shortcuts', title: 'Shortcuts', icon: 'tags' },
-    { id: 'system', title: 'System', icon: 'setting' },
-    { id: 'about', title: 'About', icon: 'info-circle' },
+    { id: 'timer', titleKey: 'settings.sections.timer', icon: 'clock-circle' },
+    { id: 'appearance', titleKey: 'settings.sections.appearance', icon: 'skin' },
+    { id: 'notification', titleKey: 'settings.sections.notification', icon: 'bell' },
+    { id: 'shortcuts', titleKey: 'settings.sections.shortcuts', icon: 'tags' },
+    { id: 'system', titleKey: 'settings.sections.system', icon: 'setting' },
+    { id: 'about', titleKey: 'settings.sections.about', icon: 'info-circle' },
 ];
 
 export const DEFAULT_SECTION: SectionId = 'timer';
@@ -29,8 +31,8 @@ export const DEFAULT_SECTION: SectionId = 'timer';
 export interface ShortcutEntry {
     /** Key combination, as the shared `Hotkeys` wrapper spells it. */
     keys: string;
-    /** What it does, in the wording of the screen it acts on. */
-    description: string;
+    /** Dictionary key of what the shortcut does. */
+    descriptionKey: PlainMessageKey;
 }
 
 /**
@@ -43,55 +45,50 @@ export interface ShortcutEntry {
  * documentation only -- changing a key here would not change the behaviour. It
  * exists so the settings page can tell the user what the keys do instead of
  * leaving them to guess.
+ *
+ * Only the descriptions are translated; `keys` are literal key names.
  */
-export const SHORTCUTS: { group: string; entries: ShortcutEntry[] }[] = [
+export const SHORTCUTS: { groupKey: PlainMessageKey; entries: ShortcutEntry[] }[] = [
     {
-        group: 'Navigation',
+        groupKey: 'settings.shortcuts.group.navigation',
         entries: [
-            { keys: 'Ctrl + Tab', description: 'Switch to the next tab' },
-            { keys: 'Ctrl + Shift + Tab', description: 'Switch to the previous tab' },
+            { keys: 'Ctrl + Tab', descriptionKey: 'settings.shortcuts.nextTab' },
+            { keys: 'Ctrl + Shift + Tab', descriptionKey: 'settings.shortcuts.previousTab' },
         ],
     },
     {
-        group: 'Window',
+        groupKey: 'settings.shortcuts.group.window',
         entries: [
-            { keys: 'F11', description: 'Toggle compact mode' },
-            { keys: 'F12', description: 'Toggle the mini mode' },
-            { keys: 'Ctrl + Q', description: 'Quit the app' },
+            { keys: 'F11', descriptionKey: 'settings.shortcuts.toggleCompact' },
+            { keys: 'F12', descriptionKey: 'settings.shortcuts.toggleMini' },
+            { keys: 'Ctrl + Q', descriptionKey: 'settings.shortcuts.quit' },
         ],
     },
     {
-        group: 'Timer',
+        groupKey: 'settings.shortcuts.group.timer',
         entries: [
-            { keys: 'F5', description: 'Start or resume the current session' },
-            { keys: 'F6', description: 'Pause the current session' },
-            { keys: 'Tab', description: 'Switch between focus and break' },
+            { keys: 'F5', descriptionKey: 'settings.shortcuts.startSession' },
+            { keys: 'F6', descriptionKey: 'settings.shortcuts.pauseSession' },
+            { keys: 'Tab', descriptionKey: 'settings.shortcuts.switchMode' },
         ],
     },
     {
-        group: 'Kanban',
+        groupKey: 'settings.shortcuts.group.kanban',
         entries: [
-            { keys: 'Ctrl + N', description: 'Create a new board' },
-            { keys: 'Esc', description: 'Go back to the board list or the Timer page' },
-            { keys: 'Ctrl + F', description: 'Search cards in the board view' },
+            { keys: 'Ctrl + N', descriptionKey: 'settings.shortcuts.newBoard' },
+            { keys: 'Esc', descriptionKey: 'settings.shortcuts.backToBoardList' },
+            { keys: 'Ctrl + F', descriptionKey: 'settings.shortcuts.searchCards' },
         ],
     },
     {
-        group: 'Editors',
+        groupKey: 'settings.shortcuts.group.editors',
         entries: [
-            {
-                keys: 'Ctrl + Enter',
-                description: 'Save the card or board being edited',
-            },
-            { keys: 'Ctrl + F12', description: 'Open the developer tools' },
+            { keys: 'Ctrl + Enter', descriptionKey: 'settings.shortcuts.saveEditor' },
+            { keys: 'Ctrl + F12', descriptionKey: 'settings.shortcuts.devTools' },
         ],
     },
     {
-        group: 'Statistics',
-        entries: [{ keys: 'Esc', description: 'Close the fullscreen diagram' }],
+        groupKey: 'settings.shortcuts.group.statistics',
+        entries: [{ keys: 'Esc', descriptionKey: 'settings.shortcuts.closeDiagram' }],
     },
 ];
-
-/** Copy shared by the sections, kept next to the table above. */
-export const SHORTCUT_DISCLAIMER =
-    'These shortcuts are built into the app and cannot be changed yet.';

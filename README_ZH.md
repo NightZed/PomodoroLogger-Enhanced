@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img src="./docs/images/promo-head-compact.png" height="400" alt="小屏宣传头图"/>
+  <img src="./docs/images/promo-head-compact.png" height="400" alt="紧凑宣传头图"/>
 </p>
 
 <p align="center">
@@ -68,7 +68,7 @@
   <img width="800" src="./docs/images/normal-timer-shadow.png" alt="普通模式"/>
 </p>
 
-### 托盘 / 迷你 / 小屏 / 夜间模式 / 透明度 / 壁纸
+### 托盘 / 迷你 / 紧凑 / 夜间模式 / 透明度 / 壁纸
 
 - **托盘**：关闭主页面缩放到系统托盘
 
@@ -84,11 +84,11 @@
   <img width="200" src="./docs/images/mini-night-shadow.png" alt="夜间迷你模式"/>
 </p>
 
-- **小屏模式**：用 `F11` 在完整界面与小屏模式之间切换。
+- **紧凑模式**：用 `F11` 在完整界面与紧凑模式之间切换。
 
 <p align="center">
-  <img height="300" src="./docs/images/compact-wallpaper-day-shadow.png" alt="日间小屏模式"/>
-  <img height="300" src="./docs/images/compact-wallpaper-night-shadow.png" alt="夜间小屏模式"/>
+  <img height="300" src="./docs/images/compact-wallpaper-day-shadow.png" alt="日间紧凑模式"/>
+  <img height="300" src="./docs/images/compact-wallpaper-night-shadow.png" alt="夜间紧凑模式"/>
 </p>
 
 - **夜间模式 / 透明度 / 壁纸**：可以在白天和夜间模式之间切换；支持自由设置应用透明度和壁纸。
@@ -228,7 +228,7 @@ pomodoro-logger [C:\code\pomodoro-logger] .\src\renderer\components\src\Applicat
 - **快速保存**：`Ctrl+Enter`（Card 编辑）。
 - **退出应用**：`Ctrl+Q`。
 - **迷你模式**：`F12`。
-- **小屏模式**：`F11`。
+- **紧凑模式**：`F11`。
 
 <a id="quick-start"></a>
 
@@ -237,14 +237,14 @@ pomodoro-logger [C:\code\pomodoro-logger] .\src\renderer\components\src\Applicat
 平台支持： **Windows 10 / macOS 13+ / Linux**，
 下载：[发布页面](https://github.com/NightZed/PomodoroLogger-Enhanced/releases)。
 
-| 平台 | 下载这个文件 |
-| --- | --- |
-| Windows 10+（x64） | `Pomodoro-Logger-Enhanced-<version>-win-x64-setup.exe` |
-| macOS 13+（Apple 芯片） | `Pomodoro-Logger-Enhanced-<version>-mac-arm64.dmg` |
-| macOS 13+（Intel 芯片） | `Pomodoro-Logger-Enhanced-<version>-mac-x64.dmg` |
-| Debian / Ubuntu / Mint | `pomodoro-logger-enhanced_<version>_amd64.deb` |
-| Fedora / RHEL / openSUSE | `Pomodoro-Logger-Enhanced-<version>-linux-x86_64.rpm` |
-| 任意 Linux（免安装） | `Pomodoro-Logger-Enhanced-<version>-linux-x86_64.AppImage` |
+| 平台                     | 下载这个文件                                               |
+| ------------------------ | ---------------------------------------------------------- |
+| Windows 10+（x64）       | `Pomodoro-Logger-Enhanced-<version>-win-x64-setup.exe`     |
+| macOS 13+（Apple 芯片）  | `Pomodoro-Logger-Enhanced-<version>-mac-arm64.dmg`         |
+| macOS 13+（Intel 芯片）  | `Pomodoro-Logger-Enhanced-<version>-mac-x64.dmg`           |
+| Debian / Ubuntu / Mint   | `pomodoro-logger-enhanced_<version>_amd64.deb`             |
+| Fedora / RHEL / openSUSE | `Pomodoro-Logger-Enhanced-<version>-linux-x86_64.rpm`      |
+| 任意 Linux（免安装）     | `Pomodoro-Logger-Enhanced-<version>-linux-x86_64.AppImage` |
 
 `.zip`（`-mac-arm64.zip`、`-mac-x64.zip`）仅供应用内自动更新使用。
 Ubuntu 22.04 及以上运行 AppImage 需要先安装 `libfuse2`，或加 `--appimage-extract-and-run` 参数运行。

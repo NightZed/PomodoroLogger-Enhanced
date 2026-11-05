@@ -10,6 +10,8 @@ import { cloneDeep } from 'lodash';
 import { connect } from 'react-redux';
 import { RootState } from '../../reducers';
 import styled from 'styled-components';
+import { t, useI18n } from '../../i18n';
+import type { TranslateFn } from '../../../shared/i18n';
 import { fatScrollBar } from '../../style/scrollbar';
 import Hotkeys from '../Hotkeys';
 import { formatTimeYmdHms } from './Timeline';
@@ -92,7 +94,8 @@ const breakWord = (key: string, breaker: string = '\n', maxLength: number = 40):
 const getLinkAndNode = (
     record: PomodoroRecord,
     efficiencyAnalyser: EfficiencyAnalyser,
-    showSwitch: boolean = false
+    showSwitch: boolean = false,
+    translate: TranslateFn = t
 ) => {
     // tslint:disable-next-line:no-parameter-reassignment
     record = cloneDeep(record);
@@ -112,7 +115,7 @@ const getLinkAndNode = (
     const links = [];
 
     nodes.push({
-        name: 'Focused',
+        name: translate('chart.sankey.focused'),
         itemStyle: {
             color: '#34cb23',
             borderColor: '#34cb23',
@@ -122,7 +125,7 @@ const getLinkAndNode = (
         },
     });
     nodes.push({
-        name: 'Distracted',
+        name: translate('chart.sankey.distracted'),
         itemStyle: {
             color: '#55409c',
             borderColor: '#55409c',
@@ -202,13 +205,13 @@ const getLinkAndNode = (
             if (!showSwitch) {
                 if (efficiencyAnalyser.getIsDistracting(app, title)) {
                     links.push({
-                        target: 'Distracted',
+                        target: translate('chart.sankey.distracted'),
                         source: key,
                         value: getStayTimeSum(_title.index),
                     });
                 } else {
                     links.push({
-                        target: 'Focused',
+                        target: translate('chart.sankey.focused'),
                         source: key,
                         value: getStayTimeSum(_title.index),
                     });
@@ -235,13 +238,13 @@ const getLinkAndNode = (
             });
             if (efficiencyAnalyser.getIsDistracting(app, title)) {
                 links.push({
-                    target: 'Distracted',
+                    target: translate('chart.sankey.distracted'),
                     source: name,
                     value: record.stayTimeInSecond![i],
                 });
             } else {
                 links.push({
-                    target: 'Focused',
+                    target: translate('chart.sankey.focused'),
                     source: name,
                     value: record.stayTimeInSecond![i],
                 });
@@ -259,9 +262,10 @@ const getOption = (
     record: PomodoroRecord,
     efficiencyAnalyser: EfficiencyAnalyser,
     showSwitch: boolean,
-    tokens: ThemeTokens
+    tokens: ThemeTokens,
+    translate: TranslateFn = t
 ): EChartsOption => {
-    const data = getLinkAndNode(record, efficiencyAnalyser, showSwitch);
+    const data = getLinkAndNode(record, efficiencyAnalyser, showSwitch, translate);
     return {
         title: {
             text: '',
@@ -353,14 +357,17 @@ const getOption = (
 export const PomodoroSankey = (props: Props) => {
     const { boardName, cancel, efficiencyAnalyser, record, showSwitch, width = '100%' } = props;
     const { tokens } = useThemeTokens();
+    const { t: translate } = useI18n();
     // Every hook must run unconditionally: this component stays mounted even
     // before a record is chosen, and the early returns below used to change
     // the hook count between renders, which crashed with "Rendered more hooks
     // than during the previous render".
     const option = React.useMemo(
         () =>
-            record == null ? undefined : getOption(record, efficiencyAnalyser, showSwitch, tokens),
-        [efficiencyAnalyser, record, showSwitch, tokens]
+            record == null
+                ? undefined
+                : getOption(record, efficiencyAnalyser, showSwitch, tokens, translate),
+        [efficiencyAnalyser, record, showSwitch, tokens, translate]
     );
     if (record == null) {
         return <></>;
@@ -403,10 +410,10 @@ export const PomodoroSankey = (props: Props) => {
             <Hotkeys keyName={'esc'} onKeyDown={onKeyDown} />
             <InnerContainer>
                 <Header>
-                    <h1>Sankey Diagram</h1>
+                    <h1>{t('chart.sankey.title')}</h1>
                     <h2>{boardName}</h2>
                     <h4>{formatTimeYmdHms(record.startTime)}</h4>
-                    <h5>(Click the background or press Esc to exit)</h5>
+                    <h5>{t('chart.sankey.exitHint')}</h5>
                 </Header>
                 <ChartArea onClick={(event) => event.stopPropagation()}>
                     <ReactEcharts

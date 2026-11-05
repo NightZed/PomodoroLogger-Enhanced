@@ -1,3 +1,5 @@
+import type { PlainMessageKey } from '../../../shared/i18n';
+
 export interface Position {
     left?: number | string;
     right?: number | string;
@@ -37,6 +39,8 @@ export interface Story {
      */
     unionChildren?: boolean;
     hint?: string;
+    /** Dictionary key of the hint; takes precedence over `hint` when set. */
+    hintKey?: PlainMessageKey;
     dialogPosition?: Position;
 
     hasConfirm?: boolean; // use confirm button

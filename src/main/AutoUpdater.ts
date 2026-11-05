@@ -1,14 +1,7 @@
 import { autoUpdater, UpdateInfo } from 'electron-updater';
 import { GithubOptions } from 'builder-util-runtime';
 import { UpdateErrorPayload, UpdateEventName, UpdatePhase } from './ipc/type';
-
-/**
- * Reported when a manual check is skipped because the app is not packaged:
- * electron-updater refuses to run in that case, and staying silent would leave
- * the user staring at a spinning button.
- */
-const UPDATE_CHECK_REQUIRES_PACKAGED_APP =
-    'Update check is only available in the installed application';
+import { m } from './i18n';
 
 /**
  * Thin wrapper around electron-updater.
@@ -51,7 +44,7 @@ export class AutoUpdater {
             console.log('update not available');
             this.sendStatusToWindow(
                 UpdateEventName.NotAvailable,
-                `You are using the latest version (v${info.version})`
+                m('native.updater.notAvailable', info.version)
             );
         });
 
@@ -98,7 +91,11 @@ export class AutoUpdater {
         if (manual && !this.isPackaged()) {
             this.sendStatusToWindow(UpdateEventName.Error, {
                 phase: 'check',
-                message: UPDATE_CHECK_REQUIRES_PACKAGED_APP,
+                // Reported when a manual check is skipped because the app is
+                // not packaged: electron-updater refuses to run in that case,
+                // and staying silent would leave the user staring at a
+                // spinning button.
+                message: m('native.updater.notPackaged'),
                 skipped: true,
             } as UpdateErrorPayload);
             return;
@@ -175,7 +172,7 @@ export class AutoUpdater {
         const payload: UpdateErrorPayload = {
             phase: this.phase,
             message: isChannelFileMissing
-                ? 'The release artifacts are still being uploaded, please try again later'
+                ? m('native.updater.artifactsMissing')
                 : (err?.message ?? String(err)),
         };
         this.sendStatusToWindow(UpdateEventName.Error, payload);

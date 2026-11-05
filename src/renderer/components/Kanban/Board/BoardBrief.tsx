@@ -16,6 +16,7 @@ import { IdTrend } from '../../Visualization/ProjectTrend';
 import { formatTimeYmdHm } from '../../Visualization/Timeline';
 import { CreatedTime } from '../style/CreatedTime';
 import { BadgeHolder } from '../style/Badge';
+import { t } from '../../../i18n';
 import { Markdown } from '../style/Markdown';
 import { ListsCountBar } from '../../Visualization/Bar';
 import { PomodoroDot } from '../../Visualization/PomodoroDot';
@@ -346,19 +347,19 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
     let acc;
     let accColor;
     if (avgErr < 5) {
-        acc = 'Perfect';
+        acc = t('kanban.brief.perfect');
         accColor = 'green';
     } else if (avgErr < 10) {
-        acc = 'Good';
+        acc = t('kanban.brief.good');
         accColor = 'green';
     } else if (avgErr < 20) {
-        acc = 'Fair';
+        acc = t('kanban.brief.fair');
         accColor = '#ffe313';
     } else if (avgErr < 30) {
-        acc = 'Poor';
+        acc = t('kanban.brief.poor');
         accColor = '#ffa027';
     } else {
-        acc = 'Bad';
+        acc = t('kanban.brief.bad');
         accColor = '#ff350e';
     }
 
@@ -413,7 +414,9 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
                         <Pin isPin={!!props.pin} onClick={onPinClick} style={{ marginLeft: 4 }} />
                     </h1>
                     {props.createdTime !== undefined ? (
-                        <CreatedTime>Created: {formatTimeYmdHm(props.createdTime)}</CreatedTime>
+                        <CreatedTime>
+                            {t('kanban.page.created')}: {formatTimeYmdHm(props.createdTime)}
+                        </CreatedTime>
                     ) : undefined}
                 </div>
                 <span>
@@ -466,7 +469,7 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
                         type={'accuracy'}
                         value={acc}
                         color={accColor}
-                        title={'Estimate accuracy'}
+                        title={t('kanban.brief.accuracy')}
                     />
                 ) : undefined}
             </BadgeHolder>

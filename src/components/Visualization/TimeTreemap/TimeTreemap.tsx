@@ -7,6 +7,9 @@ import {
     ThemeTokens,
 } from '../../../renderer/theme/tokens';
 import { useThemeTokens } from '../../../renderer/theme/useThemeTokens';
+import { useI18n } from '../../../renderer/i18n';
+import { createTranslator } from '../../../shared/i18n';
+import type { Language } from '../../../shared/i18n';
 
 export interface Props {
     width?: number;
@@ -200,7 +203,12 @@ function treemapSeries(
 /**
  * Exported for tests; the component itself only wires it to echarts-for-react.
  */
-export function getOption(props: Props, tokens: ThemeTokens): EChartsOption {
+export function getOption(
+    props: Props,
+    tokens: ThemeTokens,
+    language: Language = 'en'
+): EChartsOption {
+    const t = createTranslator(language);
     const width = props.width ?? 800;
     const height = props.height ?? 400;
     const panelWidth = width * 0.49;
@@ -215,14 +223,14 @@ export function getOption(props: Props, tokens: ThemeTokens): EChartsOption {
     return {
         title: [
             {
-                text: 'Projects',
+                text: t('chart.treemap.projects'),
                 subtext: `${projectTotal.toFixed(1)} h`,
                 left: 0,
                 top: 0,
                 ...panelTitle,
             },
             {
-                text: 'Applications',
+                text: t('chart.treemap.applications'),
                 subtext: `${appTotal.toFixed(1)} h`,
                 left: PANEL_DIVIDE,
                 top: 0,
@@ -270,12 +278,18 @@ export function getOption(props: Props, tokens: ThemeTokens): EChartsOption {
  */
 export const TimeTreemap: React.FC<Props> = (props: Props) => {
     const { tokens } = useThemeTokens();
+    const { language } = useI18n();
     const { projectData, appData, onProjectClick } = props;
     const { width = 800, height = 400 } = props;
     const [showAllApplications, setShowAllApplications] = React.useState(false);
     const option = React.useMemo(
-        () => getOption({ projectData, appData, width, height, showAllApplications }, tokens),
-        [projectData, appData, width, height, showAllApplications, tokens]
+        () =>
+            getOption(
+                { projectData, appData, width, height, showAllApplications },
+                tokens,
+                language
+            ),
+        [projectData, appData, width, height, showAllApplications, tokens, language]
     );
 
     // Only the project panel filters the view; app blocks are informational.

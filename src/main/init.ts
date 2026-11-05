@@ -18,8 +18,17 @@ import packageJson from '../../package.json';
 import { AutoUpdater } from './AutoUpdater';
 import { handleCommand, initialize } from './ipc/ipc';
 import { IpcEventName, TrayEventName, UpdateEventName, WindowEventName } from './ipc/type';
-import type { InitialThemeSetting, TrayIconPayload, TrayMenuItem } from './ipc/type';
+import type {
+    InitialLanguageSetting,
+    InitialThemeSetting,
+    TrayIconPayload,
+    TrayMenuItem,
+} from './ipc/type';
 import { encodeInitialTheme } from './ipc/initialTheme';
+import { encodeInitialLanguage } from './ipc/initialLanguage';
+import { languageFromLocale, isLanguagePreference } from '../shared/i18n';
+import type { LanguagePreference } from '../shared/i18n';
+import { m } from './i18n';
 import { assertTrayIconPayload } from './ipc/validate';
 import { stopWindowDrag } from './ipc/windowDrag';
 import { initActiveWin } from './activeWin';
@@ -198,17 +207,45 @@ if (process.platform === 'win32') {
  * migration has run it reads the SQLite settings table. Keeping this sync is
  * what lets the window pick the right background color (and the right
  * `prefers-color-scheme`) before anything is painted.
+ *
+ * The theme and the language share one read: `readSettingsSync` opens and
+ * closes a read-only connection when the long-lived one does not exist yet.
  */
-function readThemeSetting(): InitialThemeSetting {
+function readInitialSettings(): {
+    theme: InitialThemeSetting;
+    language: InitialLanguageSetting;
+} {
     const settings = db.readSettingsSync();
+
+    const storedLanguage = settings.language;
+    const preference: LanguagePreference = isLanguagePreference(storedLanguage)
+        ? storedLanguage
+        : 'system';
+
     return {
-        themeId: settings.themeId,
-        followSystemTheme: settings.followSystemTheme === true,
+        theme: {
+            themeId: settings.themeId,
+            followSystemTheme: settings.followSystemTheme === true,
+        },
+        language: {
+            language: preference,
+            systemLanguage: languageFromLocale(readSystemLocale()),
+        },
     };
 }
 
+/** `app.getLocale()` throws before `ready`; fall back to English. */
+function readSystemLocale(): string {
+    try {
+        return app.getLocale();
+    } catch {
+        return 'en';
+    }
+}
+
 const createWindow = async () => {
-    const initialTheme = readThemeSetting();
+    const initialSettings = readInitialSettings();
+    const initialTheme = initialSettings.theme;
     nativeTheme.themeSource = initialTheme.followSystemTheme
         ? 'system'
         : initialTheme.themeId === DAY_THEME_ID
@@ -231,7 +268,7 @@ const createWindow = async () => {
         useContentSize: true,
         backgroundColor: '#00000000',
         icon: nativeImage.createFromPath(path.join(__dirname, logo)),
-        title: 'Pomodoro Logger Enhanced',
+        title: m('app.title'),
         webPreferences: {
             // Renderer code only reaches the main process through the narrow
             // preload bridge (see src/main/preload.ts). Workers are pure web
@@ -242,9 +279,13 @@ const createWindow = async () => {
             sandbox: true,
             preload: path.join(__dirname, 'preload.js'),
             // Read by the preload script and exposed as `window.api.initialTheme`
-            // so the renderer's first applyTheme() agrees with the native theme
-            // already set above instead of flipping it dark and back.
-            additionalArguments: [encodeInitialTheme(initialTheme)],
+            // and `window.api.initialLanguage`, so the renderer's first paint
+            // agrees with what the main process already set up instead of
+            // flipping the theme / language and back.
+            additionalArguments: [
+                encodeInitialTheme(initialTheme),
+                encodeInitialLanguage(initialSettings.language),
+            ],
         },
     });
 
@@ -397,7 +438,7 @@ app.on('ready', async () => {
     mGlobal.tray = new Tray(img);
     const menuItems = [
         {
-            label: 'Quit',
+            label: m('native.tray.quit'),
             type: 'normal',
             click: () => {
                 app.quit();
@@ -407,7 +448,7 @@ app.on('ready', async () => {
 
     // @ts-ignore
     const contextMenu = Menu.buildFromTemplate(menuItems);
-    mGlobal.tray.setToolTip('Pomodoro Logger Enhanced');
+    mGlobal.tray.setToolTip(m('app.title'));
     if (process.platform === 'darwin') {
         mGlobal.tray.on('click', async () => {
             if (!win) {
@@ -440,10 +481,8 @@ app.on('ready', async () => {
         await db.loadDBs(['settingDB']);
     } catch (error) {
         dialog.showErrorBox(
-            'Database migration failed',
-            'Pomodoro Logger Enhanced could not migrate the old database.\n\n' +
-                'The original .nedb files were left untouched. Please back up the db folder and report this error:\n\n' +
-                String(error)
+            m('native.dialog.migrationTitle'),
+            m('native.dialog.migrationBody', String(error))
         );
         app.exit(1);
         return;
@@ -540,6 +579,21 @@ function update() {
 
 // updater instance is created once so manual check works even when auto update is off
 const autoUpdaterCheck = update();
+
+/**
+ * The entries the renderer last sent, kept so a language switch can rebuild the
+ * whole menu (including the `Open` / `Quit` entries owned by this process)
+ * even when the renderer sends nothing new.
+ */
+let lastTrayItems: TrayMenuItem[] = [];
+
+/** Rebuilds the tray with the last renderer entries and the new `m()` copy. */
+export function rebuildTrayMenu(): void {
+    if (lastTrayItems.length > 0) {
+        setMenuItems(lastTrayItems);
+    }
+}
+
 /**
  * (Re)builds the tray context menu from the entries the renderer asks for (see
  * `Timer.addMenuItems`). The separator and the Open/Quit entries belong to the
@@ -551,6 +605,8 @@ export function setMenuItems(items: TrayMenuItem[]) {
     if (!mGlobal.tray) {
         return;
     }
+
+    lastTrayItems = items;
 
     const menuItems: MenuItemConstructorOptions[] = items
         .filter(
@@ -577,14 +633,14 @@ export function setMenuItems(items: TrayMenuItem[]) {
             type: 'separator',
         },
         {
-            label: 'Open',
+            label: m('native.tray.open'),
             type: 'normal',
             click: () => {
                 revealWindow();
             },
         },
         {
-            label: 'Quit',
+            label: m('native.tray.quit'),
             type: 'normal',
             click: () => {
                 win = undefined;

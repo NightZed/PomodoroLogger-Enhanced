@@ -25,8 +25,11 @@ import { titleBarBandHeight } from './AppTitleBar/tokens';
 import { nextTabKey, planTabChange } from './appTabs';
 import { getPopupContainer, POPUP_CONTAINER_ID } from './popupLayer';
 import { App as AntdApp, ConfigProvider, theme as antdTheme } from 'antd';
+import enUS from 'antd/locale/en_US';
+import zhCN from 'antd/locale/zh_CN';
 import { APP_FONT_FAMILY } from '../theme/tokens';
 import { useThemeTokens } from '../theme/useThemeTokens';
+import { useI18n } from '../i18n';
 import { FeedbackContextBridge } from './feedback/Feedback';
 
 /**
@@ -434,6 +437,10 @@ const ApplicationContainer = connect(
 
 const ThemedApplication: React.FC<React.ComponentProps<typeof ApplicationContainer>> = (props) => {
     const { tokens, isDark } = useThemeTokens();
+    const { language } = useI18n();
+    // Nested ConfigProviders (AppTitleBar, History, ...) only override theme
+    // tokens; they inherit this `locale` through antd's parent context.
+    const antdLocale = language === 'zh' ? zhCN : enUS;
     const theme = React.useMemo(
         () => ({
             algorithm: isDark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
@@ -459,6 +466,7 @@ const ThemedApplication: React.FC<React.ComponentProps<typeof ApplicationContain
     return (
         <ConfigProvider
             getPopupContainer={getPopupContainer}
+            locale={antdLocale}
             theme={theme}
             // antd's click ripple (`.ant-wave`) is a 2s animation. With the
             // default software rendering it makes the compositor redraw the

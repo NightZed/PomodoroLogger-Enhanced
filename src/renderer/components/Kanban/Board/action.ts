@@ -5,7 +5,7 @@ import { actions as cardActions } from '../Card/action';
 import { actions as kanbanActions } from '../action';
 import { actions as historyActions } from '../../History/action';
 import { uid } from '../../../../utils/uid';
-import { lang } from '../../../../lang/en';
+import { t } from '../../../i18n';
 import { actions as timerActions, DistractingRow } from '../../Timer/action';
 import { RootState } from '../../../reducers';
 import { workers } from '../../../workers';
@@ -447,7 +447,15 @@ export const actions = {
         async (dispatch: Dispatch) => {
             const createdTime = new Date().getTime();
             const lists = [];
-            for (const name of ['Backlog', 'TODO', 'In Progress', 'Done']) {
+            // Written into the database in the language active at creation
+            // time: an existing board keeps its names across a language switch.
+            const listNames = [
+                t('kanban.defaultList.backlog'),
+                t('kanban.defaultList.todo'),
+                t('kanban.defaultList.inProgress'),
+                t('kanban.defaultList.done'),
+            ];
+            for (const name of listNames) {
                 const listId = uid();
                 await listActions.addList(listId, name)(dispatch);
                 lists.push(listId);
@@ -458,8 +466,8 @@ export const actions = {
             await cardActions.addCard(
                 cardId,
                 lists[1],
-                lang.welcome,
-                lang.demoCardContent
+                t('kanban.demoCard.welcome'),
+                t('kanban.demoCard.content')
             )(dispatch);
             await db.insert({
                 ...defaultBoard,

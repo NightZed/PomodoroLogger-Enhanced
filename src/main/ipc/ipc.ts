@@ -26,7 +26,9 @@ import { readFile, writeFile } from 'fs';
 import * as path from 'path';
 import logo from '../../res/icon_sm.png';
 import { writeAllFile } from '../io/write';
-import { revealWindow, setMenuItems, setSkipTaskbar, win } from '../init';
+import { revealWindow, rebuildTrayMenu, setMenuItems, setSkipTaskbar, win } from '../init';
+import { getMainLanguage, m, setMainLanguage } from '../i18n';
+import type { Language } from '../../shared/i18n';
 import { readAllData } from '../io/read';
 import { activeWin } from '../activeWin';
 import { startWindowDrag, stopWindowDrag } from './windowDrag';
@@ -141,6 +143,23 @@ export function initialize() {
             nativeTheme.themeSource = source;
         },
         [(value) => assertOneOf(value, 'theme source', ['light', 'dark', 'system'] as const)]
+    );
+    /**
+     * The renderer is the single source of the language switch. Rebuilding the
+     * tray here (rather than waiting for the next `SetTrayMenu`) keeps the
+     * dynamic entries and the `Open` / `Quit` entries in the same language even
+     * when the two messages arrive in either order.
+     */
+    handleCommand(
+        IpcEventName.SetLanguage,
+        (language: Language) => {
+            setMainLanguage(language);
+            if (win && !win.isDestroyed()) {
+                win.setTitle(m('app.title'));
+            }
+            rebuildTrayMenu();
+        },
+        [(value) => assertOneOf(value, 'language', ['en', 'zh'] as const)]
     );
     handle(IpcEventName.SaveScreenshot, (dataUrl: string) => saveScreenshot(dataUrl), [
         (value) => assertScreenshotDataUrl(value),
@@ -322,11 +341,11 @@ export function initialize() {
             defaultPath: buildExportFileName(now),
             filters: [
                 {
-                    name: 'Json',
+                    name: m('native.fileFilter.json'),
                     extensions: ['json'],
                 },
                 {
-                    name: 'All Files',
+                    name: m('native.fileFilter.allFiles'),
                     extensions: ['*'],
                 },
             ],
@@ -351,11 +370,11 @@ export function initialize() {
         const path = await dialog.showOpenDialog({
             filters: [
                 {
-                    name: 'Json',
+                    name: m('native.fileFilter.json'),
                     extensions: ['json'],
                 },
                 {
-                    name: 'All Files',
+                    name: m('native.fileFilter.allFiles'),
                     extensions: ['*'],
                 },
             ],
@@ -380,17 +399,14 @@ export function initialize() {
                 issues: [
                     {
                         path: '',
-                        message:
-                            'the file is not valid JSON: ' +
-                            (e as Error).message +
-                            ' (check that the file was not renamed from .json)',
+                        message: m('native.importNotJson', (e as Error).message),
                     },
                 ],
             };
         }
 
         const { data: raw, meta } = unwrapImportPayload(parsed);
-        const validation = validateSourceData(raw);
+        const validation = validateSourceData(raw, getMainLanguage());
         if (!validation.ok) {
             // Nothing has been touched at this point -- not the databases, not
             // the backup -- so refusing the file costs the user nothing but a
@@ -403,6 +419,7 @@ export function initialize() {
             payload: {
                 external: validation.data,
                 source: await readAllData(),
+                language: getMainLanguage(),
             },
         });
 
@@ -425,7 +442,7 @@ export function initialize() {
             properties: ['openFile'],
             filters: [
                 {
-                    name: 'Images',
+                    name: m('native.fileFilter.images'),
                     extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'],
                 },
             ],

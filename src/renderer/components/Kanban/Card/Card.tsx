@@ -15,6 +15,7 @@ import { matchParent } from '../../../utils';
 import { formatTimeYmdHm } from '../../Visualization/Timeline';
 import { CreatedTime } from '../style/CreatedTime';
 import { CompletedTime } from './CompletedTime';
+import { t } from '../../../i18n';
 
 /**
  * If you're using z-index, make sure the element has a defined position attribute or it won't work.
@@ -384,7 +385,8 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                                         </h3>
                                         {props.createdTime !== undefined ? (
                                             <CreatedTime>
-                                                Created: {formatTimeYmdHm(props.createdTime)}
+                                                {t('kanban.card.created')}:{' '}
+                                                {formatTimeYmdHm(props.createdTime)}
                                             </CreatedTime>
                                         ) : undefined}
                                         <CompletedTime
@@ -422,7 +424,8 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                                         </h1>
                                         {props.createdTime !== undefined ? (
                                             <CreatedTime>
-                                                Created: {formatTimeYmdHm(props.createdTime)}
+                                                {t('kanban.card.created')}:{' '}
+                                                {formatTimeYmdHm(props.createdTime)}
                                             </CreatedTime>
                                         ) : undefined}
                                         <CompletedTime

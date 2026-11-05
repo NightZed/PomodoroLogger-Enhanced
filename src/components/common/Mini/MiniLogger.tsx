@@ -3,6 +3,7 @@ import { AntdIcon as Icon } from '../../../renderer/components/antdIcon';
 import React from 'react';
 import styled, { keyframes } from 'styled-components';
 import { PomodoroRecord } from '../../../renderer/monitor/type';
+import { t } from '../../../renderer/i18n';
 
 const confirmSpin = keyframes`
     from {
@@ -364,12 +365,12 @@ export class MiniLogger extends React.Component<Props> {
                     size="small"
                     icon={<Icon type="caret-right" />}
                     onClick={confirmAndStartNextSession}
-                    title="Start Next Session"
+                    title={t('timer.mini.startNext')}
                 />
                 <Button
                     size="small"
                     icon={<Icon type="check" />}
-                    title="Finish"
+                    title={t('timer.mini.finish')}
                     onClick={this.props.confirm}
                 />
             </>
@@ -379,14 +380,14 @@ export class MiniLogger extends React.Component<Props> {
                     <Button
                         size="small"
                         icon={<Icon type="pause" />}
-                        title="Pause (F6)"
+                        title={t('timer.controls.pause')}
                         onClick={pause}
                     />
                 ) : (
                     <Button
                         size="small"
                         icon={<Icon type="caret-right" />}
-                        title="Start (F5)"
+                        title={t('timer.controls.start')}
                         onClick={play}
                     />
                 )}
@@ -397,14 +398,14 @@ export class MiniLogger extends React.Component<Props> {
                     <Button
                         size="small"
                         icon={<Icon type="check" />}
-                        title="Finish"
+                        title={t('timer.controls.finish')}
                         onClick={this.props.finish}
                     />
                 ) : (
                     <Button
                         size="small"
                         icon={<Icon type="swap" />}
-                        title="Switch Mode (Tab)"
+                        title={t('timer.controls.switchMode')}
                         onClick={this.props.switch}
                     />
                 )}
@@ -419,7 +420,7 @@ export class MiniLogger extends React.Component<Props> {
                         size="small"
                         className="btn-extend"
                         onClick={this.extend5Minutes}
-                        title="Extend 5 minutes"
+                        title={t('timer.session.extend5')}
                     >
                         +5
                     </Button>
@@ -427,7 +428,7 @@ export class MiniLogger extends React.Component<Props> {
                         size="small"
                         className="btn-extend"
                         onClick={this.extend10Minutes}
-                        title="Extend 10 minutes"
+                        title={t('timer.session.extend10')}
                     >
                         +10
                     </Button>
@@ -440,14 +441,14 @@ export class MiniLogger extends React.Component<Props> {
                     <Button
                         size="small"
                         icon={<Icon type="close" />}
-                        title="Stop"
+                        title={t('timer.controls.stop')}
                         onClick={this.props.stop}
                         disabled={isConfirming}
                     />
                     <Button
                         size="small"
                         icon={<Icon type="fullscreen" />}
-                        title="Expand (F12)"
+                        title={t('timer.mini.expand')}
                         onClick={this.props.expand}
                     />
                 </>
@@ -465,10 +466,10 @@ export class MiniLogger extends React.Component<Props> {
     /** Hover label for the countdown: which state the current session is in. */
     private getTimerStateLabel(): string {
         const { isConfirming, isFocusing, isRunning, hasSession } = this.props;
-        if (isConfirming) return 'Finish';
-        const phase = isFocusing ? 'Working' : 'Breaking';
-        if (hasSession && !isRunning) return `${phase} - Paused`;
-        if (isRunning) return `${phase} - Running`;
+        if (isConfirming) return t('timer.mini.finish');
+        const phase = isFocusing ? t('timer.mini.working') : t('timer.mini.breaking');
+        if (hasSession && !isRunning) return t('timer.mini.statePaused', phase);
+        if (isRunning) return t('timer.mini.stateRunning', phase);
         return phase;
     }
 
@@ -628,7 +629,7 @@ export class MiniLogger extends React.Component<Props> {
             <StyledLogger style={style}>
                 <div className="task-row">
                     <div className="task" title={task || undefined}>
-                        {task || 'No Focusing Project'}
+                        {task || t('timer.mini.noProject')}
                     </div>
                 </div>
                 {this.getControlRow()}

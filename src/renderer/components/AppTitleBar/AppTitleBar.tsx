@@ -7,6 +7,7 @@ import { APP_TABS } from '../appTabs';
 import WindowControls from '../WindowControls';
 import { isDragSurface } from './dragRegion';
 import { COMPACT_TITLE_BAR_HEIGHT, TITLE_BAR_HEIGHT } from './tokens';
+import { useI18n } from '../../i18n';
 
 interface Props {
     currentTab: string;
@@ -222,6 +223,7 @@ const AppTitleBar: React.FC<Props> = ({
     alwaysOnTop,
     onToggleAlwaysOnTop,
 }) => {
+    const { t } = useI18n();
     /**
      * Pointer that started a drag on the bar, or null while none is running.
      * Only a press the native region did not take gets here (maximized window,
@@ -339,9 +341,9 @@ const AppTitleBar: React.FC<Props> = ({
                             />
                         )
                     }
-                    items={APP_TABS.map(({ key, title, icon, tourKey, forceRender }) => ({
+                    items={APP_TABS.map(({ key, titleKey, icon, tourKey, forceRender }) => ({
                         key,
-                        label: tab(title, icon, tourKey),
+                        label: tab(t(titleKey), icon, tourKey),
                         children: pages[key],
                         forceRender,
                         disabled: sessionEnding,

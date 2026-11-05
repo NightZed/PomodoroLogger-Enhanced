@@ -3,6 +3,7 @@ import { formatTime } from '../../../renderer/utils';
 import { uid } from '../../../utils/uid';
 import styled from 'styled-components';
 import { useThemeTokens } from '../../../renderer/theme/useThemeTokens';
+import { useI18n } from '../../../renderer/i18n';
 
 const AnimeSvg = styled.svg`
     transition: transform 0.25s;
@@ -109,6 +110,7 @@ export const TIME_BADGE_HOVER_DELAY_MS = 200;
 type ClipState = 'default' | 'spent' | 'left';
 
 export const TimeBadge = React.memo((props: TimeBadgeProps) => {
+    const { t } = useI18n();
     const { collapsed = false } = props;
     const { tokens, isDark } = useThemeTokens();
     const [clipState, setClipState] = React.useState<ClipState>('default');
@@ -324,7 +326,7 @@ export const TimeBadge = React.memo((props: TimeBadgeProps) => {
                     fill={tokens.text}
                 >
                     {sSpentTime}
-                    <title>Spent Time</title>
+                    <title>{t('chart.badge.spentTime')}</title>
                 </text>
 
                 <text
@@ -357,7 +359,7 @@ export const TimeBadge = React.memo((props: TimeBadgeProps) => {
                     alignmentBaseline={'central'}
                     fill={'white'}
                 >
-                    {exceeded ? 'EXTRA' : 'LEFT'}
+                    {exceeded ? t('chart.badge.extra') : t('chart.badge.left')}
                 </text>
                 <text
                     x={spentWidth + estimatedWidth - 4}
@@ -368,7 +370,9 @@ export const TimeBadge = React.memo((props: TimeBadgeProps) => {
                     fill={tokens.text}
                 >
                     {sEstimatedTime}
-                    <title>{exceeded ? 'Extra Time' : 'Left Time'}</title>
+                    <title>
+                        {exceeded ? t('chart.badge.extraTime') : t('chart.badge.leftTime')}
+                    </title>
                 </text>
             </g>
         </AnimeSvg>

@@ -25,22 +25,29 @@ import { getBoardSearchTags } from './boardTags';
 import { PomodoroRecord } from '../../monitor/type';
 import { CardView } from './type';
 import { debounce } from 'lodash';
+import { useI18n } from '../../i18n';
+import type { PlainMessageKey } from '../../../shared/i18n';
 
 const { Option } = Select;
 
 /**
  * The board's card display modes. Icons keep the header compact; the per-option
- * `tooltip` names each mode, so the header does not need a "Card view" label.
+ * `tooltipKey` names each mode, so the header does not need a "Card view" label.
  */
-const CARD_VIEW_OPTIONS: { value: CardView; icon: React.ReactNode; tooltip: string }[] = [
-    { value: 'title', icon: <Icon type="align-left" />, tooltip: 'Title only' },
-    {
-        value: 'preview',
-        icon: <Icon type="file-text" />,
-        tooltip: 'Preview (limited height)',
-    },
-    { value: 'full', icon: <Icon type="expand" />, tooltip: 'Full content' },
-];
+const CARD_VIEW_OPTIONS: { value: CardView; icon: React.ReactNode; tooltipKey: PlainMessageKey }[] =
+    [
+        {
+            value: 'title',
+            icon: <Icon type="align-left" />,
+            tooltipKey: 'kanban.page.cardTitleOnly',
+        },
+        {
+            value: 'preview',
+            icon: <Icon type="file-text" />,
+            tooltipKey: 'kanban.page.cardPreview',
+        },
+        { value: 'full', icon: <Icon type="expand" />, tooltipKey: 'kanban.page.cardFull' },
+    ];
 
 /**
  * antd's Segmented track uses `colorBgLayout`, which this app maps to the page
@@ -180,6 +187,9 @@ export const Kanban: FunctionComponent<Props> = React.memo(
             setSortDirection,
             timerManager,
         } = props;
+        // Read through a hook, not through props: the `React.memo` comparator
+        // below does not compare the language.
+        const { t } = useI18n();
         const { chosenBoardId, sortDirection } = props.kanban;
         const [boardForm] = Form.useForm();
         const [visible, setVisible] = useState(false);
@@ -392,7 +402,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                             </Button>
                             {props.boards[props.kanban.chosenBoardId]?.createdTime !== undefined ? (
                                 <CreatedTime>
-                                    Created:{' '}
+                                    {t('kanban.page.created')}:{' '}
                                     {formatTimeYmdHm(
                                         props.boards[props.kanban.chosenBoardId]!.createdTime!
                                     )}
@@ -401,7 +411,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                         </>
                     ) : (
                         <>
-                            <Title>Kanban Boards Overview</Title>
+                            <Title>{t('kanban.page.overviewTitle')}</Title>
                             <Button
                                 style={{
                                     paddingLeft: 10,
@@ -415,7 +425,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                 <Icon type={'plus'} />
                             </Button>
 
-                            <Label>Sorted by:</Label>
+                            <Label>{t('kanban.page.sortedBy')}</Label>
                             <Select
                                 value={props.kanban.sortedBy}
                                 onChange={props.setSortedBy}
@@ -423,19 +433,19 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                     width: 140,
                                 }}
                             >
-                                <Option value="recent">Last Visit</Option>
-                                <Option value="created">Created Time</Option>
-                                <Option value="alpha">Alphabet</Option>
+                                <Option value="recent">{t('kanban.page.sortRecent')}</Option>
+                                <Option value="created">{t('kanban.page.sortCreated')}</Option>
+                                <Option value="alpha">{t('kanban.page.sortAlpha')}</Option>
                                 {/* TODO: Due time */}
                                 {/*<Option value="due">Due Time</Option>*/}
-                                <Option value="spent">Spent Time</Option>
-                                <Option value="remaining">Remaining Time</Option>
+                                <Option value="spent">{t('kanban.page.sortSpent')}</Option>
+                                <Option value="remaining">{t('kanban.page.sortRemaining')}</Option>
                             </Select>
                             <Tooltip
                                 title={
                                     props.kanban.sortDirection === 'asc'
-                                        ? 'Ascending'
-                                        : 'Descending'
+                                        ? t('kanban.page.ascending')
+                                        : t('kanban.page.descending')
                                 }
                             >
                                 <Button
@@ -463,8 +473,11 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                     <CardViewSwitch>
                                         <Segmented
                                             shape="round"
-                                            aria-label="Card view"
-                                            options={CARD_VIEW_OPTIONS}
+                                            aria-label={t('kanban.page.cardView')}
+                                            options={CARD_VIEW_OPTIONS.map((option) => ({
+                                                ...option,
+                                                tooltip: t(option.tooltipKey),
+                                            }))}
                                             value={getCardView(
                                                 props.boards[props.kanban.chosenBoardId]
                                             )}
@@ -488,7 +501,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                             </>
                         ) : (
                             <LabelButton>
-                                <label>Show Table: </label>
+                                <label>{t('kanban.page.showTable')} </label>
                                 <Switch onChange={onShowTableChange} checked={showTable} />
                             </LabelButton>
                         )}

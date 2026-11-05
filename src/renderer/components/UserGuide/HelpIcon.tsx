@@ -4,6 +4,7 @@ import React, { FC } from 'react';
 import { Dispatch } from 'redux';
 import { Button } from 'antd';
 import { AntdIcon as Icon } from '../antdIcon';
+import { useI18n } from '../../i18n';
 
 interface InputProps {
     storyName: string;
@@ -20,14 +21,15 @@ interface Props {
     label?: string;
 }
 
-const _HelpIcon: FC<Props> = (props: Props) => {
+const HelpIconBase: FC<Props> = (props: Props) => {
+    const { t } = useI18n();
     return (
         <Button
             icon={<Icon type={'question'} />}
             onClick={props.resume ? props.resumeStory : props.showStory}
             shape={'circle'}
             style={props.style}
-            title={props.resume ? 'Resume guide' : 'Start guide'}
+            title={props.resume ? t('tour.resumeGuide') : t('tour.startGuide')}
         />
     );
 };
@@ -52,4 +54,4 @@ export const HelpIcon = connect(undefined, (dispatch: Dispatch, props: InputProp
             }
         },
     };
-})(_HelpIcon as unknown as FC<InputProps & Props>);
+})(HelpIconBase as unknown as FC<InputProps & Props>);

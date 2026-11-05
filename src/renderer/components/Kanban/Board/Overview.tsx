@@ -12,6 +12,7 @@ import { BoardBrief } from './BoardBrief';
 import { actions, SortDirection, SortType } from '../action';
 import { KanbanBoard, ListsState } from '../type';
 import { AggBoardInfo, aggregateBoardRows } from './tableAggregation';
+import { useI18n } from '../../../i18n';
 
 const Container = styled.div``;
 
@@ -65,13 +66,13 @@ interface Props {
 
 const columns = [
     {
-        title: 'Board Name',
+        titleKey: 'kanban.overview.boardName',
         dataIndex: 'name',
         editable: true,
         key: 'name',
     },
     {
-        title: 'Estimated Left Time',
+        titleKey: 'kanban.overview.estimatedLeft',
         dataIndex: 'estimatedLeftTimeSum',
         key: 'estimatedLeftTimeSum',
         render: formatTimeWithoutZero,
@@ -79,20 +80,20 @@ const columns = [
             a.estimatedLeftTimeSum - b.estimatedLeftTimeSum,
     },
     {
-        title: 'Spent Time',
+        titleKey: 'kanban.overview.spentTime',
         dataIndex: 'actualTimeSum',
         key: 'actualTimeSum',
         render: formatTimeWithoutZero,
         sorter: (a: AggBoardInfo, b: AggBoardInfo) => a.actualTimeSum - b.actualTimeSum,
     },
     {
-        title: 'Pomodoros',
+        titleKey: 'kanban.overview.pomodoros',
         dataIndex: 'pomodoroCount',
         key: 'pomodoroCount',
         sorter: (a: AggBoardInfo, b: AggBoardInfo) => a.pomodoroCount - b.pomodoroCount,
     },
     {
-        title: 'Mean Estimate Error',
+        titleKey: 'kanban.overview.meanError',
         dataIndex: 'meanPercentageError',
         key: 'meanPercentageError',
         render: (text?: number) => {
@@ -109,7 +110,7 @@ const columns = [
         },
     },
     {
-        title: 'Trend',
+        titleKey: 'kanban.overview.trend',
         dataIndex: 'trend',
         key: 'trend',
         render: (text: any, record: AggBoardInfo) => {
@@ -118,9 +119,10 @@ const columns = [
             return <IdTrend boardId={record._id} sessionCount={record.pomodoroCount} />;
         },
     },
-];
+] as const;
 
 const OverviewTableInner: FC<Props> = (props: Props) => {
+    const { t } = useI18n();
     const { boards, lists: listsById, cards: cardsById } = props;
 
     // The aggregation walks every card of every board. The table re-renders
@@ -133,7 +135,14 @@ const OverviewTableInner: FC<Props> = (props: Props) => {
 
     return (
         <Container>
-            <Table rowKey={'_id'} columns={columns} dataSource={aggInfo} />
+            <Table
+                rowKey={'_id'}
+                columns={columns.map(({ titleKey, ...column }) => ({
+                    ...column,
+                    title: t(titleKey),
+                }))}
+                dataSource={aggInfo}
+            />
         </Container>
     );
 };

@@ -1,6 +1,7 @@
 import React, { CSSProperties, FC } from 'react';
 import { CompletedTime as CompletedTimeStyle } from '../style/CreatedTime';
 import { formatTimeYmdHm } from '../../Visualization/Timeline';
+import { t } from '../../../i18n';
 
 export interface CompletedTimeProps {
     completedTime?: number;
@@ -15,7 +16,8 @@ export interface CompletedTimeProps {
  * completed, cards dragged out again keep showing their last completion.
  */
 export function formatCompletedTimeText(completedTime: number, isInDoneList: boolean) {
-    return `${isInDoneList ? 'Completed' : 'Last completed'}: ${formatTimeYmdHm(completedTime)}`;
+    const label = isInDoneList ? t('kanban.card.completed') : t('kanban.card.lastCompleted');
+    return `${label}: ${formatTimeYmdHm(completedTime)}`;
 }
 
 export const CompletedTime: FC<CompletedTimeProps> = ({ completedTime, isInDoneList, style }) => {

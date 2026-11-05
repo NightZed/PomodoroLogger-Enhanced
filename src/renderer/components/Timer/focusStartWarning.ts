@@ -1,3 +1,4 @@
+import type { PlainMessageKey } from '../../../shared/i18n';
 import { Card, KanbanBoard, List } from '../Kanban/type';
 
 /**
@@ -7,29 +8,20 @@ export type FocusStartWarningKind = 'no-project' | 'no-focus-cards';
 
 export interface FocusStartWarning {
     kind: FocusStartWarningKind;
-    title: string;
-    content: string;
+    /** Dictionary keys, translated by the caller (see `Timer.showFocusStartWarning`). */
+    titleKey: PlainMessageKey;
+    contentKey: PlainMessageKey;
 }
 
-export const NO_PROJECT_WARNING: { title: string; content: string } = {
-    title: 'No focusing project',
-    content:
-        'You are starting a focus session without selecting a project. ' +
-        'The session cannot be linked to any project. Click OK to start anyway.',
+const NO_PROJECT_WARNING: { titleKey: PlainMessageKey; contentKey: PlainMessageKey } = {
+    titleKey: 'timer.warning.noProjectTitle',
+    contentKey: 'timer.warning.noProjectContent',
 };
 
-export const NO_FOCUS_CARDS_WARNING: { title: string; content: string } = {
-    title: 'No cards in In Progress',
-    content:
-        'The "In Progress" list of the selected project is empty. ' +
-        'The focus session cannot be linked to any card. Click OK to start anyway.',
+const NO_FOCUS_CARDS_WARNING: { titleKey: PlainMessageKey; contentKey: PlainMessageKey } = {
+    titleKey: 'timer.warning.noFocusCardsTitle',
+    contentKey: 'timer.warning.noFocusCardsContent',
 };
-
-/**
- * Opt-out check box rendered inside the warning dialog. Ticking it turns off
- * `Setting.warnBeforeFocusStart`, which can be turned back on in the settings.
- */
-export const DONT_REMIND_AGAIN_LABEL = "Don't remind me again";
 
 /**
  * Decide whether starting a fresh focus session needs an explicit

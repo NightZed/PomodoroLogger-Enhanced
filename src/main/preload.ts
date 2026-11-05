@@ -25,6 +25,7 @@ import type { DbName } from './db/types';
 import type { KnnModel } from './learner/appKnn';
 import type { TrayActionKey } from '../renderer/components/Timer/sessionState';
 import { parseInitialTheme } from './ipc/initialTheme';
+import { parseInitialLanguage } from './ipc/initialLanguage';
 
 const invoke = <T>(channel: string, ...args: unknown[]): Promise<T> =>
     ipcRenderer.invoke(channel, ...args) as Promise<T>;
@@ -74,6 +75,10 @@ const api: ExposedAPI = {
         typeof process !== 'undefined' && Array.isArray(process.argv)
             ? parseInitialTheme(process.argv)
             : undefined,
+    initialLanguage:
+        typeof process !== 'undefined' && Array.isArray(process.argv)
+            ? parseInitialLanguage(process.argv)
+            : undefined,
 
     [IpcEventName.ImportData]: () => invoke<ImportResult>(IpcEventName.ImportData),
     [IpcEventName.SelectWallpaper]: () => invoke<string | undefined>(IpcEventName.SelectWallpaper),
@@ -104,6 +109,7 @@ const api: ExposedAPI = {
     setTrayImage: (payload: TrayIconPayload) => send(IpcEventName.SetTray, payload),
     openExternal: (url: string) => send(IpcEventName.OpenExternal, url),
     setNativeTheme: (source) => send(IpcEventName.SetNativeTheme, source),
+    setLanguage: (language) => send(IpcEventName.SetLanguage, language),
 
     saveScreenshot: (dataUrl: string) => invoke<string>(IpcEventName.SaveScreenshot, dataUrl),
     deleteScreenshots: (paths: string[]) => invoke<void>(IpcEventName.DeleteScreenshots, paths),

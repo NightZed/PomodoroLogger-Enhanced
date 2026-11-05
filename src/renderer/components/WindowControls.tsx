@@ -2,6 +2,7 @@ import { AntdIcon as Icon } from './antdIcon';
 import React, { FC } from 'react';
 import styled from 'styled-components';
 import { COMPACT_TITLE_BAR_HEIGHT, TITLE_BAR_HEIGHT } from './AppTitleBar/tokens';
+import { t } from '../i18n';
 
 /**
  * Caption buttons (minimize / maximize / close) for the frameless window
@@ -75,14 +76,16 @@ const WindowControls: FC<Props> = ({
             {compact && onToggleAlwaysOnTop ? (
                 <button
                     type="button"
-                    title={alwaysOnTop ? 'Disable always on top' : 'Enable always on top'}
+                    title={
+                        alwaysOnTop ? t('window.alwaysOnTopDisable') : t('window.alwaysOnTopEnable')
+                    }
                     onClick={onToggleAlwaysOnTop}
                     className={alwaysOnTop ? 'always-on-top-active' : undefined}
                 >
                     <Icon type="pushpin" />
                 </button>
             ) : undefined}
-            <button type="button" title="Minimize" onClick={call('minimize')}>
+            <button type="button" title={t('window.minimize')} onClick={call('minimize')}>
                 <Icon type="minus" />
             </button>
             {/* antd 3 has no `restore` icon type: `switcher` draws the standard
@@ -90,12 +93,17 @@ const WindowControls: FC<Props> = ({
                 it), `border` the single empty frame of maximize. */}
             <button
                 type="button"
-                title={maximized ? 'Restore Down' : 'Maximize'}
+                title={maximized ? t('window.restore') : t('window.maximize')}
                 onClick={call('maximize')}
             >
                 <Icon type={maximized ? 'switcher' : 'border'} />
             </button>
-            <button type="button" className="win-close" title="Close" onClick={call('close')}>
+            <button
+                type="button"
+                className="win-close"
+                title={t('window.close')}
+                onClick={call('close')}
+            >
                 <Icon type="close" />
             </button>
         </Controls>

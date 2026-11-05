@@ -6,6 +6,7 @@ import Application from './components/Application';
 import { DialogMotion } from './components/AppModal';
 import { ThemeController } from './components/ThemeController';
 import { applyTheme, GlobalStyle, resolveTheme } from './theme';
+import { applyDocumentLanguage, LanguageController } from './i18n';
 import store from './store';
 
 import './echartsSetup';
@@ -36,6 +37,9 @@ const initialTheme = resolveTheme(
     initialTimerState.customThemes
 );
 applyTheme(initialTheme.tokens, initialTheme.source);
+// Same for the language: `<html lang>` decides the CJK glyph variants Chromium
+// picks, and it has to be right before the first paint.
+applyDocumentLanguage();
 
 // Render components
 if (!mainElement) {
@@ -48,6 +52,7 @@ createRoot(mainElement).render(
             <GlobalStyle />
             <DialogMotion />
             <ThemeController />
+            <LanguageController />
             <Application />
         </React.Fragment>
     </Provider>

@@ -9,6 +9,8 @@ import {
     MoveInfo,
 } from '../../renderer/components/Kanban/type';
 import { PomodoroRecord } from '../../renderer/monitor/type';
+import { createTranslator } from '../i18n';
+import type { Language, TranslateFn } from '../i18n';
 
 export interface SourceData {
     records: PomodoroRecord[];
@@ -23,11 +25,15 @@ export class DataMerger {
     private seenCards: Set<string> = new Set();
     private cardLastMove: { [cardId: string]: MoveInfo } = {};
     private maybeBelongTo: { [cardId: string]: string[] } = {};
+    private readonly t: TranslateFn;
     constructor(
         private warn: (s: string) => void = (s) => {
             console.warn(s);
-        }
-    ) {}
+        },
+        language: Language = 'en'
+    ) {
+        this.t = createTranslator(language);
+    }
     merge(a: SourceData, b: SourceData): SourceData {
         const ans = cloneDeep(a);
         this.mergeRecords(ans, b.records);
@@ -55,7 +61,7 @@ export class DataMerger {
             if (this.maybeBelongTo[card]?.length) {
                 ans.lists[this.maybeBelongTo[card][0]].cards.push(card);
             } else {
-                this.warn(`Card ${card} will be removed`);
+                this.warn(this.t('guard.merge.cardRemoved', card));
             }
         }
 

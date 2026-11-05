@@ -11,6 +11,7 @@ import { Dispatch } from 'redux';
 import { Button } from 'antd';
 import { AntdIcon as Icon } from '../antdIcon';
 import { findVisibleTarget, TargetRect } from './utils';
+import { useI18n } from '../../i18n';
 
 const Mask = styled.div`
     top: 0;
@@ -45,6 +46,7 @@ const clickTourTarget = (selector: string): boolean => {
 
 const UserGuideInner: React.FC<UserGuideProps> = (props: UserGuideProps) => {
     const { story, next, prev, exit } = props;
+    const { t } = useI18n();
     const [targetReady, setTargetReady] = useState(true);
     const advanceTimer = useRef<number | undefined>(undefined);
 
@@ -79,11 +81,11 @@ const UserGuideInner: React.FC<UserGuideProps> = (props: UserGuideProps) => {
         }
         const selector = story.pointerTargetSelector;
         const onDocClick = (e: MouseEvent) => {
-            const t = e.target as Element | null;
+            const target = e.target as Element | null;
             if (
-                t &&
-                typeof (t as Element).closest === 'function' &&
-                (t as Element).closest(selector)
+                target &&
+                typeof (target as Element).closest === 'function' &&
+                (target as Element).closest(selector)
             ) {
                 scheduleNext(350);
             }
@@ -129,6 +131,7 @@ const UserGuideInner: React.FC<UserGuideProps> = (props: UserGuideProps) => {
 
     const {
         hint,
+        hintKey,
         dialogPosition,
         useMask,
         spotlight,
@@ -143,8 +146,10 @@ const UserGuideInner: React.FC<UserGuideProps> = (props: UserGuideProps) => {
 
     const stepLabel =
         props.stepIndex != null && props.totalSteps != null
-            ? `Step ${props.stepIndex + 1} / ${props.totalSteps}`
+            ? t('tour.step', props.stepIndex + 1, props.totalSteps)
             : undefined;
+
+    const storyHint = hintKey ? t(hintKey) : hint;
 
     const onConfirm = () => {
         if (pointerTargetSelector && advanceOnTargetClick) {
@@ -158,10 +163,7 @@ const UserGuideInner: React.FC<UserGuideProps> = (props: UserGuideProps) => {
         prev();
     };
 
-    const waitingHint =
-        pointerTargetSelector && !targetReady
-            ? 'Waiting for the highlighted area to appear…'
-            : undefined;
+    const waitingHint = pointerTargetSelector && !targetReady ? t('tour.waiting') : undefined;
 
     const useSpotlight = useMask && spotlight && !!pointerTargetSelector;
     // Navigation steps pass clicks through the hole to the real target;
@@ -181,10 +183,14 @@ const UserGuideInner: React.FC<UserGuideProps> = (props: UserGuideProps) => {
                 />
             ) : undefined}
             <Dialog
-                text={waitingHint ? `${hint ?? ''} ${waitingHint}` : hint}
+                text={waitingHint ? `${storyHint} ${waitingHint}` : storyHint}
                 title={stepLabel}
                 hasConfirm={hasConfirm}
-                confirmText={pointerTargetSelector && advanceOnTargetClick ? 'Take me there' : 'OK'}
+                confirmText={
+                    pointerTargetSelector && advanceOnTargetClick
+                        ? t('tour.takeMeThere')
+                        : t('common.ok')
+                }
                 position={dialogPosition}
                 onConfirm={onConfirm}
                 showBack={(props.stepIndex ?? 0) > 0}

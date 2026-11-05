@@ -5,6 +5,7 @@ import type { ValidationIssue, ValidationWarning } from '../../shared/dataTransf
 import type { DbName, HistoryData } from '../db/types';
 import type { KnnModel } from '../learner/appKnn';
 import type { AggPomodoroInfo } from '../../renderer/components/History/op';
+import type { Language, LanguagePreference } from '../../shared/i18n';
 import type { TrayActionKey, TrayMenuItem } from '../../renderer/components/Timer/sessionState';
 
 export type { TrayMenuItem };
@@ -38,6 +39,8 @@ export enum IpcEventName {
     LoadKnnModel = 'loadKnnModel',
     SaveKnnModel = 'saveKnnModel',
     SetNativeTheme = 'setNativeTheme',
+    /** Tells the main process to switch its own copy (tray, dialogs, updater). */
+    SetLanguage = 'setLanguage',
     WindowAction = 'windowAction',
     /** Renderer driven move of the maximized title bar, see `WindowDragPhase`. */
     WindowDrag = 'windowDrag',
@@ -146,6 +149,23 @@ export type InitialThemeSetting = {
 };
 
 /**
+ * Language settings the main process already resolved before the window exists
+ * (see `init.ts readInitialSettings`). Handed over the same way as the theme so
+ * the first paint is already in the persisted language instead of flashing the
+ * English default.
+ *
+ * Two values travel because `'system'` cannot be resolved in the renderer: the
+ * preference is what the settings page shows, `systemLanguage` is what
+ * `app.getLocale()` reported.
+ */
+export type InitialLanguageSetting = {
+    /** Persisted preference; `'system'` means "follow the OS". */
+    language: LanguagePreference;
+    /** `app.getLocale()` mapped to a shipped language. */
+    systemLanguage: Language;
+};
+
+/**
  * What an export actually did.
  *
  * The dialog is cancellable, so "wrote a file" is only one of the possible
@@ -187,6 +207,12 @@ export type ExposedAPI = {
      * plain browser or a test).
      */
     readonly initialTheme?: InitialThemeSetting;
+    /**
+     * Language resolved by the main process before this window was created.
+     * `undefined` only when the renderer was not started by the app (e.g. a
+     * plain browser or a test).
+     */
+    readonly initialLanguage?: InitialLanguageSetting;
 
     [IpcEventName.ImportData](): Promise<ImportResult>;
     [IpcEventName.SelectWallpaper](): Promise<string | undefined>;
@@ -213,6 +239,7 @@ export type ExposedAPI = {
     setTrayImage(payload: TrayIconPayload): void;
     openExternal(url: string): void;
     setNativeTheme(source: NativeThemeSource): void;
+    setLanguage(language: Language): void;
 
     saveScreenshot(dataUrl: string): Promise<string>;
     deleteScreenshots(paths: string[]): Promise<void>;
@@ -281,6 +308,8 @@ export type WorkerMessagePayload = {
     [WorkerMessageType.MergeData]: {
         source: 'local' | SourceData;
         external: SourceData;
+        /** Language of the merger's own warnings (dropped cards, ...). */
+        language?: Language;
     };
     [WorkerMessageType.AggregateHistory]: HistoryData;
 };

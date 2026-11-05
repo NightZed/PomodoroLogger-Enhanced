@@ -10,6 +10,7 @@ import { KanbanBoard } from '../Kanban/type';
 import { Dispatch } from 'redux';
 import { PomodoroRecord } from '../../monitor/type';
 import { NIGHT_THEME_ID } from '../../theme/tokens';
+import { t } from '../../i18n';
 
 const ButtonContainer = styled.div`
     position: absolute;
@@ -192,7 +193,7 @@ const TimerMaskInner = (props: MaskProps) => {
             <MaskInnerContainer $compact={props.compact}>
                 <Row onClick={onProjectClick} justify="center" style={{ width: '100%' }}>
                     {props.isFocusing ? (
-                        <Popover title="Project Name" content={content}>
+                        <Popover title={t('timer.session.projectName')} content={content}>
                             <ProjectName $compact={props.compact}>
                                 {shownProjectId === undefined
                                     ? undefined
@@ -200,7 +201,9 @@ const TimerMaskInner = (props: MaskProps) => {
                             </ProjectName>
                         </Popover>
                     ) : (
-                        <ProjectName $compact={props.compact}>Break</ProjectName>
+                        <ProjectName $compact={props.compact}>
+                            {t('timer.session.break')}
+                        </ProjectName>
                     )}
                     <h1
                         style={{
@@ -210,21 +213,22 @@ const TimerMaskInner = (props: MaskProps) => {
                             width: '100%',
                         }}
                     >
-                        Session Finished
+                        {t('timer.session.finished')}
                     </h1>
                 </Row>
                 <ConfigProvider wave={{ disabled: true }}>
                     <Button size="large" onClick={onStartClick}>
-                        Start
                         {!props.isFocusing
-                            ? ' Focusing'
+                            ? t('timer.session.startFocusing')
                             : props.isLongBreak
-                              ? ' Long Break'
-                              : ' Short Break'}
+                              ? t('timer.session.startLongBreak')
+                              : t('timer.session.startShortBreak')}
                     </Button>
                 </ConfigProvider>
                 <PomodoroSummary>
-                    <h1 style={{ color: 'white', margin: 0 }}>Today Pomodoros</h1>
+                    <h1 style={{ color: 'white', margin: 0 }}>
+                        {t('timer.session.todayPomodoros')}
+                    </h1>
                     <PomodoroNumView
                         pomodoros={props.pomodoros}
                         color={'#f9ec52'}
@@ -236,10 +240,18 @@ const TimerMaskInner = (props: MaskProps) => {
             </MaskInnerContainer>
             {props.isFocusing ? (
                 <ButtonContainer>
-                    <Button style={{ margin: 4 }} title={'Extend 5 minutes'} onClick={extend5}>
+                    <Button
+                        style={{ margin: 4 }}
+                        title={t('timer.session.extend5')}
+                        onClick={extend5}
+                    >
                         +5
                     </Button>
-                    <Button style={{ margin: 4 }} title={'Extend 10 minutes'} onClick={extend10}>
+                    <Button
+                        style={{ margin: 4 }}
+                        title={t('timer.session.extend10')}
+                        onClick={extend10}
+                    >
                         +10
                     </Button>
                 </ButtonContainer>

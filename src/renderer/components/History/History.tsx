@@ -3,7 +3,7 @@ import { Button, Card, Col, ConfigProvider, Row, Select, Statistic } from 'antd'
 import { HistoryActionCreatorTypes, HistoryState } from './action';
 import {
     GridCalendar,
-    monthList,
+    MONTH_KEYS,
 } from '../../../components/Visualization/GridCalendar/GridCalendar';
 import styled from 'styled-components';
 import { AggPomodoroInfo, getTimeSpentDataFromRecords, TimeSpentData } from './op';
@@ -21,6 +21,7 @@ import { TimeBadge } from '../../../components/Visualization/Badge/Badge';
 import { workers } from '../../workers';
 import { Card as CardState } from '../Kanban/type';
 import { TimeTreemap } from '../../../components/Visualization/TimeTreemap';
+import { useI18n } from '../../i18n';
 
 const { Option } = Select;
 
@@ -101,6 +102,7 @@ interface Props extends HistoryActionCreatorTypes, HistoryState {
 }
 
 export const History: React.FunctionComponent<Props> = React.memo((props: Props) => {
+    const { t } = useI18n();
     const [targetDate, setTargetDate] = useState<undefined | [number, number, number]>(undefined);
     const [shownPomodoros, setPomodoros] = useState<undefined | PomodoroRecord[]>(undefined);
     const [selectedDateTimeSpent, setSelectedDateTimeSpent] = useState<undefined | TimeSpentData>(
@@ -367,8 +369,8 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         const nextYearStart = new Date(chosenYear + 1, 0, 1).getTime();
         const ans: typeof aggInfo.calendarCount = {};
         for (const key in aggInfo.calendarCount) {
-            const t = parseInt(key, 10);
-            if (t >= yearStart && t < nextYearStart) {
+            const timestamp = parseInt(key, 10);
+            if (timestamp >= yearStart && timestamp < nextYearStart) {
                 ans[key] = aggInfo.calendarCount[key];
             }
         }
@@ -422,10 +424,10 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                             onChange={onChange}
                             value={props.chosenId}
                             style={{ width: 200 }}
-                            placeholder={'Set Project Filter'}
+                            placeholder={t('history.projectFilter')}
                         >
                             <Option value="" key="all-projects">
-                                All Projects
+                                {t('history.allProjects')}
                             </Option>
                             {sortedBoards.map((v) => {
                                 return (
@@ -469,11 +471,11 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                         style={{ width: 70, marginLeft: 10 }}
                     >
                         <Option value={ALL_MONTHS} key="all-months">
-                            All
+                            {t('history.all')}
                         </Option>
-                        {monthList.map((label, i) => (
-                            <Option value={i + 1} key={label}>
-                                {label}
+                        {MONTH_KEYS.map((key, i) => (
+                            <Option value={i + 1} key={key}>
+                                {t(key)}
                             </Option>
                         ))}
                     </Select>
@@ -492,14 +494,18 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                         title={aggInfo.agg.day ? aggInfo.agg.day.hours.toFixed(1) + 'h' : ''}
                         style={{ cursor: 'default' }}
                     >
-                        <Card>{statSlot(aggInfo.agg.day, 'Pomodoros Today', '#3f8600')}</Card>
+                        <Card>
+                            {statSlot(aggInfo.agg.day, t('history.pomodorosToday'), '#3f8600')}
+                        </Card>
                     </Col>
                     <Col
                         span={8}
                         title={aggInfo.agg.week ? aggInfo.agg.week.hours.toFixed(1) + 'h' : ''}
                         style={{ cursor: 'default' }}
                     >
-                        <Card>{statSlot(aggInfo.agg.week, 'Pomodoros This Week', '#3f8600')}</Card>
+                        <Card>
+                            {statSlot(aggInfo.agg.week, t('history.pomodorosThisWeek'), '#3f8600')}
+                        </Card>
                     </Col>
                     <Col
                         span={8}
@@ -507,7 +513,11 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                         style={{ cursor: 'default' }}
                     >
                         <Card>
-                            {statSlot(aggInfo.agg.month, 'Pomodoros This Month', '#cf1322')}
+                            {statSlot(
+                                aggInfo.agg.month,
+                                t('history.pomodorosThisMonth'),
+                                '#cf1322'
+                            )}
                         </Card>
                     </Col>
                 </Row>
@@ -520,11 +530,10 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                                 marginBottom: 12,
                             }}
                         >
-                            Failed to load history data
-                            {errorMsg ? `: ${errorMsg}` : ''}
+                            {t('history.loadFailed', errorMsg ?? '')}
                         </div>
                         <Button type="primary" onClick={retry}>
-                            Retry
+                            {t('common.retry')}
                         </Button>
                     </Card>
                 ) : aggInfo.timeSpent != null && aggInfo.wordWeights != null ? (
@@ -560,7 +569,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                                 >
                                     {shownPomodoros
                                         ? formatTimeYMD(shownPomodoros[0].startTime)
-                                        : 'No Data'}
+                                        : t('history.noData')}
                                 </span>
                                 <PomodoroNumView
                                     inline={true}

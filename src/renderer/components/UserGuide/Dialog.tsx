@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import { Position } from './type';
 import { Button, Checkbox, Divider } from 'antd';
+import { useI18n } from '../../i18n';
 
 const Container = styled.div`
     z-index: 2001;
@@ -71,6 +72,7 @@ export interface DialogProps {
 }
 
 export const Dialog: React.FC<DialogProps> = (props: DialogProps) => {
+    const { t } = useI18n();
     const {
         text,
         title,
@@ -78,7 +80,7 @@ export const Dialog: React.FC<DialogProps> = (props: DialogProps) => {
         centered = false,
         targetSelector,
         hasConfirm = true,
-        confirmText = 'OK',
+        confirmText,
         cancelText,
         showBack = false,
         onBack,
@@ -127,12 +129,12 @@ export const Dialog: React.FC<DialogProps> = (props: DialogProps) => {
                         <ButtonRow>
                             {showExit ? (
                                 <Button onClick={onExit} style={{ marginRight: 'auto' }}>
-                                    Exit tour
+                                    {t('tour.exit')}
                                 </Button>
                             ) : undefined}
                             {showBack ? (
                                 <Button onClick={onBack} style={{ marginRight: 8 }}>
-                                    Back
+                                    {t('tour.back')}
                                 </Button>
                             ) : undefined}
                             {cancelText !== undefined ? (
@@ -142,7 +144,7 @@ export const Dialog: React.FC<DialogProps> = (props: DialogProps) => {
                             ) : undefined}
                             {hasConfirm ? (
                                 <Button type="primary" onClick={onConfirm}>
-                                    {confirmText}
+                                    {confirmText ?? t('common.ok')}
                                 </Button>
                             ) : undefined}
                         </ButtonRow>

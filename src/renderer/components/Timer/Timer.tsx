@@ -32,11 +32,8 @@ import {
     uiStateNames,
 } from './action';
 import { FocusSelector } from './FocusSelector';
-import {
-    DONT_REMIND_AGAIN_LABEL,
-    FocusStartWarning,
-    getFocusStartWarningIfEnabled,
-} from './focusStartWarning';
+import { FocusStartWarning, getFocusStartWarningIfEnabled } from './focusStartWarning';
+import { t } from '../../i18n';
 import { setTrayImageWithMadeIcon } from './iconMaker';
 import { PomodoroNumView } from './PomodoroNumView';
 import Progress from './Progress';
@@ -482,7 +479,15 @@ class Timer extends Component<Props, State> {
         // rebuilt when that changes. Only the fields `trayMenuItems` reads are
         // compared: rebuilding on anything else would call into the main
         // process twice a second for nothing.
-        const trayStateKeys = ['isRunning', 'isFocusing', 'targetTime', 'sessionEnding'];
+        // `language` is included because `trayMenuItems` reads the labels
+        // through `t()`: a switch has to rebuild the menu in the new language.
+        const trayStateKeys = [
+            'isRunning',
+            'isFocusing',
+            'targetTime',
+            'sessionEnding',
+            'language',
+        ];
         if (!isShallowEqualByKeys(prevProps.timer, this.props.timer, trayStateKeys)) {
             this.addMenuItems();
         }
@@ -790,15 +795,15 @@ class Timer extends Component<Props, State> {
         });
         this.focusStartWarningModal = feedback.confirm({
             kind: 'warning',
-            title: warning.title,
-            content: warning.content,
+            title: t(warning.titleKey),
+            content: t(warning.contentKey),
             checkbox: {
-                label: DONT_REMIND_AGAIN_LABEL,
+                label: t('timer.warning.dontRemindAgain'),
                 checked: false,
                 onChange: this.onToggleDontRemind,
             },
-            okText: 'OK',
-            cancelText: 'Cancel',
+            okText: t('common.ok'),
+            cancelText: t('common.cancel'),
             onOk: this.confirmFocusStart,
             onCancel: this.cancelFocusStart,
         });
@@ -885,8 +890,8 @@ class Timer extends Component<Props, State> {
             await this.onFocusingSessionDone(shouldRemind, isRotten);
         } else if (shouldRemind) {
             window.api.notify(
-                'Resting session ended',
-                `Completed ${this.state.pomodoroNum} sessions today. \n\n`
+                t('timer.notify.restEndedTitle'),
+                t('timer.notify.completedToday', this.state.pomodoroNum)
             );
         }
 
@@ -915,8 +920,8 @@ class Timer extends Component<Props, State> {
 
         if (shouldRemind) {
             window.api.notify(
-                'Focusing finished. Start resting.',
-                `Completed ${this.state.pomodoroNum + 1} sessions today. \n\n`
+                t('timer.notify.focusEndedTitle'),
+                t('timer.notify.completedToday', this.state.pomodoroNum + 1)
             );
         }
 
@@ -1501,7 +1506,10 @@ class Timer extends Component<Props, State> {
                         </MySider>
                     ))}
                 <TimerLayout $compact={compact} ref={this.mainDiv}>
-                    <Tooltip title={compact ? 'Normal (F11)' : 'Compact (F11)'} placement="bottom">
+                    <Tooltip
+                        title={compact ? t('timer.controls.normal') : t('timer.controls.compact')}
+                        placement="bottom"
+                    >
                         <Button
                             onClick={() => this.props.setCompact(!compact)}
                             shape={'circle'}
@@ -1515,7 +1523,7 @@ class Timer extends Component<Props, State> {
                             <CompactModeIcon $compact={compact} />
                         </Button>
                     </Tooltip>
-                    <Tooltip title="Minimize (F12)" placement="bottom">
+                    <Tooltip title={t('timer.controls.minimize')} placement="bottom">
                         <Button
                             icon={<Icon type={'fullscreen-exit'} />}
                             onClick={this.minimize}
@@ -1565,7 +1573,7 @@ class Timer extends Component<Props, State> {
                                         isLongBreak={
                                             !(this.props.timer.iBreak % LONG_BREAK_INTERVAL)
                                         }
-                                        aria-label="Switch timer mode"
+                                        aria-label={t('timer.controls.switchTimerMode')}
                                         onClick={this.switchMode}
                                     />
                                 </ProgressTextContainer>
@@ -1573,7 +1581,7 @@ class Timer extends Component<Props, State> {
                         </ProgressContainer>
 
                         <ThemeToggleRow $compact={compact}>
-                            <Tooltip title={'Switch Theme'}>
+                            <Tooltip title={t('timer.controls.switchTheme')}>
                                 <ThemeToggle type="bulb" onClick={this.toggleTheme} />
                             </Tooltip>
                         </ThemeToggleRow>
@@ -1589,7 +1597,7 @@ class Timer extends Component<Props, State> {
                         <ButtonRow>
                             <div id="start-timer-button" style={{ lineHeight: 0 }}>
                                 {isRunning ? (
-                                    <Tooltip title="Pause (F6)">
+                                    <Tooltip title={t('timer.controls.pause')}>
                                         <Button
                                             icon={<Icon type="pause" />}
                                             shape={'circle'}
@@ -1597,7 +1605,7 @@ class Timer extends Component<Props, State> {
                                         />
                                     </Tooltip>
                                 ) : (
-                                    <Tooltip title="Start (F5)">
+                                    <Tooltip title={t('timer.controls.start')}>
                                         <Button
                                             icon={<Icon type="caret-right" />}
                                             shape={'circle'}
@@ -1607,7 +1615,7 @@ class Timer extends Component<Props, State> {
                                 )}
                             </div>
                             {hasActiveSession ? (
-                                <Tooltip title="Finish">
+                                <Tooltip title={t('timer.controls.finish')}>
                                     <Button
                                         icon={<Icon type="check" />}
                                         shape={'circle'}
@@ -1615,7 +1623,7 @@ class Timer extends Component<Props, State> {
                                     />
                                 </Tooltip>
                             ) : (
-                                <Tooltip title="Switch Mode (Tab)">
+                                <Tooltip title={t('timer.controls.switchMode')}>
                                     <Button
                                         id="mode-switching-button"
                                         icon={<Icon type="swap" />}
@@ -1625,7 +1633,7 @@ class Timer extends Component<Props, State> {
                                 </Tooltip>
                             )}
                             <div id="stop-timer-button" style={{ lineHeight: 0 }}>
-                                <Tooltip title="Stop">
+                                <Tooltip title={t('timer.controls.stop')}>
                                     <Button
                                         shape="circle"
                                         icon={<Icon type="close" />}
@@ -1634,7 +1642,7 @@ class Timer extends Component<Props, State> {
                                 </Tooltip>
                             </div>
                             {this.state.pomodorosToday.length ? (
-                                <Tooltip title="Show More">
+                                <Tooltip title={t('timer.controls.showMore')}>
                                     <Button
                                         id="more-timer-button"
                                         icon={<Icon type="more" />}
@@ -1646,7 +1654,7 @@ class Timer extends Component<Props, State> {
                         </ButtonRow>
 
                         <MoreInfo>
-                            <Tooltip title="Pomodoros Today">
+                            <Tooltip title={t('timer.stats.pomodorosToday')}>
                                 <PomodoroNumView
                                     pomodoros={this.state.pomodorosToday}
                                     showNum={false}
@@ -1659,14 +1667,14 @@ class Timer extends Component<Props, State> {
 
                         {more ? (
                             <MoreInfo>
-                                <h2>Time Spent</h2>
+                                <h2>{t('timer.stats.timeSpent')}</h2>
                                 <PomodoroTimeTreemap
                                     pomodoros={this.state.pomodorosToday}
                                     width={800}
                                 />
                                 <Divider />
 
-                                <h2>Word Cloud</h2>
+                                <h2>{t('timer.stats.wordCloud')}</h2>
                                 <AsyncWordCloud
                                     records={this.state.pomodorosToday}
                                     width={800}

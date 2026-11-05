@@ -1,5 +1,7 @@
 import type { SourceData } from '../dataMerger/dataMerger';
 import { isPlainObject } from './payload';
+import { createTranslator } from '../i18n';
+import type { Language, PlainMessageKey, TranslateFn } from '../i18n';
 
 /**
  * Why an import file is refused, in the words of the person who has to fix it.
@@ -74,10 +76,40 @@ export const describeEntryList = (value: unknown): string => {
     return `an array whose entry ${bad} is ${describe(value[bad])}`;
 };
 
+/** Language aware variant used by the validator below. */
+function describeLocalized(value: unknown, t: TranslateFn): string {
+    if (value === null) {
+        return t('guard.describe.null');
+    }
+
+    if (Array.isArray(value)) {
+        return t('guard.describe.array');
+    }
+
+    return typeof value === 'object'
+        ? t('guard.describe.object')
+        : t('guard.describe.type', String(typeof value));
+}
+
+function describeEntryListLocalized(value: unknown, t: TranslateFn): string {
+    if (!Array.isArray(value)) {
+        return describeLocalized(value, t);
+    }
+
+    const bad = value.findIndex((entry) => !isNonEmptyString(entry));
+    if (bad < 0) {
+        return t('guard.describe.emptyStrings');
+    }
+
+    return t('guard.describe.entry', bad, describeLocalized(value[bad], t));
+}
+
 /** Collector that keeps the reported findings bounded while counting the rest. */
 class IssueCollector {
     readonly issues: ValidationIssue[] = [];
     private overflow = 0;
+
+    constructor(readonly t: TranslateFn) {}
 
     add(path: string, message: string) {
         if (this.issues.length < MAX_ISSUES) {
@@ -100,7 +132,7 @@ class IssueCollector {
 
         return [
             ...this.issues,
-            { path: '', message: `and ${this.overflow} more problem(s) not listed` },
+            { path: '', message: this.t('guard.import.overflow', this.overflow) },
         ];
     }
 }
@@ -117,29 +149,33 @@ export function requireField(
     key: string,
     path: string,
     predicate: (v: unknown) => boolean,
-    expectation: string,
+    expectationKey: PlainMessageKey,
     issues: IssueCollector
 ) {
+    const t = issues.t;
     const value = holder[key];
     if (value === undefined) {
-        issues.add(`${path}.${key}`, `is missing; ${expectation} is required`);
+        issues.add(`${path}.${key}`, t('guard.import.missing', t(expectationKey)));
         return;
     }
 
     if (!predicate(value)) {
-        const found = predicate === isStringArray ? describeEntryList(value) : describe(value);
-        issues.add(`${path}.${key}`, `should be ${expectation}, but is ${found}`);
+        const found =
+            predicate === isStringArray
+                ? describeEntryListLocalized(value, t)
+                : describeLocalized(value, t);
+        issues.add(`${path}.${key}`, t('guard.import.mismatch', t(expectationKey), found));
     }
 }
 
 function checkArrayField(value: unknown, path: string, issues: IssueCollector): any[] | undefined {
     if (value === undefined) {
-        issues.add(path, 'is missing; an array is required');
+        issues.add(path, issues.t('guard.import.missing', issues.t('guard.expect.array')));
         return undefined;
     }
 
     if (!Array.isArray(value)) {
-        issues.add(path, `should be an array, but is ${describe(value)}`);
+        issues.add(path, issues.t('guard.import.array', describeLocalized(value, issues.t)));
         return undefined;
     }
 
@@ -152,12 +188,12 @@ function checkObjectField(
     issues: IssueCollector
 ): { [key: string]: any } | undefined {
     if (value === undefined) {
-        issues.add(path, 'is missing; an object is required');
+        issues.add(path, issues.t('guard.import.missing', issues.t('guard.expect.object')));
         return undefined;
     }
 
     if (!isPlainObject(value)) {
-        issues.add(path, `should be an object, but is ${describe(value)}`);
+        issues.add(path, issues.t('guard.import.object', describeLocalized(value, issues.t)));
         return undefined;
     }
 
@@ -166,69 +202,79 @@ function checkObjectField(
 
 function checkRecord(record: unknown, path: string, issues: IssueCollector) {
     if (!isPlainObject(record)) {
-        issues.add(path, `should be an object, but is ${describe(record)}`);
+        issues.add(path, issues.t('guard.import.object', describeLocalized(record, issues.t)));
         return;
     }
 
-    requireField(record, '_id', path, isNonEmptyString, 'a non-empty string', issues);
-    requireField(record, 'startTime', path, isFiniteNumber, 'a finite number', issues);
-    requireField(record, 'spentTimeInHour', path, isFiniteNumber, 'a finite number', issues);
+    requireField(record, '_id', path, isNonEmptyString, 'guard.expect.nonEmptyString', issues);
+    requireField(record, 'startTime', path, isFiniteNumber, 'guard.expect.finiteNumber', issues);
+    requireField(
+        record,
+        'spentTimeInHour',
+        path,
+        isFiniteNumber,
+        'guard.expect.finiteNumber',
+        issues
+    );
 
     // Optional by design (older exports predate them), but a wrong-typed value
     // still breaks the charts that read them, so they are checked when present.
     if (record.apps !== undefined && !isPlainObject(record.apps)) {
-        issues.add(`${path}.apps`, `should be an object, but is ${describe(record.apps)}`);
+        issues.add(
+            `${path}.apps`,
+            issues.t('guard.import.object', describeLocalized(record.apps, issues.t))
+        );
     }
 
     if (record.switchTimes !== undefined && !isFiniteNumber(record.switchTimes)) {
         issues.add(
             `${path}.switchTimes`,
-            `should be a finite number, but is ${describe(record.switchTimes)}`
+            issues.t('guard.import.finiteNumber', describeLocalized(record.switchTimes, issues.t))
         );
     }
 }
 
 function checkCard(card: unknown, path: string, issues: IssueCollector) {
     if (!isPlainObject(card)) {
-        issues.add(path, `should be an object, but is ${describe(card)}`);
+        issues.add(path, issues.t('guard.import.object', describeLocalized(card, issues.t)));
         return;
     }
 
-    requireField(card, '_id', path, isNonEmptyString, 'a non-empty string', issues);
-    requireField(card, 'sessionIds', path, isStringArray, 'an array of strings', issues);
+    requireField(card, '_id', path, isNonEmptyString, 'guard.expect.nonEmptyString', issues);
+    requireField(card, 'sessionIds', path, isStringArray, 'guard.expect.stringArray', issues);
     checkSpentTime(card.spentTimeInHour, `${path}.spentTimeInHour`, issues);
 }
 
 function checkList(list: unknown, path: string, issues: IssueCollector) {
     if (!isPlainObject(list)) {
-        issues.add(path, `should be an object, but is ${describe(list)}`);
+        issues.add(path, issues.t('guard.import.object', describeLocalized(list, issues.t)));
         return;
     }
 
-    requireField(list, '_id', path, isNonEmptyString, 'a non-empty string', issues);
-    requireField(list, 'cards', path, isStringArray, 'an array of strings', issues);
+    requireField(list, '_id', path, isNonEmptyString, 'guard.expect.nonEmptyString', issues);
+    requireField(list, 'cards', path, isStringArray, 'guard.expect.stringArray', issues);
 }
 
 function checkBoard(board: unknown, path: string, issues: IssueCollector) {
     if (!isPlainObject(board)) {
-        issues.add(path, `should be an object, but is ${describe(board)}`);
+        issues.add(path, issues.t('guard.import.object', describeLocalized(board, issues.t)));
         return;
     }
 
-    requireField(board, '_id', path, isNonEmptyString, 'a non-empty string', issues);
-    requireField(board, 'lists', path, isStringArray, 'an array of strings', issues);
+    requireField(board, '_id', path, isNonEmptyString, 'guard.expect.nonEmptyString', issues);
+    requireField(board, 'lists', path, isStringArray, 'guard.expect.stringArray', issues);
 }
 
 function checkMove(row: unknown, path: string, issues: IssueCollector) {
     if (!isPlainObject(row)) {
-        issues.add(path, `should be an object, but is ${describe(row)}`);
+        issues.add(path, issues.t('guard.import.object', describeLocalized(row, issues.t)));
         return;
     }
 
-    requireField(row, 'cardId', path, isNonEmptyString, 'a non-empty string', issues);
-    requireField(row, 'fromListId', path, isNonEmptyString, 'a non-empty string', issues);
-    requireField(row, 'toListId', path, isNonEmptyString, 'a non-empty string', issues);
-    requireField(row, 'time', path, isFiniteNumber, 'a finite number', issues);
+    requireField(row, 'cardId', path, isNonEmptyString, 'guard.expect.nonEmptyString', issues);
+    requireField(row, 'fromListId', path, isNonEmptyString, 'guard.expect.nonEmptyString', issues);
+    requireField(row, 'toListId', path, isNonEmptyString, 'guard.expect.nonEmptyString', issues);
+    requireField(row, 'time', path, isFiniteNumber, 'guard.expect.finiteNumber', issues);
 }
 
 /**
@@ -237,17 +283,17 @@ function checkMove(row: unknown, path: string, issues: IssueCollector) {
  */
 function checkSpentTime(value: unknown, path: string, issues: IssueCollector) {
     if (value === undefined) {
-        issues.add(path, 'is missing; an object with "actual" and "estimated" is required');
+        issues.add(path, issues.t('guard.import.missingSpentTime'));
         return;
     }
 
     if (!isPlainObject(value)) {
-        issues.add(path, `should be an object, but is ${describe(value)}`);
+        issues.add(path, issues.t('guard.import.object', describeLocalized(value, issues.t)));
         return;
     }
 
-    requireField(value, 'actual', path, isFiniteNumber, 'a finite number', issues);
-    requireField(value, 'estimated', path, isFiniteNumber, 'a finite number', issues);
+    requireField(value, 'actual', path, isFiniteNumber, 'guard.expect.finiteNumber', issues);
+    requireField(value, 'estimated', path, isFiniteNumber, 'guard.expect.finiteNumber', issues);
 }
 
 /**
@@ -270,7 +316,7 @@ function checkReferences(data: SourceData, issues: IssueCollector, warnings: Val
             if (!data.cards[cardId]) {
                 issues.add(
                     `lists[${JSON.stringify(list._id)}].cards`,
-                    `refers to card ${JSON.stringify(cardId)}, which is not in the file`
+                    issues.t('guard.import.refersToCard', JSON.stringify(cardId))
                 );
             }
         }
@@ -281,7 +327,7 @@ function checkReferences(data: SourceData, issues: IssueCollector, warnings: Val
             if (!data.lists[listId]) {
                 issues.add(
                     `boards[${JSON.stringify(board._id)}].lists`,
-                    `refers to list ${JSON.stringify(listId)}, which is not in the file`
+                    issues.t('guard.import.refersToList', JSON.stringify(listId))
                 );
             }
         }
@@ -291,9 +337,7 @@ function checkReferences(data: SourceData, issues: IssueCollector, warnings: Val
         if (!data.cards[row.cardId]) {
             warnings.push({
                 path: 'move',
-                message:
-                    `a move of card ${JSON.stringify(row.cardId)} refers to a card ` +
-                    'that is not in the file; the move will be dropped',
+                message: issues.t('guard.import.moveDropped', JSON.stringify(row.cardId)),
             });
         }
     }
@@ -303,9 +347,7 @@ function checkReferences(data: SourceData, issues: IssueCollector, warnings: Val
             if (!data.records.some((record) => record._id === sessionId)) {
                 warnings.push({
                     path: `cards[${JSON.stringify(card._id)}].sessionIds`,
-                    message:
-                        `refers to pomodoro ${JSON.stringify(sessionId)}, which is not in ` +
-                        'the file; its time will not be counted',
+                    message: issues.t('guard.import.sessionNotCounted', JSON.stringify(sessionId)),
                 });
             }
         }
@@ -324,10 +366,11 @@ function checkReferences(data: SourceData, issues: IssueCollector, warnings: Val
  * Findings the merger handles on its own (it drops them and warns) come back
  * as `warnings` instead, so they surface without blocking the import.
  */
-export function validateSourceData(raw: unknown): ValidationResult {
-    const issues = new IssueCollector();
+export function validateSourceData(raw: unknown, language: Language = 'en'): ValidationResult {
+    const t = createTranslator(language);
+    const issues = new IssueCollector(t);
     if (!isPlainObject(raw)) {
-        issues.add('', `the file must contain an object, but it contains ${describe(raw)}`);
+        issues.add('', t('guard.import.fileNotObject', describeLocalized(raw, t)));
         return { ok: false, issues: issues.all() };
     }
 

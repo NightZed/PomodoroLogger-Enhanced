@@ -11,6 +11,16 @@
 // loaded, so pin it here.
 process.env.NODE_ENV = 'test';
 
+// The i18n runtime resolves `'system'` through `navigator.language`. Pin it so
+// a machine whose OS language is Chinese does not silently turn the English
+// assertions in the suite into Chinese ones.
+if (typeof window !== 'undefined') {
+    Object.defineProperty(window.navigator, 'language', {
+        value: 'en-US',
+        configurable: true,
+    });
+}
+
 if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
     window.matchMedia = (query) => ({
         matches: false,

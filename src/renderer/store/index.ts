@@ -3,7 +3,8 @@ import { thunk } from 'redux-thunk';
 import { composeWithDevTools } from '@redux-devtools/extension';
 
 import { rootReducer, RootState } from '../reducers';
-import { setFollowSystemTheme, setThemeId } from '../components/Timer/action';
+import { setFollowSystemTheme, setLanguage, setThemeId } from '../components/Timer/action';
+import { resolveLanguage, setActiveLanguage, SYSTEM_LANGUAGE } from '../i18n/runtime';
 
 const configureStore = (): Store<RootState> => {
     const enhancer = composeWithDevTools(applyMiddleware(thunk));
@@ -29,6 +30,29 @@ if (initialTheme) {
     }
     store.dispatch(setFollowSystemTheme(initialTheme.followSystemTheme));
 }
+
+/**
+ * Seed the persisted language before the first render, for the same reason as
+ * the theme: `fetchSettings()` runs too late and the first paint would be
+ * English.
+ */
+const initialLanguage = window.api?.initialLanguage;
+if (initialLanguage) {
+    store.dispatch(setLanguage(initialLanguage.language));
+}
+
+/**
+ * Redux is the source of truth, the i18n runtime is the resolved value every
+ * `t()` reads. Subscribing here (rather than in an effect) means the active
+ * language is already switched when React re-renders after the dispatch, so no
+ * frame shows the previous language.
+ */
+const syncLanguage = (): void => {
+    setActiveLanguage(resolveLanguage(store.getState().timer.language, SYSTEM_LANGUAGE));
+};
+
+syncLanguage();
+store.subscribe(syncLanguage);
 
 if (typeof module.hot !== 'undefined') {
     module.hot.accept('../reducers', () =>

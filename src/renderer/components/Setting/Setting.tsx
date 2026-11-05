@@ -12,7 +12,9 @@ import type { ExportResult, ImportResult, UpdateErrorPayload } from '../../../ma
 import { refreshDbs } from '../../dbs';
 import { BUILTIN_THEMES, ThemeDefinition } from '../../theme/tokens';
 import SettingNav from './SettingNav';
-import { DEFAULT_SECTION, SectionId, SHORTCUTS, SHORTCUT_DISCLAIMER } from './sections';
+import { DEFAULT_SECTION, SectionId, SHORTCUTS } from './sections';
+import { t, useI18n } from '../../i18n';
+import type { LanguagePreference, PlainMessageKey } from '../../../shared/i18n';
 
 /**
  * The settings page is split into the groups listed in `sections.ts` and driven
@@ -309,7 +311,7 @@ const longBreakMarks = {
  * stays short.
  */
 function minFinishMarks(maxMinutes: number) {
-    const marks: { [minutes: number]: string } = { 0: 'Any' };
+    const marks: { [minutes: number]: string } = { 0: t('settings.timer.any') };
     for (let minutes = 10; minutes < maxMinutes; minutes += 10) {
         marks[minutes] = `${minutes}min`;
     }
@@ -353,6 +355,14 @@ const settingUiStates = [
     'themeId',
     'followSystemTheme',
     'customThemes',
+    'language',
+];
+
+/** The three states of the language option, in the order they are shown. */
+const LANGUAGE_OPTIONS: { value: LanguagePreference; labelKey: PlainMessageKey }[] = [
+    { value: 'system', labelKey: 'settings.language.system' },
+    { value: 'zh', labelKey: 'settings.language.zh' },
+    { value: 'en', labelKey: 'settings.language.en' },
 ];
 
 interface Props extends TimerState, TimerActionTypes {}
@@ -374,6 +384,10 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             setWallpaperPath,
             setWarnBeforeFocusStart,
         } = props;
+        // Subscribes this component to language changes even though the
+        // `React.memo` comparator below would otherwise bail out (`language`
+        // is in `settingUiStates`, the hook is the belt to that suspender).
+        const { t } = useI18n();
         const [importing, setImporting] = useState(false);
         const [exporting, setExporting] = useState(false);
         const onChangeFocus = React.useCallback(
@@ -603,19 +617,22 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
          * to read in three seconds and the import did not happen -- the user
          * has to acknowledge that before trying again.
          */
-        const showImportIssues = useCallback((issues: { path: string; message: string }[]) => {
-            feedback.alert({
-                kind: 'error',
-                title: FEEDBACK_MESSAGES.setting.importInvalidTitle,
-                content: (
-                    <IssueReport
-                        intro={FEEDBACK_MESSAGES.setting.importInvalidIntro}
-                        items={issues}
-                    />
-                ),
-                okText: 'OK',
-            });
-        }, []);
+        const showImportIssues = useCallback(
+            (issues: { path: string; message: string }[]) => {
+                feedback.alert({
+                    kind: 'error',
+                    title: FEEDBACK_MESSAGES.setting.importInvalidTitle,
+                    content: (
+                        <IssueReport
+                            intro={FEEDBACK_MESSAGES.setting.importInvalidIntro}
+                            items={issues}
+                        />
+                    ),
+                    okText: t('common.ok'),
+                });
+            },
+            [t]
+        );
 
         /**
          * The import either succeeded or was refused; both end in a message,
@@ -665,7 +682,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             footer={FEEDBACK_MESSAGES.setting.importDone}
                         />
                     ),
-                    okText: 'OK',
+                    okText: t('common.ok'),
                     onOk: restartApp,
                 });
                 return;
@@ -676,7 +693,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 content: FEEDBACK_MESSAGES.setting.importDone,
             });
             restartApp();
-        }, [showImportIssues]);
+        }, [showImportIssues, t]);
 
         const onExportClick = useCallback(async () => {
             setExporting(true);
@@ -708,21 +725,21 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             feedback.confirm({
                 kind: 'warning',
                 title: FEEDBACK_MESSAGES.setting.importConfirm,
-                okText: 'Import',
+                okText: t('common.import'),
                 onOk: () => {
                     onImportClick();
                 },
             });
-        }, [onImportClick]);
+        }, [onImportClick, t]);
 
         const onDeleteConfirm = useCallback(() => {
             feedback.confirm({
                 kind: 'error',
                 title: FEEDBACK_MESSAGES.setting.deleteAllConfirm,
-                okText: 'Delete',
+                okText: t('common.delete'),
                 onOk: onDeleteData,
             });
-        }, [onDeleteData]);
+        }, [onDeleteData, t]);
 
         const [section, setSection] = useState<SectionId>(DEFAULT_SECTION);
 
@@ -733,7 +750,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                     {section === 'timer' && (
                         <>
                             <Field>
-                                <h4>Focus Duration</h4>
+                                <h4>{t('settings.timer.focusDuration')}</h4>
                                 <SliderContainer>
                                     <Slider
                                         marks={marks}
@@ -747,7 +764,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             </Field>
 
                             <Field>
-                                <h4>Short Break</h4>
+                                <h4>{t('settings.timer.shortBreak')}</h4>
                                 <SliderContainer>
                                     <Slider
                                         marks={restMarks}
@@ -761,7 +778,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             </Field>
 
                             <Field>
-                                <h4>Long Break</h4>
+                                <h4>{t('settings.timer.longBreak')}</h4>
                                 <SliderContainer>
                                     <Slider
                                         marks={longBreakMarks}
@@ -775,16 +792,8 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             </Field>
 
                             <Field>
-                                <h4>Minimum Focus Time before Finish</h4>
-                                <Hint>
-                                    The Finish button only accepts a focus session once it has run
-                                    for at least this long, so a session that just started cannot be
-                                    finished by accident. The range follows the focus duration
-                                    above: a longer minimum that was saved earlier stays stored and
-                                    applies again once the focus duration allows it. Set it to
-                                    &quot;Any&quot; (0) to allow finishing at any time. Breaks are
-                                    always allowed.
-                                </Hint>
+                                <h4>{t('settings.timer.minFinish')}</h4>
+                                <Hint>{t('settings.timer.minFinishHint')}</Hint>
                                 <SliderContainer>
                                     <Slider
                                         marks={minFinishMarks(minFinishMaxMinutes)}
@@ -801,7 +810,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             </Field>
 
                             <Field>
-                                <h4>Distracting App Setting</h4>
+                                <h4>{t('settings.timer.distracting')}</h4>
                                 <ButtonWrapper>
                                     <DistractingListModalButton />
                                 </ButtonWrapper>
@@ -812,36 +821,51 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                     {section === 'appearance' && (
                         <>
                             <Field>
-                                <h4>Theme</h4>
+                                <h4>{t('settings.appearance.theme')}</h4>
                                 <ThemeOptions>
-                                    {themes.map((theme: ThemeDefinition) => (
-                                        <ThemeButton
-                                            key={theme.id}
-                                            $active={
-                                                !props.followSystemTheme &&
-                                                props.themeId === theme.id
-                                            }
-                                            onClick={() => onSelectTheme(theme.id)}
-                                            title={`Switch to the ${theme.name} theme`}
-                                        >
-                                            <Swatches>
-                                                <i style={{ backgroundColor: theme.tokens.bg }} />
-                                                <i
-                                                    style={{
-                                                        backgroundColor: theme.tokens.bgElevated,
-                                                    }}
-                                                />
-                                                <i
-                                                    style={{
-                                                        backgroundColor: theme.tokens.primary,
-                                                    }}
-                                                />
-                                            </Swatches>
-                                            {theme.name}
-                                        </ThemeButton>
-                                    ))}
+                                    {themes.map((theme: ThemeDefinition) => {
+                                        // Built-in theme names are copy; a custom
+                                        // theme's name is user data and stays as is.
+                                        const name =
+                                            theme.id === 'day'
+                                                ? t('theme.day')
+                                                : theme.id === 'night'
+                                                  ? t('theme.night')
+                                                  : theme.name;
+                                        return (
+                                            <ThemeButton
+                                                key={theme.id}
+                                                $active={
+                                                    !props.followSystemTheme &&
+                                                    props.themeId === theme.id
+                                                }
+                                                onClick={() => onSelectTheme(theme.id)}
+                                                title={t('settings.appearance.switchToTheme', name)}
+                                            >
+                                                <Swatches>
+                                                    <i
+                                                        style={{
+                                                            backgroundColor: theme.tokens.bg,
+                                                        }}
+                                                    />
+                                                    <i
+                                                        style={{
+                                                            backgroundColor:
+                                                                theme.tokens.bgElevated,
+                                                        }}
+                                                    />
+                                                    <i
+                                                        style={{
+                                                            backgroundColor: theme.tokens.primary,
+                                                        }}
+                                                    />
+                                                </Swatches>
+                                                {name}
+                                            </ThemeButton>
+                                        );
+                                    })}
                                 </ThemeOptions>
-                                <SettingLabel>Follow System</SettingLabel>
+                                <SettingLabel>{t('settings.appearance.followSystem')}</SettingLabel>
                                 <Switch
                                     onChange={onToggleFollowSystem}
                                     checked={props.followSystemTheme}
@@ -850,12 +874,8 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             </Field>
 
                             <Field>
-                                <h4>Content Opacity</h4>
-                                <Hint>
-                                    Fades the title bar and the page, text and icons included.
-                                    Dialogs and toasts fade with them; the window background has its
-                                    own slider below and is not affected.
-                                </Hint>
+                                <h4>{t('settings.appearance.contentOpacity')}</h4>
+                                <Hint>{t('settings.appearance.contentOpacityHint')}</Hint>
                                 <SliderContainer>
                                     <Slider
                                         marks={opacityMarks}
@@ -873,12 +893,8 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             </Field>
 
                             <Field>
-                                <h4>Background Opacity</h4>
-                                <Hint>
-                                    How much of the desktop shows through the window background.
-                                    Floored above zero so the surface never disappears; the text
-                                    keeps its own opacity.
-                                </Hint>
+                                <h4>{t('settings.appearance.backgroundOpacity')}</h4>
+                                <Hint>{t('settings.appearance.backgroundOpacityHint')}</Hint>
                                 <SliderContainer>
                                     <Slider
                                         marks={themeBackgroundOpacityMarks}
@@ -896,23 +912,23 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             </Field>
 
                             <Field>
-                                <h4>Background Wallpaper</h4>
+                                <h4>{t('settings.appearance.wallpaper')}</h4>
                                 <Button
                                     size="small"
                                     onClick={onSelectWallpaper}
                                     style={{ margin: 8 }}
                                 >
-                                    Choose
+                                    {t('common.choose')}
                                 </Button>
                                 {props.wallpaperPath && (
                                     <Button size="small" onClick={onClearWallpaper}>
-                                        Clear
+                                        {t('common.clear')}
                                     </Button>
                                 )}
                             </Field>
 
                             <Field>
-                                <h4>Wallpaper Opacity</h4>
+                                <h4>{t('settings.appearance.wallpaperOpacity')}</h4>
                                 <SliderContainer>
                                     <Slider
                                         marks={wallpaperOpacityMarks}
@@ -930,14 +946,14 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             </Field>
 
                             <Field>
-                                <h4>Calendar Base Color</h4>
+                                <h4>{t('settings.appearance.calendarBaseColor')}</h4>
                                 <ColorInput
                                     type="color"
                                     value={props.calendarBaseColor}
                                     onChange={(e) => setCalendarColor(e.target.value)}
                                 />
                                 <Button size="small" onClick={resetCalendarColor}>
-                                    Reset
+                                    {t('common.reset')}
                                 </Button>
                             </Field>
                         </>
@@ -946,10 +962,8 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                     {section === 'notification' && (
                         <>
                             <Field>
-                                <h4>Screenshot</h4>
-                                <Hint>
-                                    Takes a screenshot every 5 minutes while a session is running.
-                                </Hint>
+                                <h4>{t('settings.notification.screenshot')}</h4>
+                                <Hint>{t('settings.notification.screenshotHint')}</Hint>
                                 <Switch
                                     onChange={switchScreenshot}
                                     checked={!!props.screenShotInterval}
@@ -958,11 +972,8 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             </Field>
 
                             <Field>
-                                <h4>Focus Start Warning</h4>
-                                <Hint>
-                                    Asks for a confirmation before starting a focus session without
-                                    a project.
-                                </Hint>
+                                <h4>{t('settings.notification.focusStartWarning')}</h4>
+                                <Hint>{t('settings.notification.focusStartWarningHint')}</Hint>
                                 <Switch
                                     onChange={onToggleFocusStartWarning}
                                     checked={props.warnBeforeFocusStart}
@@ -971,28 +982,25 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             </Field>
 
                             <Field>
-                                <h4>Session End</h4>
-                                <Hint>
-                                    A chime plays when a session finishes. There is no desktop
-                                    notification: the ending screen takes over the window instead.
-                                </Hint>
+                                <h4>{t('settings.notification.sessionEnd')}</h4>
+                                <Hint>{t('settings.notification.sessionEndHint')}</Hint>
                             </Field>
                         </>
                     )}
 
                     {section === 'shortcuts' && (
                         <Field>
-                            <h4>Keyboard Shortcuts</h4>
-                            <Hint>{SHORTCUT_DISCLAIMER}</Hint>
+                            <h4>{t('settings.shortcuts.title')}</h4>
+                            <Hint>{t('settings.shortcuts.disclaimer')}</Hint>
                             {SHORTCUTS.map((group) => (
-                                <ShortcutGroup key={group.group}>
-                                    <h5>{group.group}</h5>
+                                <ShortcutGroup key={group.groupKey}>
+                                    <h5>{t(group.groupKey)}</h5>
                                     {group.entries.map((entry) => (
                                         <ShortcutRow key={entry.keys}>
                                             <ShortcutKeys>
                                                 <ShortcutKey>{entry.keys}</ShortcutKey>
                                             </ShortcutKeys>
-                                            <span>{entry.description}</span>
+                                            <span>{t(entry.descriptionKey)}</span>
                                         </ShortcutRow>
                                     ))}
                                 </ShortcutGroup>
@@ -1003,7 +1011,30 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                     {section === 'system' && (
                         <>
                             <Field>
-                                <SettingLabel>Keep Compact Window Always On Top</SettingLabel>
+                                <h4>{t('settings.system.language')}</h4>
+                                <Hint>{t('settings.system.languageHint')}</Hint>
+                                <ThemeOptions
+                                    role="group"
+                                    aria-label={t('settings.system.language')}
+                                >
+                                    {LANGUAGE_OPTIONS.map((option) => (
+                                        <ThemeButton
+                                            key={option.value}
+                                            type="button"
+                                            $active={props.language === option.value}
+                                            aria-pressed={props.language === option.value}
+                                            onClick={() => props.setLanguage(option.value)}
+                                        >
+                                            {t(option.labelKey)}
+                                        </ThemeButton>
+                                    ))}
+                                </ThemeOptions>
+                            </Field>
+
+                            <Field>
+                                <SettingLabel>
+                                    {t('settings.system.compactAlwaysOnTop')}
+                                </SettingLabel>
                                 <Switch
                                     onChange={props.setCompactAlwaysOnTop}
                                     checked={props.compactAlwaysOnTop}
@@ -1012,8 +1043,8 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             </Field>
 
                             <Field>
-                                <h4>Startup</h4>
-                                <SettingLabel>Start On Boot</SettingLabel>
+                                <h4>{t('settings.system.startup')}</h4>
+                                <SettingLabel>{t('settings.system.startOnBoot')}</SettingLabel>
                                 <Switch
                                     onChange={setStartOnBoot}
                                     checked={props.startOnBoot}
@@ -1022,7 +1053,9 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             </Field>
 
                             <Field>
-                                <SettingLabel>Hardware Acceleration</SettingLabel>
+                                <SettingLabel>
+                                    {t('settings.system.hardwareAcceleration')}
+                                </SettingLabel>
                                 <Switch
                                     onChange={setUseHardwareAcceleration}
                                     checked={props.useHardwareAcceleration}
@@ -1031,8 +1064,8 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             </Field>
 
                             <Field>
-                                <h4>Update</h4>
-                                <SettingLabel>Auto Update</SettingLabel>
+                                <h4>{t('settings.system.update')}</h4>
+                                <SettingLabel>{t('settings.system.autoUpdate')}</SettingLabel>
                                 <Switch
                                     onChange={switchAutoUpdate}
                                     checked={props.autoUpdate}
@@ -1043,28 +1076,30 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                     loading={checkingUpdate}
                                     onClick={onCheckUpdate}
                                 >
-                                    Check Update
+                                    {t('settings.system.checkUpdate')}
                                 </Button>
                             </Field>
 
                             <Field>
-                                <h4>Data Management</h4>
+                                <h4>{t('settings.system.dataManagement')}</h4>
                                 <ButtonWrapper>
-                                    <Button onClick={onOpenDataDir}>Open Data Folder</Button>
+                                    <Button onClick={onOpenDataDir}>
+                                        {t('settings.system.openDataFolder')}
+                                    </Button>
                                 </ButtonWrapper>
                                 <ButtonWrapper>
                                     <Button onClick={onExportClick} loading={exporting}>
-                                        Export Data
+                                        {t('settings.system.exportData')}
                                     </Button>
                                 </ButtonWrapper>
                                 <ButtonWrapper>
                                     <Button loading={importing} onClick={onImportConfirm}>
-                                        Import Data
+                                        {t('settings.system.importData')}
                                     </Button>
                                 </ButtonWrapper>
                                 <ButtonWrapper>
                                     <Button danger={true} onClick={onDeleteConfirm}>
-                                        Delete All Data
+                                        {t('settings.system.deleteAllData')}
                                     </Button>
                                 </ButtonWrapper>
                             </Field>
@@ -1073,24 +1108,24 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
 
                     {section === 'about' && (
                         <Field>
-                            <h4>Pomodoro Logger Enhanced</h4>
-                            <Hint>
-                                A time logger that meets the Pomodoro technique and a kanban board.
-                            </Hint>
+                            <h4>{t('app.title')}</h4>
+                            <Hint>{t('settings.about.hint')}</Hint>
                             <ButtonWrapper>
-                                <Button onClick={openIssuePage}>Feedback</Button>
+                                <Button onClick={openIssuePage}>
+                                    {t('settings.about.feedback')}
+                                </Button>
                             </ButtonWrapper>
                         </Field>
                     )}
                 </Pane>
                 <Footer>
-                    Open Source @GitHub
+                    {t('settings.footer.openSource')}
                     <StyledIcon
                         onClick={openGithubPage}
                         aria-label="GitHub"
-                        title="This project is open-source and hosted on GitHub"
+                        title={t('settings.about.githubTitle')}
                     />
-                    Version v{pkg.version}
+                    {t('settings.footer.version', pkg.version)}
                 </Footer>
             </Container>
         );

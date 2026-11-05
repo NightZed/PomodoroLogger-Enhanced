@@ -117,6 +117,7 @@ const props = (): any => ({
     startOnBoot: false,
     distractingList: [],
     calendarBaseColor: '#aceebb',
+    language: 'system',
     setFocusDuration: jest.fn(),
     setRestDuration: jest.fn(),
     setLongBreakDuration: jest.fn(),
@@ -134,6 +135,7 @@ const props = (): any => ({
     setWallpaperOpacity: jest.fn(),
     setStartOnBoot: jest.fn(),
     setCalendarBaseColor: jest.fn(),
+    setLanguage: jest.fn(),
 });
 
 /** The button whose accessible name contains `label`. */
@@ -426,3 +428,22 @@ describe('delete of all data', () => {
 });
 
 const importData = jest.fn<Promise<ImportResult>, []>();
+
+describe('Setting language option', () => {
+    it('offers follow-system, Chinese and English, and reports the choice', () => {
+        const languageProps = { ...props(), language: 'system' };
+        render(<Setting {...languageProps} />);
+
+        const nav = screen.getByRole('navigation', { name: 'Settings sections' });
+        fireEvent.click(within(nav).getByRole('button', { name: /System/ }));
+
+        fireEvent.click(screen.getByRole('button', { name: '简体中文' }));
+        expect(languageProps.setLanguage).toHaveBeenCalledWith('zh');
+
+        fireEvent.click(screen.getByRole('button', { name: 'English' }));
+        expect(languageProps.setLanguage).toHaveBeenCalledWith('en');
+
+        fireEvent.click(screen.getByRole('button', { name: 'Follow system' }));
+        expect(languageProps.setLanguage).toHaveBeenCalledWith('system');
+    });
+});

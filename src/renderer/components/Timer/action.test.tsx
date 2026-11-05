@@ -16,11 +16,8 @@ import {
     timerFinished,
     TimerState,
 } from './action';
-import {
-    DONT_REMIND_AGAIN_LABEL,
-    getFocusStartWarning,
-    getFocusStartWarningIfEnabled,
-} from './focusStartWarning';
+import { getFocusStartWarning, getFocusStartWarningIfEnabled } from './focusStartWarning';
+import { t } from '../../i18n';
 import { generateRandomName } from '../../utils';
 import { workers } from '../../workers';
 import { getAllSession } from '../../monitor/sessionManager';
@@ -478,6 +475,6 @@ describe('getFocusStartWarningIfEnabled', () => {
     });
 
     it('offers an opt-out check box label', () => {
-        expect(DONT_REMIND_AGAIN_LABEL).toMatch(/don't remind/i);
+        expect(t('timer.warning.dontRemindAgain')).toMatch(/don't remind/i);
     });
 });

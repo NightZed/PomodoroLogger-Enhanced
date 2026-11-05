@@ -12,6 +12,7 @@ import * as React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { APP_TABS, nextTabKey } from '../appTabs';
 import { tabType } from '../Timer/action';
+import { t } from '../../i18n';
 import AppTitleBar from './AppTitleBar';
 
 // The window buttons and the title-bar drag talk to the main process through
@@ -76,13 +77,13 @@ const pointerUp = (target: HTMLElement, pointerId = 7) => {
 };
 
 describe('AppTitleBar', () => {
-    APP_TABS.forEach(({ key, title, tourKey }) => {
+    APP_TABS.forEach(({ key, titleKey, tourKey }) => {
         it(`renders the ${key} page with its title`, () => {
             const { container } = build(key, () => undefined);
 
             const pane = declaredTabs(container).find((tab) => tab.key === key);
             expect(pane).toBeDefined();
-            expect(pane?.title).toBe(title);
+            expect(pane?.title).toBe(t(titleKey));
             // The marker attributes of the guided tour travel with the tab, so
             // both come from the same list.
             expect(pane?.tourKey).toBe(tourKey);

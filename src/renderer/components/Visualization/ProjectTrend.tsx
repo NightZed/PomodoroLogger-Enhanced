@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { PomodoroRecord } from '../../monitor/type';
 import { workers } from '../../workers';
+import { useI18n } from '../../i18n';
 
 const Container = styled.div`
     position: relative;
@@ -141,13 +142,14 @@ const Sparkline: React.FC<SparklineProps> = ({
 };
 
 export const ProjectTrend: React.FC<Props> = (props: Props) => {
+    const { t } = useI18n();
     const { hoverEffect = false } = props;
     const C = hoverEffect ? Container : NoHover;
     return (
         <C>
             {props.data.length > 0 ? (
                 <>
-                    {hoverEffect ? <h1>TREND</h1> : undefined}
+                    {hoverEffect ? <h1>{t('chart.trend')}</h1> : undefined}
                     <Sparkline
                         width={props.width}
                         height={props.height}

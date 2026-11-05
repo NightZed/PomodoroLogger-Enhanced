@@ -4,7 +4,7 @@ import { WorkerMessage, WorkerMessageType, WorkerResponsePayload } from '../ipc/
 
 type Response = WorkerResponsePayload[WorkerMessageType.MergeData];
 export async function handleMergeData({
-    payload: { external, source },
+    payload: { external, source, language },
 }: WorkerMessage<WorkerMessageType.MergeData>): Promise<Response> {
     let localSource = source;
     if (typeof source === 'string') {
@@ -18,7 +18,7 @@ export async function handleMergeData({
     let warning = '';
     const merge = new DataMerger((s) => {
         warning += s + '\n';
-    });
+    }, language);
     const merged = merge.merge(localSource as any, external);
     const ans: Response = {
         merged,

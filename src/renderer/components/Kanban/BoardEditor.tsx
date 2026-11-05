@@ -11,6 +11,7 @@ import { formatTimeYmdHm } from '../Visualization/Timeline';
 import formatMarkdown from './Card/formatMarkdown';
 import { Markdown } from './style/Markdown';
 import { AntdIcon as Icon } from '../antdIcon';
+import { useI18n } from '../../i18n';
 
 interface FormProps {
     boardId: string;
@@ -25,6 +26,7 @@ interface FormProps {
 }
 
 export const EditKanbanForm = (props: FormProps) => {
+    const { t } = useI18n();
     const [internalForm] = Form.useForm();
     const form = props.form ?? internalForm;
     const { onSave, isCreating, nameValidator, visible, onDelete, boardId, onCancel, createdTime } =
@@ -62,9 +64,9 @@ export const EditKanbanForm = (props: FormProps) => {
             if (!isCreating || typeof name !== 'string' || !name || nameValidator(name)) {
                 return Promise.resolve();
             }
-            return Promise.reject(new Error(`Board "${name}" already exists`));
+            return Promise.reject(new Error(t('kanban.boardEditor.duplicate', name)));
         },
-        [isCreating, nameValidator]
+        [isCreating, nameValidator, t]
     );
 
     const onTabChange = useCallback(
@@ -83,8 +85,10 @@ export const EditKanbanForm = (props: FormProps) => {
     return (
         <AppModal
             open={visible}
-            title={isCreating ? 'Create a new board' : 'Edit'}
-            okText={isCreating ? 'Create' : 'Save'}
+            title={
+                isCreating ? t('kanban.boardEditor.createTitle') : t('kanban.boardEditor.editTitle')
+            }
+            okText={isCreating ? t('kanban.boardEditor.create') : t('common.save')}
             onCancel={onCancel}
             cancelButtonProps={{ style: { display: 'none' } }}
             onOk={() => form.submit()}
@@ -96,11 +100,14 @@ export const EditKanbanForm = (props: FormProps) => {
             <EditorContainer>
                 <Form form={form} layout="vertical" onKeyDown={onKeydown} onFinish={onSave}>
                     <Form.Item
-                        label="Name"
+                        label={t('kanban.boardEditor.name')}
                         name="name"
                         rules={[
-                            { required: true, message: 'Please input the name of board!' },
-                            { max: 48, message: 'Max length of name is 48' },
+                            {
+                                required: true,
+                                message: t('kanban.boardEditor.nameRequired'),
+                            },
+                            { max: 48, message: t('kanban.boardEditor.nameTooLong') },
                             { validator },
                         ]}
                     >
@@ -108,7 +115,7 @@ export const EditKanbanForm = (props: FormProps) => {
                     </Form.Item>
                     {!isCreating && createdTime !== undefined ? (
                         <CreatedTime style={{ marginTop: -4, marginBottom: 8 }}>
-                            Created: {formatTimeYmdHm(createdTime)}
+                            {t('kanban.page.created')}: {formatTimeYmdHm(createdTime)}
                         </CreatedTime>
                     ) : undefined}
                     {/* Mounted with the (force-rendered) dialog so opening the
@@ -125,7 +132,7 @@ export const EditKanbanForm = (props: FormProps) => {
                             items={[
                                 {
                                     key: 'edit',
-                                    label: 'Edit',
+                                    label: t('kanban.boardEditor.edit'),
                                     children: (
                                         <Form.Item name="description">
                                             <Input.TextArea
@@ -137,7 +144,7 @@ export const EditKanbanForm = (props: FormProps) => {
                                 },
                                 {
                                     key: 'preview',
-                                    label: 'Preview',
+                                    label: t('kanban.boardEditor.preview'),
                                     children: (
                                         <Markdown
                                             style={{

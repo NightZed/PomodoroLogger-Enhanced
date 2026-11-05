@@ -10,6 +10,7 @@ import { workers } from '../../workers';
 import { DEBUG_TIME_SCALE, scaleMs } from '../../../config';
 import { AsyncDB } from '../../../utils/dbHelper';
 import { DEFAULT_THEME_ID, ThemeDefinition } from '../../theme/tokens';
+import type { LanguagePreference } from '../../../shared/i18n';
 
 export const LONG_BREAK_INTERVAL = 4;
 const settingDB = new AsyncDB(dbs.settingDB);
@@ -99,6 +100,15 @@ export interface Setting {
     followSystemTheme: boolean;
     /** User defined themes. Not editable in the UI yet, kept for later use. */
     customThemes?: ThemeDefinition[];
+    /**
+     * UI language preference. `'system'` (the default) follows the OS and is
+     * resolved at startup by the main process; anything else is an explicit
+     * choice, persisted in the settings table.
+     *
+     * Use `resolveLanguage()` (renderer/i18n) instead of reading this directly:
+     * `'system'` is not a language.
+     */
+    language: LanguagePreference;
 }
 
 export interface TimerManager {
@@ -140,7 +150,7 @@ export interface TimerState extends Setting {
      * hidden side bar). This flag and everything named after it (`setCompact`,
      * `compactWindow`, `COMPACT_TITLE_BAR_HEIGHT`, `returnToCompact`, ...) is
      * the ONE name for that mode. The user-facing wording follows it too
-     * ("Compact window (F11)" on the Timer page, "小屏模式" in the Chinese
+     * ("Compact window (F11)" on the Timer page, "紧凑模式" in the Chinese
      * README); "small window" / "small screen" are not names for it -- the
      * smaller F12 strip (`minimize`, "mini mode") would be one more candidate
      * for those words.
@@ -191,6 +201,7 @@ export const defaultState: TimerState = {
     themeId: DEFAULT_THEME_ID,
     followSystemTheme: false,
     customThemes: undefined,
+    language: 'system',
     currentTab: 'timer',
 };
 
@@ -212,6 +223,7 @@ export const uiStateNames = [
     'iBreak',
     'minimize',
     'compact',
+    'language',
 ];
 
 // A session lives across start / pause / continue: pausing keeps `targetTime`
@@ -279,6 +291,7 @@ export const switchFocusRestMode = createAction('[Timer]SWITCH_FOCUS_MODE');
 export const setThemeId = createAction<string>('[Setting]SET_THEME_ID');
 export const setFollowSystemTheme = createAction<boolean>('[Setting]SET_FOLLOW_SYSTEM_THEME');
 export const setCustomThemes = createAction<ThemeDefinition[]>('[Setting]SET_CUSTOM_THEMES');
+export const setLanguage = createAction<LanguagePreference>('[Setting]SET_LANGUAGE');
 export const changeAppTab = createAction<tabType>('[App]CHANGE_APP_TAB');
 
 /**
@@ -370,6 +383,7 @@ export const actions = {
             ['themeId', setThemeId],
             ['followSystemTheme', setFollowSystemTheme],
             ['customThemes', setCustomThemes],
+            ['language', setLanguage],
         ];
         for (const key of settingKeywords) {
             if (key[0] in settings) {
@@ -541,6 +555,10 @@ export const actions = {
         dispatch(setCustomThemes(customThemes));
         await settingDB.update({ name: 'setting' }, { $set: { customThemes } }, { upsert: true });
     },
+    setLanguage: (language: LanguagePreference) => async (dispatch: Dispatch) => {
+        dispatch(setLanguage(language));
+        await settingDB.update({ name: 'setting' }, { $set: { language } }, { upsert: true });
+    },
     timerFinished:
         (sessionData?: PomodoroRecord, cardIds: string[] = [], boardId?: string | undefined) =>
         async (dispatch: Dispatch) => {
@@ -640,6 +658,7 @@ export const reducer = createReducer<TimerState>(defaultState, (builder) => {
             followSystemTheme: payload,
         }))
         .addCase(setCustomThemes, (state, { payload }) => ({ ...state, customThemes: payload }))
+        .addCase(setLanguage, (state, { payload }) => ({ ...state, language: payload }))
         .addCase(switchFocusRestMode, (state) => ({
             ...state,
             isFocusing: !state.isFocusing,

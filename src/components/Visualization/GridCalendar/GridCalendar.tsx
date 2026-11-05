@@ -1,6 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
 import { useThemeTokens } from '../../../renderer/theme/useThemeTokens';
+import { useI18n } from '../../../renderer/i18n';
+import type { PlainMessageKey } from '../../../shared/i18n';
 
 const Container = styled.div`
     position: relative;
@@ -30,6 +32,33 @@ type Data = {
     };
 };
 
+/** Month labels, 0 based (index 0 = January). */
+export const MONTH_KEYS: PlainMessageKey[] = [
+    'calendar.month.jan',
+    'calendar.month.feb',
+    'calendar.month.mar',
+    'calendar.month.apr',
+    'calendar.month.may',
+    'calendar.month.jun',
+    'calendar.month.jul',
+    'calendar.month.aug',
+    'calendar.month.sep',
+    'calendar.month.oct',
+    'calendar.month.nov',
+    'calendar.month.dec',
+];
+
+export const WEEKDAY_KEYS: PlainMessageKey[] = [
+    'calendar.weekday.sun',
+    'calendar.weekday.mon',
+    'calendar.weekday.tue',
+    'calendar.weekday.wed',
+    'calendar.weekday.thu',
+    'calendar.weekday.fri',
+    'calendar.weekday.sat',
+];
+
+/** English abbreviations, kept for callers that need a language independent list. */
 export const monthList = [
     'Jan',
     'Feb',
@@ -169,6 +198,7 @@ export const GridCalendar = React.memo((props: Props) => {
         clickDate,
         highlightMonth,
     } = props;
+    const { t } = useI18n();
     const maxIntensity = React.useMemo(() => hexToHsl(baseColor), [baseColor]);
     const tillTimestamp = getLastDayTimestamp(till);
     const day = (new Date(till).getDay() + 1) % 7;
@@ -280,21 +310,21 @@ export const GridCalendar = React.memo((props: Props) => {
     }
     const weekdays = React.useMemo(
         () =>
-            ['Sun', 'Mon', 'Tue', 'Wed', 'Thur', 'Fri', 'Sat'].map((v, index) => {
+            WEEKDAY_KEYS.map((key, index) => {
                 return (
                     <SvgText
                         x={axisMargin - gridMargin}
                         y={index * (gridWidth + gridMargin)}
-                        key={index}
+                        key={key}
                         alignmentBaseline="hanging"
                         textAnchor="end"
                         style={{ fontSize: gridWidth }}
                     >
-                        {v}
+                        {t(key)}
                     </SvgText>
                 );
             }),
-        [axisMargin, gridMargin, gridWidth]
+        [axisMargin, gridMargin, gridWidth, t]
     );
 
     const weekMonthMap: number[] = [];
@@ -324,7 +354,7 @@ export const GridCalendar = React.memo((props: Props) => {
                 textAnchor="start"
                 style={{ fontSize: gridWidth, ...highlight(v[0]) }}
             >
-                {monthList[v[0] - 1]}
+                {t(MONTH_KEYS[v[0] - 1])}
             </SvgText>
         ));
     }

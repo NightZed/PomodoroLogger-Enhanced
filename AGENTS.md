@@ -109,6 +109,22 @@ CI (`.github/workflows/test.yml`) runs `yarn lint`, `yarn typecheck` and `yarn t
 - Theme: `src/renderer/theme` (tokens + `applyTheme`, CSS custom properties `--pl-*`) is applied through `ThemeController`. The first-paint theme crosses the process boundary via `additionalArguments` → `window.api.initialTheme` so the renderer never flashes the wrong theme; keep both sides in sync when touching startup theming.
 - Styling is styled-components (plus a few `.scss` global files); do not add standalone CSS files for components.
 
+### Internationalization
+
+The UI ships English and Simplified Chinese with a small custom `t()`, not an
+i18n library — the renderer has no provider, so bare `render(<Component />)`
+tests keep working and a switch re-renders components guarded by `React.memo` /
+`shouldComponentUpdate`. `src/shared/i18n/en.ts` is the source of truth for the
+key tree and interpolation signatures; `zh.ts` is typed as
+`CatalogShape<typeof en>`, so a missing key or a wrong parameter list fails
+`yarn typecheck`. The renderer reads strings through `useI18n()` (function
+components) or the module level `t()` (class components, helpers, constant
+tables); the main process has its own `m()` in `src/main/i18n.ts`.
+`Setting.language` (`'system' | 'en' | 'zh'`) lives in the `timer` slice and
+reaches the first paint through `additionalArguments`, exactly like the theme.
+Keep `language` in the `settingUiStates` / `uiStateNames` / `trayStateKeys`
+whitelists. See `docs/i18n.md`.
+
 ### Activity tracking & statistics
 
 `src/renderer/monitor` collects the active window (`src/main/activeWin.ts` wraps `get-windows`, lazily imported and logged to `active-win.log`), aggregates per-app/per-title time into a `PomodoroRecord`, optionally captures screenshots, and saves sessions through the DB proxy. Efficiency scoring lives in `src/shared/efficiency/efficiency.ts`; history aggregation in `src/utils/aggPomodoro.ts` and `src/shared/dataMerger`.

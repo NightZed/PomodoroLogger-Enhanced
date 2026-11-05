@@ -9,6 +9,7 @@ import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { AppModal } from '../AppModal';
 import { getPopupContainer } from '../popupLayer';
 import styled from 'styled-components';
+import { useI18n } from '../../i18n';
 
 const { useForm } = Form;
 
@@ -81,6 +82,7 @@ const DynamicFieldSet: React.FC<DynamicFieldSetProps> = ({
     initialTitles,
     registerSubmit,
 }) => {
+    const { t } = useI18n();
     const [form] = useForm();
     const initialKeys = initialApps.map((_, i) => i);
     const [keys, setKeys] = React.useState<number[]>(initialKeys);
@@ -142,23 +144,23 @@ const DynamicFieldSet: React.FC<DynamicFieldSetProps> = ({
         <React.Fragment key={k}>
             <Form.Item
                 {...(index === 0 ? formItemLayout : formItemLayoutWithOutLabel)}
-                label={index === 0 ? 'RegExp' : ''}
+                label={index === 0 ? t('settings.distracting.regexp') : ''}
                 required={false}
                 style={{ marginBottom: 4 }}
             >
                 <InputGroup>
-                    <InputAddon>App</InputAddon>
+                    <InputAddon>{t('settings.distracting.app')}</InputAddon>
                     <Form.Item name={['apps', k]} noStyle>
-                        <Input placeholder="App RegExp" />
+                        <Input placeholder={t('settings.distracting.appPlaceholder')} />
                     </Form.Item>
                 </InputGroup>
             </Form.Item>
             <Form.Item {...formItemLayoutWithOutLabel} style={{ marginBottom: 24 }}>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
                     <InputGroup>
-                        <InputAddon>Title</InputAddon>
+                        <InputAddon>{t('settings.distracting.titleLabel')}</InputAddon>
                         <Form.Item name={['titles', k]} noStyle>
-                            <Input placeholder="Title RegExp" />
+                            <Input placeholder={t('settings.distracting.titlePlaceholder')} />
                         </Form.Item>
                     </InputGroup>
                     {keys.length > 1 ? (
@@ -167,7 +169,7 @@ const DynamicFieldSet: React.FC<DynamicFieldSetProps> = ({
                             className="dynamic-delete-button"
                             onClick={() => remove(k)}
                             icon={<MinusCircleOutlined />}
-                            aria-label="Remove rule"
+                            aria-label={t('settings.distracting.remove')}
                         />
                     ) : null}
                 </div>
@@ -186,7 +188,7 @@ const DynamicFieldSet: React.FC<DynamicFieldSetProps> = ({
                         style={{ width: '85%' }}
                         icon={<PlusOutlined />}
                     >
-                        Add field
+                        {t('settings.distracting.addField')}
                     </Button>
                 </Form.Item>
             </Form>
@@ -235,6 +237,7 @@ export const DistractingList: React.FC<DistractingListProps> = ({
 };
 
 export const DistractingListModalButton = (props: InputProps) => {
+    const { t } = useI18n();
     const [editingDistracting, setEditingDistracting] = React.useState(false);
     const submitForm = React.useRef<(() => void) | null>(null);
     const onOk = () => {
@@ -244,15 +247,17 @@ export const DistractingListModalButton = (props: InputProps) => {
     return (
         <>
             {/* tslint:disable-next-line:jsx-no-lambda */}
-            <Button onClick={() => setEditingDistracting(true)}>Distracting App Setting</Button>
+            <Button onClick={() => setEditingDistracting(true)}>
+                {t('settings.distracting.title')}
+            </Button>
             <AppModal
-                title={'Distracting App Setting'}
+                title={t('settings.distracting.title')}
                 open={editingDistracting}
                 /* tslint:disable-next-line:jsx-no-lambda */
                 onCancel={() => setEditingDistracting(false)}
                 onOk={onOk}
                 destroyOnHidden={true}
-                okText={'Save'}
+                okText={t('common.save')}
                 getContainer={getPopupContainer}
             >
                 <DistractingList

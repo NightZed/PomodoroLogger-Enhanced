@@ -358,7 +358,7 @@ describe('main/ipc', () => {
             });
             expect(sendWorkerMessage).toHaveBeenCalledWith({
                 type: expect.any(String),
-                payload: { external: emptyData, source: emptyData },
+                payload: { external: emptyData, source: emptyData, language: 'en' },
             });
             expect(writeAllFile).toHaveBeenCalledWith(emptyData);
         });

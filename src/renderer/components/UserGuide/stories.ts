@@ -21,6 +21,9 @@ import { Story } from './type';
  * - Dialog OK on click-through steps also clicks the target first (see UserGuide),
  *   so "Take me there" never leaves the user on the wrong page.
  * - Modal steps use `useMask: false` + no pointer so the antd Modal stays clickable.
+ *
+ * The copy lives in the dictionaries (`tour.*`); the steps only carry keys, so a
+ * language switch needs no change here.
  */
 export const timerStories: Story[] = [
     {
@@ -29,7 +32,7 @@ export const timerStories: Story[] = [
         useMask: true,
         spotlight: true,
         pointerTargetSelector: '#start-timer-button',
-        hint: 'This button starts the count-down timer. Press OK to continue (the tour will not start it for you).',
+        hintKey: 'tour.timer.start',
         hasConfirm: true,
     },
     {
@@ -40,7 +43,7 @@ export const timerStories: Story[] = [
         pointerTargetSelector: '#start-timer-button',
         pointerDirection: Math.PI / 2,
         hasConfirm: true,
-        hint: 'Clicking the same button again pauses the timer.',
+        hintKey: 'tour.timer.pause',
     },
     {
         name: 'stop-timer',
@@ -49,7 +52,7 @@ export const timerStories: Story[] = [
         spotlight: true,
         pointerTargetSelector: '#stop-timer-button',
         hasConfirm: true,
-        hint: 'You can stop the timer here',
+        hintKey: 'tour.timer.stop',
     },
     {
         name: 'focus-selector',
@@ -59,7 +62,7 @@ export const timerStories: Story[] = [
         pointerTargetSelector: '#focus-selector',
         pointerDirection: Math.PI / 2,
         hasConfirm: true,
-        hint: 'Every Pomodoro record will be linked to the Kanban which you are focusing on',
+        hintKey: 'tour.timer.focus',
     },
     {
         name: 'switch-mode',
@@ -71,7 +74,7 @@ export const timerStories: Story[] = [
         unionChildren: true,
         pointerTargetSelector: '[data-tour="timer-mode"]',
         hasConfirm: true,
-        hint: 'There are focus sessions and rest sessions. You can click the icon to switch them.',
+        hintKey: 'tour.timer.mode',
     },
 ];
 
@@ -84,7 +87,7 @@ export const kanbanStories: Story[] = [
         advanceOnTargetClick: true,
         pointerTargetSelector: '[data-tour="kanban-tab"]',
         pointerDirection: Math.PI / 2,
-        hint: "Let's switch to Kanban board (click the Kanban tab, or press OK to go there)",
+        hintKey: 'tour.kanban.switchTab',
         hasConfirm: true,
         waitForTargetMs: 8000,
     },
@@ -92,9 +95,7 @@ export const kanbanStories: Story[] = [
         name: 'introduction',
         stepId: 'kanban.intro-overview',
         useMask: false,
-        hint:
-            'Kanban is a workflow management method designed to visualize your work. ' +
-            'This is the overview page of all the kanban boards.',
+        hintKey: 'tour.kanban.introOverview',
         hasConfirm: true,
     },
     {
@@ -103,7 +104,7 @@ export const kanbanStories: Story[] = [
         useMask: true,
         spotlight: true,
         advanceOnTargetClick: true,
-        hint: "Let's create a new Kanban!",
+        hintKey: 'tour.kanban.createClick',
         hasConfirm: false,
         pointerTargetSelector: '[data-tour="create-kanban-button"]',
         pointerDirection: Math.PI / 2,
@@ -116,7 +117,7 @@ export const kanbanStories: Story[] = [
         name: 'create-board',
         stepId: 'kanban.create-confirm',
         useMask: false,
-        hint: 'Give your board a name, save it, then press OK to continue.',
+        hintKey: 'tour.kanban.createConfirm',
         hasConfirm: true,
     },
     {
@@ -126,7 +127,7 @@ export const kanbanStories: Story[] = [
         spotlight: true,
         advanceOnTargetClick: true,
         pointerTargetSelector: '[data-tour="kanban-brief-card"]',
-        hint: "Let's visit this Kanban! (click the card)",
+        hintKey: 'tour.kanban.enter',
         hasConfirm: false,
         waitForTargetMs: 12000,
     },
@@ -135,14 +136,14 @@ export const kanbanStories: Story[] = [
         stepId: 'kanban.board-lists',
         useMask: false,
         hasConfirm: true,
-        hint: 'Kanban board has 4 lists by default: backlog, todo, in progress and done. ',
+        hintKey: 'tour.kanban.boardLists',
     },
     {
         name: 'intro',
         stepId: 'kanban.board-cards',
         useMask: false,
         hasConfirm: true,
-        hint: 'Every list has its own cards. You can create new cards and move it between the lists',
+        hintKey: 'tour.kanban.boardCards',
     },
     {
         name: 'intro',
@@ -152,9 +153,7 @@ export const kanbanStories: Story[] = [
         hasConfirm: true,
         pointerTargetSelector: '[data-tour="focused-list"]',
         pointerDirection: -Math.PI / 2,
-        hint:
-            'When focusing on this Kanban, the related Pomodoro records will be add to the cards ' +
-            'from In Progress list',
+        hintKey: 'tour.kanban.focusedList',
         waitForTargetMs: 8000,
     },
     {
@@ -165,7 +164,7 @@ export const kanbanStories: Story[] = [
         advanceOnTargetClick: true,
         hasConfirm: false,
         pointerTargetSelector: '[data-tour="kanban-card"]',
-        hint: "Let's go to card configure page",
+        hintKey: 'tour.kanban.openCard',
         waitForTargetMs: 8000,
     },
     {
@@ -173,10 +172,7 @@ export const kanbanStories: Story[] = [
         stepId: 'kanban.estimation',
         useMask: false,
         hasConfirm: true,
-        hint:
-            'Pomodoro Logger Enhanced enables you to manage your time accurately. ' +
-            'It will track your exact focusing time on this task.' +
-            "Once you set your estimation, it's able to rate your estimation.",
+        hintKey: 'tour.kanban.estimation',
         dialogPosition: { left: 24, bottom: 24 },
     },
 ];

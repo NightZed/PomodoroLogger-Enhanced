@@ -3,6 +3,7 @@ import WorkIcon from '../../../res/work.svg';
 import React, { FunctionComponent } from 'react';
 import { IconComponent as Icon } from '../antdIcon';
 import styled, { keyframes } from 'styled-components';
+import { t } from '../../i18n';
 
 const fade = keyframes`
     0%,50% {
@@ -72,16 +73,18 @@ export const WorkRestIcon: FunctionComponent<Props> = (props: Props) => {
             onClick={props.onClick}
             id={'timer-mode'}
             data-tour={'timer-mode'}
-            aria-label={props['aria-label'] ?? 'Switch timer mode'}
+            aria-label={props['aria-label'] ?? t('timer.controls.switchTimerMode')}
         >
             <FadeEffect key={`icon-${animationKey}`}>
                 {props.isWorking ? <Icon component={WorkIcon} /> : <Icon component={RestIcon} />}
             </FadeEffect>
             {props.isWorking ? (
-                <FadeEffect key={`label-${animationKey}`}>Working</FadeEffect>
+                <FadeEffect key={`label-${animationKey}`}>{t('timer.mini.working')}</FadeEffect>
             ) : (
                 <FadeEffect key={`label-${animationKey}`}>
-                    {props.isLongBreak ? 'Long Break' : 'Short Break'}
+                    {props.isLongBreak
+                        ? t('timer.session.longBreak')
+                        : t('timer.session.shortBreak')}
                 </FadeEffect>
             )}
         </div>

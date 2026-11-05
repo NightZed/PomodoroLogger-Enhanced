@@ -4,6 +4,7 @@ import styled, { keyframes } from 'styled-components';
 
 import { SearchPanel } from './SearchPanel';
 import { isEditableTarget } from '../../../shared/keyboard';
+import { useI18n } from '../../../renderer/i18n';
 
 export interface SearchProps {
     searchStr?: string;
@@ -124,6 +125,7 @@ export const Search = ({
     tags,
     enabled = true,
 }: SearchProps) => {
+    const { t } = useI18n();
     const [isSearching, setIsSearching] = useState(false);
     const [text, setText] = useState('');
     const [showPanel, setShowPanel] = useState(false);
@@ -301,10 +303,15 @@ export const Search = ({
                         transition: 'transform 120ms',
                     }}
                     className="close"
-                    aria-label="Expand search panel"
+                    aria-label={t('search.expand')}
                     onClick={togglePanel}
                 />
-                <Icon type="close" className="close" aria-label="Clear" onClick={clear} />
+                <Icon
+                    type="close"
+                    className="close"
+                    aria-label={t('common.clear')}
+                    onClick={clear}
+                />
             </header>
             {panel}
         </StyledSearch>

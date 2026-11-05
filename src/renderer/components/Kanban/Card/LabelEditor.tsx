@@ -6,6 +6,7 @@ import { feedback, FEEDBACK_MESSAGES } from '../../feedback';
 import { getPopupContainer } from '../../popupLayer';
 import { CardLabel } from '../type';
 import { getLabelSuggestions } from './labelSuggestion';
+import { useI18n } from '../../../i18n';
 
 export const LABEL_COLORS = [
     '#61bd4f',
@@ -342,6 +343,7 @@ interface Props {
 }
 
 export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
+    const { t } = useI18n();
     const [newName, setNewName] = useState('');
     const [newColor, setNewColor] = useState(LABEL_COLORS[0]);
     const [editingIndex, setEditingIndex] = useState<number | undefined>(undefined);
@@ -595,7 +597,9 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                                     <Input onPressEnter={onEditNamePressEnter} />
                                 </AutoComplete>
                                 <EditColorRow>
-                                    <ColorGroupLabel>Color:</ColorGroupLabel>
+                                    <ColorGroupLabel>
+                                        {t('kanban.labelEditor.color')}
+                                    </ColorGroupLabel>
                                     {LABEL_COLORS.map((c) => (
                                         <ColorDot
                                             key={c}
@@ -619,7 +623,7 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                         <LabelChip $color={label.color}>
                             <ChipName title={label.name}>{label.name}</ChipName>
                             <ChipRemove
-                                title="Remove label"
+                                title={t('kanban.labelEditor.remove')}
                                 onClick={(event) => {
                                     // Keep the press from reaching the Popover
                                     // trigger: it would reopen the editor this
@@ -651,7 +655,10 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                     onChange={(value: any) => setNewName(value)}
                     showSearch={{ filterOption: false }}
                 >
-                    <Input placeholder={'Label name'} onPressEnter={onNewNamePressEnter} />
+                    <Input
+                        placeholder={t('kanban.labelEditor.namePlaceholder')}
+                        onPressEnter={onNewNamePressEnter}
+                    />
                 </AutoComplete>
                 <Button
                     size="small"

@@ -6,7 +6,7 @@
 # read-only GITHUB_TOKEN and no secrets -- test.yml needs neither.
 version: 2
 updates:
-  # Yarn/npm dependencies (Dependabot's "npm" ecosystem reads yarn.lock too;
+  # pnpm/npm dependencies (Dependabot's "npm" ecosystem reads pnpm-lock.yaml;
   # the repo's .npmrc registry override is honoured automatically).
   - package-ecosystem: npm
     directory: "/"

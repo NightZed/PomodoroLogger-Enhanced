@@ -76,20 +76,23 @@ jobs:
           # var; never persist the checkout token.
           persist-credentials: false
 
-      - name: Install Node.js and Yarn
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install Node.js
         uses: actions/setup-node@v7
         with:
           node-version: 24.x
-          cache: yarn
+          cache: pnpm
 
       - name: Install dependencies
-        run: yarn --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Lint
-        run: yarn lint
+        run: pnpm lint
 
       - name: Test
-        run: yarn test -- --ci
+        run: pnpm test -- --ci
 
       - name: Semantic Release
         id: semantic
@@ -139,10 +142,17 @@ jobs:
           # credentials afterwards.
           persist-credentials: false
 
-      - name: Install Node.js, NPM and Yarn
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install Node.js
         uses: actions/setup-node@v7
         with:
           node-version: 24.x
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Ensure distutils is available for node-gyp
         uses: actions/setup-python@v7
@@ -179,21 +189,37 @@ jobs:
         if: matrix.os == 'ubuntu-22.04'
         run: sudo apt-get update && sudo apt-get install -y rpm
 
-      - name: Build/release Electron app
-        uses: samuelmeuli/action-electron-builder@v1
-        with:
-          # GitHub token, automatically provided to the action
-          # (No need to define this secret in the repo settings)
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build
+        run: pnpm build
 
-          # semantic-release created the GitHub Release above; upload the
-          # built artifacts to it.
-          release: true
-          mac_certs: ${{ secrets.mac_cert }}
-          mac_certs_password: ${{ secrets.mac_certs_password }}
+      # The previous step used samuelmeuli/action-electron-builder, which
+      # hard-codes `yarn` / `npm install` and has no pnpm branch (it would
+      # reinstall with yarn 1 and ignore pnpm-lock.yaml). Packaging is spelled
+      # out here instead. Three platform-scoped steps keep each OS's signing
+      # secrets out of the others' environments.
+      - name: Build and release (macOS)
+        if: startsWith(matrix.os, 'macos')
+        run: pnpm exec electron-builder --mac --publish always
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.mac_cert }}
+          CSC_KEY_PASSWORD: ${{ secrets.mac_certs_password }}
           # macOS notarization: electron-builder 26 notarizes through
           # @electron/notarize, which reads these variables.
           APPLE_API_KEY: ${{ github.workspace }}/private_keys/AuthKey_${{ secrets.api_key_id }}.p8
           APPLE_API_KEY_ID: ${{ secrets.api_key_id }}
           APPLE_API_ISSUER: ${{ secrets.api_key_issuer_id }}
+
+      - name: Build and release (Windows)
+        if: startsWith(matrix.os, 'windows')
+        run: pnpm exec electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.windows_certs }}
+          CSC_KEY_PASSWORD: ${{ secrets.windows_certs_password }}
+
+      - name: Build and release (Linux)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: pnpm exec electron-builder --linux --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

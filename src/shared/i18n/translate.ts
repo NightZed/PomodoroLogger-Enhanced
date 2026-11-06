@@ -22,7 +22,7 @@ function lookup(catalog: unknown, key: string): unknown {
  *
  * A missing key returns the key itself. It must not log: `test/console-gate.js`
  * treats `console.warn` as a test failure, and catalog completeness is already
- * enforced by `yarn typecheck` plus `catalog.test.ts`.
+ * enforced by `pnpm typecheck` plus `catalog.test.ts`.
  */
 export function createTranslator(language: Language): TranslateFn {
     const catalog = CATALOGS[language];

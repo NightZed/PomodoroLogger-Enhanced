@@ -5,7 +5,7 @@ Pomodoro Logger Enhanced writes diagnostics to `<dataDir>/logs`:
 | Build | Folder |
 | --- | --- |
 | installed | `%APPDATA%\PomodoroLogger\logs` |
-| dev (`yarn start`) | `<repo>/.local/dev/logs` |
+| dev (`pnpm start`) | `<repo>/.local/dev/logs` |
 | tests | `<repo>/.local/test/logs` (deleted by `posttest`) |
 
 `<dataDir>` is the folder the settings page opens with **Open Data Folder**;
@@ -39,8 +39,8 @@ applies immediately; the value is stored in the settings table and read at
 startup. A command-line flag or environment variable wins over the setting:
 
 ```powershell
-yarn start:prod -- --log-level=debug
-$env:POMODORO_LOG_LEVEL = 'debug'; yarn start:prod
+pnpm start:prod -- --log-level=debug
+$env:POMODORO_LOG_LEVEL = 'debug'; pnpm start:prod
 ```
 
 `crash` records ignore the level: a crash log that could be silenced by a

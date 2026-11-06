@@ -144,7 +144,7 @@ module.exports = merge(baseConfig, {
         ],
     },
     plugins: [
-        // Type checking is done by `yarn typecheck` (see webpack.main.config.js).
+        // Type checking is done by `pnpm typecheck` (see webpack.main.config.js).
         new CopyPlugin({
             patterns: [
                 {

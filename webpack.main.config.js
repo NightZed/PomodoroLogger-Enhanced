@@ -16,7 +16,7 @@ module.exports = merge(baseConfig, {
                 // TypeScript 7 ships the native compiler without the JavaScript
                 // compiler API that ts-loader depends on. Strip types with Babel
                 // (like the renderer build) and type-check separately through
-                // `yarn typecheck` (tsc --noEmit).
+                // `pnpm typecheck` (tsc --noEmit).
                 test: /\.(jsx?|tsx?)$/,
                 exclude: /node_modules/,
                 use: {
@@ -61,7 +61,7 @@ module.exports = merge(baseConfig, {
     },
     watch: true,
     plugins: [
-        // Type checking is done by `yarn typecheck` (tsc --noEmit -p tsconfig.json)
+        // Type checking is done by `pnpm typecheck` (tsc --noEmit -p tsconfig.json)
         // instead of fork-ts-checker-webpack-plugin: the 1.x version used before
         // crashed webpack ("Cannot read properties of undefined (reading 'dispatch')")
         // on shutdown, and its successors need a different options schema (and

@@ -4,7 +4,7 @@ Guidance for AI coding agents working in this repository. This is the single sou
 
 ## Project
 
-Electron desktop app (Pomodoro timer + Kanban + desktop activity tracking + statistics). Renderer is React 19 + Redux; main process owns SQLite (`better-sqlite3`). Requires Node.js 24+ and Yarn 1.22.
+Electron desktop app (Pomodoro timer + Kanban + desktop activity tracking + statistics). Renderer is React 19 + Redux; main process owns SQLite (`better-sqlite3`). Requires Node.js 24+ and pnpm 11 (pinned in `packageManager`).
 
 ## Shell
 
@@ -12,7 +12,7 @@ Local commands run in **PowerShell 7 (`pwsh`)** — build, test, packaging and p
 
 - Env vars are `$env:NAME = '...'`, not a `NAME=x cmd` prefix.
 - `$PWD` interpolates inside double quotes (`"$PWD/.local/prod-run"`); forward slashes are fine in paths.
-- If execution policy blocks `yarn.ps1`, call `yarn.cmd`.
+- If execution policy blocks `pnpm.ps1`, call `pnpm.cmd`.
 
 Process/memory inspection belongs here rather than in bash: `ps -W` reports no memory or CPU, and `tasklist` output depends on the console code page.
 
@@ -33,24 +33,24 @@ Get-NetTCPConnection -LocalPort 2003 -State Listen | Select-Object OwningProcess
 ## Commands
 
 ```powershell
-yarn                                # install; postinstall rebuilds native modules (electron-builder install-app-deps)
-yarn build                          # tsc --noEmit + both webpack bundles
-yarn typecheck                      # tsc --noEmit -p tsconfig.json only
-yarn lint                           # eslint src/**/*.{ts,tsx} test/**/*.{ts,js}
-yarn test                           # jest --forceExit
-yarn test src/renderer/components/Timer/Timer.test.tsx   # single file
-yarn test -t "some test name"       # single test by name
-yarn test:watch
-yarn test:coverage
+pnpm                                # install; postinstall rebuilds native modules (electron-builder install-app-deps)
+pnpm build                          # tsc --noEmit + both webpack bundles
+pnpm typecheck                      # tsc --noEmit -p tsconfig.json only
+pnpm lint                           # eslint src/**/*.{ts,tsx} test/**/*.{ts,js}
+pnpm test                           # jest --forceExit
+pnpm test src/renderer/components/Timer/Timer.test.tsx   # single file
+pnpm test -t "some test name"       # single test by name
+pnpm test:watch
+pnpm test:coverage
 ```
 
 Team workflow: `/init` continues to write `CODEBUDDY.md`; after running it, move the content into this file and restore the `@AGENTS.md` stub.
 
-Development (two terminals — `yarn start` does NOT launch Electron itself):
+Development (two terminals — `pnpm start` does NOT launch Electron itself):
 
 ```powershell
-yarn start        # webpack main (watch) + renderer dev server on :2003
-npx electron .    # second terminal
+pnpm start        # webpack main (watch) + renderer dev server on :2003
+npx electron .    # second terminal; downloads Electron on first run
 ```
 
 Production build / packaging:
@@ -63,16 +63,32 @@ Production build / packaging:
 # %APPDATA%\PomodoroLogger (src/main/config.ts), i.e. this run reads and writes
 # the same data as the installed app. The $env: line below also redirects the
 # data directory (it stays set for the rest of the shell session).
-yarn start:prod -- --user-data-dir="$PWD/.local/prod-run"
+pnpm start:prod -- --user-data-dir="$PWD/.local/prod-run"
 
 $env:APPDATA = "$PWD/.local/prod-appdata"
-yarn start:prod -- --user-data-dir="$PWD/.local/prod-run"
+pnpm start:prod -- --user-data-dir="$PWD/.local/prod-run"
 
-yarn pack         # electron-builder --dir
-yarn dist-win     # or dist-mac / dist-linux / dist-all (each one is a separate script)
+pnpm run pack     # electron-builder --dir (pnpm pack alone builds an npm tarball)
+pnpm run dist-win # or dist-mac / dist-linux / dist-all (each one is a separate script)
 ```
 
-CI (`.github/workflows/test.yml`) runs `yarn lint`, `yarn typecheck` and `yarn test -- --ci` on every push/PR. Releases are cut manually via the `Build/release` workflow → semantic-release; never bump `package.json` version or create tags by hand.
+CI (`.github/workflows/test.yml`) runs `pnpm lint`, `pnpm typecheck` and `pnpm test -- --ci` on every push/PR; `build.yml` packages with `pnpm exec electron-builder` per OS (the old `action-electron-builder` was removed because it hard-codes yarn). Releases are cut manually via the `Build/release` workflow → semantic-release; never bump `package.json` version or create tags by hand.
+
+### Package manager
+
+pnpm 11, pinned in `packageManager`. `pnpm-workspace.yaml` is the only place for
+install behaviour: `nodeLinker: hoisted` (electron-builder needs a flat
+`node_modules`), `overrides` (replaces yarn's `resolutions`), and `allowBuilds`.
+pnpm 11 defaults `strictDepBuilds` to `true`, so a dependency with an unreviewed
+install script fails the whole install with a non-zero exit — list it as `true`
+or `false` instead of relying on a warning. `electron` 44 and `better-sqlite3`
+13 ship no install script: the former downloads its binary on the first
+`electron .`, the latter loads its bundled `prebuilds/`.
+
+`pnpm pack` is a built-in command and does **not** run `scripts.pack`; use
+`pnpm run pack`. The store lives outside the repo (configured globally, on this
+machine `E:\pnpm-store`) and must sit on the same drive as the checkout,
+otherwise pnpm silently copies instead of hard-linking.
 
 ## Build toolchain constraints
 
@@ -124,7 +140,7 @@ tests keep working and a switch re-renders components guarded by `React.memo` /
 `shouldComponentUpdate`. `src/shared/i18n/en.ts` is the source of truth for the
 key tree and interpolation signatures; `zh.ts` is typed as
 `CatalogShape<typeof en>`, so a missing key or a wrong parameter list fails
-`yarn typecheck`. The renderer reads strings through `useI18n()` (function
+`pnpm typecheck`. The renderer reads strings through `useI18n()` (function
 components) or the module level `t()` (class components, helpers, constant
 tables); the main process has its own `m()` in `src/main/i18n.ts`.
 `Setting.language` (`'system' | 'en' | 'zh'`) lives in the `timer` slice and

@@ -4,7 +4,7 @@ import { en } from './en';
 /**
  * The Simplified Chinese catalog. Typed as `CatalogShape<typeof en>`: a missing
  * or extra key, or an interpolation signature that differs from English, is a
- * `yarn typecheck` error.
+ * `pnpm typecheck` error.
  */
 export const zh: CatalogShape<typeof en> = {
     app: {

@@ -13,7 +13,7 @@ const nodeEnvPreset = ['@babel/preset-env', { targets: { node: 'current' }, modu
 const typescriptPreset = ['@babel/preset-typescript', { onlyRemoveTypeImports: false }];
 
 module.exports = {
-    // Coverage instrumentation slows every suite down. Run `yarn test:coverage`
+    // Coverage instrumentation slows every suite down. Run `pnpm test:coverage`
     // when a report is actually needed.
     collectCoverage: false,
     // Without this, Jest only reports files that a test happened to import, so
@@ -43,7 +43,7 @@ module.exports = {
     },
     testMatch: ['**/*.(spec|test).[jt]s?(x)'],
     // TypeScript 7 has no JavaScript compiler API, so ts-jest cannot be used.
-    // Babel strips the types for Jest; `yarn typecheck` is the type-checking
+    // Babel strips the types for Jest; `pnpm typecheck` is the type-checking
     // step (the previous ts-jest setup already had diagnostics disabled).
     //
     // Keep the transform options free of RegExp/function values: Jest sends the

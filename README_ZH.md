@@ -196,7 +196,7 @@ pomodoro-logger [C:\code\pomodoro-logger] .\src\renderer\components\src\Applicat
 - **导出 / 导入 / 删除**：在设置页一键备份、迁移或清空全部数据（应用设置会保留）。
 - **数据目录**：
   - 安装版中 `db/` 存数据库，`screenshots/` 存定时截图。
-  - 以源码方式运行（`yarn start`）时，同样的结构位于仓库根目录的 `.local/dev/` 下；该目录已被 git 忽略，可随时删除。
+  - 以源码方式运行（`pnpm start`）时，同样的结构位于仓库根目录的 `.local/dev/` 下；该目录已被 git 忽略，可随时删除。
   - 可在设置页点击 **Open Data Folder** 直接在文件管理器中打开。
 
 

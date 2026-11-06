@@ -8,24 +8,24 @@
         "build-renderer": "cross-env NODE_ENV=production webpack --config webpack.renderer.prod.config.js",
         "prebuild": "node -e \"require('fs').rmSync('./dist',{recursive:true,force:true})\"",
         "typecheck": "tsc --noEmit -p tsconfig.json",
-        "build": "tsc --noEmit -p tsconfig.json && concurrently \"yarn:build-main\" \"yarn:build-renderer\"",
+        "build": "tsc --noEmit -p tsconfig.json && concurrently \"pnpm:build-main\" \"pnpm:build-renderer\"",
         "start-renderer-dev": "cross-env NODE_ENV=development webpack serve --config webpack.renderer.dev.config.js",
         "start-main-dev": "cross-env webpack --config webpack.main.config.js",
         "start-electron": "electron .",
-        "start": "concurrently \"yarn:start-main-dev\" \"yarn:start-renderer-dev\"",
-        "prestart:prod": "yarn build",
+        "start": "concurrently \"pnpm:start-main-dev\" \"pnpm:start-renderer-dev\"",
+        "prestart:prod": "pnpm build",
         "start:prod": "electron .",
         "lint": "eslint \"src/**/*.{ts,tsx}\" \"test/**/*.{ts,js}\"",
         "test": "jest --forceExit",
-        "test:coverage": "yarn test --coverage",
+        "test:coverage": "pnpm test --coverage",
         "test:debug": "jest --forceExit --detectOpenHandles --runInBand",
         "test:watch": "jest --watch",
         "posttest": "node -e \"require('fs').rmSync('./.local/test',{recursive:true,force:true})\"",
-        "pack": "yarn build && electron-builder --dir",
-        "dist-win": "yarn build && electron-builder --windows -p onTagOrDraft",
-        "dist-mac": "yarn build && electron-builder --mac -p onTagOrDraft",
-        "dist-linux": "yarn build && electron-builder --linux -p onTagOrDraft",
-        "dist-all": "yarn build && electron-builder -mwl",
+        "pack": "pnpm build && electron-builder --dir",
+        "dist-win": "pnpm build && electron-builder --windows -p onTagOrDraft",
+        "dist-mac": "pnpm build && electron-builder --mac -p onTagOrDraft",
+        "dist-linux": "pnpm build && electron-builder --linux -p onTagOrDraft",
+        "dist-all": "pnpm build && electron-builder -mwl",
         "release": "semantic-release",
         "prepare": "husky",
         "postinstall": "electron-builder install-app-deps"
@@ -97,7 +97,7 @@
             "!mocks{,/**}",
             "!build{,/**}",
             "!scripts{,/**}",
-            "!{.babelrc,.eslintrc*,.prettierrc,.npmrc,.yarnrc,.releaserc.json,commitlint.config.js,eslint.config.js,jest.config.js,tsconfig.json,webpack.*.js,CHANGELOG.md,README*.md,LICENSE,junit.xml,*.log}",
+            "!{.babelrc,.eslintrc*,.prettierrc,.npmrc,pnpm-workspace.yaml,pnpm-lock.yaml,.releaserc.json,commitlint.config.js,eslint.config.js,jest.config.js,tsconfig.json,webpack.*.js,CHANGELOG.md,README*.md,LICENSE,junit.xml,*.log}",
             "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
             "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
             "!**/node_modules/*.d.ts",
@@ -241,10 +241,6 @@
         "electron-updater": "^6.8.11",
         "get-windows": "9.3.0"
     },
-    "resolutions": {
-        "node-ipc": "9.1.1",
-        "@types/react": "19.3.0"
-    },
     "sideEffects": [
         "**/*.css",
         "**/*.scss",
@@ -253,5 +249,5 @@
         "./src/renderer/echartsSetup.ts",
         "**/electron"
     ],
-    "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+    "packageManager": "pnpm@11.28.11"
 }

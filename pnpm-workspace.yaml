@@ -1,0 +1,22 @@
+nodeLinker: hoisted
+
+# electron-builder 收集生产依赖时需要扁平的 node_modules。
+# 该配置在 pnpm 11/12 只能写在 pnpm-workspace.yaml，写在 .npmrc 会静默失效。
+
+overrides:
+  node-ipc: 9.1.1
+  '@types/react': 19.3.0
+
+# pnpm 11 起 strictDepBuilds 默认 true：依赖的 install/postinstall 脚本
+# 未在此列出时，`pnpm install` 会以非零码退出。
+allowBuilds:
+  # 原生模块 / 二进制下载
+  electron: true
+  better-sqlite3: true
+  get-windows: true
+  '@parcel/watcher': true
+  unrs-resolver: true
+  # 无需构建：core-js-pure 只打印捐赠信息，electron-winstaller 仅 Squirrel.Windows 使用，
+  # 本项目走 NSIS。
+  core-js-pure: false
+  electron-winstaller: false

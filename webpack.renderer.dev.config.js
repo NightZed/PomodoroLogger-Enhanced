@@ -23,7 +23,7 @@ module.exports = merge(baseConfig, {
         // `devServer.before` was removed in webpack-dev-server 4.
         setupMiddlewares(middlewares) {
             if (process.env.START_HOT) {
-                spawn('yarn', ['run', 'start-main-dev'], {
+                spawn('pnpm', ['run', 'start-main-dev'], {
                     shell: true,
                     env: process.env,
                     stdio: 'inherit'

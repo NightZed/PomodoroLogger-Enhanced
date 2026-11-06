@@ -10,11 +10,11 @@ I'm really happy you're reading this.😄 Thanks for taking the time to contribu
 
 This project is built by [Electron](https://electronjs.org). 
 
-You need Node.js 24+ and Yarn 1.22. You do not need a global `node-gyp`; `electron-builder` rebuilds the native modules during `postinstall`.
+You need Node.js 24+ and pnpm 11 (pinned in `packageManager`). You do not need a global `node-gyp`; `electron-builder` rebuilds the native modules during `postinstall`.
 
 > **TypeScript 7 toolchain**: `@typescript/native` installs the native `tsc`
-> (TypeScript 7), which provides `yarn typecheck` and the type-check step of
-> `yarn build`. The `typescript` package is deliberately aliased to
+> (TypeScript 7), which provides `pnpm typecheck` and the type-check step of
+> `pnpm build`. The `typescript` package is deliberately aliased to
 > `@typescript/typescript6`: typescript-eslint still needs the TypeScript 6
 > JavaScript compiler API, which TypeScript 7.0 does not ship. Transpilation is
 > handled by Babel 8 in webpack and Jest, so `ts-loader` and `ts-jest` are
@@ -29,47 +29,39 @@ You need Node.js 24+ and Yarn 1.22. You do not need a global `node-gyp`; `electr
 Issue the following commands to make sure you are ready to go,
 
 ```
-yarn
-yarn build
-yarn test
+pnpm
+pnpm build
+pnpm test
 ```
 
 Start development 💻
 
 ```
-yarn start
+pnpm start
 ```
 
 ```
 // within another terminal
 npx electron .
 ```
-- If you are using windows10 install bash shell for running above commands
+- On Windows use PowerShell 7 for the commands above.
 
 ---
 
-If you are in China, there may be a connection problem when setting things up. 
+If you are in China, there may be a connection problem when setting things up.
 
-Before running `yarn`, issue 
+Before running `pnpm`, set the mirrors:
 
+```powershell
+$env:ELECTRON_MIRROR = 'https://npmmirror.com/mirrors/electron/'
+$env:ELECTRON_BUILDER_BINARIES_MIRROR = 'https://npmmirror.com/mirrors/electron-builder-binaries/'
 ```
-ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"
-```
 
-Alternatively, you can add the following lines to `.npmrc` and `.yarnrc` files.
+Or add the registry line to `~/.npmrc`:
 
 ```bash
 # ~/.npmrc
 registry=https://registry.npmmirror.com
-electron_mirror=https://npmmirror.com/mirrors/electron/
-```
-
-and
-
-```bash
-# ~/.yarnrc
-registry "https://registry.npmmirror.com"
-electron_mirror "https://npmmirror.com/mirrors/electron/"
 ```
 
 
@@ -119,6 +111,6 @@ Rebuild an existing tag's installers without cutting a release: Actions →
 the build job runs, and the artifacts are uploaded to that tag's existing
 release.
 
-Preview the next version locally with `GH_TOKEN=<token> yarn release --dry-run`
+Preview the next version locally with `GH_TOKEN=<token> pnpm release --dry-run`
 (the GitHub plugin verifies authentication even in dry-run, so a token with
 repo read access is required).

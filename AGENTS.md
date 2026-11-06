@@ -72,7 +72,7 @@ pnpm run pack     # electron-builder --dir (pnpm pack alone builds an npm tarbal
 pnpm run dist-win # or dist-mac / dist-linux / dist-all (each one is a separate script)
 ```
 
-CI (`.github/workflows/test.yml`) runs `pnpm lint`, `pnpm typecheck` and `pnpm test -- --ci` on every push/PR; `build.yml` packages with `pnpm exec electron-builder` per OS (the old `action-electron-builder` was removed because it hard-codes yarn). Releases are cut manually via the `Build/release` workflow → semantic-release; never bump `package.json` version or create tags by hand.
+CI (`.github/workflows/test.yml`) runs `pnpm lint`, `pnpm typecheck` and `pnpm test --ci` on every push/PR; `build.yml` packages with `pnpm exec electron-builder` per OS (the old `action-electron-builder` was removed because it hard-codes yarn). Releases are cut manually via the `Build/release` workflow → semantic-release; never bump `package.json` version or create tags by hand.
 
 ### Package manager
 

@@ -92,7 +92,7 @@ jobs:
         run: pnpm lint
 
       - name: Test
-        run: pnpm test -- --ci
+        run: pnpm test --ci
 
       - name: Semantic Release
         id: semantic

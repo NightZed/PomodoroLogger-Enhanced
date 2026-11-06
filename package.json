@@ -239,7 +239,7 @@
     "dependencies": {
         "better-sqlite3": "^13.0.0",
         "electron-updater": "^6.8.11",
-        "get-windows": "9.3.0"
+        "get-windows": "10.0.0"
     },
     "sideEffects": [
         "**/*.css",

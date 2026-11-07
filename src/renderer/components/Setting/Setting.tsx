@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { TimerActionTypes, TimerState } from '../Timer/action';
 import styled from 'styled-components';
 import { GithubOutlined } from '@ant-design/icons';
@@ -493,21 +493,36 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
         );
 
         const [checkingUpdate, setCheckingUpdate] = useState(false);
+        // Everything `onCheckUpdate` registers lives here rather than in its
+        // closure, so the cleanup can also run from the unmount effect below.
+        const checkUpdateRef = useRef<{ timeout?: any; unsubscribers: Array<() => void> }>({
+            unsubscribers: [],
+        });
+        const releaseCheckUpdate = useCallback(() => {
+            const current = checkUpdateRef.current;
+            clearTimeout(current.timeout);
+            current.timeout = undefined;
+            for (const unsubscribe of current.unsubscribers) {
+                unsubscribe();
+            }
+            current.unsubscribers = [];
+        }, []);
+
+        // Leaving the page has to release a check that is still in flight.
+        useEffect(() => releaseCheckUpdate, [releaseCheckUpdate]);
+
         const onCheckUpdate = useCallback(() => {
             setCheckingUpdate(true);
             // The main process answers with one of the three events below; the timeout
             // is only a safety net so the button never gets stuck in loading state.
-            // prefer-const is a false positive here: the value is assigned once, but
-            // only after the listeners below are registered (merging it into the
-            // declaration would read the binding before it is initialised).
-            // eslint-disable-next-line prefer-const
-            let timeout: any;
-            const unsubscribers: Array<() => void> = [];
+            // Both the listeners and the timeout belong to the page, not to this
+            // closure: they are released on a result, on a second click and on
+            // unmount (see `releaseCheckUpdate`), so a check still in flight can
+            // never leave three listeners behind or call `setCheckingUpdate` on
+            // an unmounted component.
+            releaseCheckUpdate();
             const onResult = () => {
-                clearTimeout(timeout);
-                for (const unsubscribe of unsubscribers) {
-                    unsubscribe();
-                }
+                releaseCheckUpdate();
                 setCheckingUpdate(false);
             };
             const onAvailable = () => onResult();
@@ -526,14 +541,15 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 });
                 onResult();
             };
-            unsubscribers.push(
+            const current = checkUpdateRef.current;
+            current.unsubscribers.push(
                 window.api.onUpdateAvailable(onAvailable),
                 window.api.onUpdateNotAvailable(onNotAvailable),
                 window.api.onUpdateError(onError)
             );
-            timeout = setTimeout(onResult, 30000);
+            current.timeout = setTimeout(onResult, 30000);
             window.api.checkUpdate();
-        }, []);
+        }, [releaseCheckUpdate]);
 
         const setStartOnBoot = React.useCallback(
             (v: boolean) => {

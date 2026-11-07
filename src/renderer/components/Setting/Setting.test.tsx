@@ -557,3 +557,31 @@ describe('Setting screenshot option', () => {
         }
     });
 });
+
+describe('Setting update check', () => {
+    it('releases the listeners when the page is left while a check is in flight', () => {
+        const unsubscribers: jest.Mock[] = [];
+        const track = () => {
+            const unsubscribe = jest.fn();
+            unsubscribers.push(unsubscribe);
+            return unsubscribe;
+        };
+        (window as any).api.onUpdateAvailable = jest.fn(track);
+        (window as any).api.onUpdateNotAvailable = jest.fn(track);
+        (window as any).api.onUpdateError = jest.fn(track);
+
+        const { unmount } = render(<Setting {...props()} />);
+        const nav = screen.getByRole('navigation', { name: 'Settings sections' });
+        fireEvent.click(within(nav).getByRole('button', { name: /System/ }));
+
+        fireEvent.click(button('Check Update'));
+        expect(unsubscribers).toHaveLength(3);
+
+        // No answer arrived; leaving the page is the only thing that can clean
+        // up, and it is what used to be missing.
+        unmount();
+        for (const unsubscribe of unsubscribers) {
+            expect(unsubscribe).toHaveBeenCalledTimes(1);
+        }
+    });
+});

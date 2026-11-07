@@ -271,6 +271,18 @@ const IssueReport: React.FunctionComponent<IssueReportProps> = ({ intro, items, 
     </div>
 );
 
+/**
+ * Opens the folder that holds `data.log`, `crash.log` and friends.
+ *
+ * Every dialog that says "the details were logged" carries this button, so the
+ * claim can be acted on without hunting through the settings page.
+ */
+const OpenLogFolderButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+    <Button size="small" onClick={onClick}>
+        {t('settings.system.openLogFolder')}
+    </Button>
+);
+
 const SettingLabel = styled.span`
     font-weight: 500;
     font-size: 14px;
@@ -618,17 +630,39 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             }
         }, []);
 
-        const onDeleteData = useCallback(() => {
-            deleteAllUserData().then(() => {
-                feedback.toast({
-                    kind: 'info',
-                    content: FEEDBACK_MESSAGES.setting.dataRemoved,
-                });
-                setTimeout(() => {
+        /**
+         * Both destructive flows share this: the dialog tells the user what
+         * happens next, and the work runs behind its OK button. The promise
+         * returned by `onOk` keeps the dialog open with a spinner until the
+         * command finishes, so the restart is the very next thing that
+         * happens -- the old "toast, wait three seconds, restart" is gone.
+         */
+        const onDeleteConfirm = useCallback(() => {
+            feedback.confirm({
+                kind: 'error',
+                title: FEEDBACK_MESSAGES.setting.deleteAllConfirm,
+                content: FEEDBACK_MESSAGES.setting.deleteAllRestartNote,
+                okText: t('common.delete'),
+                onOk: async () => {
+                    try {
+                        await deleteAllUserData();
+                    } catch (e) {
+                        // Resolving keeps the dialog from rejecting into a
+                        // global `unhandledrejection`, which would be logged as
+                        // a crash it never was.
+                        feedback.alert({
+                            kind: 'error',
+                            title: FEEDBACK_MESSAGES.setting.deleteFailed,
+                            content: FEEDBACK_MESSAGES.setting.deleteFailedDetail(errorText(e)),
+                            actions: <OpenLogFolderButton onClick={onOpenLogDir} />,
+                        });
+                        return;
+                    }
+
                     window.api.restart();
-                }, 3000);
+                },
             });
-        }, []);
+        }, [onOpenLogDir, t]);
 
         /**
          * Reports a refused file: every problem the validator found, each with
@@ -648,12 +682,14 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                         <IssueReport
                             intro={FEEDBACK_MESSAGES.setting.importInvalidIntro}
                             items={issues}
+                            footer={FEEDBACK_MESSAGES.setting.importIssuesLogged}
                         />
                     ),
                     okText: t('common.ok'),
+                    actions: <OpenLogFolderButton onClick={onOpenLogDir} />,
                 });
             },
-            [t]
+            [onOpenLogDir, t]
         );
 
         /**
@@ -675,7 +711,14 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 feedback.alert({
                     kind: 'error',
                     title: FEEDBACK_MESSAGES.setting.importFailed,
-                    content: FEEDBACK_MESSAGES.setting.importFailedDetail(errorText(e)),
+                    content: (
+                        <>
+                            {FEEDBACK_MESSAGES.setting.importFailedDetail(errorText(e))}
+                            <br />
+                            {FEEDBACK_MESSAGES.setting.importFailedHint}
+                        </>
+                    ),
+                    actions: <OpenLogFolderButton onClick={onOpenLogDir} />,
                 });
                 return;
             }
@@ -701,10 +744,14 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                         <IssueReport
                             intro={FEEDBACK_MESSAGES.setting.importWarningIntro}
                             items={result.warnings}
-                            footer={FEEDBACK_MESSAGES.setting.importDone}
+                            footer={FEEDBACK_MESSAGES.setting.importRestartNote}
                         />
                     ),
                     okText: t('common.ok'),
+                    // The app restarts only after this is acknowledged, so the
+                    // list can actually be read -- and the log holds the same
+                    // details for a report.
+                    actions: <OpenLogFolderButton onClick={onOpenLogDir} />,
                     onOk: restartApp,
                 });
                 return;
@@ -715,7 +762,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 content: FEEDBACK_MESSAGES.setting.importDone,
             });
             restartApp();
-        }, [showImportIssues, t]);
+        }, [onOpenLogDir, showImportIssues, t]);
 
         const onExportClick = useCallback(async () => {
             setExporting(true);
@@ -753,15 +800,6 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 },
             });
         }, [onImportClick, t]);
-
-        const onDeleteConfirm = useCallback(() => {
-            feedback.confirm({
-                kind: 'error',
-                title: FEEDBACK_MESSAGES.setting.deleteAllConfirm,
-                okText: t('common.delete'),
-                onOk: onDeleteData,
-            });
-        }, [onDeleteData, t]);
 
         const [section, setSection] = useState<SectionId>(DEFAULT_SECTION);
 

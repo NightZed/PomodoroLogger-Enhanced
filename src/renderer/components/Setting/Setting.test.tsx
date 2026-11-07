@@ -39,13 +39,20 @@ jest.mock('../feedback', () => ({
             importWarningTitle: 'Imported with warnings',
             importWarningIntro: 'Some entries were adjusted:',
             importDone: 'Data imported. Restarting',
+            importRestartNote: 'The app will restart after you close this dialog.',
+            importIssuesLogged: 'The complete list was written to the log folder.',
             importFailed: 'Import Failed',
             importFailedDetail: (reason: string) => `Could not import: ${reason}`,
+            importFailedHint: 'Check the log folder for details.',
             exportDone: (fileName: string) => `Data exported to ${fileName}`,
             exportFailed: 'Export Failed',
             exportFailedDetail: (reason: string) => `Could not export: ${reason}`,
             deleteAllConfirm: 'Delete all sessions, projects and boards? Your settings are kept.',
-            dataRemoved: 'All user data is removed. Your settings are kept.',
+            deleteAllRestartNote:
+                'Your settings are kept. This cannot be undone, and the app restarts as soon as the deletion finishes.',
+            deleteFailed: 'Could Not Delete Data',
+            deleteFailedDetail: (reason: string) =>
+                `The data could not be fully deleted: ${reason}.`,
             openDataDirFailed: 'Could Not Open Data Folder',
             openDataDirFailedDetail: (reason: string) =>
                 `Could not open the data folder: ${reason}`,
@@ -157,11 +164,12 @@ const mount = async () => {
 
 const click = async (label: string) => {
     fireEvent.click(button(label));
-    // Only the import is guarded by a confirmation; the export writes a file
-    // and is taken at face value.
+    // Only the import and delete are guarded by a confirmation; the export
+    // writes a file and is taken at face value. `onOk` may return a promise
+    // (the delete keeps the dialog busy until it settles), so it is awaited.
     if (mockConfirm.mock.calls.length > 0) {
         await act(async () => {
-            mockConfirm.mock.calls.slice(-1)[0][0].onOk();
+            await mockConfirm.mock.calls.slice(-1)[0][0].onOk?.();
         });
     }
 
@@ -169,6 +177,17 @@ const click = async (label: string) => {
     await act(async () => {
         await Promise.resolve();
     });
+};
+
+/** Renders the extra actions of the last alert so they can be clicked. */
+const alertActions = () => {
+    const actions = mockAlert.mock.calls.slice(-1)[0][0].actions;
+    const { container, unmount } = render(<>{actions}</>);
+    return {
+        click: (label: string) =>
+            fireEvent.click(within(container).getByRole('button', { name: label })),
+        unmount,
+    };
 };
 
 /** Renders the content the last dialog was opened with, as flat text. */
@@ -336,6 +355,19 @@ describe('import of a file that cannot be used', () => {
         expect(shown).toContain('records[3].startTime');
         expect(shown).toContain('is missing; a finite number is required');
         expect(shown).toContain('cards["a1"].spentTimeInHour');
+        // The list in the dialog is shortened on purpose; the promise is that
+        // the rest is in the log, not that the dialog can show everything.
+        expect(shown).toContain('The complete list was written to the log folder.');
+
+        openLogDir.mockResolvedValue(undefined);
+        const actions = alertActions();
+        actions.click('Open Log Folder');
+        actions.unmount();
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(openLogDir).toHaveBeenCalledTimes(1);
+
         // The whole point of the refusal: no restart, no data touched.
         expect(mockRestart).not.toHaveBeenCalled();
         expect(isLoading(button('Import Data'))).toBe(false);
@@ -349,6 +381,8 @@ describe('import of a file that cannot be used', () => {
 
         expect(mockAlert.mock.calls[0][0].title).toBe('Import Failed');
         expect(alertText()).toContain('ENOENT: no such file');
+        expect(alertText()).toContain('Check the log folder for details.');
+        expect(mockAlert.mock.calls[0][0].actions).toBeTruthy();
         expect(mockRestart).not.toHaveBeenCalled();
         expect(isLoading(button('Import Data'))).toBe(false);
     });
@@ -391,6 +425,9 @@ describe('import of a usable file', () => {
 
         expect(mockAlert.mock.calls[0][0].title).toBe('Imported with warnings');
         expect(alertText()).toContain('Card "a1" will be removed');
+        // The footer describes what happens next: the restart waits for OK.
+        expect(alertText()).toContain('The app will restart after you close this dialog.');
+        expect(mockAlert.mock.calls[0][0].actions).toBeTruthy();
         // Still not restarted: the user has not closed the dialog yet.
         expect(mockRestart).not.toHaveBeenCalled();
 
@@ -403,34 +440,36 @@ describe('import of a usable file', () => {
 });
 
 describe('delete of all data', () => {
-    it('clears the data, reports it and restarts after the toast', async () => {
-        // The restart sits behind a 3 second toast, so the clock is faked for
-        // this test only: honest about the delay without actually spending it.
-        jest.useFakeTimers();
-        try {
-            await mount();
+    it('deletes behind the confirmation dialog and restarts without a second notice', async () => {
+        await mount();
 
-            await click('Delete All Data');
+        await click('Delete All Data');
 
-            expect(mockConfirm).toHaveBeenCalledTimes(1);
-            expect(mockConfirm.mock.calls[0][0].title).toBe(
-                'Delete all sessions, projects and boards? Your settings are kept.'
-            );
-            expect(mockDeleteAllUserData).toHaveBeenCalledTimes(1);
-            expect(mockToast.mock.calls[0][0].content).toBe(
-                'All user data is removed. Your settings are kept.'
-            );
-            // The restart is on a timer: nothing is sent while the toast shows.
-            expect(mockRestart).not.toHaveBeenCalled();
+        expect(mockConfirm).toHaveBeenCalledTimes(1);
+        const options = mockConfirm.mock.calls[0][0];
+        expect(options.title).toBe(
+            'Delete all sessions, projects and boards? Your settings are kept.'
+        );
+        // The confirmation itself says the app restarts, so the old
+        // "toast, wait three seconds, restart" would be a second notice of a
+        // fact the user already acknowledged.
+        expect(options.content).toContain('restarts');
+        expect(mockDeleteAllUserData).toHaveBeenCalledTimes(1);
+        expect(mockRestart).toHaveBeenCalledTimes(1);
+        expect(mockToast).not.toHaveBeenCalled();
+    });
 
-            await act(async () => {
-                jest.advanceTimersByTime(3000);
-            });
+    it('explains a failed deletion, offers the log folder and leaves the app running', async () => {
+        mockDeleteAllUserData.mockRejectedValueOnce(new Error('EPERM: resource busy'));
+        await mount();
 
-            expect(mockRestart).toHaveBeenCalled();
-        } finally {
-            jest.useRealTimers();
-        }
+        await click('Delete All Data');
+
+        expect(mockAlert).toHaveBeenCalledTimes(1);
+        expect(mockAlert.mock.calls[0][0].title).toBe('Could Not Delete Data');
+        expect(alertText()).toContain('EPERM: resource busy');
+        expect(mockAlert.mock.calls[0][0].actions).toBeTruthy();
+        expect(mockRestart).not.toHaveBeenCalled();
     });
 });
 

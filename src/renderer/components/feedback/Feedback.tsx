@@ -192,13 +192,22 @@ export const alert = ({
     kind = 'info',
     okText = t('common.ok'),
     width = FEEDBACK_WIDTH,
+    actions,
     onOk,
 }: AlertOptions) => {
     return getFeedbackAppApi().modal.info({
         ...dialogMotionProps,
         className: dialogClassName(kind),
         title,
-        content: <div className={FEEDBACK_TEXT_CLASS}>{content}</div>,
+        content: (
+            <div className={FEEDBACK_TEXT_CLASS}>
+                {content}
+                {/* Below the text rather than in antd's footer: that container
+                    is right aligned, and a secondary action belongs next to
+                    the content it refers to. */}
+                {actions ? <div style={{ marginTop: 12 }}>{actions}</div> : null}
+            </div>
+        ),
         icon: kindIcon(kind),
         okText,
         width,

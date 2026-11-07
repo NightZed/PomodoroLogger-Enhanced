@@ -625,8 +625,6 @@ export const en = {
             screenshotRestart: 'Screenshot setting change needs restart to be applied',
             hardwareAccelerationRestart:
                 'Hardware acceleration setting change needs restart to be applied',
-            dataRemoved:
-                'All user data is removed. Your settings are kept. Pomodoro needs to restart.',
             openDataDirFailed: 'Could Not Open Data Folder',
             openDataDirFailedDetail: (reason: string): string =>
                 `The data folder could not be opened: ${reason}`,
@@ -634,7 +632,14 @@ export const en = {
             openLogDirFailedDetail: (reason: string): string =>
                 `The log folder could not be opened: ${reason}`,
             importConfirm: 'Pomodoro Logger Enhanced will restart after importing. Continue?',
-            deleteAllConfirm: 'Delete all sessions, projects and boards? Your settings are kept.',
+            deleteAllConfirm: 'Delete all sessions, projects and boards? ',
+            deleteAllRestartNote:
+                'Your settings are kept. This cannot be undone, and the app restarts as soon as ' +
+                'the deletion finishes.',
+            deleteFailed: 'Could Not Delete Data',
+            deleteFailedDetail: (reason: string): string =>
+                `The data could not be fully deleted: ${reason}. Some data may already be gone; ` +
+                'the app was not restarted.',
             /** Export / import results, and the report of a refused file. */
             exportDone: (fileName: string): string => `Data exported to ${fileName}`,
             exportFailed: 'Export Failed',
@@ -647,6 +652,11 @@ export const en = {
             importWarningTitle: 'Imported with warnings',
             importWarningIntro: 'The data was imported, but some entries had to be adjusted:',
             importDone: 'Data imported. Restarting…',
+            /** Footer of the warnings dialog: the restart happens after OK. */
+            importRestartNote: 'The app will restart after you close this dialog.',
+            /** Shown under a list that the validator had to shorten. */
+            importIssuesLogged: 'The complete list was written to the log folder.',
+            importFailedHint: 'Check the log folder for details.',
             importFailed: 'Import Failed',
             importFailedDetail: (reason: string): string =>
                 `The data could not be imported: ${reason}`,

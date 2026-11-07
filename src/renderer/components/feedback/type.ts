@@ -55,6 +55,17 @@ export interface ConfirmCheckboxOptions {
     onChange?: (checked: boolean) => void;
 }
 
+/**
+ * The button action of a blocking dialog.
+ *
+ * Returning a promise keeps the button in its loading state and holds the
+ * dialog open until it settles, which is what a multi-step operation (deleting
+ * a database before restarting) needs. A rejected promise leaves the dialog
+ * open and surfaces as an `unhandledrejection`, so callers handle their own
+ * errors and resolve.
+ */
+export type FeedbackAction = () => void | Promise<unknown>;
+
 /** Blocking decision: keeps title, button order and wording consistent. */
 export interface ConfirmOptions {
     title?: React.ReactNode;
@@ -68,7 +79,7 @@ export interface ConfirmOptions {
     checkbox?: ConfirmCheckboxOptions;
     /** Defaults to `FEEDBACK_WIDTH`. */
     width?: number;
-    onOk?: () => void;
+    onOk?: FeedbackAction;
     onCancel?: () => void;
 }
 
@@ -82,7 +93,12 @@ export interface AlertOptions {
     okText?: string;
     /** Defaults to `FEEDBACK_WIDTH`. */
     width?: number;
-    onOk?: () => void;
+    /**
+     * Extra actions rendered under the content, before the OK button (e.g.
+     * "Open Log Folder" on a dialog that says the details were logged).
+     */
+    actions?: React.ReactNode;
+    onOk?: FeedbackAction;
 }
 
 /** Props of the shared in place confirmation popover. */

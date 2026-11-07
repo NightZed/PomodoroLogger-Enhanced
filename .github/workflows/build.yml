@@ -199,24 +199,40 @@ jobs:
       # secrets out of the others' environments.
       - name: Build and release (macOS)
         if: startsWith(matrix.os, 'macos')
-        run: pnpm exec electron-builder --mac --publish always
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_LINK: ${{ secrets.mac_cert }}
-          CSC_KEY_PASSWORD: ${{ secrets.mac_certs_password }}
+          MAC_CERT: ${{ secrets.mac_cert }}
+          MAC_CERT_PASSWORD: ${{ secrets.mac_certs_password }}
           # macOS notarization: electron-builder 26 notarizes through
           # @electron/notarize, which reads these variables.
           APPLE_API_KEY: ${{ github.workspace }}/private_keys/AuthKey_${{ secrets.api_key_id }}.p8
           APPLE_API_KEY_ID: ${{ secrets.api_key_id }}
           APPLE_API_ISSUER: ${{ secrets.api_key_issuer_id }}
+        run: |
+          # electron-builder resolves an empty CSC_LINK to the working directory
+          # and fails with "<cwd> not a file" (codesign.js). The previous
+          # action only exported it when the value was non-empty; replicate that
+          # so an unconfigured certificate means "skip signing", not "fail".
+          if [ -n "$MAC_CERT" ]; then
+            export CSC_LINK="$MAC_CERT"
+            export CSC_KEY_PASSWORD="$MAC_CERT_PASSWORD"
+          fi
+          pnpm exec electron-builder --mac --publish always
 
       - name: Build and release (Windows)
         if: startsWith(matrix.os, 'windows')
-        run: pnpm exec electron-builder --win --publish always
+        shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_LINK: ${{ secrets.windows_certs }}
-          CSC_KEY_PASSWORD: ${{ secrets.windows_certs_password }}
+          WIN_CERT: ${{ secrets.windows_certs }}
+          WIN_CERT_PASSWORD: ${{ secrets.windows_certs_password }}
+        run: |
+          if ($env:WIN_CERT) {
+            $env:CSC_LINK = $env:WIN_CERT
+            $env:CSC_KEY_PASSWORD = $env:WIN_CERT_PASSWORD
+          }
+          pnpm exec electron-builder --win --publish always
 
       - name: Build and release (Linux)
         if: startsWith(matrix.os, 'ubuntu')

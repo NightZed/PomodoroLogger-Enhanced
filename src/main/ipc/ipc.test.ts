@@ -55,7 +55,7 @@ import { tmpdir } from 'os';
 import path from 'path';
 import { initialize, handleCommand, isTrustedSender } from './ipc';
 import { setMenuItems, setSkipTaskbar } from '../init';
-import { saveScreenshot } from '../userFiles';
+import { clearUserFiles, saveScreenshot } from '../userFiles';
 import { startWindowDrag, stopWindowDrag } from './windowDrag';
 import { readAllData } from '../io/read';
 import { writeAllFile } from '../io/write';
@@ -322,6 +322,17 @@ describe('main/ipc', () => {
         });
     });
 
+    describe('user file cleanup', () => {
+        it('marks the completion of a delete-all in data.log', async () => {
+            await handlers['clearUserFiles'](trustedEvent);
+
+            expect(clearUserFiles).toHaveBeenCalled();
+            // The tables are cleared from the renderer, so this is the only
+            // trace of the deletion on the main-process side.
+            expect(log).toHaveBeenCalledWith('data', 'info', 'all user data cleared');
+        });
+    });
+
     describe('data transfer', () => {
         const emptyData = { records: [], cards: {}, lists: {}, boards: {}, move: [] };
         const tempFiles: string[] = [];
@@ -395,6 +406,14 @@ describe('main/ipc', () => {
             expect(result.status).toBe('invalid');
             expect(result.issues[0].message).toContain('not valid JSON');
             expect(writeAllFile).not.toHaveBeenCalled();
+            // The dialog shows one line; data.log keeps the parser's own
+            // message, which is what says where the file broke.
+            expect(log).toHaveBeenCalledWith(
+                'data',
+                'warn',
+                expect.stringContaining('import refused (not JSON)'),
+                expect.stringContaining('JSON')
+            );
         });
 
         it('refuses a JSON file that is not a data export', async () => {
@@ -409,6 +428,12 @@ describe('main/ipc', () => {
             expect(result.status).toBe('invalid');
             expect(result.issues.length).toBeGreaterThan(0);
             expect(writeAllFile).not.toHaveBeenCalled();
+
+            const call = (log as jest.Mock).mock.calls.find(([scope]) => scope === 'data');
+            expect(call?.[2]).toContain('import refused (validation)');
+            expect(call?.[2]).toContain('wrong.json');
+            // The whole list, not the shortened one the dialog shows.
+            expect(call?.[3]).toContain('records');
         });
 
         it('merges a valid import and returns the merge warnings per line', async () => {
@@ -437,6 +462,12 @@ describe('main/ipc', () => {
                 payload: { external: emptyData, source: emptyData, language: 'en' },
             });
             expect(writeAllFile).toHaveBeenCalledWith(emptyData);
+
+            const call = (log as jest.Mock).mock.calls.find(([scope]) => scope === 'data');
+            expect(call?.[1]).toBe('warn');
+            expect(call?.[2]).toContain('import completed');
+            expect(call?.[2]).toContain('warnings=2');
+            expect(call?.[3]).toContain('lost a card');
         });
 
         it('returns the selected wallpaper path or nothing when cancelled', async () => {

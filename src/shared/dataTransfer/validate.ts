@@ -25,17 +25,39 @@ export interface ValidationWarning {
 
 export type ValidationResult =
     | { ok: true; data: SourceData; warnings: ValidationWarning[] }
-    | { ok: false; issues: ValidationIssue[] };
+    | {
+          ok: false;
+          /** At most 20 findings plus the trailing "and N more" line. */
+          issues: ValidationIssue[];
+          /**
+           * The same findings, up to 500 and without the trailing count, kept
+           * so the main process can write them to `data.log`. The dialog cannot
+           * show them all, but a bug report needs the pattern.
+           */
+          recordedIssues: ValidationIssue[];
+          /** Every finding, including the ones beyond the recorded cap. */
+          total: number;
+      };
 
 /**
- * How many findings are reported before the rest are only counted.
+ * How many findings the dialog shows before the rest are only counted.
  *
  * A file that went wrong in one systematic way (say, every record is missing
  * its `startTime`) would otherwise produce tens of thousands of identical
- * lines, which is neither readable in a dialog nor useful. The first ones are
- * enough to see the pattern.
+ * lines, which is not readable in a dialog. The first ones are enough to see
+ * the pattern.
  */
-const MAX_ISSUES = 20;
+const MAX_SHOWN_ISSUES = 20;
+
+/**
+ * How many findings are kept for `data.log`.
+ *
+ * The dialog can only show a screenful, but a bug report needs more than that:
+ * one bad record among a thousand is invisible in the first twenty findings.
+ * 500 lines is enough to locate the pattern and still bounded, so a
+ * systematically broken file cannot exhaust memory or the log file.
+ */
+const MAX_RECORDED_ISSUES = 500;
 
 export const isFiniteNumber = (value: unknown): value is number =>
     typeof value === 'number' && Number.isFinite(value);
@@ -104,37 +126,59 @@ function describeEntryListLocalized(value: unknown, t: TranslateFn): string {
     return t('guard.describe.entry', bad, describeLocalized(value[bad], t));
 }
 
-/** Collector that keeps the reported findings bounded while counting the rest. */
+/**
+ * Collector that keeps two views of the same findings: the first few for the
+ * dialog, more of them for the log file, and a count of everything.
+ */
 class IssueCollector {
-    readonly issues: ValidationIssue[] = [];
-    private overflow = 0;
+    private readonly recorded: ValidationIssue[] = [];
+    private total = 0;
 
     constructor(readonly t: TranslateFn) {}
 
     add(path: string, message: string) {
-        if (this.issues.length < MAX_ISSUES) {
-            this.issues.push({ path, message });
-        } else {
-            this.overflow += 1;
+        this.total += 1;
+        if (this.recorded.length < MAX_RECORDED_ISSUES) {
+            this.recorded.push({ path, message });
         }
     }
 
-    /** True as soon as one finding was recorded, overflow included. */
+    /** True as soon as one finding was recorded, beyond the caps included. */
     get failed(): boolean {
-        return this.issues.length > 0 || this.overflow > 0;
+        return this.total > 0;
     }
 
-    /** The findings plus the trailing "and N more" line, when truncated. */
-    all(): ValidationIssue[] {
-        if (this.overflow === 0) {
-            return this.issues;
+    /** The findings the dialog shows, plus the trailing "and N more" line. */
+    shown(): ValidationIssue[] {
+        const visible = this.recorded.slice(0, MAX_SHOWN_ISSUES);
+        const hidden = this.total - visible.length;
+        if (hidden <= 0) {
+            return visible;
         }
 
-        return [
-            ...this.issues,
-            { path: '', message: this.t('guard.import.overflow', this.overflow) },
-        ];
+        return [...visible, { path: '', message: this.t('guard.import.overflow', hidden) }];
     }
+
+    /** Everything kept for the log file. */
+    recordedIssues(): ValidationIssue[] {
+        return this.recorded;
+    }
+
+    /** Every finding, including those beyond `MAX_RECORDED_ISSUES`. */
+    get count(): number {
+        return this.total;
+    }
+}
+
+type ValidationFailure = Extract<ValidationResult, { ok: false }>;
+
+function failure(issues: IssueCollector): ValidationFailure {
+    return {
+        ok: false,
+        issues: issues.shown(),
+        recordedIssues: issues.recordedIssues(),
+        total: issues.count,
+    };
 }
 
 /**
@@ -371,7 +415,7 @@ export function validateSourceData(raw: unknown, language: Language = 'en'): Val
     const issues = new IssueCollector(t);
     if (!isPlainObject(raw)) {
         issues.add('', t('guard.import.fileNotObject', describeLocalized(raw, t)));
-        return { ok: false, issues: issues.all() };
+        return failure(issues);
     }
 
     const records = checkArrayField(raw.records, 'records', issues);
@@ -418,7 +462,7 @@ export function validateSourceData(raw: unknown, language: Language = 'en'): Val
     }
 
     if (issues.failed) {
-        return { ok: false, issues: issues.all() };
+        return failure(issues);
     }
 
     return { ok: true, data: raw as unknown as SourceData, warnings };

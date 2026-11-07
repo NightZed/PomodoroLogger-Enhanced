@@ -93,6 +93,19 @@ describe('main/log', () => {
         expect(read(dir, 'crash.log')).toContain('a crash notice');
     });
 
+    it('keeps data records at any level, in their own file', () => {
+        const dir = makeDir();
+        const logger = createLogger({ dir, level: 'error' });
+
+        logger.log('app', 'info', 'a quiet info line');
+        logger.log('data', 'warn', 'import refused');
+
+        // The import dialog promises the details are in the log folder, so a
+        // level setting must not be able to empty that file.
+        expect(read(dir, 'data.log')).toContain('import refused');
+        expect(read(dir, 'app.log')).not.toContain('a quiet info line');
+    });
+
     it('collapses a repeating message and reports how often it repeated', () => {
         const dir = makeDir();
         let now = 0;

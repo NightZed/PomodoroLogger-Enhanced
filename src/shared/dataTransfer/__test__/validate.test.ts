@@ -253,6 +253,11 @@ describe('a file that is not a data export', () => {
                 // The 20 reported ones plus the line saying 80 were left out.
                 expect(result.issues).toHaveLength(21);
                 expect(result.issues[20].message).toBe('and 80 more problem(s) not listed');
+                // The log file gets more than the dialog can show, but the
+                // promise is only that the list is complete -- `total` keeps
+                // track of anything beyond the recording cap.
+                expect(result.recordedIssues).toHaveLength(100);
+                expect(result.total).toBe(100);
             }
         });
     });

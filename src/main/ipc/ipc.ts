@@ -96,6 +96,49 @@ function runValidators(validators: Validator[], args: unknown[]): void {
     }
 }
 
+/** Longest block handed to the logger in one line; its detail cap is 8 KiB. */
+const LOG_CHUNK_CHARS = 6000;
+
+/**
+ * Writes every finding of a refused or lossy import to `data.log`.
+ *
+ * The dialog shows at most 20 of them; a bug report needs the rest. Splitting
+ * the list keeps each entry below the logger's per-detail cap (8 KiB), which
+ * would otherwise cut it silently. One block is one log entry, so even a
+ * 500-finding import costs a handful of lines -- far below the per-second cap.
+ */
+function logIssueChunks(
+    level: LogLevel,
+    headline: string,
+    items: { path: string; message: string }[]
+): void {
+    const lines = items.map((item) => (item.path ? `${item.path}: ${item.message}` : item.message));
+    const chunks: string[] = [];
+    let current = '';
+
+    for (const line of lines) {
+        if (current && current.length + line.length + 1 > LOG_CHUNK_CHARS) {
+            chunks.push(current);
+            current = '';
+        }
+        current = current ? `${current}\n${line}` : line;
+    }
+
+    if (current) {
+        chunks.push(current);
+    }
+
+    if (chunks.length === 0) {
+        log('data', level, headline);
+        return;
+    }
+
+    chunks.forEach((chunk, index) => {
+        const part = chunks.length > 1 ? ` (part ${index + 1}/${chunks.length})` : '';
+        log('data', level, `${headline}${part}`, chunk);
+    });
+}
+
 /**
  * Registers a request/response channel. `ipcMain.handle` + `ipcRenderer.invoke`
  * replaced the old token + `event.reply('reply')` protocol: the reply now
@@ -182,7 +225,13 @@ export function initialize() {
     handle(IpcEventName.DeleteScreenshots, (paths: string[]) => deleteScreenshots(paths), [
         (value) => assertScreenshotPaths(value),
     ]);
-    handle(IpcEventName.ClearUserFiles, () => clearUserFiles());
+    handle(IpcEventName.ClearUserFiles, async () => {
+        await clearUserFiles();
+        // The database tables are cleared from the renderer, so this is the
+        // only trace of the deletion on the main-process side -- and the last
+        // step of the flow, which makes it a good "deletion completed" mark.
+        log('data', 'info', 'all user data cleared');
+    });
     handle(IpcEventName.OpenDataDir, () => openDataDir());
     handle(IpcEventName.OpenLogDir, () => openLogDir());
     handle(IpcEventName.LogInfo, () => ({
@@ -433,7 +482,7 @@ export function initialize() {
     });
 
     handle(IpcEventName.ImportData, async (): Promise<ImportResult> => {
-        const path = await dialog.showOpenDialog({
+        const selection = await dialog.showOpenDialog({
             filters: [
                 {
                     name: m('native.fileFilter.json'),
@@ -446,12 +495,16 @@ export function initialize() {
             ],
             properties: ['openFile'],
         });
-        if (path.canceled || path.filePaths.length === 0) {
+        if (selection.canceled || selection.filePaths.length === 0) {
             return { status: 'cancelled' };
         }
 
-        const dataPath = path.filePaths[0];
+        const dataPath = selection.filePaths[0];
+        // Only the file name reaches the log: a full path carries the user
+        // name, and these files are meant to be attached to a public report.
+        const fileName = path.basename(dataPath);
         const content = await promisify(readFile)(dataPath, { encoding: 'utf-8' });
+        const bytes = Buffer.byteLength(content, 'utf-8');
 
         let parsed: unknown;
         try {
@@ -460,6 +513,12 @@ export function initialize() {
             // Not being JSON at all is the most common way to pick the wrong
             // file, and it deserves the same "here is what is wrong" dialog as
             // a file that is JSON but not a data file.
+            log(
+                'data',
+                'warn',
+                `import refused (not JSON) file="${fileName}" bytes=${bytes}`,
+                (e as Error).message
+            );
             return {
                 status: 'invalid',
                 issues: [
@@ -476,7 +535,13 @@ export function initialize() {
         if (!validation.ok) {
             // Nothing has been touched at this point -- not the databases, not
             // the backup -- so refusing the file costs the user nothing but a
-            // chance to fix it.
+            // chance to fix it. The dialog stops at 20 findings; every recorded
+            // one goes to data.log so the file can be attached to a report.
+            logIssueChunks(
+                'warn',
+                `import refused (validation) file="${fileName}" bytes=${bytes} issues=${validation.total}`,
+                validation.recordedIssues
+            );
             return { status: 'invalid', issues: validation.issues };
         }
 
@@ -500,6 +565,23 @@ export function initialize() {
                 message,
             }))
         );
+
+        // Same facts the dialog shows, plus counts, so a later report can say
+        // what actually landed in the database.
+        const counts = [
+            `records=${merged.payload.merged.records.length}`,
+            `move=${merged.payload.merged.move.length}`,
+            `cards=${Object.keys(merged.payload.merged.cards).length}`,
+            `lists=${Object.keys(merged.payload.merged.lists).length}`,
+            `boards=${Object.keys(merged.payload.merged.boards).length}`,
+        ].join(' ');
+        const headline = `import completed file="${fileName}" bytes=${bytes} ${counts} warnings=${warnings.length}`;
+
+        if (warnings.length > 0) {
+            logIssueChunks('warn', headline, warnings);
+        } else {
+            log('data', 'info', headline);
+        }
 
         return { status: 'imported', warnings, meta };
     });

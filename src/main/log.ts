@@ -17,6 +17,7 @@ import type { LogLevel } from '../shared/log';
  * | `app.log`        | start banner, updater, IPC failures, worker fallbacks      |
  * | `active-win.log` | activity backend init result and failures (legacy name)    |
  * | `crash.log`      | renderer reports, uncaught exceptions, process crashes     |
+ * | `data.log`       | import/export results and every import problem, delete     |
  * | `migration.log`  | one-off database migration report (`migrate.ts` writes it) |
  *
  * Writes are synchronous by design: a crash report has to reach the disk
@@ -25,13 +26,24 @@ import type { LogLevel } from '../shared/log';
  * messages, caps lines per second and rotates each file at 1 MiB.
  */
 
-export type LogScope = 'app' | 'active-win' | 'crash';
+export type LogScope = 'app' | 'active-win' | 'crash' | 'data';
 
 const FILE_BY_SCOPE: Record<LogScope, string> = {
     app: 'app.log',
     'active-win': 'active-win.log',
     crash: 'crash.log',
+    data: 'data.log',
 };
+
+/**
+ * Scopes that ignore the configured level.
+ *
+ * A crash log that a setting could silence defeats its purpose, and `data.log`
+ * is promised to the user by the import dialog ("the complete list is in the
+ * log folder") -- a user who set the level to `error` would otherwise get an
+ * empty file right after being told the details were written there.
+ */
+const LEVEL_EXEMPT_SCOPES: ReadonlySet<LogScope> = new Set(['crash', 'data']);
 
 /** Per-file limit; three archives (`.1`..`.3`) keep the footprint bounded. */
 const MAX_BYTES = 1024 * 1024;
@@ -186,16 +198,10 @@ export function createLogger(options: LoggerOptions): Logger {
         }
     }
 
-    function write(
-        scope: LogScope,
-        level: LogLevel,
-        message: string,
-        detail?: unknown,
-        always = false
-    ): void {
-        // Crash records ignore the configured level: they are the reason the
-        // file exists. Everything else honours it.
-        if (!always && scope !== 'crash' && !shouldLog(configured, level)) {
+    function write(scope: LogScope, level: LogLevel, message: string, detail?: unknown): void {
+        // Crash and data records ignore the configured level: they are the
+        // reason the file exists (see LEVEL_EXEMPT_SCOPES).
+        if (!LEVEL_EXEMPT_SCOPES.has(scope) && !shouldLog(configured, level)) {
             return;
         }
 

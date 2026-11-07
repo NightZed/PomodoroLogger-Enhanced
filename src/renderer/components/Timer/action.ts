@@ -12,6 +12,7 @@ import { AsyncDB } from '../../../utils/dbHelper';
 import { DEFAULT_THEME_ID, ThemeDefinition } from '../../theme/tokens';
 import type { LanguagePreference } from '../../../shared/i18n';
 import type { LogLevel } from '../../../shared/log';
+import { isScreenshotAvailable } from '../../screenshotSupport';
 
 export const LONG_BREAK_INTERVAL = 4;
 const settingDB = new AsyncDB(dbs.settingDB);
@@ -369,6 +370,15 @@ export const actions = {
         const settings: Partial<Setting> = await settingDB.findOne({ name: 'setting' });
         if (settings == null) {
             return;
+        }
+
+        // A packaged build does not offer screenshot capture (see
+        // `screenshotSupport.ts`). Dropping the stored value here is what
+        // actually stops the capture: the setting is only ever read through
+        // this action, so hiding the toggle alone would leave an upgraded
+        // install capturing every five minutes with no way to turn it off.
+        if (!isScreenshotAvailable(window.api?.isPackaged)) {
+            delete settings.screenShotInterval;
         }
 
         const settingKeywords: [string, any][] = [

@@ -26,6 +26,7 @@ import type {
 } from './ipc/type';
 import { encodeInitialTheme } from './ipc/initialTheme';
 import { encodeInitialLanguage } from './ipc/initialLanguage';
+import { encodeBuildInfo } from './ipc/buildInfo';
 import { languageFromLocale, isLanguagePreference } from '../shared/i18n';
 import type { LanguagePreference } from '../shared/i18n';
 import { m } from './i18n';
@@ -372,9 +373,12 @@ const createWindow = async () => {
             // and `window.api.initialLanguage`, so the renderer's first paint
             // agrees with what the main process already set up instead of
             // flipping the theme / language and back.
+            // `isPackaged` rides along for the same reason: the settings page
+            // must know on its first render which options this build offers.
             additionalArguments: [
                 encodeInitialTheme(initialTheme),
                 encodeInitialLanguage(initialSettings.language),
+                encodeBuildInfo(app.isPackaged),
             ],
         },
     });

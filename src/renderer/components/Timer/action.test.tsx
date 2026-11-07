@@ -205,6 +205,27 @@ describe('Reducer', () => {
             expect(state[setting]).toEqual(oldState[setting]);
         }
     });
+
+    it('ignores a stored screenshot interval in a packaged build', async () => {
+        let state: TimerState = { ...defaultState };
+        const dispatch = ((action: any) => {
+            state = reducer(state, action);
+        }) as unknown as Dispatch;
+
+        await actions.setScreenShotInterval(120000)(dispatch);
+        expect(state.screenShotInterval).toBe(120000);
+
+        // A packaged build retired the feature; a value persisted by an older
+        // version must not restart the capture behind a hidden toggle.
+        (window.api as any).isPackaged = true;
+        try {
+            state = { ...defaultState };
+            await actions.fetchSettings()(dispatch);
+            expect(state.screenShotInterval).toBeUndefined();
+        } finally {
+            delete (window.api as any).isPackaged;
+        }
+    });
 });
 
 describe('On timerFinished', () => {

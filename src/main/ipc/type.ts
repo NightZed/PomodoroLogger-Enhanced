@@ -239,6 +239,12 @@ export type ImportResult =
 export type ExposedAPI = {
     readonly platform: NodeJS.Platform;
     /**
+     * Whether this renderer runs inside an installed (packaged) build.
+     * `false` for `electron .`, `pnpm start:prod`, tests and plain browsers,
+     * i.e. every build the developer runs from the checkout.
+     */
+    readonly isPackaged: boolean;
+    /**
      * Theme resolved by the main process before this window was created.
      * `undefined` only when the renderer was not started by the app (e.g. a
      * plain browser or a test).

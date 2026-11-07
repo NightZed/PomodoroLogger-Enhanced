@@ -529,3 +529,31 @@ describe('Setting language option', () => {
         expect(languageProps.setLanguage).toHaveBeenCalledWith('system');
     });
 });
+
+describe('Setting screenshot option', () => {
+    const openNotifications = (container: HTMLElement) => {
+        const nav = within(container).getByRole('navigation', { name: 'Settings sections' });
+        fireEvent.click(within(nav).getByRole('button', { name: /Notifications/ }));
+    };
+
+    const HINT = /Takes a screenshot every 5 minutes/;
+
+    it('offers the capture toggle in a development build', () => {
+        const { container } = render(<Setting {...props()} />);
+        openNotifications(container);
+
+        expect(within(container).getByText(HINT)).toBeTruthy();
+    });
+
+    it('hides it in a packaged build, where the capture is retired', () => {
+        (window.api as any).isPackaged = true;
+        try {
+            const { container } = render(<Setting {...props()} />);
+            openNotifications(container);
+
+            expect(within(container).queryByText(HINT)).toBeNull();
+        } finally {
+            delete (window.api as any).isPackaged;
+        }
+    });
+});

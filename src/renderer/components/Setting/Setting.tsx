@@ -13,6 +13,7 @@ import { refreshDbs } from '../../dbs';
 import { BUILTIN_THEMES, ThemeDefinition } from '../../theme/tokens';
 import SettingNav from './SettingNav';
 import { DEFAULT_SECTION, SectionId, SHORTCUTS } from './sections';
+import { isScreenshotAvailable } from '../../screenshotSupport';
 import { t, useI18n } from '../../i18n';
 import type { LanguagePreference, PlainMessageKey } from '../../../shared/i18n';
 import type { LogLevel } from '../../../shared/log';
@@ -802,6 +803,10 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
         }, [onImportClick, t]);
 
         const [section, setSection] = useState<SectionId>(DEFAULT_SECTION);
+        // Packaged builds do not offer screenshot capture; see
+        // `screenshotSupport.ts` for why and for how the stored value is
+        // dropped on load.
+        const screenshotAvailable = isScreenshotAvailable(window.api?.isPackaged);
 
         return (
             <Container>
@@ -1021,15 +1026,17 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
 
                     {section === 'notification' && (
                         <>
-                            <Field>
-                                <h4>{t('settings.notification.screenshot')}</h4>
-                                <Hint>{t('settings.notification.screenshotHint')}</Hint>
-                                <Switch
-                                    onChange={switchScreenshot}
-                                    checked={!!props.screenShotInterval}
-                                    style={{ margin: 8 }}
-                                />
-                            </Field>
+                            {screenshotAvailable && (
+                                <Field>
+                                    <h4>{t('settings.notification.screenshot')}</h4>
+                                    <Hint>{t('settings.notification.screenshotHint')}</Hint>
+                                    <Switch
+                                        onChange={switchScreenshot}
+                                        checked={!!props.screenShotInterval}
+                                        style={{ margin: 8 }}
+                                    />
+                                </Field>
+                            )}
 
                             <Field>
                                 <h4>{t('settings.notification.focusStartWarning')}</h4>

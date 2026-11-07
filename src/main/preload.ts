@@ -29,6 +29,7 @@ import type { LogLevel } from '../shared/log';
 import type { TrayActionKey } from '../renderer/components/Timer/sessionState';
 import { parseInitialTheme } from './ipc/initialTheme';
 import { parseInitialLanguage } from './ipc/initialLanguage';
+import { parseBuildInfo } from './ipc/buildInfo';
 
 const invoke = <T>(channel: string, ...args: unknown[]): Promise<T> =>
     ipcRenderer.invoke(channel, ...args) as Promise<T>;
@@ -74,6 +75,10 @@ function currentPlatform(): NodeJS.Platform {
 
 const api: ExposedAPI = {
     platform: currentPlatform(),
+    isPackaged:
+        typeof process !== 'undefined' && Array.isArray(process.argv)
+            ? parseBuildInfo(process.argv)
+            : false,
     initialTheme:
         typeof process !== 'undefined' && Array.isArray(process.argv)
             ? parseInitialTheme(process.argv)

@@ -167,6 +167,7 @@ whitelists. See `docs/i18n.md`.
 ## Conventions
 
 - Commit messages must follow Conventional Commits (commitlint); the type decides the semantic-release version. Husky + lint-staged run prettier and `eslint --fix` on staged files.
+- Undo an unpushed commit by rewriting it, not by reverting: `git reset --soft <base>` (or `git reset --hard` when the work is disposable), then commit the intended change. `revert:` is not a type semantic-release understands, so a revert commit adds a changelog entry the release never wanted, while the entry it cancels stays behind and describes a feature that no longer ships. `git status -sb` says whether the commits are still local (`ahead N`); once they are on `origin`, rewrite nothing and revert instead.
 - Keep renderer code free of Node globals — filesystem paths and native modules belong in `src/main`.
 
 ## Keeping this file accurate

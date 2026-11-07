@@ -434,6 +434,11 @@ export const en = {
             startup: 'Startup',
             startOnBoot: 'Start On Boot',
             hardwareAcceleration: 'Hardware Acceleration',
+            unloadOnCloseToTray: 'Release Page Memory in Tray',
+            unloadOnCloseToTrayHint:
+                'Once the window is closed to the tray, unloads the pages still open in the ' +
+                'background after 30 seconds. Reopening the window rebuilds them, and the ' +
+                'history page recalculates its statistics.',
             update: 'Update',
             autoUpdate: 'Auto Update',
             checkUpdate: 'Check Update',

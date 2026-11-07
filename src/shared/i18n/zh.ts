@@ -408,6 +408,10 @@ export const zh: CatalogShape<typeof en> = {
             startup: '启动',
             startOnBoot: '开机自动启动',
             hardwareAcceleration: '硬件加速',
+            unloadOnCloseToTray: '隐藏到托盘时释放页面内存',
+            unloadOnCloseToTrayHint:
+                '窗口收进托盘 30 秒后，卸载仍在后台的页面。重新打开窗口时会重建，' +
+                '历史页需要重新计算统计。',
             update: '更新',
             autoUpdate: '自动更新',
             checkUpdate: '检查更新',

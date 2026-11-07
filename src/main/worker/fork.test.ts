@@ -10,6 +10,7 @@ class FakeWorker extends EventEmitter {
 let worker: FakeWorker;
 let forkMock: jest.Mock;
 let sendWorkerMessage: typeof import('./fork').sendWorkerMessage;
+let releaseWorkerNow: typeof import('./fork').releaseWorkerNow;
 
 describe('main/worker/fork', () => {
     beforeEach(() => {
@@ -19,6 +20,7 @@ describe('main/worker/fork', () => {
         forkMock = require('child_process').fork as jest.Mock;
         forkMock.mockReturnValue(worker);
         sendWorkerMessage = require('./fork').sendWorkerMessage;
+        releaseWorkerNow = require('./fork').releaseWorkerNow;
     });
 
     afterEach(() => {
@@ -81,5 +83,36 @@ describe('main/worker/fork', () => {
         worker.emit('message', { id, payload: 'right' });
 
         await expect(request).resolves.toEqual({ id, payload: 'right' });
+    });
+
+    it('kills an idle worker the moment it is released', async () => {
+        const request = sendWorkerMessage({ type: 'aggregate' } as any);
+        const id = worker.send.mock.calls[0][0].id;
+
+        worker.emit('message', { id, payload: {} });
+        await request;
+
+        // The 60s idle timer is still armed; releasing must not wait for it.
+        expect(worker.kill).not.toHaveBeenCalled();
+        releaseWorkerNow();
+        expect(worker.kill).toHaveBeenCalledTimes(1);
+    });
+
+    it('lets an in-flight request finish before releasing', async () => {
+        const request = sendWorkerMessage({ type: 'aggregate' } as any);
+        const id = worker.send.mock.calls[0][0].id;
+
+        releaseWorkerNow();
+        // Killing now would reject a reply the page is still waiting for.
+        expect(worker.kill).not.toHaveBeenCalled();
+
+        worker.emit('message', { id, payload: {} });
+        await request;
+
+        expect(worker.kill).toHaveBeenCalledTimes(1);
+    });
+
+    it('does nothing when no worker was ever forked', () => {
+        expect(() => releaseWorkerNow()).not.toThrow();
     });
 });

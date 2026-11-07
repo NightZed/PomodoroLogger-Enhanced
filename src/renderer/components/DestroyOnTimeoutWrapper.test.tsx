@@ -11,8 +11,8 @@ const TIMEOUT = 1000;
 
 const Page = () => <div data-testid="page">page</div>;
 
-const tree = (isVisible: boolean) => (
-    <DestroyOnTimeoutWrapper isVisible={isVisible} timeout={TIMEOUT}>
+const tree = (isVisible: boolean, timeout: number = TIMEOUT) => (
+    <DestroyOnTimeoutWrapper isVisible={isVisible} timeout={timeout}>
         <Page />
     </DestroyOnTimeoutWrapper>
 );
@@ -75,6 +75,23 @@ describe('DestroyOnTimeoutWrapper', () => {
 
         // Leaving again schedules a new, full grace period.
         rerender(tree(false));
+        advance(TIMEOUT - 1);
+        expect(queryByTestId('page')).not.toBeNull();
+
+        advance(1);
+        expect(queryByTestId('page')).toBeNull();
+    });
+
+    it('restarts the countdown when the delay shrinks', () => {
+        // What `unloadOnCloseToTray` does: the page is already counting down its
+        // regular grace when the window goes to the tray, and only the timeout
+        // changes. The old timer has to be replaced, not merely outrun.
+        const { queryByTestId, rerender } = render(tree(false, 10 * TIMEOUT));
+
+        advance(5 * TIMEOUT);
+        expect(queryByTestId('page')).not.toBeNull();
+
+        rerender(tree(false, TIMEOUT));
         advance(TIMEOUT - 1);
         expect(queryByTestId('page')).not.toBeNull();
 

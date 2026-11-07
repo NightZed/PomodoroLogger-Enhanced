@@ -34,6 +34,7 @@ import { assertTrayIconPayload } from './ipc/validate';
 import { stopWindowDrag } from './ipc/windowDrag';
 import { initActiveWin } from './activeWin';
 import { openExternalUrl } from './openExternal';
+import { releaseWorkerNow } from './worker/fork';
 import { log, logError } from './log';
 
 const { build } = packageJson;
@@ -452,6 +453,14 @@ const createWindow = async () => {
     // reports the end of its gesture; these cover the case where it cannot.
     win.on('blur', stopWindowDrag);
     win.on('hide', stopWindowDrag);
+
+    // The aggregation child still holds the year of records it handed back.
+    // Nobody is going to ask it for more while the window is out of sight, so
+    // let it go now instead of waiting out its 60s idle timer. Windows reaches
+    // this through `minimize()` (see `closeToTray`), the other platforms
+    // through `hide()`.
+    win.on('minimize', releaseWorkerNow);
+    win.on('hide', releaseWorkerNow);
 
     // No `Event` annotation: since Electron 39 the handler receives Electron's
     // own structural `Event` type, which is not the DOM `Event` from `lib.dom`.

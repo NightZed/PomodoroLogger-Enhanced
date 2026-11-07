@@ -358,6 +358,7 @@ const settingUiStates = [
     'screenShotInterval',
     'warnBeforeFocusStart',
     'useHardwareAcceleration',
+    'unloadOnCloseToTray',
     'compactAlwaysOnTop',
     'contentOpacity',
     'themeBackgroundOpacity',
@@ -404,6 +405,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             setStartOnBoot: setStartOnBootAction,
             setThemeId,
             setUseHardwareAcceleration: setUseHardwareAccelerationAction,
+            setUnloadOnCloseToTray: setUnloadOnCloseToTrayAction,
             setWallpaperPath,
             setWarnBeforeFocusStart,
         } = props;
@@ -569,6 +571,15 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 });
             },
             [setUseHardwareAccelerationAction]
+        );
+
+        // antd's Switch hands the click event to `onChange` as a second
+        // argument; the action takes the boolean only.
+        const setUnloadOnCloseToTray = useCallback(
+            (v: boolean) => {
+                setUnloadOnCloseToTrayAction(v);
+            },
+            [setUnloadOnCloseToTrayAction]
         );
 
         const setCalendarColor = useCallback(
@@ -1169,6 +1180,18 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                 <Switch
                                     onChange={setUseHardwareAcceleration}
                                     checked={props.useHardwareAcceleration}
+                                    style={{ margin: 8 }}
+                                />
+                            </Field>
+
+                            <Field>
+                                <SettingLabel>
+                                    {t('settings.system.unloadOnCloseToTray')}
+                                </SettingLabel>
+                                <Hint>{t('settings.system.unloadOnCloseToTrayHint')}</Hint>
+                                <Switch
+                                    onChange={setUnloadOnCloseToTray}
+                                    checked={props.unloadOnCloseToTray}
                                     style={{ margin: 8 }}
                                 />
                             </Field>

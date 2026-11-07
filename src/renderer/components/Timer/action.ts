@@ -77,6 +77,14 @@ export interface Setting {
     warnBeforeFocusStart: boolean;
     startOnBoot: boolean;
     useHardwareAcceleration: boolean;
+    /**
+     * Shorten the page-unload grace to 30s once the window goes to the tray.
+     * On by default: the tray is this app's long tail, and the pages left
+     * behind it are the bulk of what the process holds. Coming back costs at
+     * most a rebuild of the page that was on screen -- history re-runs its
+     * aggregation, the other two re-read their rows.
+     */
+    unloadOnCloseToTray: boolean;
     compactAlwaysOnTop: boolean;
     /**
      * Opacity of the content layer: the title bar and the active page, text and
@@ -193,6 +201,7 @@ export const defaultState: TimerState = {
     sessionEnding: false,
     startOnBoot: false,
     useHardwareAcceleration: false,
+    unloadOnCloseToTray: true,
     compactAlwaysOnTop: true,
     contentOpacity: 1,
     themeBackgroundOpacity: 1,
@@ -283,6 +292,9 @@ export const setMinFinishDuration = createAction<number>('[Timer]SET_MIN_FINISH_
 export const setStartOnBoot = createAction<boolean>('[Timer]SWITCH_START_ON_BOOT');
 export const setUseHardwareAcceleration = createAction<boolean>(
     '[Timer]SWITCH_SET_USE_HARDWARE_ACCELERATION'
+);
+export const setUnloadOnCloseToTray = createAction<boolean>(
+    '[Timer]SWITCH_UNLOAD_ON_CLOSE_TO_TRAY'
 );
 export const setFocusDuration = createAction<number>('[Timer]SET_FOCUS_DURATION');
 export const setRestDuration = createAction<number>('[Timer]SET_REST_DURATION');
@@ -389,6 +401,7 @@ export const actions = {
             ['warnBeforeFocusStart', setWarnBeforeFocusStart],
             ['startOnBoot', setStartOnBoot],
             ['useHardwareAcceleration', setUseHardwareAcceleration],
+            ['unloadOnCloseToTray', setUnloadOnCloseToTray],
             ['compactAlwaysOnTop', setCompactAlwaysOnTop],
             ['contentOpacity', setContentOpacity],
             ['themeBackgroundOpacity', setThemeBackgroundOpacity],
@@ -524,6 +537,14 @@ export const actions = {
         await settingDB.update(
             { name: 'setting' },
             { $set: { useHardwareAcceleration: check } },
+            { upsert: true }
+        );
+    },
+    setUnloadOnCloseToTray: (check: boolean) => async (dispatch: Dispatch) => {
+        dispatch(setUnloadOnCloseToTray(check));
+        await settingDB.update(
+            { name: 'setting' },
+            { $set: { unloadOnCloseToTray: check } },
             { upsert: true }
         );
     },
@@ -717,6 +738,10 @@ export const reducer = createReducer<TimerState>(defaultState, (builder) => {
         .addCase(setUseHardwareAcceleration, (state, { payload }) => ({
             ...state,
             useHardwareAcceleration: payload,
+        }))
+        .addCase(setUnloadOnCloseToTray, (state, { payload }) => ({
+            ...state,
+            unloadOnCloseToTray: payload,
         }))
         .addCase(setLongBreakDuration, (state, { payload: { longBreakDuration } }) => ({
             ...state,

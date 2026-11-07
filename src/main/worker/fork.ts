@@ -13,6 +13,8 @@ interface PendingRequest {
 let workerProcess: ReturnType<typeof fork> | undefined;
 const pendingMap: { [id: string]: PendingRequest } = {};
 let idleTimer: ReturnType<typeof setTimeout> | undefined;
+/** Set by `releaseWorkerNow`; the next moment the child goes idle, it is killed. */
+let releaseWhenIdle = false;
 
 // 惰性创建 worker 进程：只有首次发送消息时才 fork，
 // 避免应用启动阶段就无条件多驻留一个完整的 Node 进程。
@@ -34,12 +36,14 @@ function ensureWorker() {
             scheduleIdleShutdown();
             if (msg.error) {
                 pending.reject(new Error(msg.error));
-                return;
+            } else {
+                pending.resolve(msg);
             }
-            pending.resolve(msg);
+            stopWorkerIfReleased();
         });
         workerProcess.on('exit', () => {
             workerProcess = undefined;
+            releaseWhenIdle = false;
             if (idleTimer) {
                 clearTimeout(idleTimer);
                 idleTimer = undefined;
@@ -65,16 +69,55 @@ function scheduleIdleShutdown() {
         clearTimeout(idleTimer);
     }
 
-    idleTimer = setTimeout(() => {
+    idleTimer = setTimeout(stopWorker, 60 * 1000);
+}
+
+function stopWorker() {
+    if (idleTimer) {
+        clearTimeout(idleTimer);
         idleTimer = undefined;
-        if (workerProcess) {
-            try {
-                workerProcess.kill();
-            } catch (e) {
-                // kill may not be available in some runtime
-            }
+    }
+
+    if (workerProcess) {
+        try {
+            workerProcess.kill();
+        } catch (e) {
+            // kill may not be available in some runtime
         }
-    }, 60 * 1000);
+    }
+}
+
+/**
+ * Kill the aggregation child as soon as it has nothing in flight.
+ *
+ * `scheduleIdleShutdown` waits 60s after the last reply, which is the right
+ * trade while the window is in use: the next query reuses the process. Once the
+ * window is out of sight nobody will ask again for a while, and the child is
+ * still holding the year of records it just aggregated, so the wait buys
+ * nothing. A request already running is left to finish -- its reply is still
+ * wanted, and killing it would only surface as a rejected promise in the page;
+ * the child goes the moment that reply lands.
+ */
+export function releaseWorkerNow(): void {
+    if (!workerProcess) {
+        return;
+    }
+
+    releaseWhenIdle = true;
+    stopWorkerIfReleased();
+}
+
+function stopWorkerIfReleased(): void {
+    if (!releaseWhenIdle || !workerProcess) {
+        return;
+    }
+
+    if (Object.keys(pendingMap).length > 0) {
+        return;
+    }
+
+    releaseWhenIdle = false;
+    stopWorker();
 }
 
 export function sendWorkerMessage<T extends WorkerMessageType>(

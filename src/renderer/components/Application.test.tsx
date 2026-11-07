@@ -15,7 +15,7 @@
  * batching question is actually exercised.
  */
 import * as React from 'react';
-import { act, cleanup, render } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { applyMiddleware, createStore, Store } from 'redux';
 import { thunk } from 'redux-thunk';
@@ -23,7 +23,13 @@ import { thunk } from 'redux-thunk';
 // The pages are content, not the subject: they drag in echarts, the monitor and
 // the worker threads, none of which the navigation depends on.
 jest.mock('./Timer', () => ({ __esModule: true, default: () => null }));
-jest.mock('./Kanban', () => ({ __esModule: true, default: () => null }));
+jest.mock('./Kanban', () => {
+    const React = require('react');
+    return {
+        __esModule: true,
+        default: () => React.createElement('div', { 'data-testid': 'kanban-page' }),
+    };
+});
 jest.mock('./History', () => ({ __esModule: true, default: () => null }));
 jest.mock('./Setting', () => ({ __esModule: true, default: () => null }));
 jest.mock('./UserGuide/UserGuide', () => ({ __esModule: true, UserGuide: () => null }));
@@ -67,7 +73,7 @@ jest.mock('../workers', () => ({
     },
 }));
 import { rootReducer, RootState } from '../reducers';
-import { setCompact } from './Timer/action';
+import { setCompact, setUnloadOnCloseToTray } from './Timer/action';
 import { feedback } from './feedback';
 import ConnectedApplication from './Application';
 
@@ -93,6 +99,19 @@ let windowMaximizedListener: ((maximized: boolean) => void) | undefined;
 
 /** Fires the pushed window-state event exactly like the preload bridge does. */
 const fireWindowMaximized = (maximized: boolean) => windowMaximizedListener?.(maximized);
+
+/**
+ * jsdom has no window manager, so fake the visibility Chromium reports once the
+ * window is minimized or hidden -- which is exactly what `closeToTray()` does
+ * (`minimize()`), and why the renderer needs no IPC to learn about it.
+ */
+const setVisibility = (state: 'visible' | 'hidden') => {
+    Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        get: () => state,
+    });
+    document.dispatchEvent(new Event('visibilitychange'));
+};
 
 // React asks every update to be wrapped in `act`. Wrapping the *keydown*
 // dispatch, though, would defeat this whole suite: `act` batches updates, and
@@ -220,6 +239,63 @@ describe('Application page switching', () => {
         await clickTab(0);
         expect(state().currentTab).toBe('timer');
         expect(state().compact).toBe(false);
+    });
+
+    it('unloads the background pages 30s after the window goes to the tray by default', async () => {
+        await clickTab(1);
+        expect(screen.queryByTestId('kanban-page')).not.toBeNull();
+
+        await clickTab(0);
+        // Back on the timer, the board is only inside its regular 120s grace.
+        expect(screen.queryByTestId('kanban-page')).not.toBeNull();
+
+        // No dispatch: this is the default the user gets on a fresh install.
+        jest.useFakeTimers();
+        try {
+            act(() => setVisibility('hidden'));
+
+            act(() => {
+                jest.advanceTimersByTime(29_999);
+            });
+            expect(screen.queryByTestId('kanban-page')).not.toBeNull();
+
+            act(() => {
+                jest.advanceTimersByTime(1);
+            });
+            expect(screen.queryByTestId('kanban-page')).toBeNull();
+        } finally {
+            jest.useRealTimers();
+            delete (document as any).visibilityState;
+            act(() => {
+                document.dispatchEvent(new Event('visibilitychange'));
+            });
+        }
+    });
+
+    it('leaves the grace periods alone while the option is off', async () => {
+        await clickTab(1);
+        await clickTab(0);
+
+        act(() => {
+            store.dispatch(setUnloadOnCloseToTray(false));
+        });
+
+        jest.useFakeTimers();
+        try {
+            act(() => setVisibility('hidden'));
+
+            act(() => {
+                jest.advanceTimersByTime(30_000);
+            });
+            // Off means off: hiding the window must not shorten anything.
+            expect(screen.queryByTestId('kanban-page')).not.toBeNull();
+        } finally {
+            jest.useRealTimers();
+            delete (document as any).visibilityState;
+            act(() => {
+                document.dispatchEvent(new Event('visibilitychange'));
+            });
+        }
     });
 
     it('swaps the caption button to restore while the window is maximized', async () => {

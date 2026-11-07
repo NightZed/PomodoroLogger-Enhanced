@@ -116,6 +116,7 @@ const props = (): any => ({
     screenShotInterval: undefined,
     warnBeforeFocusStart: false,
     useHardwareAcceleration: true,
+    unloadOnCloseToTray: false,
     compactAlwaysOnTop: false,
     contentOpacity: 1,
     themeBackgroundOpacity: 1,
@@ -137,6 +138,7 @@ const props = (): any => ({
     setScreenShotInterval: jest.fn(),
     setWarnBeforeFocusStart: jest.fn(),
     setUseHardwareAcceleration: jest.fn(),
+    setUnloadOnCloseToTray: jest.fn(),
     setCompactAlwaysOnTop: jest.fn(),
     setContentOpacity: jest.fn(),
     setThemeBackgroundOpacity: jest.fn(),
@@ -527,6 +529,24 @@ describe('Setting language option', () => {
 
         fireEvent.click(screen.getByRole('button', { name: 'Follow system' }));
         expect(languageProps.setLanguage).toHaveBeenCalledWith('system');
+    });
+});
+
+describe('Setting tray memory option', () => {
+    it('offers the toggle in the system section and reports the choice', () => {
+        const trayProps = props();
+        render(<Setting {...trayProps} />);
+
+        const nav = screen.getByRole('navigation', { name: 'Settings sections' });
+        fireEvent.click(within(nav).getByRole('button', { name: /System/ }));
+
+        const label = screen.getByText('Release Page Memory in Tray');
+        const toggle =
+            label.parentElement?.querySelector<HTMLButtonElement>('button[role="switch"]');
+        expect(toggle).toBeTruthy();
+
+        fireEvent.click(toggle!);
+        expect(trayProps.setUnloadOnCloseToTray).toHaveBeenCalledWith(true);
     });
 });
 

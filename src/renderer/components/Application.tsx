@@ -52,6 +52,30 @@ import { FeedbackContextBridge } from './feedback/Feedback';
  * surfaces travel as the `--pl-theme-bg-opacity` custom property written by
  * `ThemeController`, the other two are plain element opacities.
  */
+
+/**
+ * How long a page stays mounted after the user leaves it.
+ *
+ * A page is not torn down the moment it goes inactive: leaving and coming back
+ * is a routine hop, and the wrapper's grace period absorbs it. What sets the
+ * length is the cost of a remount, which differs a lot per page:
+ *
+ * - `kanban` remounts with one `fetchBoards` (a handful of rows out of the local
+ *   SQLite file) plus a fresh batched card render, so a short grace covers the
+ *   "check the board, go back to the timer, check again" hop.
+ * - `setting` loses more: an import, an export or a version check may still be
+ *   in flight with its progress in component state. It is the least visited page
+ *   anyway, hence the middling delay.
+ * - `history` re-runs the whole `aggHistory` aggregation in the main-process
+ *   child on every mount. That is the expensive one, so it keeps the long grace
+ *   and flipping between the timer and the charts stays instant.
+ */
+const TAB_UNLOAD_DELAY = {
+    kanban: 120_000,
+    setting: 300_000,
+    history: 600_000,
+} as const;
+
 interface StyledProps {
     $minimize: boolean;
     $compact: boolean;
@@ -362,7 +386,7 @@ class Application extends React.Component<Props, State> {
                         kanban={
                             <DestroyOnTimeoutWrapper
                                 isVisible={currentTab === 'kanban'}
-                                timeout={600000}
+                                timeout={TAB_UNLOAD_DELAY.kanban}
                             >
                                 <Kanban />
                             </DestroyOnTimeoutWrapper>
@@ -370,12 +394,19 @@ class Application extends React.Component<Props, State> {
                         history={
                             <DestroyOnTimeoutWrapper
                                 isVisible={currentTab === 'history'}
-                                timeout={600000}
+                                timeout={TAB_UNLOAD_DELAY.history}
                             >
                                 <History />
                             </DestroyOnTimeoutWrapper>
                         }
-                        setting={<Setting />}
+                        setting={
+                            <DestroyOnTimeoutWrapper
+                                isVisible={currentTab === 'setting'}
+                                timeout={TAB_UNLOAD_DELAY.setting}
+                            >
+                                <Setting />
+                            </DestroyOnTimeoutWrapper>
+                        }
                     />
                     {!minimize && (
                         <>

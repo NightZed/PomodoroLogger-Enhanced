@@ -92,6 +92,15 @@ export function setSkipTaskbar(on: boolean): void {
  * `setSkipTaskbar(true)` hides the taskbar entry that `hide()` used to drop
  * on its own; mini mode is left alone since it already asked for it.
  * `revealWindow` puts back whatever the window had.
+ *
+ * Re-measured on Electron 44, and `hide()` is not a memory win either: under
+ * the same page state the renderer's private bytes came out 77.5 MB visible,
+ * 77.1 MB minimized and 77.0 MB hidden -- noise. `minimize()` already reports
+ * `isVisible() === false` and drops the process to Idle priority, so Chromium
+ * treats it exactly like `hide()`, and the heap behind those 77 MB is page
+ * state that neither call releases. Only unmounting a page gives memory back
+ * (see `DestroyOnTimeoutWrapper`). So there is nothing to trade the flicker
+ * for: keep `minimize()`.
  */
 function closeToTray(): void {
     if (!win) {

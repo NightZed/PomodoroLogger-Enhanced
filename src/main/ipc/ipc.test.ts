@@ -42,8 +42,6 @@ jest.mock('./windowDrag', () => ({ startWindowDrag: jest.fn(), stopWindowDrag: j
 jest.mock('../userFiles', () => ({
     clearUserFiles: jest.fn(),
     deleteScreenshots: jest.fn(),
-    loadKnnModel: jest.fn(),
-    saveKnnModel: jest.fn(),
     saveScreenshot: jest.fn(),
 }));
 jest.mock('../openExternal', () => ({ openExternalUrl: jest.fn() }));

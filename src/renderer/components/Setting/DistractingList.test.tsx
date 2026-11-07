@@ -17,7 +17,6 @@ jest.mock('../../workers', () => ({
             sessionDB: {},
             moveDB: {},
         },
-        knn: {},
         tokenizer: {},
     },
 }));

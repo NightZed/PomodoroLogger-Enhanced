@@ -1,6 +1,5 @@
 import {
     assertBoolean,
-    assertKnnModel,
     assertOpenExternalUrl,
     assertScreenshotDataUrl,
     assertScreenshotPaths,
@@ -48,12 +47,5 @@ describe('IPC validators', () => {
         expect(() => assertScreenshotDataUrl('https://example.com/a.jpg')).toThrow(TypeError);
         expect(assertScreenshotPaths(['a.jpg'])).toEqual(['a.jpg']);
         expect(() => assertScreenshotPaths([1])).toThrow(TypeError);
-    });
-
-    it('accepts only the serialized KNN shape', () => {
-        const model = { encoder: { app: 0 }, encodings: [], k: 5 };
-        expect(assertKnnModel(model)).toBe(model);
-        expect(() => assertKnnModel({ encoder: {}, encodings: [] })).toThrow(TypeError);
-        expect(() => assertKnnModel({ encoder: [], encodings: [], k: 5 })).toThrow(TypeError);
     });
 });

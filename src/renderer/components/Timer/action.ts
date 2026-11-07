@@ -6,7 +6,6 @@ import { actions as kanbanActions } from '../Kanban/action';
 import { actions as historyActions } from '../History/action';
 import dbs from '../../dbs';
 import { PomodoroRecord } from '../../monitor/type';
-import { workers } from '../../workers';
 import { DEBUG_TIME_SCALE, scaleMs } from '../../../config';
 import { AsyncDB } from '../../../utils/dbHelper';
 import { DEFAULT_THEME_ID, ThemeDefinition } from '../../theme/tokens';
@@ -315,56 +314,6 @@ export const setCustomThemes = createAction<ThemeDefinition[]>('[Setting]SET_CUS
 export const setLanguage = createAction<LanguagePreference>('[Setting]SET_LANGUAGE');
 export const setLogLevel = createAction<LogLevel>('[Setting]SET_LOG_LEVEL');
 export const changeAppTab = createAction<tabType>('[App]CHANGE_APP_TAB');
-
-/**
- * Predict the project a finished session belongs to, so a session the user did
- * not attribute explicitly still lands on the right project in the statistics
- * (project treemaps, board hours, cards).
- *
- * Deliberately NOT an action creator: the prediction is a property of the
- * session record, not of the UI. Dispatching `setBoardId` here used to move the
- * user's focusing selection, which raced with the ending mask: whether the
- * session was credited to the predicted project or to "Unknown" depended on
- * whether the worker answered before the user confirmed the mask, and the guess
- * silently stayed selected for every later session.
- *
- * Returns the predicted board `_id`, or `undefined` when there is no usable
- * prediction. Never rejects, so callers can await it unconditionally.
- */
-export async function inferProject(sessionData: PomodoroRecord): Promise<string | undefined> {
-    // Predict session's project
-    const newProjectId = (await workers.knn.predict(sessionData).catch((err) => {
-        console.error('predicting error', err);
-        return undefined;
-    })) as string | undefined;
-
-    if (newProjectId === undefined) {
-        return undefined;
-    }
-
-    // The prediction label is the board `_id` of the closest historical
-    // session, and records must refer to a real board `_id` (`Timer` renders
-    // `kanban.boards[boardId]` directly, and the treemaps resolve ids through
-    // the kanban DB). Only use the prediction while that board still exists; this
-    // also filters out degenerate predictions such as an empty string.
-    const board = await workers.dbWorkers.kanbanDB
-        .findOne({ _id: newProjectId })
-        .catch(() => undefined);
-    return board ? newProjectId : undefined;
-}
-
-/**
- * Which project a finished session is credited to. An explicit choice (the
- * focusing project of the timer page, or the one picked on the ending mask)
- * always wins over the prediction, so a guess can never override the user, no
- * matter whether the prediction arrived before or after that choice.
- */
-export function resolveSessionProjectId(
-    confirmedBoardId?: string,
-    inferredProjectId?: string
-): string | undefined {
-    return confirmedBoardId !== undefined ? confirmedBoardId : inferredProjectId;
-}
 
 export const actions = {
     pauseTimer,

@@ -122,7 +122,7 @@ otherwise pnpm silently copies instead of hard-linking.
 ### CPU-heavy work
 
 - `src/main/worker/fork.ts` lazily forks `worker.js` for History aggregation (tokenizing every window title for the word cloud). It shuts the child down after 60s idle and `src/main/db/ipc.ts` falls back to in-process aggregation if the worker fails.
-- The renderer's remaining web workers (`src/renderer/workers`) are tokenizer and KNN training only; `DBWorker` is a thin wrapper over the IPC proxies.
+- The renderer's remaining web worker (`src/renderer/workers`) is the tokenizer; `DBWorker` is a thin wrapper over the IPC proxies.
 
 ### Renderer state & UI
 

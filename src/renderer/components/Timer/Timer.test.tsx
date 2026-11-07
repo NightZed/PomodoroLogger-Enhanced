@@ -27,13 +27,6 @@ jest.mock('../../monitor/sessionManager', () => ({
     getTodaySessions: jest.fn().mockResolvedValue([]),
 }));
 
-jest.mock('../../workers', () => ({
-    workers: {
-        dbWorkers: { sessionDB: { count: jest.fn().mockResolvedValue(0) } },
-        knn: { loadModel: jest.fn().mockResolvedValue(undefined) },
-    },
-}));
-
 jest.mock('./iconMaker', () => ({
     setTrayImageWithMadeIcon: jest.fn().mockResolvedValue(undefined),
 }));
@@ -448,7 +441,7 @@ describe('Timer page', () => {
         expect(queryByTestId('word-cloud')).toBeTruthy();
     });
 
-    it('shows the staged project in the mini window name while confirming', async () => {
+    it('marks the mini window as confirming while the ending mask is up', async () => {
         const view = await renderTimer({ minimize: true });
 
         expect(view.getByTestId('mini-logger').getAttribute('data-confirm')).toBe('false');

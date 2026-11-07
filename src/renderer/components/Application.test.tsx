@@ -68,7 +68,6 @@ jest.mock('../workers', () => ({
             listsDB: {},
             moveDB: {},
         },
-        knn: { predict: jest.fn().mockResolvedValue(undefined), loadModel: jest.fn() },
         tokenizer: { tokenize: jest.fn().mockResolvedValue([]) },
     },
 }));

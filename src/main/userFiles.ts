@@ -1,15 +1,13 @@
-import { readFile, rm, mkdir, unlink, writeFile } from 'fs/promises';
+import { rm, mkdir, unlink, writeFile } from 'fs/promises';
 import { isAbsolute, join, relative, resolve } from 'path';
-import { modelPath, screenshotDir } from './config';
-import type { KnnModel } from './learner/appKnn';
+import { screenshotDir } from './config';
 
 /**
  * Files the renderer is allowed to ask about, without ever exposing a generic
  * filesystem API:
  *
  * - screenshots are written/removed only inside `screenshotDir`;
- * - the KNN model is one fixed file;
- * - deleting all user data clears those two locations.
+ * - deleting all user data clears that location.
  */
 
 const MAX_SCREENSHOT_DATA_URL = 20 * 1024 * 1024;
@@ -64,34 +62,8 @@ export async function deleteScreenshots(paths: string[]): Promise<void> {
     );
 }
 
-/** Removes the derived KNN model and recreates an empty screenshot directory. */
+/** Removes all screenshots and recreates an empty screenshot directory. */
 export async function clearUserFiles(): Promise<void> {
-    try {
-        await unlink(modelPath.knnPath);
-    } catch (error) {
-        if (!isNotFound(error)) {
-            console.error('[userFiles] failed to delete the KNN model', error);
-        }
-    }
-
     await rm(screenshotDir, { recursive: true, force: true });
     await mkdir(screenshotDir, { recursive: true });
-}
-
-export async function loadKnnModel(): Promise<KnnModel | undefined> {
-    try {
-        const raw = await readFile(modelPath.knnPath, { encoding: 'utf-8' });
-        return JSON.parse(raw) as KnnModel;
-    } catch (error) {
-        if (!isNotFound(error)) {
-            // A corrupt model must not block training; the next loadModel()
-            // request retrains and overwrites it.
-            console.error('[userFiles] failed to read the KNN model', error);
-        }
-        return undefined;
-    }
-}
-
-export async function saveKnnModel(model: KnnModel): Promise<void> {
-    await writeFile(modelPath.knnPath, JSON.stringify(model), { encoding: 'utf-8' });
 }

@@ -3,7 +3,6 @@ import { SourceData } from '../../shared/dataMerger/dataMerger';
 import type { ExportMeta } from '../../shared/dataTransfer/payload';
 import type { ValidationIssue, ValidationWarning } from '../../shared/dataTransfer/validate';
 import type { DbName, HistoryData } from '../db/types';
-import type { KnnModel } from '../learner/appKnn';
 import type { AggPomodoroInfo } from '../../renderer/components/History/op';
 import type { Language, LanguagePreference } from '../../shared/i18n';
 import type { LogLevel } from '../../shared/log';
@@ -45,8 +44,6 @@ export enum IpcEventName {
     SaveScreenshot = 'saveScreenshot',
     DeleteScreenshots = 'deleteScreenshots',
     ClearUserFiles = 'clearUserFiles',
-    LoadKnnModel = 'loadKnnModel',
-    SaveKnnModel = 'saveKnnModel',
     SetNativeTheme = 'setNativeTheme',
     /** Tells the main process to switch its own copy (tray, dialogs, updater). */
     SetLanguage = 'setLanguage',
@@ -291,8 +288,6 @@ export type ExposedAPI = {
     saveScreenshot(dataUrl: string): Promise<string>;
     deleteScreenshots(paths: string[]): Promise<void>;
     clearUserFiles(): Promise<void>;
-    loadKnnModel(): Promise<KnnModel | undefined>;
-    saveKnnModel(model: KnnModel): Promise<void>;
 
     dbReady(): Promise<void>;
     dbRequest(name: DbName, operation: string, args: unknown[]): Promise<unknown>;

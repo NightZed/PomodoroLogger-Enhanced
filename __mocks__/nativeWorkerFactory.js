@@ -4,5 +4,4 @@ const Worker = require('./workerMock');
 // module is only used by webpack's worker-chunk parser.
 module.exports = {
     createTokenizerWorker: () => new Worker(),
-    createKnnWorker: () => new Worker(),
 };

@@ -20,7 +20,6 @@ import {
     WindowAction,
 } from './type';
 import type { NativeThemeSource, TrayMenuItem } from './type';
-import type { KnnModel } from '../learner/appKnn';
 import { sendWorkerMessage } from '../worker/fork';
 import { promisify } from 'util';
 import { readFile, writeFile } from 'fs';
@@ -53,16 +52,9 @@ import { openLogDir } from '../openLogDir';
 import { configureLogging, getLogDir, getSessionId, log, logError } from '../log';
 import { LOG_LEVELS } from '../../shared/log';
 import type { LogLevel } from '../../shared/log';
-import {
-    clearUserFiles,
-    deleteScreenshots,
-    loadKnnModel,
-    saveKnnModel,
-    saveScreenshot,
-} from '../userFiles';
+import { clearUserFiles, deleteScreenshots, saveScreenshot } from '../userFiles';
 import {
     assertBoolean,
-    assertKnnModel,
     assertOpenExternalUrl,
     assertRendererErrorPayload,
     assertOptionalBoolean,
@@ -283,10 +275,6 @@ export function initialize() {
 
     handleCommand(IpcEventName.SetLogLevel, (level: LogLevel) => configureLogging({ level }), [
         (value) => assertOneOf(value, 'log level', LOG_LEVELS),
-    ]);
-    handle(IpcEventName.LoadKnnModel, () => loadKnnModel());
-    handle(IpcEventName.SaveKnnModel, (model: KnnModel) => saveKnnModel(model), [
-        (value) => assertKnnModel(value),
     ]);
     /**
      * The renderer owns the timer actions, but the native tray menu lives in

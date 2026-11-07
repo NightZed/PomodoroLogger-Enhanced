@@ -1,14 +1,7 @@
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { screenshotDir, modelPath } from './config';
-import {
-    clearUserFiles,
-    deleteScreenshots,
-    loadKnnModel,
-    saveKnnModel,
-    saveScreenshot,
-} from './userFiles';
-import type { KnnModel } from './learner/appKnn';
+import { screenshotDir } from './config';
+import { clearUserFiles, deleteScreenshots, saveScreenshot } from './userFiles';
 
 describe('main-process user files', () => {
     it('writes a screenshot data URL and deletes only known screenshot paths', async () => {
@@ -36,19 +29,14 @@ describe('main-process user files', () => {
         );
     });
 
-    it('loads, saves and clears the KNN model', async () => {
-        const model: KnnModel = {
-            encoder: { a: 0 },
-            encodings: [{ encoding: [1], project: 'board' }],
-            k: 5,
-        };
-
-        await saveKnnModel(model);
-        await expect(loadKnnModel()).resolves.toStrictEqual(model);
+    it('clears the screenshots when deleting all user data', async () => {
+        const dataUrl = `data:image/png;base64,${Buffer.from('pixels').toString('base64')}`;
+        const filePath = await saveScreenshot(dataUrl);
+        expect(existsSync(filePath)).toBe(true);
 
         await clearUserFiles();
-        await expect(loadKnnModel()).resolves.toBeUndefined();
-        expect(existsSync(modelPath.knnPath)).toBe(false);
+
+        expect(existsSync(filePath)).toBe(false);
         expect(existsSync(screenshotDir)).toBe(true);
     });
 });

@@ -90,16 +90,6 @@ export function assertScreenshotPaths(value: unknown): string[] {
     return paths as string[];
 }
 
-export function assertKnnModel(value: unknown): Record<string, unknown> {
-    const model = assertPlainObject(value, 'KNN model');
-    assertPlainObject(model.encoder, 'KNN model.encoder');
-    assertArray(model.encodings, 'KNN model.encodings', 1_000_000);
-    if (typeof model.k !== 'number' || !Number.isFinite(model.k)) {
-        throw new TypeError('KNN model.k must be a finite number');
-    }
-    return model;
-}
-
 const ERROR_KINDS = ['react', 'window-error', 'unhandledrejection', 'component'] as const;
 
 /**

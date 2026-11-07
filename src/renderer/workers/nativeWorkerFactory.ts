@@ -8,5 +8,3 @@
  */
 export const createTokenizerWorker = () =>
     new Worker(new URL('./tokenizer.worker.ts', import.meta.url));
-
-export const createKnnWorker = () => new Worker(new URL('./trainKnn.worker.ts', import.meta.url));

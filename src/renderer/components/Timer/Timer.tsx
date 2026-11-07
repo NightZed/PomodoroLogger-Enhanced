@@ -15,7 +15,6 @@ import { PomodoroRecord } from '../../monitor/type';
 import { RootState } from '../../reducers';
 import { tabMaxHeight, thinScrollBar } from '../../style/scrollbar';
 import { isShallowEqual, isShallowEqualByKeys } from '../../utils';
-import { workers } from '../../workers';
 import { KanbanActionTypes } from '../Kanban/action';
 import Board from '../Kanban/Board';
 import { BoardActionTypes } from '../Kanban/Board/action';
@@ -24,13 +23,7 @@ import backIcon from '../../../res/back.svg';
 import { DAY_THEME_ID, NIGHT_THEME_ID } from '../../theme/tokens';
 import { PomodoroTimeTreemap } from '../Visualization/PomodoroTimeTreemap';
 import { AsyncWordCloud } from '../Visualization/WordCloud';
-import {
-    inferProject,
-    LONG_BREAK_INTERVAL,
-    resolveSessionProjectId,
-    TimerActionTypes as ThisActionTypes,
-    uiStateNames,
-} from './action';
+import { LONG_BREAK_INTERVAL, TimerActionTypes as ThisActionTypes, uiStateNames } from './action';
 import { FocusSelector } from './FocusSelector';
 import { FocusStartWarning, getFocusStartWarningIfEnabled } from './focusStartWarning';
 import { t } from '../../i18n';
@@ -262,12 +255,6 @@ interface State {
     focusStartWarningBoardId?: string;
     /** Reflects the "Don't remind me again" check box of the warning dialog. */
     focusStartWarningDontRemind: boolean;
-    /**
-     * Project inferred for the staged session (see `onFocusingSessionDone`).
-     * The ending mask shows it so a wrong guess can still be corrected; it is
-     * the project the record gets unless the user picks another one there.
-     */
-    stagedProjectId?: string;
 }
 
 class Timer extends Component<Props, State> {
@@ -285,13 +272,6 @@ class Timer extends Component<Props, State> {
     extendedTimeInMinute: number;
     efficiencyAnalyser: EfficiencyAnalyser;
     private stagedSession?: PomodoroRecord;
-    /**
-     * Prediction of the staged session's project. Started when the session ends
-     * and awaited when the ending mask is confirmed, so the attribution does not
-     * depend on how fast the user clicks. `undefined` when a project was already
-     * selected, i.e. when there is nothing to predict.
-     */
-    private projectInference?: Promise<string | undefined>;
     selfRef: React.RefObject<HTMLDivElement | null> = React.createRef<HTMLDivElement>();
     private componentGone = false;
     /**
@@ -312,7 +292,6 @@ class Timer extends Component<Props, State> {
             pomodoroNum: 0,
             showSider: true,
             focusStartWarningDontRemind: false,
-            stagedProjectId: undefined,
         };
         this.mainDiv = React.createRef<HTMLDivElement>();
         this.sound = React.createRef<HTMLAudioElement>();
@@ -363,12 +342,6 @@ class Timer extends Component<Props, State> {
             });
 
         this.addMenuItems();
-        workers.dbWorkers.sessionDB
-            .count({})
-            .then((size) => workers.knn.loadModel(size))
-            .catch((err) => {
-                console.error('[Timer] failed to load the knn model', err);
-            });
     }
 
     /**
@@ -956,47 +929,7 @@ class Timer extends Component<Props, State> {
 
         this.calculateSessionEfficiency();
         this.monitor.stop();
-        if (this.props.timer.boardId === undefined) {
-            // The user did not select a focusing project: ask the model which
-            // project this session probably belongs to. The answer is written
-            // into the session record when the mask is confirmed (see
-            // `onSessionConfirmed`) and never into `timer.boardId`, so a guess
-            // cannot silently become the focusing selection of later sessions.
-            this.projectInference = inferProject(thisSession).then((projectId) => {
-                this.stageInferredProject(thisSession, projectId);
-                return projectId;
-            });
-        }
     };
-
-    /**
-     * Surface the inferred project on the ending mask, where it is still
-     * correctable. Ignored when the session is no longer staged, e.g. the user
-     * confirmed the mask before the worker answered.
-     */
-    private stageInferredProject(session: PomodoroRecord, projectId?: string) {
-        if (projectId === undefined || this.componentGone || this.stagedSession !== session) {
-            return;
-        }
-
-        this.setState({ stagedProjectId: projectId });
-    }
-
-    /**
-     * Resolve the prediction started when the session ended. `onSessionConfirmed`
-     * awaits it, so which project the record (and therefore the project treemaps
-     * of the Timer/History pages) gets does not depend on when the user clicked.
-     */
-    private async getInferredProjectId(): Promise<string | undefined> {
-        if (!this.projectInference) {
-            return undefined;
-        }
-
-        return this.projectInference.catch((err) => {
-            console.error('[Timer] failed to infer the project of a session', err);
-            return undefined;
-        });
-    }
 
     private calculateSessionEfficiency() {
         if (this.stagedSession != null) {
@@ -1031,7 +964,7 @@ class Timer extends Component<Props, State> {
      * `confirmedBoardId` is the focusing project snapshotted when the user
      * clicked the ending mask (see `onMaskClick`), not the live selection: what
      * the record is credited to must not change while this debounced handler
-     * runs, and an explicit choice wins over the inferred project.
+     * runs.
      */
     private onSessionConfirmed = debounce(async (confirmedBoardId?: string) => {
         if (this.monitor) {
@@ -1046,11 +979,7 @@ class Timer extends Component<Props, State> {
             this.setState({ pomodoroNum: this.state.pomodoroNum + 1 });
             this.stagedSession.spentTimeInHour += this.extendedTimeInMinute / 60;
             this.extendedTimeInMinute = 0;
-            // Wait for the prediction made when the session ended: a worker that
-            // answers late must not turn an attributed session into "Unknown"
-            // (or the other way around) just because the user clicked quickly.
-            const inferredProjectId = await this.getInferredProjectId();
-            const boardId = resolveSessionProjectId(confirmedBoardId, inferredProjectId);
+            const boardId = confirmedBoardId;
             // `boardId` may point to a board that no longer exists (e.g. deleted
             // right after a session, or a corrupted value persisted by older
             // builds). Fall back to an unattributed session instead of crashing
@@ -1069,10 +998,8 @@ class Timer extends Component<Props, State> {
             this.setState({
                 pomodorosToday: finishedSessions,
                 leftTime: '',
-                stagedProjectId: undefined,
             });
             this.stagedSession = undefined;
-            this.projectInference = undefined;
         }
 
         const startNextSession = this.nextSessionStarter;
@@ -1157,8 +1084,7 @@ class Timer extends Component<Props, State> {
     private onMaskClick = () => {
         this.props.setSessionEnding(false);
         // Snapshot the focusing project: the session keeps the project it was
-        // confirmed with, even if the selection changes right after (or if the
-        // prediction arrives late).
+        // confirmed with, even if the selection changes right after.
         this.onSessionConfirmed(this.props.timer.boardId);
     };
 
@@ -1424,12 +1350,6 @@ class Timer extends Component<Props, State> {
 
         if (minimize) {
             const name = boardId && this.props.kanban.boards[boardId]?.name;
-            // While the ending mask is up, show the project the staged session is
-            // going to be credited to (a predicted one included), so the user can
-            // still notice a wrong guess before confirming.
-            const stagedName =
-                this.state.stagedProjectId &&
-                this.props.kanban.boards[this.state.stagedProjectId]?.name;
             return (
                 <Layout style={{ backgroundColor: 'transparent' }} ref={this.selfRef}>
                     <Hotkeys keyName={'f5,f6,tab'} onKeyDown={this.onKeyDown} />
@@ -1456,7 +1376,7 @@ class Timer extends Component<Props, State> {
                            the dial it belongs to. */
                         secondsLeft={secondsLeft}
                         switch={this.switchMode}
-                        task={name || stagedName || ''}
+                        task={name || ''}
                         time={shownLeftTime.slice(0, 2)}
                         style={{ zIndex: 999, overflow: 'hidden' }}
                         isConfirming={sessionEnding}
@@ -1479,7 +1399,6 @@ class Timer extends Component<Props, State> {
                 <TimerMask
                     extendCurrentSession={this.extendCurrentSession}
                     newPomodoro={this.stagedSession}
-                    stagedProjectId={this.state.stagedProjectId}
                     showMask={sessionEnding}
                     onCancel={this.onMaskClick}
                     onStart={this.onMaskButtonClick}

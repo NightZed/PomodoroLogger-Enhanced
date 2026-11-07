@@ -109,7 +109,3 @@ export const env = {
     electronAsarDir: asarDirName ? join(asarDirName, 'electron.asar') : undefined,
     appAsarDir: asarDirName ? join(asarDirName, 'app.asar') : undefined,
 };
-
-export const modelPath = {
-    knnPath: join(dbBaseDir, 'modelKnn.json'),
-};

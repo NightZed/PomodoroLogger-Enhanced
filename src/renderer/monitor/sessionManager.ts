@@ -105,8 +105,8 @@ export function deleteScreenshots(paths: string[]) {
  *
  * With SQLite, the records live in one database file, so "Delete All Data"
  * clears the user tables (sessions, boards, lists, cards, moves) and removes
- * the derived KNN model and screenshots. The settings table is deliberately
- * untouched: timers, theme and wallpaper are app configuration, not history.
+ * the screenshots. The settings table is deliberately untouched: timers,
+ * theme and wallpaper are app configuration, not history.
  * The legacy `.nedb` files also stay on disk as the migration backup.
  */
 export async function deleteAllUserData() {
@@ -119,8 +119,8 @@ export async function deleteAllUserData() {
         dbWorkers.moveDB.remove({}, { multi: true }),
     ]);
 
-    // The derived model and the screenshots are main-process files; the
-    // renderer only names the operation, never a path.
+    // The screenshots are main-process files; the renderer only names the
+    // operation, never a path.
     await window.api.clearUserFiles();
 }
 

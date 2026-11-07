@@ -68,12 +68,6 @@ describe('TimerMask', () => {
         expect(onStart).toHaveBeenCalledTimes(1);
     });
 
-    it('falls back to the predicted project while no board is selected', () => {
-        const view = renderMask({ stagedProjectId: 'b2' }, { boardId: undefined });
-
-        expect(view.getByText('Project Two')).toBeTruthy();
-    });
-
     it('extends a running focus session by five or ten minutes', () => {
         const extendCurrentSession = jest.fn();
         const view = renderMask({ extendCurrentSession });

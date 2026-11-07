@@ -20,10 +20,12 @@ logs sit beside `db/`, `db-bk/` and `screenshots/`, never inside `db/`.
 | `crash.log` | Renderer crash reports, `uncaughtException`, `unhandledRejection`, `render-process-gone`, `child-process-gone`, `did-fail-load`, preload errors |
 | `migration.log` | The one-off NeDB → SQLite report, overwritten on each migration |
 
-Every line starts with the ISO timestamp and a six character process id:
+Every line starts with the local timestamp -- with its UTC offset -- and a six
+character process id. Local time is what the user saw; the offset keeps the
+instant unambiguous when the file is compared with another machine:
 
 ```
-2026-11-05T09:12:33.451Z [k3f9qa] ERROR crash: renderer react: Cannot read properties of undefined
+2026-11-05T19:12:33.451+08:00 [k3f9qa] ERROR crash: renderer react: Cannot read properties of undefined
     Error: Cannot read properties of undefined
         at Timer.render (dist/app.js:1:12345)
 ```

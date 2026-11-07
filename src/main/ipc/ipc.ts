@@ -199,8 +199,10 @@ export function initialize() {
     handleCommand(
         IpcEventName.ReportError,
         (payload: RendererErrorPayload) => {
+            // The line's own timestamp is the time the report reached the main
+            // process; the renderer's ISO timestamp is deliberately not printed
+            // next to it, so a line never mixes two time zones.
             const where = [
-                payload.timestamp,
                 payload.href,
                 payload.tab === undefined ? undefined : `tab=${payload.tab}`,
             ]

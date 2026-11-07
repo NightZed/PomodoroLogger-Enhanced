@@ -1,7 +1,7 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
-import { createLogger } from './log';
+import { createLogger, formatTimestamp } from './log';
 
 /**
  * The logger writes synchronously, so every assertion can read the file right
@@ -41,9 +41,31 @@ describe('main/log', () => {
 
         const app = read(dir, 'app.log');
         const activeWin = read(dir, 'active-win.log');
-        expect(app).toMatch(/^\d{4}-\d{2}-\d{2}T[\d:.]+Z \[[a-z0-9]{6}\] INFO {2}app: started$/m);
+        expect(app).toMatch(
+            /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}[+-]\d{2}:\d{2} \[[a-z0-9]{6}\] INFO {2}app: started$/m
+        );
         expect(activeWin).toContain('active-win: initialized: ok');
         expect(app).not.toContain('initialized: ok');
+    });
+
+    it('stamps lines with local time plus a UTC offset', () => {
+        const date = new Date(Date.UTC(2026, 10, 5, 9, 12, 33, 451));
+        const text = formatTimestamp(date);
+
+        expect(text).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}[+-]\d{2}:\d{2}$/);
+        // The wall clock shown is the machine's, not UTC...
+        expect(text.slice(0, 10)).toBe(
+            `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+                date.getDate()
+            ).padStart(2, '0')}`
+        );
+        expect(text.slice(11, 19)).toBe(
+            [date.getHours(), date.getMinutes(), date.getSeconds()]
+                .map((value) => String(value).padStart(2, '0'))
+                .join(':')
+        );
+        // ...and the offset makes it parse back to the same instant.
+        expect(new Date(text).getTime()).toBe(date.getTime());
     });
 
     it('honours the configured level', () => {

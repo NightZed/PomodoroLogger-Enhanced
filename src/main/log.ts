@@ -60,6 +60,32 @@ export interface Logger {
     getSessionId(): string;
 }
 
+function pad(value: number, width = 2): string {
+    return String(Math.abs(value)).padStart(width, '0');
+}
+
+/**
+ * `2026-11-05T19:12:33.451+08:00` -- local wall clock with an explicit UTC
+ * offset.
+ *
+ * A log is read by the person who hit the problem, so the line should show the
+ * time their clock showed, not UTC. Keeping the offset makes the instant
+ * unambiguous for anyone correlating the file with another machine (and keeps
+ * consecutive lines explainable across a daylight-saving switch).
+ */
+export function formatTimestamp(date: Date): string {
+    const offsetMinutes = -date.getTimezoneOffset();
+    const sign = offsetMinutes < 0 ? '-' : '+';
+    const offsetHours = Math.floor(Math.abs(offsetMinutes) / 60);
+    const offsetRest = Math.abs(offsetMinutes) % 60;
+
+    return (
+        `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+        `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.` +
+        `${pad(date.getMilliseconds(), 3)}${sign}${pad(offsetHours)}:${pad(offsetRest)}`
+    );
+}
+
 function clip(text: string, max: number): string {
     return text.length <= max ? text : `${text.slice(0, max)}… (truncated)`;
 }
@@ -195,7 +221,7 @@ export function createLogger(options: LoggerOptions): Logger {
                 if (dropped > 0) {
                     append(
                         join(dir, FILE_BY_SCOPE.app),
-                        `${new Date(stamp).toISOString()} [${sessionId}] WARN  app: dropped ${dropped} lines (more than ${MAX_LINES_PER_SECOND}/s)`
+                        `${formatTimestamp(new Date(stamp))} [${sessionId}] WARN  app: dropped ${dropped} lines (more than ${MAX_LINES_PER_SECOND}/s)`
                     );
                     dropped = 0;
                 }
@@ -210,7 +236,7 @@ export function createLogger(options: LoggerOptions): Logger {
         }
 
         const suffix = repeats > 0 ? ` (repeated ${repeats} times)` : '';
-        const header = `${new Date(stamp).toISOString()} [${sessionId}] ${level
+        const header = `${formatTimestamp(new Date(stamp))} [${sessionId}] ${level
             .toUpperCase()
             .padEnd(5)} ${scope}: ${clip(message, MAX_TEXT)}${suffix}`;
         const detailText = describeDetail(detail);

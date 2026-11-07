@@ -13,11 +13,17 @@ interface Props {
     chosenId: string | undefined;
     boards: RootState['kanban']['boards'];
     setId: (id?: string) => any;
+    /** The mask mounts a second copy of this control; keep the DOM ids unique. */
+    id?: string;
+    /** Called after a pick, so the mask can go back to the name heading. */
+    onSelected?: (id?: string) => void;
 }
 
 const FocusSelectorInner: FunctionComponent<Props> = (props: Props) => {
     const onChange = (value: string) => {
-        props.setId(value || undefined);
+        const id = value || undefined;
+        props.setId(id);
+        props.onSelected?.(id);
     };
 
     // Sort boards by creation time in descending order so the newest project
@@ -58,7 +64,7 @@ const FocusSelectorInner: FunctionComponent<Props> = (props: Props) => {
                 style={style}
                 placeholder={t('timer.focusSelector.placeholder')}
                 onChange={onChange}
-                id="focus-selector"
+                id={props.id ?? 'focus-selector'}
             >
                 {options}
                 <Option

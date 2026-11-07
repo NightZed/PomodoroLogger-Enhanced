@@ -1,13 +1,12 @@
-import { Button, ConfigProvider, Listy, Popover, Row } from 'antd';
-import { actions, LONG_BREAK_INTERVAL } from './action';
+import { Button, ConfigProvider, Row } from 'antd';
+import { LONG_BREAK_INTERVAL } from './action';
+import { FocusSelector } from './FocusSelector';
 import { PomodoroNumView } from './PomodoroNumView';
 import React from 'react';
 import styled from 'styled-components';
 import { connect } from 'react-redux';
 import { RootState } from '../../reducers';
-import { KanbanBoardState } from '../Kanban/Board/action';
-import { KanbanBoard } from '../Kanban/type';
-import { Dispatch } from 'redux';
+import type { KanbanBoardState } from '../Kanban/Board/action';
 import { PomodoroRecord } from '../../monitor/type';
 import { NIGHT_THEME_ID } from '../../theme/tokens';
 import { t } from '../../i18n';
@@ -70,21 +69,22 @@ const ProjectName = styled.h1<{ $compact: boolean }>`
     }
 `;
 
+/** The project selector sits on one line with its acknowledgement button. */
+const PickerRow = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    margin-bottom: 1em;
+`;
+
 const PomodoroSummary = styled.div`
     display: flex;
     flex-direction: column;
     align-items: center;
     width: 100%;
     margin-top: 2em;
-`;
-
-const ListItem = styled.span`
-    cursor: pointer;
-    color: #0074d9;
-    transition: color 0.3s;
-    &:hover {
-        color: #000088;
-    }
 `;
 
 export interface InputProps {
@@ -97,7 +97,6 @@ export interface InputProps {
 }
 
 export interface MaskProps extends InputProps {
-    setBoard: any;
     isFocusing: boolean;
     boardId?: string;
     boards: KanbanBoardState;
@@ -107,52 +106,31 @@ export interface MaskProps extends InputProps {
 }
 
 const TimerMaskInner = (props: MaskProps) => {
-    const { boards = [], setBoard = () => {}, extendCurrentSession } = props;
-    // The session is credited to the project it was started with. A session that
-    // ran without one is saved as unattributed.
-    const shownProjectId = props.boardId;
-    // Pass board objects (not their names) so the click handler can dispatch
-    // the board `_id`. `timer.boardId` must always be a `_id` — `Timer` looks
-    // it up in `kanban.boards` when rendering.
-    // antd v6: List is removed in favor of Listy (`dataSource` -> `items`,
-    // `renderItem` -> `itemRender`; `List.Item` is gone, the item wrapper is
-    // rendered by Listy itself). The old small + bordered look is reproduced
-    // with Listy's semantic styles.
-    // The mask re-renders with every timer update, but the project list only
-    // changes when boards change. Rebuilding the Listy element on every tick
-    // does not mount it while the Popover is closed, but keep it stable so
-    // opening the popover only has to show the already-built tree.
-    const content = React.useMemo(() => {
-        if (!boards.length) {
-            return undefined;
+    const { extendCurrentSession } = props;
+    /**
+     * A focus session that ran without a project cannot be dismissed by clicking
+     * the background: one stray click would credit it to nobody with no way
+     * back. Picking a project ends that state by itself (the mask then shows the
+     * chosen name), and Confirm covers the case where the user leaves it empty.
+     */
+    const needsProject = props.isFocusing && props.boardId === undefined;
+    const [acknowledged, setAcknowledged] = React.useState(false);
+    // The big project name stays the default state; clicking it swaps in the
+    // selector again so a wrong pick can be corrected.
+    const [editing, setEditing] = React.useState(false);
+    const locked = needsProject && !acknowledged;
+    const showPicker = needsProject || editing;
+    const wasShown = React.useRef(props.showMask);
+    React.useEffect(() => {
+        // Re-arm on every open. Changing `boardId` while the mask is up does not
+        // reset the acknowledgement: picking a project is what unlocks there,
+        // not the moment the selector changes.
+        if (props.showMask && !wasShown.current) {
+            setAcknowledged(false);
+            setEditing(false);
         }
-
-        const renderItem = (item: KanbanBoard) => {
-            const onClick = (event: React.MouseEvent) => {
-                setBoard(item._id);
-                event.stopPropagation();
-                event.preventDefault();
-            };
-            return <ListItem onClick={onClick}>{item.name}</ListItem>;
-        };
-
-        return (
-            <Listy
-                items={Object.values(boards)}
-                rowKey="_id"
-                itemRender={renderItem}
-                styles={{
-                    root: {
-                        border: '1px solid var(--pl-border, #d9d9d9)',
-                        borderRadius: 2,
-                    },
-                    item: {
-                        padding: '8px 16px',
-                    },
-                }}
-            />
-        );
-    }, [boards, setBoard]);
+        wasShown.current = props.showMask;
+    }, [props.showMask]);
 
     const onProjectClick = (event: React.MouseEvent) => {
         event.stopPropagation();
@@ -160,6 +138,21 @@ const TimerMaskInner = (props: MaskProps) => {
     const onStartClick = (event: React.MouseEvent) => {
         event.stopPropagation();
         props.onStart();
+    };
+
+    /** Releases the lock only; the session is saved by the next background click. */
+    const onConfirmClick = (event: React.MouseEvent) => {
+        event.stopPropagation();
+        setAcknowledged(true);
+    };
+
+    /** In edit mode the first background click puts the name heading back. */
+    const onBackgroundClick = () => {
+        if (editing) {
+            setEditing(false);
+            return;
+        }
+        props.onCancel();
     };
 
     const extend10 = React.useCallback(
@@ -181,18 +174,29 @@ const TimerMaskInner = (props: MaskProps) => {
         <Mask
             $nightTheme={props.nightTheme}
             style={{ display: props.showMask ? 'flex' : 'none' }}
-            onClick={props.onCancel}
+            onClick={locked ? undefined : onBackgroundClick}
         >
             <MaskInnerContainer $compact={props.compact}>
                 <Row onClick={onProjectClick} justify="center" style={{ width: '100%' }}>
                     {props.isFocusing ? (
-                        <Popover title={t('timer.session.projectName')} content={content}>
-                            <ProjectName $compact={props.compact}>
-                                {shownProjectId === undefined
-                                    ? undefined
-                                    : props.boards[shownProjectId]?.name}
+                        showPicker ? (
+                            <PickerRow>
+                                <FocusSelector
+                                    width={props.compact ? 200 : 240}
+                                    id="focus-selector-mask"
+                                    onSelected={() => setEditing(false)}
+                                />
+                                {locked ? (
+                                    <Button onClick={onConfirmClick}>
+                                        {t('timer.session.confirm')}
+                                    </Button>
+                                ) : undefined}
+                            </PickerRow>
+                        ) : (
+                            <ProjectName $compact={props.compact} onClick={() => setEditing(true)}>
+                                {props.boards[props.boardId!]?.name}
                             </ProjectName>
-                        </Popover>
+                        )
                     ) : (
                         <ProjectName $compact={props.compact}>
                             {t('timer.session.break')}
@@ -253,16 +257,11 @@ const TimerMaskInner = (props: MaskProps) => {
     );
 };
 
-export const TimerMask = connect(
-    (state: RootState, _props: InputProps) => ({
-        isFocusing: state.timer.isFocusing,
-        isLongBreak: !((state.timer.iBreak + 1) % LONG_BREAK_INTERVAL),
-        boardId: state.timer.boardId,
-        boards: state.kanban.boards,
-        compact: state.timer.compact,
-        nightTheme: state.timer.themeId === NIGHT_THEME_ID,
-    }),
-    (dispatch: Dispatch) => ({
-        setBoard: (_id?: string) => dispatch(actions.setBoardId(_id)),
-    })
-)(TimerMaskInner);
+export const TimerMask = connect((state: RootState, _props: InputProps) => ({
+    isFocusing: state.timer.isFocusing,
+    isLongBreak: !((state.timer.iBreak + 1) % LONG_BREAK_INTERVAL),
+    boardId: state.timer.boardId,
+    boards: state.kanban.boards,
+    compact: state.timer.compact,
+    nightTheme: state.timer.themeId === NIGHT_THEME_ID,
+}))(TimerMaskInner);

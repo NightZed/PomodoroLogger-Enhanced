@@ -171,6 +171,7 @@ export const en = {
         },
         session: {
             projectName: 'Project Name',
+            confirm: 'Confirm',
             break: 'Break',
             finished: 'Session Finished',
             todayPomodoros: 'Today Pomodoros',

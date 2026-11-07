@@ -153,6 +153,7 @@ export const zh: CatalogShape<typeof en> = {
         },
         session: {
             projectName: '项目名称',
+            confirm: '确定',
             break: '休息',
             finished: '会话结束',
             todayPomodoros: '今日番茄',

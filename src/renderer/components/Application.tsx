@@ -35,17 +35,25 @@ import { FeedbackContextBridge } from './feedback/Feedback';
 /**
  * Window layer stack, bottom to top, and the setting that sizes each layer:
  *
- * | layer              | element        | setting                  |
- * | ------------------ | -------------- | ------------------------ |
- * | window surfaces    | `Main::before` | `themeBackgroundOpacity` |
- * | wallpaper          | `Wallpaper`    | `wallpaperOpacity`       |
- * | content + overlays | `Content`      | `contentOpacity`         |
+ * | layer              | element                     | setting                  |
+ * | ------------------ | --------------------------- | ------------------------ |
+ * | window surfaces    | `Main::before` / `::after`  | `themeBackgroundOpacity` |
+ * | wallpaper          | `Wallpaper`                 | `wallpaperOpacity`       |
+ * | content + overlays | `Content`                   | `contentOpacity`         |
  *
- * `Main::before` paints the two window surfaces -- the elevated band behind the
- * tab bar, then the page -- as ONE layer split into two non overlapping bands.
- * The background opacity is therefore applied exactly once per band, and the
- * title bar differs from the page below it only in its base color. The wallpaper
- * sits above both bands, which is what keeps it visible through the title bar.
+ * `Main::before` paints the elevated band behind the tab bar, `Main::after` the
+ * page below it: two non overlapping solid bands, so the title bar differs from
+ * the page only in its base color. The wallpaper sits above both bands, which is
+ * what keeps it visible through the title bar.
+ *
+ * Neither band uses `color-mix()` (the obvious way to fold the background
+ * opacity into the color): on a window-sized surface it costs ~10 points of CPU
+ * on EVERY repaint, and a live window resize repaints the whole window once per
+ * frame -- measured 45% -> 33% of four cores on a 1440x960 window, with and
+ * without hardware acceleration, by replacing the `color-mix()` gradient with
+ * these bands. A plain `background-color` plus the element's own `opacity` is
+ * the same arithmetic (each band is opaque and the setting is applied exactly
+ * once, on that band only) and stays on the solid-fill fast path.
  *
  * The three settings are independent on purpose (a translucent background must
  * not dim the text, and vice versa) and each has exactly one output path: the
@@ -87,6 +95,8 @@ const HIDDEN_TAB_UNLOAD_DELAY = 30_000;
 interface StyledProps {
     $minimize: boolean;
     $compact: boolean;
+    /** The user is dragging a window edge; see the note on `border` below. */
+    $resizing: boolean;
 }
 
 const Main = styled.div<StyledProps>`
@@ -104,6 +114,23 @@ const Main = styled.div<StyledProps>`
     border-radius: var(--pl-window-radius);
     border: 1px solid var(--pl-border);
     box-sizing: border-box;
+
+    /* While the user drags an edge, both the radius and the border are dropped.
+       The pair costs an extra full-window composite pass on EVERY frame of the
+       resize: with software rendering (hardware acceleration off) at 3.33
+       megapixels one presented frame measured 9.2 ms / 55 quads with them and
+       6.4 ms / 35 quads without, while either one alone changed almost nothing.
+       A live resize asks for a frame about every 8 ms, so with the pass the
+       window cannot keep up and visibly trails the cursor at large sizes; it can
+       without it. The corners are square for the duration of the drag and come
+       back RESIZE_IDLE_MS (main, init.ts) after the last resize event. */
+    ${({ $resizing }) =>
+        $resizing
+            ? `
+                border-radius: 0;
+                border: 0;
+            `
+            : ''}
 
     /* overflow: hidden + border-radius above only clip descendants whose
        containing block runs through this element -- and position: fixed
@@ -123,33 +150,38 @@ const Main = styled.div<StyledProps>`
        the band and the bar can never disagree. */
     --pl-titlebar-height: ${({ $minimize, $compact }) =>
         titleBarBandHeight({ minimize: $minimize, compact: $compact })};
-    --pl-header-surface: color-mix(
-        in srgb,
-        var(--pl-bg-elevated) var(--pl-theme-bg-opacity),
-        transparent
-    );
-    --pl-body-surface: color-mix(in srgb, var(--pl-bg) var(--pl-theme-bg-opacity), transparent);
 
-    &::before {
+    /* The two window surfaces. Both are plain solid fills whose alpha is the
+       element's own opacity -- see the layer table above for why they must not
+       go through color-mix().
+
+       The bands do not overlap, so each one receives themeBackgroundOpacity
+       exactly once (a band painted on top of the other would apply it a second
+       time and the header would end up at 2t - t squared). Both sit below the
+       wallpaper, so a wallpaper keeps showing through the bar; the consequence
+       is that a fully opaque wallpaper hides both bands equally, leaving the 1px
+       border under the bar as the separator. */
+    &::before,
+    &::after {
         content: '';
         position: absolute;
-        inset: 0;
         z-index: 0;
         pointer-events: none;
-        /* Both window surfaces painted as ONE layer in two non overlapping
-           bands, so themeBackgroundOpacity is applied exactly once per band and
-           the title bar differs from the page below it only in its base color.
-           A separate band painted on top of this layer would apply the opacity
-           a second time there (the header used to end up at 2t - t squared).
-           The layer sits below the wallpaper, so the wallpaper keeps showing
-           through the bar. The consequence is that a fully opaque wallpaper
-           hides both bands equally, leaving the 1px border under the bar as the
-           separator. */
-        background-image: linear-gradient(
-            to bottom,
-            var(--pl-header-surface) 0 var(--pl-titlebar-height),
-            var(--pl-body-surface) var(--pl-titlebar-height) 100%
-        );
+        opacity: var(--pl-theme-bg-opacity);
+    }
+
+    /* The elevated band behind the tab bar / title bar. */
+    &::before {
+        inset: 0 0 auto 0;
+        height: var(--pl-titlebar-height);
+        background-color: var(--pl-bg-elevated);
+    }
+
+    /* The page surface below it. Mini mode has no bar, so the band collapses
+       and the whole window is page surface. */
+    &::after {
+        inset: var(--pl-titlebar-height) 0 0 0;
+        background-color: var(--pl-bg);
     }
 
     ${({ $minimize, $compact }) =>
@@ -234,6 +266,12 @@ interface State {
      * needed to learn about it.
      */
     hidden: boolean;
+    /**
+     * The user is dragging a window edge. Dropping the rounded border for the
+     * duration is worth a full-window composite pass per frame -- see the note
+     * on `border` in `Main`.
+     */
+    resizing: boolean;
 }
 
 class Application extends React.Component<Props, State> {
@@ -249,10 +287,14 @@ class Application extends React.Component<Props, State> {
     state: State = {
         maximized: false,
         hidden: document.visibilityState === 'hidden',
+        resizing: false,
     };
 
     /** Unsubscribe function returned by the preload event bridge. */
     private unsubscribeWindowMaximized?: () => void;
+
+    /** Same, for the live-resize flag (see `Main`'s border note). */
+    private unsubscribeWindowResizing?: () => void;
 
     /** Repaints the page-unload decisions when the window leaves/enters the tray. */
     private onVisibilityChange = () => {
@@ -277,6 +319,9 @@ class Application extends React.Component<Props, State> {
 
         this.unsubscribeWindowMaximized = window.api.onWindowMaximizedChanged((maximized) =>
             this.setState({ maximized })
+        );
+        this.unsubscribeWindowResizing = window.api.onWindowResizingChanged((resizing) =>
+            this.setState({ resizing })
         );
         // Pushed events only report changes, and the window keeps its state
         // across a renderer reload: read it once for the first paint, otherwise
@@ -372,6 +417,8 @@ class Application extends React.Component<Props, State> {
         document.removeEventListener('visibilitychange', this.onVisibilityChange);
         this.unsubscribeWindowMaximized?.();
         this.unsubscribeWindowMaximized = undefined;
+        this.unsubscribeWindowResizing?.();
+        this.unsubscribeWindowResizing = undefined;
     }
 
     render() {
@@ -401,7 +448,7 @@ class Application extends React.Component<Props, State> {
             // with the page instead of escaping to <body> (popupLayer.ts).
             // An explicit container/getContainer prop on any of them still
             // wins over this default.
-            <Main $minimize={minimize} $compact={compact}>
+            <Main $minimize={minimize} $compact={compact} $resizing={this.state.resizing}>
                 <Wallpaper $path={wallpaperDataUrl} $opacity={wallpaperOpacity} />
                 <Content $contentOpacity={contentOpacity}>
                     {/* Mount point of every antd overlay (dialogs, toasts,

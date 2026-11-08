@@ -141,6 +141,8 @@ const api: ExposedAPI = {
         subscribe(UpdateEventName.Error, listener),
     onWindowMaximizedChanged: (listener: (maximized: boolean) => void) =>
         subscribe(WindowEventName.MaximizedChanged, listener),
+    onWindowResizingChanged: (listener: (resizing: boolean) => void) =>
+        subscribe(WindowEventName.ResizingChanged, listener),
     onTrayAction: (listener: (key: TrayActionKey) => void) =>
         subscribe(TrayEventName.Action, listener),
 };

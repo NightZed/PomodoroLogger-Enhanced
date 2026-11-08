@@ -77,6 +77,7 @@ import { feedback } from './feedback';
 import ConnectedApplication from './Application';
 
 let windowMaximizedListener: ((maximized: boolean) => void) | undefined;
+let windowResizingListener: ((resizing: boolean) => void) | undefined;
 
 // The compact thunk resizes the real window through the preload bridge, and the
 // title bar asks for the window state on mount.
@@ -91,6 +92,10 @@ let windowMaximizedListener: ((maximized: boolean) => void) | undefined;
         windowMaximizedListener = listener;
         return jest.fn();
     }),
+    onWindowResizingChanged: jest.fn((listener: (resizing: boolean) => void) => {
+        windowResizingListener = listener;
+        return jest.fn();
+    }),
     windowAction: jest.fn(),
     windowDrag: jest.fn(),
     windowState: jest.fn().mockResolvedValue({ maximized: false }),
@@ -98,6 +103,9 @@ let windowMaximizedListener: ((maximized: boolean) => void) | undefined;
 
 /** Fires the pushed window-state event exactly like the preload bridge does. */
 const fireWindowMaximized = (maximized: boolean) => windowMaximizedListener?.(maximized);
+
+/** Same for the live-resize flag. */
+const fireWindowResizing = (resizing: boolean) => windowResizingListener?.(resizing);
 
 /**
  * jsdom has no window manager, so fake the visibility Chromium reports once the
@@ -145,6 +153,23 @@ describe('Application page switching', () => {
     let store: Store<RootState>;
 
     const state = () => store.getState()!.timer;
+
+    /**
+     * The generated CSS that belongs to `Main` (styled-components splits its
+     * output into one <style> per component, so the rules are matched by class
+     * name). ConfigProvider renders no DOM of its own, so `Main` is the first
+     * element Application puts into the container.
+     */
+    const mainCss = () => {
+        const main = container.firstElementChild as HTMLElement;
+        expect(main).not.toBeNull();
+
+        const classes = Array.from(main.classList);
+        return Array.from(document.querySelectorAll('style[data-styled]'))
+            .map((style) => style.textContent || '')
+            .filter((text) => classes.some((cls) => text.includes(`.${cls}`)))
+            .join('\n');
+    };
 
     beforeEach(() => {
         jest.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
@@ -348,18 +373,44 @@ describe('Application page switching', () => {
     // every portal mounted inside it back under the rounded clip -- and the
     // radius travels as one CSS variable so nothing has to copy the number.
     it('keeps fixed portals under the rounded clip of Main', () => {
-        // ConfigProvider renders no DOM of its own, so Main is the first
-        // element Application puts into the container.
-        const main = container.firstElementChild as HTMLElement;
-        expect(main).not.toBeNull();
-
-        const classes = Array.from(main.classList);
-        const css = Array.from(document.querySelectorAll('style[data-styled]'))
-            .map((style) => style.textContent || '')
-            .filter((text) => classes.some((cls) => text.includes(`.${cls}`)))
-            .join('\n');
-
+        const css = mainCss();
         expect(css).toContain('translateZ(0)');
         expect(css).toContain('var(--pl-window-radius)');
+    });
+
+    // A live window resize repaints the whole window once per frame, and
+    // `color-mix()` on a window-sized surface costs ~10 points of CPU on every
+    // one of those repaints (measured 45% -> 33% of four cores by replacing the
+    // `color-mix()` gradient with solid bands). The background opacity is
+    // carried by the band's own `opacity` instead: same arithmetic, and the fill
+    // stays on the solid-color fast path. See the layer table in Application.tsx.
+    it('draws the window surfaces as solid bands, never as a color-mix gradient', () => {
+        const css = mainCss();
+        expect(css).not.toContain('color-mix');
+        expect(css).not.toContain('linear-gradient');
+        expect(css).toContain('background-color:var(--pl-bg-elevated)');
+        expect(css).toContain('background-color:var(--pl-bg)');
+        expect(css).toContain('opacity:var(--pl-theme-bg-opacity)');
+    });
+
+    // A rounded 1px frame on the clipping container costs an extra full-window
+    // composite pass per frame, which is what makes a large window trail the
+    // cursor during a drag with hardware acceleration off (9.2 ms vs 6.4 ms per
+    // frame at 3.33 Mpx). The corners are therefore square while the user drags.
+    it('squares off the window border while an edge is being dragged', () => {
+        expect(mainCss()).toContain('border-radius:var(--pl-window-radius)');
+        expect(mainCss()).toContain('border:1px solid var(--pl-border)');
+
+        act(() => {
+            fireWindowResizing(true);
+        });
+        const during = mainCss();
+        expect(during).toContain('border-radius:0');
+        expect(during).toContain('border:0');
+
+        act(() => {
+            fireWindowResizing(false);
+        });
+        expect(mainCss()).toContain('border-radius:var(--pl-window-radius)');
     });
 });

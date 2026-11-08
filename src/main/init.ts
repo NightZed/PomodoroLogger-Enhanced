@@ -190,6 +190,62 @@ function notifyWindowState(): void {
 let windowDiagnosticsInstalled = false;
 
 /**
+ * How long the window counts as "still being resized" after the last `resize`
+ * event. Long enough to bridge the gaps between the WM_SIZE messages of one
+ * drag, short enough that the rounded border is back before the user looks at
+ * the window again.
+ */
+const RESIZE_IDLE_MS = 120;
+
+/** The renderer has been told `resizing = true` and not yet `false`. */
+let resizeNotified = false;
+let resizeIdleTimer: NodeJS.Timeout | undefined;
+
+/**
+ * Tells the renderer to drop the window's rounded border while the user drags
+ * an edge.
+ *
+ * A rounded 1px frame on the element that clips the whole application costs an
+ * extra full-window composite pass per frame: measured with software rendering
+ * (hardware acceleration off) at 3.33 megapixels, one presented frame went from
+ * 9.2 ms to 6.4 ms and from 55 to 35 quads when the border radius and the border
+ * were dropped. A live resize asks for a frame every ~8 ms, so the window cannot
+ * keep up at large sizes and visibly trails the cursor; without the extra pass it
+ * does.
+ *
+ * `resize` is the trigger, not `will-resize`: the latter only fires for a resize
+ * the user performs, which would leave the flag depending on two event sources
+ * staying in sync -- and cannot be exercised by a scripted `MoveWindow`, so the
+ * whole path would be unverifiable. The cost of using `resize` is that switching
+ * to mini/compact mode or maximizing also squares the corners for
+ * RESIZE_IDLE_MS; in mini mode the window is a 200x90 strip whose own content is
+ * rounded anyway, and the other two happen during a window animation, so none of
+ * them is visible.
+ */
+function notifyResizing(): void {
+    if (!win || win.isDestroyed()) {
+        return;
+    }
+
+    if (!resizeNotified) {
+        resizeNotified = true;
+        win.webContents.send(WindowEventName.ResizingChanged, true);
+    }
+
+    if (resizeIdleTimer) {
+        clearTimeout(resizeIdleTimer);
+    }
+
+    resizeIdleTimer = setTimeout(() => {
+        resizeIdleTimer = undefined;
+        resizeNotified = false;
+        if (win && !win.isDestroyed()) {
+            win.webContents.send(WindowEventName.ResizingChanged, false);
+        }
+    }, RESIZE_IDLE_MS);
+}
+
+/**
  * Failures that happen before any JavaScript can react: a page that never
  * loaded, a preload script that threw, a renderer that stopped answering or
  * died (OOM, GPU/sandbox crash, native fault). The renderer cannot report any
@@ -447,6 +503,9 @@ const createWindow = async () => {
     win.on('unmaximize', notifyWindowState);
     win.on('restore', notifyWindowState);
     win.on('resize', notifyWindowState);
+    // Same event as the caption-state notification above, different consumer:
+    // the renderer squares off its corners while the window is being resized.
+    win.on('resize', notifyResizing);
 
     // A drag that outlives the window's focus (alt+tab in the middle of the
     // gesture) must not keep the window glued to the cursor. The renderer

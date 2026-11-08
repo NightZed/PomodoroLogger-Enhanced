@@ -94,6 +94,14 @@ export enum UpdateEventName {
  */
 export enum WindowEventName {
     MaximizedChanged = 'window-maximized-changed',
+    /**
+     * The user is dragging an edge (true) or stopped more than
+     * `RESIZE_IDLE_MS` ago (false). Pushed, not polled: the renderer switches
+     * the window's rounded border off for the duration, because a rounded 1px
+     * frame on the clipping container costs an extra full-window composite pass
+     * on every frame of a live resize (see `Main` in Application.tsx).
+     */
+    ResizingChanged = 'window-resizing-changed',
 }
 
 /**
@@ -298,6 +306,7 @@ export type ExposedAPI = {
     onUpdateDownloaded(listener: () => void): () => void;
     onUpdateError(listener: (payload: UpdateErrorPayload) => void): () => void;
     onWindowMaximizedChanged(listener: (maximized: boolean) => void): () => void;
+    onWindowResizingChanged(listener: (resizing: boolean) => void): () => void;
     onTrayAction(listener: (key: TrayActionKey) => void): () => void;
 };
 

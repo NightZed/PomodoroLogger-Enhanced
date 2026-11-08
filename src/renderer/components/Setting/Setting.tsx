@@ -12,7 +12,9 @@ import type { ExportResult, ImportResult, UpdateErrorPayload } from '../../../ma
 import { refreshDbs } from '../../dbs';
 import { BUILTIN_THEMES, ThemeDefinition } from '../../theme/tokens';
 import SettingNav from './SettingNav';
+import PreviewSlider from './PreviewSlider';
 import { DEFAULT_SECTION, SectionId, SHORTCUTS } from './sections';
+import { useSliderChange } from './useSliderChange';
 import { isScreenshotAvailable } from '../../screenshotSupport';
 import { t, useI18n } from '../../i18n';
 import type { LanguagePreference, PlainMessageKey } from '../../../shared/i18n';
@@ -396,6 +398,9 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             followSystemTheme,
             setAutoUpdate,
             setCalendarBaseColor,
+            setContentOpacity,
+            setThemeBackgroundOpacity,
+            setWallpaperOpacity,
             setFocusDuration,
             setFollowSystemTheme,
             setLongBreakDuration,
@@ -469,6 +474,36 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
         // setting is left alone, so a longer one applies again once the focus
         // duration allows it.
         const minFinishMaxMinutes = Math.max(1, Math.floor(props.focusDuration / 60));
+
+        const onChangeContentOpacity = React.useCallback(
+            (v: number) => {
+                setContentOpacity(v / 100);
+            },
+            [setContentOpacity]
+        );
+
+        const onChangeThemeBackgroundOpacity = React.useCallback(
+            (v: number) => {
+                setThemeBackgroundOpacity(v / 100);
+            },
+            [setThemeBackgroundOpacity]
+        );
+
+        const onChangeWallpaperOpacity = React.useCallback(
+            (v: number) => {
+                setWallpaperOpacity(v / 100);
+            },
+            [setWallpaperOpacity]
+        );
+
+        // Dragging reports a value per pointer event, far more often than a
+        // screen can show one: these fold that burst into one change per frame
+        // (see `useSliderChange`). Only the value travels this way -- what each
+        // slider *saves* is decided in its action. The durations do not need
+        // this at all: they are committed once per drag by `PreviewSlider`.
+        const [queueContentOpacityChange] = useSliderChange(onChangeContentOpacity);
+        const [queueThemeBackgroundOpacityChange] = useSliderChange(onChangeThemeBackgroundOpacity);
+        const [queueWallpaperOpacityChange] = useSliderChange(onChangeWallpaperOpacity);
 
         const switchScreenshot = React.useCallback(
             (v: boolean) => {
@@ -844,13 +879,13 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             <Field>
                                 <h4>{t('settings.timer.focusDuration')}</h4>
                                 <SliderContainer>
-                                    <Slider
+                                    <PreviewSlider
                                         marks={marks}
                                         step={1}
                                         min={process.env.NODE_ENV === 'production' ? 20 : 2}
                                         max={60}
                                         value={props.focusDuration / 60}
-                                        onChange={onChangeFocus}
+                                        onCommit={onChangeFocus}
                                     />
                                 </SliderContainer>
                             </Field>
@@ -858,13 +893,13 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             <Field>
                                 <h4>{t('settings.timer.shortBreak')}</h4>
                                 <SliderContainer>
-                                    <Slider
+                                    <PreviewSlider
                                         marks={restMarks}
                                         step={1}
                                         min={1}
                                         max={20}
                                         value={props.restDuration / 60}
-                                        onChange={onChangeRest}
+                                        onCommit={onChangeRest}
                                     />
                                 </SliderContainer>
                             </Field>
@@ -872,13 +907,13 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             <Field>
                                 <h4>{t('settings.timer.longBreak')}</h4>
                                 <SliderContainer>
-                                    <Slider
+                                    <PreviewSlider
                                         marks={longBreakMarks}
                                         step={1}
                                         min={1}
                                         max={40}
                                         value={props.longBreakDuration / 60}
-                                        onChange={onChangeLongBreak}
+                                        onCommit={onChangeLongBreak}
                                     />
                                 </SliderContainer>
                             </Field>
@@ -887,7 +922,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                 <h4>{t('settings.timer.minFinish')}</h4>
                                 <Hint>{t('settings.timer.minFinishHint')}</Hint>
                                 <SliderContainer>
-                                    <Slider
+                                    <PreviewSlider
                                         marks={minFinishMarks(minFinishMaxMinutes)}
                                         step={1}
                                         min={0}
@@ -896,7 +931,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                             Math.min(props.minFinishDuration, props.focusDuration) /
                                             60
                                         }
-                                        onChange={onChangeMinFinish}
+                                        onCommit={onChangeMinFinish}
                                     />
                                 </SliderContainer>
                             </Field>
@@ -975,11 +1010,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                         max={100}
                                         step={5}
                                         value={Math.round(props.contentOpacity * 100)}
-                                        onChange={(value) => {
-                                            if (typeof value === 'number') {
-                                                props.setContentOpacity(value / 100);
-                                            }
-                                        }}
+                                        onChange={queueContentOpacityChange}
                                     />
                                 </SliderContainer>
                             </Field>
@@ -994,11 +1025,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                         max={100}
                                         step={5}
                                         value={Math.round(props.themeBackgroundOpacity * 100)}
-                                        onChange={(value) => {
-                                            if (typeof value === 'number') {
-                                                props.setThemeBackgroundOpacity(value / 100);
-                                            }
-                                        }}
+                                        onChange={queueThemeBackgroundOpacityChange}
                                     />
                                 </SliderContainer>
                             </Field>
@@ -1028,11 +1055,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                         max={100}
                                         step={5}
                                         value={Math.round(props.wallpaperOpacity * 100)}
-                                        onChange={(value) => {
-                                            if (typeof value === 'number') {
-                                                props.setWallpaperOpacity(value / 100);
-                                            }
-                                        }}
+                                        onChange={queueWallpaperOpacityChange}
                                     />
                                 </SliderContainer>
                             </Field>

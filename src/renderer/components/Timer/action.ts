@@ -19,10 +19,12 @@ const settingDB = new AsyncDB(dbs.settingDB);
 /**
  * Pending writes of the drag-driven settings, keyed by setting name.
  *
- * The opacity sliders dispatch on every `onChange`, i.e. dozens of times while
- * a thumb is being dragged, and each dispatch would otherwise be its own
- * SQLite write. Writes are debounced per key, so dragging one slider never
- * cancels the pending write of another one.
+ * Every slider of the settings page dispatches on each change (folded to once
+ * per frame by `useSliderChange`); persisting each one would still be dozens of
+ * writes for a single drag, and the settings repository rewrites the whole
+ * table on every update -- one commit and one fsync per pointer event. Writes
+ * are debounced per key, so dragging one slider never cancels the pending write
+ * of another one.
  */
 const pendingSettingWrites: { [name: string]: ReturnType<typeof setTimeout> } = {};
 
@@ -392,9 +394,16 @@ export const actions = {
             { upsert: true }
         );
     },
-    setFocusDuration: (focusDuration: number) => async (dispatch: Dispatch) => {
+    /**
+     * The four durations and the three opacities are slider settings: the value
+     * is held in the store immediately (the page and the timer read it from
+     * there) while the write waits for the drag to settle, exactly like the
+     * opacities below. Everything else is a one-shot change and is written
+     * straight away.
+     */
+    setFocusDuration: (focusDuration: number) => (dispatch: Dispatch) => {
         dispatch(setFocusDuration(focusDuration));
-        await settingDB.update({ name: 'setting' }, { $set: { focusDuration } }, { upsert: true });
+        persistSettingWithDebounce('focusDuration', focusDuration);
     },
     setMinimize: (mini: boolean) => async (dispatch: Dispatch) => {
         dispatch(setMinimize(mini));
@@ -453,25 +462,17 @@ export const actions = {
             { upsert: true }
         );
     },
-    setRestDuration: (restDuration: number) => async (dispatch: Dispatch) => {
+    setRestDuration: (restDuration: number) => (dispatch: Dispatch) => {
         dispatch(setRestDuration(restDuration));
-        await settingDB.update({ name: 'setting' }, { $set: { restDuration } }, { upsert: true });
+        persistSettingWithDebounce('restDuration', restDuration);
     },
-    setLongBreakDuration: (longBreakDuration: number) => async (dispatch: Dispatch) => {
+    setLongBreakDuration: (longBreakDuration: number) => (dispatch: Dispatch) => {
         dispatch(setLongBreakDuration(longBreakDuration));
-        await settingDB.update(
-            { name: 'setting' },
-            { $set: { longBreakDuration } },
-            { upsert: true }
-        );
+        persistSettingWithDebounce('longBreakDuration', longBreakDuration);
     },
-    setMinFinishDuration: (minFinishDuration: number) => async (dispatch: Dispatch) => {
+    setMinFinishDuration: (minFinishDuration: number) => (dispatch: Dispatch) => {
         dispatch(setMinFinishDuration(minFinishDuration));
-        await settingDB.update(
-            { name: 'setting' },
-            { $set: { minFinishDuration } },
-            { upsert: true }
-        );
+        persistSettingWithDebounce('minFinishDuration', minFinishDuration);
     },
     setStartOnBoot: (check: boolean) => async (dispatch: Dispatch) => {
         dispatch(setStartOnBoot(check));

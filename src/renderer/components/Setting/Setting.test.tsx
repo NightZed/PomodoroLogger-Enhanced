@@ -18,7 +18,7 @@
  * exercise end to end through the real component.
  */
 import * as React from 'react';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 const mockAlert = jest.fn();
 const mockToast = jest.fn();
@@ -84,18 +84,23 @@ jest.mock('../../dbs', () => ({
 
 // The three slider tests care about the values Setting hands to antd, not the
 // pointer geometry of the real slider. A native range input exposes value/min/
-// max and calls the same onChange with a number.
+// max and calls the same onChange with a number; the real slider announces the
+// end of a drag separately, so the input reports both (see PreviewSlider).
 jest.mock('antd', () => {
     const React = require('react');
     const actual = jest.requireActual('antd');
-    const Slider = ({ value, min, max, onChange }: any) =>
+    const Slider = ({ value, min, max, onChange, onChangeComplete }: any) =>
         React.createElement('input', {
             type: 'range',
             'data-testid': 'slider',
             value,
             min,
             max,
-            onChange: (event: any) => onChange?.(Number(event.target.value)),
+            onChange: (event: any) => {
+                const next = Number(event.target.value);
+                onChange?.(next);
+                onChangeComplete?.(next);
+            },
         });
     return { ...actual, Slider };
 });
@@ -242,7 +247,10 @@ describe('minimum focus time before Finish', () => {
         const sliders = screen.getAllByTestId('slider') as HTMLInputElement[];
         expect(sliders.length).toBe(4);
         fireEvent.change(sliders[3], { target: { value: '5' } });
-        expect(p.setMinFinishDuration).toHaveBeenCalledWith(5 * 60);
+        // The page folds slider events into one change per frame (see
+        // `useSliderChange`), so the value is applied on the next frame rather
+        // than inside the event.
+        await waitFor(() => expect(p.setMinFinishDuration).toHaveBeenCalledWith(5 * 60));
     });
 
     it('offers up to the focus duration, so a 50 minute session allows a 40 minute minimum', async () => {

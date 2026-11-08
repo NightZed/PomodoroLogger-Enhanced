@@ -20,6 +20,7 @@ import { generateRandomName } from '../../utils';
 import { getAllSession } from '../../monitor/sessionManager';
 import { DEBUG_TIME_SCALE, scaleMs, timeScale } from '../../../config';
 import { PomodoroRecord } from '../../monitor/type';
+import dbs from '../../dbs';
 import { Dispatch } from 'redux';
 
 describe('Reducer', () => {
@@ -186,6 +187,10 @@ describe('Reducer', () => {
 
         const oldState = Object.assign(state, {});
         state = defaultState;
+        // The four durations persist on a debounce (see
+        // `persistSettingWithDebounce`), so the tail of the drag above is still
+        // pending here: wait it out before reading the settings back.
+        await new Promise((resolve) => setTimeout(resolve, 400));
         await actions.fetchSettings()(dispatch);
         const settings = [
             'focusDuration',
@@ -201,6 +206,33 @@ describe('Reducer', () => {
             // @ts-ignore
             expect(state[setting]).toEqual(oldState[setting]);
         }
+    });
+
+    it('writes a dragged duration slider once, after the drag has settled', async () => {
+        let state: TimerState = { ...defaultState };
+        const dispatch = ((action: any) => {
+            state = reducer(state, action);
+        }) as unknown as Dispatch;
+        const stored = async () =>
+            (await dbs.settingDB.findOne({ name: 'setting' }))?.focusDuration;
+        const before = await stored();
+
+        // What one drag sends: a value per frame, all inside the debounce
+        // window. Each of these used to be its own commit -- the settings
+        // repository rewrites the whole table on every update, so the write is
+        // a transaction plus an fsync, per pointer event.
+        for (let minutes = 20; minutes <= 40; minutes++) {
+            actions.setFocusDuration(minutes * 60)(dispatch);
+        }
+
+        // The page follows at once (the timer reads the store)...
+        expect(state.focusDuration).toBe(40 * 60);
+        // ...the table still holds the previous value...
+        expect(await stored()).toBe(before);
+
+        // ...and is written once the thumb has come to rest.
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        expect(await stored()).toBe(40 * 60);
     });
 
     it('ignores a stored screenshot interval in a packaged build', async () => {

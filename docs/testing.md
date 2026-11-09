@@ -1,14 +1,14 @@
 # 测试编写规范
 
-流程看 `/tdd` skill：红绿循环、seam 的约定、垂直切片、实现耦合与同义反复的识别，那里已经写全了。
-本文只写本仓库的判据和事实——哪些结构可以测、mock 停在哪、时钟怎么处理、覆盖率怎么用。
+红绿循环、seam、垂直切片属于通用方法论，本文不复述，装了 `/tdd` skill 可以直接对照。
+本文是仓库内的规范，不依赖任何 skill 才能读，只写本仓库的判据和事实——哪些结构可以测、mock 停在哪、时钟怎么处理、覆盖率怎么用。
 
 ## 判据
 
 保持外部可观察行为不变、把实现重写一遍，测试应当仍然通过。
 它挂了，就说明它钉在了实现上。
 
-通用版本见 `/tdd` 的 *What a good test is*。
+`/tdd` 的 *What a good test is* 是同类判据的完整版本，装了可对照。
 这里只补本仓库的三类产物算不算行为：
 
 | 算行为——要测 | 不算 |
@@ -53,7 +53,7 @@
 `test/dbBridge.ts` 用主进程真实的内存 repository 实现 `window.api.dbRequest`，所以 `src/renderer/components/Kanban/Board/action.test.ts:53` 断言的是落库的那一行，而不是 repository mock 的调用次数。
 行是行为，次数是实现。
 
-这里和 `/tdd` 的 `tests.md` 有一处表述差异，需要分清：它把「查数据库验证」列为反模式，说的是**接口有返回值**时还绕开它（那个例子里 `createUser` 返回了 `user.id`）。
+`/tdd` 的 `tests.md` 会把「查数据库验证」列为反模式；若装了它，注意下面的区别：它说的是**接口有返回值**时还绕开接口（那个例子里 `createUser` 返回了 `user.id`）。
 本仓库的 `actions.moveList(id, 0, 2)(dispatch)` 是 thunk，不返回任何东西，落库的行就是它的产出；测试同时比对 `newDoc` 与 reducer 的 `state[_id]`，两个可观察点互相印证，不是侧信道。
 
 ## 时钟与环境

@@ -199,7 +199,7 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
   `test/setup-env.js` 钉住 `NODE_ENV=test`，并为 antd polyfill `matchMedia`/`MessageChannel`/`ResizeObserver`。
 - `test/` 里的 `setupFilesAfterEnv` 装配提供了 DB 桥接、React act 环境、jsdom 兼容和 console 拦截——新测试自动获得这些。
 - `posttest` 删除 `.local/test`；action 测试跑的是真实 SQLite 事务，所以优先断言 repository 层的结果而不是 mock。
-- 流程（红绿循环、seam、垂直切片）见 `/tdd` skill；本仓库的判据（哪些契约可测、mock 停在哪、时钟与隔离、覆盖率）见 `docs/testing.md`。
+- 流程（红绿循环、seam、垂直切片）可参考 `/tdd` skill（已随仓库提供）；本仓库的判据（哪些契约可测、mock 停在哪、时钟与隔离、覆盖率）见 `docs/testing.md`。
 
 ## 约定
 

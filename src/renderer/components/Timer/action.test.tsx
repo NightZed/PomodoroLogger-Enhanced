@@ -141,9 +141,7 @@ describe('Reducer', () => {
         let state: TimerState = Object.assign(defaultState, {});
         // @ts-ignore
         const dispatch: Dispatch = (action: any) => {
-            try {
-                state = reducer(state, action);
-            } catch (e) {}
+            state = reducer(state, action);
         };
 
         await actions.switchToKanban('n_id')(dispatch);

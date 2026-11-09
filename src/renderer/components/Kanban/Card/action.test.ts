@@ -200,9 +200,7 @@ describe("Cards' actions", () => {
         let state: CardsState = {};
         // @ts-ignore
         const dispatch: Dispatch = (action: any) => {
-            try {
-                state = cardReducer(state, action);
-            } catch (e) {}
+            state = cardReducer(state, action);
         };
 
         await actions.addCard(_id, 'list', '0')(dispatch);
@@ -258,9 +256,7 @@ describe("Cards' actions", () => {
         let state: CardsState = {};
         // @ts-ignore
         const dispatch: Dispatch = (action: any) => {
-            try {
-                state = cardReducer(state, action);
-            } catch (e) {}
+            state = cardReducer(state, action);
         };
 
         await actions.addCard(_id, 'list', '0')(dispatch);

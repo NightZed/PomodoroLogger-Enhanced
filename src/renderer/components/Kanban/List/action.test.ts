@@ -177,9 +177,7 @@ describe('listReducer', () => {
 
         // @ts-ignore
         const dispatch: Dispatch = (action: any) => {
-            try {
-                state = listReducer(state, action);
-            } catch (e) {}
+            state = listReducer(state, action);
         };
 
         const [_id0, _id1] = await moveCardSetup(dispatch);
@@ -219,9 +217,7 @@ describe('listReducer', () => {
                 }
             }
 
-            try {
-                state = listReducer(state, action);
-            } catch (e) {}
+            state = listReducer(state, action);
         };
 
         const [_id0, _id1] = await moveCardSetup(dispatch);
@@ -244,9 +240,7 @@ describe('listReducer', () => {
         // the lists from the state
         let state: ListsState = {};
         const dispatch: any = (action: any) => {
-            try {
-                state = listReducer(state, action);
-            } catch (e) {}
+            state = listReducer(state, action);
         };
 
         await actions.addList(todoId, todoId)(dispatch);

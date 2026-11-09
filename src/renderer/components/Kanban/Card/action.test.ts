@@ -21,7 +21,7 @@ describe("Cards' actions", () => {
         await db.remove({}, { multi: true });
     });
 
-    it('add card', async () => {
+    it('creates a card', async () => {
         const _id = uid();
         const dispatch = jest.fn();
         await actions.addCard(_id, '', 'abc')(dispatch);
@@ -40,7 +40,7 @@ describe("Cards' actions", () => {
         expect(card.title).toBe('abc');
     });
 
-    it('remove card', async () => {
+    it('removes a card', async () => {
         const _id = uid();
         const dispatch = jest.fn();
         await actions.addCard(_id, '', 'abc', '')(dispatch);
@@ -56,7 +56,7 @@ describe("Cards' actions", () => {
         expect(card).toBeFalsy();
     });
 
-    it('rename card', async () => {
+    it('renames a card', async () => {
         const _id = uid();
         const _d = jest.fn();
         const dispatch = jest.fn();
@@ -108,7 +108,7 @@ describe("Cards' actions", () => {
         expect(actual).toEqual(expected);
     }
 
-    it('fetch cards from local db', async () => {
+    it('loads cards from the database', async () => {
         const _d = jest.fn();
         const dispatch = jest.fn();
         await actions.addCard('a', 'a', 'abc', '')(_d);
@@ -160,7 +160,7 @@ describe("Cards' actions", () => {
         );
     });
 
-    it('set labels', async () => {
+    it('sets labels on a card', async () => {
         const _id = uid();
         const _d = jest.fn();
         const dispatch = jest.fn();
@@ -195,7 +195,7 @@ describe("Cards' actions", () => {
         expect(card.labels).toStrictEqual([]);
     });
 
-    it('should update', async () => {
+    it('applies add, field edits, labels and delete to the card state', async () => {
         const _id = uid();
         let state: CardsState = {};
         // @ts-ignore

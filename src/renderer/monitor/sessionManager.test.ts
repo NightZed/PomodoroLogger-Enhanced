@@ -39,7 +39,7 @@ describe('sessionManager', () => {
         expect(ans).toBeUndefined();
     });
 
-    it('should rename illegal names', () => {
+    it('strips dots from app and title keys', () => {
         const record = createRecord('123', 123, [
             ['abc.exe', 123],
             ['abd.exe', 123],

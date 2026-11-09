@@ -24,7 +24,7 @@ import dbs from '../../dbs';
 import { Dispatch } from 'redux';
 
 describe('Reducer', () => {
-    it('has default state', () => {
+    it('starts from the default timer state', () => {
         const state = reducer(undefined, pauseTimer());
         expect(state).toHaveProperty('targetTime');
         expect(state).toHaveProperty('focusDuration');
@@ -41,7 +41,7 @@ describe('Reducer', () => {
         expect(state.sessionEnding).toBe(false);
     });
 
-    it('works when applying start_timer, stop_timer', () => {
+    it('applies start and stop to the clock', () => {
         let state = reducer(undefined, startTimer());
         expect(state.isRunning).toBeTruthy();
         state = reducer(state, pauseTimer());
@@ -100,7 +100,7 @@ describe('Reducer', () => {
         }
     });
 
-    it('works with user config setting', () => {
+    it('applies focus and rest duration settings', () => {
         let state = reducer(undefined, setFocusDuration(100));
         expect(state.focusDuration).toBe(100);
         state = reducer(state, setRestDuration(123));
@@ -137,7 +137,7 @@ describe('Reducer', () => {
         expect(state.iBreak).toBe(3);
     });
 
-    it('should update', async () => {
+    it('applies navigation and setting actions to the timer state', async () => {
         let state: TimerState = Object.assign(defaultState, {});
         // @ts-ignore
         const dispatch: Dispatch = (action: any) => {

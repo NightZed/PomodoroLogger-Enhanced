@@ -172,7 +172,7 @@ describe('listActions', () => {
 });
 
 describe('listReducer', () => {
-    it('should move item', async () => {
+    it('moves a card, deletes a card and deletes a list', async () => {
         let state: ListsState = {};
 
         // @ts-ignore
@@ -204,7 +204,7 @@ describe('listReducer', () => {
         // expect(state).toStrictEqual(oldState);
     });
 
-    it('should update', async () => {
+    it('renames a list and adds a card through the list actions', async () => {
         let state: ListsState = {};
         // A test function may either take `done` or return a promise, never both
         // (jest 30 rejects the combination), so the card callback is recorded here.

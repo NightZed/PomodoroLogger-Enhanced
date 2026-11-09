@@ -63,7 +63,7 @@ describe('board actions', () => {
         expect(list[list.length - 1]).toBe('list');
     });
 
-    it('should update after editing, setLastVisit, onTimerFinished, remove', async () => {
+    it('persists edits, last visit, timer finish and removal', async () => {
         const _id = uid();
         let state: KanbanBoardState = {};
         // @ts-ignore

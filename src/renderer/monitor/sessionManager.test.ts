@@ -13,7 +13,7 @@ import { createRecord } from '../../../test/utils';
 import dbs from '../dbs';
 
 describe('sessionManager', () => {
-    it('addSession', async () => {
+    it('persists a session so it shows up in the session list', async () => {
         const record: PomodoroRecord = {
             switchActivities: [],
             _id: generateRandomName(),
@@ -31,7 +31,7 @@ describe('sessionManager', () => {
         expect(ans).toBeTruthy();
     });
 
-    it('removeSession', async () => {
+    it('removes a session by its start time', async () => {
         const record: PomodoroRecord = {
             _id: generateRandomName(),
             boardId: generateRandomName(),

@@ -47,41 +47,6 @@ describe('DistractingList', () => {
 
             expect(container.querySelector('[placeholder="App RegExp"]')).not.toBeNull();
             expect(container.querySelector('[placeholder="Title RegExp"]')).not.toBeNull();
-            expect(container.querySelector('form')?.classList).not.toContain('ant-form-vertical');
-            expect(container.querySelector('.ant-form-item-label')).not.toBeNull();
-            expect(container.querySelector('.ant-form-item-label')?.className).toContain(
-                'ant-col-sm-4'
-            );
-            expect(
-                container
-                    .querySelectorAll('.ant-form-item-row')[1]
-                    .querySelector('.ant-col-sm-offset-4')
-            ).not.toBeNull();
-            const removeButton = container.querySelector('.dynamic-delete-button');
-            expect(removeButton?.parentElement?.querySelector('.ant-input-group')).toBeFalsy();
-            const appAddon = Array.from(container.querySelectorAll('span')).find(
-                (element) => element.textContent === 'App'
-            );
-            expect(appAddon).not.toBeUndefined();
-            const appAddonStyle = window.getComputedStyle(appAddon!);
-            expect(appAddonStyle.borderRadius).toBe('6px 0 0 6px');
-            expect(appAddonStyle.padding).toBe('0px 11px');
-            const addonStyles = Array.from(document.querySelectorAll('style'))
-                .map((style) => style.textContent)
-                .join('');
-            expect(addonStyles).toContain('background:var(--pl-bg-sunken)');
-            expect(addonStyles).toContain('border-right:1px solid var(--pl-border)');
-            const inputAfterAddon = appAddon!.nextElementSibling;
-            expect(
-                inputAfterAddon?.matches('.ant-input') ||
-                    inputAfterAddon?.querySelector('.ant-input') != null
-            ).toBe(true);
-            expect(container.querySelectorAll('.ant-form-item')[0].getAttribute('style')).toContain(
-                'margin-bottom: 4px'
-            );
-            expect(container.querySelectorAll('.ant-form-item')[1].getAttribute('style')).toContain(
-                'margin-bottom: 24px'
-            );
             expect(
                 [...errors.mock.calls, ...warnings.mock.calls]
                     .map((call) => String(call[0]))

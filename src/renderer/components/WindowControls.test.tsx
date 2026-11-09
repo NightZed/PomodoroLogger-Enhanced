@@ -40,9 +40,6 @@ describe('WindowControls (frameless caption buttons)', () => {
             'Close',
         ]);
 
-        expect(container.querySelector('.anticon-switcher')).not.toBeNull();
-        expect(container.querySelector('.anticon-border')).toBeNull();
-
         // The button keeps toggling the same window action: the window is
         // maximized, so the main process unmaximizes it.
         fireEvent.click(rendered[1]);

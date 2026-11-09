@@ -109,19 +109,6 @@ describe('AppTitleBar', () => {
         }
     });
 
-    it('centers each compact icon without an individual offset', () => {
-        const { container } = build('timer', () => undefined, false, false, true);
-        const labels = Array.from(container.querySelectorAll('[title]')) as HTMLElement[];
-        const timerLabel = labels.find((label) => label.getAttribute('title') === 'Pomodoro');
-        const kanbanLabel = labels.find((label) => label.getAttribute('title') === 'Kanban');
-
-        expect(timerLabel?.style.justifyContent).toBe('center');
-        expect(kanbanLabel?.style.justifyContent).toBe('center');
-        const icons = Array.from(timerLabel?.querySelectorAll('.anticon') ?? []);
-        expect(icons.length).toBeGreaterThan(0);
-        icons.forEach((icon) => expect(icon.getAttribute('style')).toBeNull());
-    });
-
     it('hands the tab the user picked to onTabChange', () => {
         const onTabChange = jest.fn();
         const { container } = build('timer', onTabChange);

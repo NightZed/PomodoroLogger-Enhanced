@@ -2,7 +2,7 @@ import * as op from './op';
 import { createRecord } from '../../../../test/utils';
 
 describe('History aggregating operations', () => {
-    it('agg empty record', async () => {
+    it('aggregates an empty record set to zeroes', async () => {
         const agg = await op.getAggPomodoroInfo([], []);
         expect(agg).toStrictEqual({
             agg: {
@@ -23,7 +23,7 @@ describe('History aggregating operations', () => {
         });
     });
 
-    it('getTimeSpentTimeFromRecord', async () => {
+    it('sums per-app time across records that share an app name', async () => {
         const timeSpent = await op.getTimeSpentDataFromRecords([
             createRecord('pa', 11, [
                 ['a', 6],

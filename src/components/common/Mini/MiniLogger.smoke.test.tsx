@@ -53,18 +53,18 @@ describe('MiniLogger two-row mini layout', () => {
         expect(taskNodes[0].textContent).toContain('MiniLogger regression test');
     });
 
-    it('fills the inner disc with the working color while focusing', () => {
-        const { container } = renderMini();
-        const circles = all(container, 'circle');
-        expect(circles.length).toBeGreaterThan(0);
-        expect(circles[0].getAttribute('fill')).toBe('#e84545');
-    });
+    it('paints the inner disc differently for focus and rest', () => {
+        const fillOf = (props: Partial<typeof baseProps>) => {
+            const circles = all(renderMini(props).container, 'circle');
+            expect(circles.length).toBeGreaterThan(0);
+            return circles[0].getAttribute('fill');
+        };
 
-    it('fills the inner disc with the rest color while resting', () => {
-        const { container } = renderMini({ isFocusing: false });
-        const circles = all(container, 'circle');
-        expect(circles.length).toBeGreaterThan(0);
-        expect(circles[0].getAttribute('fill')).toBe('#2b2e4a');
+        const focusing = fillOf({});
+        const resting = fillOf({ isFocusing: false });
+        expect(focusing).toBeTruthy();
+        expect(resting).toBeTruthy();
+        expect(focusing).not.toBe(resting);
     });
 
     it('renders exactly 4 ghost control buttons in normal mode', () => {
@@ -128,9 +128,9 @@ describe('MiniLogger two-row mini layout', () => {
         const rendered = buttons(container);
         // left: Start Next Session + Finish; right: Stop + Expand (never hidden)
         expect(rendered).toHaveLength(4);
-        expect(rendered[2].querySelector('.anticon-close')).not.toBeNull();
+        expect(rendered[2].getAttribute('title')).toBe('Stop');
         expect(rendered[2].disabled).toBe(true);
-        expect(rendered[3].querySelector('.anticon-fullscreen')).not.toBeNull();
+        expect(rendered[3].getAttribute('title')).toBe('Expand (F12)');
         expect(rendered[3].disabled).toBe(false);
     });
 

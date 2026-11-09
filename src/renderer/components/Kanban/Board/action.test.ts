@@ -13,7 +13,7 @@ const cardsDB = new AsyncDB(dbs.cardsDB);
 const sessionDB = new AsyncDB(dbs.sessionDB);
 
 describe('boardReducer', () => {
-    it('reduce MOVE_LIST', async () => {
+    it('applies MOVE_LIST to the board state', async () => {
         let state: KanbanBoardState = {};
         // @ts-ignore
         const dispatch: Dispatch = (action: any) => {
@@ -33,7 +33,7 @@ describe('boardReducer', () => {
 });
 
 describe('board actions', () => {
-    it('move list', async () => {
+    it('persists a list move', async () => {
         const _id = uid();
         let state: KanbanBoardState = {};
         // @ts-ignore
@@ -257,7 +257,7 @@ describe('board actions', () => {
         expect(state[boardId].createdTime).toBeUndefined();
     });
 
-    it('should add list directly', async () => {
+    it('adds a list without reloading the board', async () => {
         const _id = uid();
         let state: KanbanBoardState = {};
         let added = false;

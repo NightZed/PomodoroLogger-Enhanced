@@ -54,7 +54,7 @@ async function moveCardSetup(dispatch: any = undefined) {
 }
 
 describe('listActions', () => {
-    it('add list', async () => {
+    it('creates a list and persists it', async () => {
         const _id = uid();
         const dis = await addList(_id);
         expect(dis.mock.calls[0][0]).toStrictEqual({
@@ -69,7 +69,7 @@ describe('listActions', () => {
         expect(docs[0]._id).toBe(_id);
     });
 
-    it('add card', async () => {
+    it('appends a card to a list and persists it', async () => {
         const _id = generateRandomName();
         await addList(_id);
         const dispatch = await addCard(_id, 'cardId');
@@ -85,7 +85,7 @@ describe('listActions', () => {
         expect(doc.cards).toStrictEqual(['cardId']);
     });
 
-    it('moveCard 0', async () => {
+    it('inserts a card at index 2 of the target list', async () => {
         let state: ListsState = {};
         const dispatch: any = (action: any) => {
             state = listReducer(state, action);
@@ -98,7 +98,7 @@ describe('listActions', () => {
         expect(doc1.cards).toStrictEqual(['10', '11', '0', '12']);
     });
 
-    it('moveCard 1', async () => {
+    it('inserts a card at the head of the target list', async () => {
         let state: ListsState = {};
         const dispatch: any = (action: any) => {
             state = listReducer(state, action);
@@ -111,7 +111,7 @@ describe('listActions', () => {
         expect(doc1.cards).toStrictEqual(['0', '10', '11', '12']);
     });
 
-    it('moveCard 2', async () => {
+    it('reorders cards within the same list', async () => {
         let state: ListsState = {};
         const dispatch: any = (action: any) => {
             state = listReducer(state, action);
@@ -124,7 +124,7 @@ describe('listActions', () => {
         expect(doc1.cards).toStrictEqual(['10', '11', '12']);
     });
 
-    it('moveCard by visibleCard state', async () => {
+    it('moves only within the filtered card order', async () => {
         let state: ListsState = {};
         const dispatch: any = (action: any) => {
             state = listReducer(state, action);
@@ -146,7 +146,7 @@ describe('listActions', () => {
         }
     });
 
-    it('moveCard by visibleCard state even when moving in the same list', async () => {
+    it('keeps the filtered order when reordering one list', async () => {
         let state: ListsState = {};
         const dispatch: any = (action: any) => {
             state = listReducer(state, action);

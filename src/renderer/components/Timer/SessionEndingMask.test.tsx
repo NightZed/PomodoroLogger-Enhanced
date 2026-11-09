@@ -98,7 +98,7 @@ describe('TimerMask', () => {
 
         // Same antd Select as `FocusSelector` on the timer page, including its
         // untouched state copy.
-        expect(view.container.querySelector('.ant-select')).not.toBeNull();
+        expect(view.queryByRole('combobox')).not.toBeNull();
         expect(view.getByText('Choose Your Focus')).toBeTruthy();
         expect(view.getByRole('button', { name: 'Confirm' })).toBeTruthy();
     });
@@ -130,7 +130,7 @@ describe('TimerMask', () => {
 
         // A chosen project replaces the selector with the big name, and the
         // background is dismissible again without a separate acknowledgement.
-        expect(view.container.querySelector('.ant-select')).toBeNull();
+        expect(view.queryByRole('combobox')).toBeNull();
         expect(view.container.querySelector('h1')?.textContent).toBe('Project Two');
         expect(view.queryByRole('button', { name: 'Confirm' })).toBeNull();
 
@@ -141,11 +141,11 @@ describe('TimerMask', () => {
     it('swaps the name heading back to the selector when it is clicked', () => {
         const view = renderMask({}, { boardId: 'b1' });
 
-        expect(view.container.querySelector('.ant-select')).toBeNull();
+        expect(view.queryByRole('combobox')).toBeNull();
 
         fireEvent.click(view.getByText('Project One'));
 
-        expect(view.container.querySelector('.ant-select')).not.toBeNull();
+        expect(view.queryByRole('combobox')).not.toBeNull();
     });
 
     it('puts the name heading back when the background is clicked while editing', () => {
@@ -153,13 +153,13 @@ describe('TimerMask', () => {
         const view = renderMask({ onCancel }, { boardId: 'b1' });
 
         fireEvent.click(view.getByText('Project One'));
-        expect(view.container.querySelector('.ant-select')).not.toBeNull();
+        expect(view.queryByRole('combobox')).not.toBeNull();
 
         fireEvent.click(view.container.firstElementChild!);
 
         // The first click only leaves edit mode; the mask stays open.
         expect(onCancel).not.toHaveBeenCalled();
-        expect(view.container.querySelector('.ant-select')).toBeNull();
+        expect(view.queryByRole('combobox')).toBeNull();
         expect(view.getByText('Project One')).toBeTruthy();
     });
 

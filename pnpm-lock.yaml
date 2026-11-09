@@ -182,8 +182,8 @@ importers:
         specifier: ^18.1.3
         version: 18.1.3
       nanoid:
-        specifier: ^3.3.19
-        version: 3.3.19
+        specifier: ^6.0.2
+        version: 6.0.2
       prettier:
         specifier: ^3.9.10
         version: 3.9.10
@@ -5531,6 +5531,11 @@ packages:
   nanoid@3.3.19:
     resolution: {integrity: sha512-Y2tUNy4ouw6tq5oDSKeQYGOyhkUBhNOcGV/02KC+6kd9eDGqdZd++mjMiIDilrBYvjEnCYvVtsuHCuP+okSfug==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
+    hasBin: true
+
+  nanoid@6.0.2:
+    resolution: {integrity: sha512-hIvVOb9Qr1p/9CNNLOe0OlWvgx/ziTsVwKN/GDSsuArN2K0wDiafP3s0SWmsm7o2BdnyS8Z9Z64NFBUbn6ziBg==}
+    engines: {node: ^22 || ^24 || >=26}
     hasBin: true
 
   napi-postinstall@0.3.4:
@@ -13622,6 +13627,8 @@ snapshots:
       thenify-all: 1.6.0
 
   nanoid@3.3.19: {}
+
+  nanoid@6.0.2: {}
 
   napi-postinstall@0.3.4: {}
 

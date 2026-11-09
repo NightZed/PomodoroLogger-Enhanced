@@ -1,23 +1,27 @@
 # AGENTS.md
 
-Guidance for AI coding agents working in this repository. This is the single source of truth: `CODEBUDDY.md` only contains `@AGENTS.md`, so edit this file, not that one.
+写给在本仓库工作的 AI 编码助手。
+本文件是唯一事实来源：`CODEBUDDY.md` 里只有 `@AGENTS.md`，所以改这个文件，不要改那个。
 
-## Project
+## 项目
 
-Electron desktop app (Pomodoro timer + Kanban + desktop activity tracking + statistics). Renderer is React 19 + Redux; main process owns SQLite (`better-sqlite3`). Requires Node.js 24+ and pnpm 11 (pinned in `packageManager`).
+Electron 桌面应用（番茄钟 + 看板 + 桌面活动追踪 + 统计）。
+渲染层是 React 19 + Redux；主进程独占 SQLite（`better-sqlite3`）。
+需要 Node.js 24+ 和 pnpm 11（版本钉在 `packageManager` 里）。
 
 ## Shell
 
-Local commands run in **PowerShell 7 (`pwsh`)** — build, test, packaging and process inspection alike. Snippets copied from bash/CI must be translated:
+本地命令一律在 **PowerShell 7（`pwsh`）** 里跑——构建、测试、打包、进程检查都一样。
+从 bash/CI 拷来的片段必须翻译：
 
-- Env vars are `$env:NAME = '...'`, not a `NAME=x cmd` prefix.
-- `$PWD` interpolates inside double quotes (`"$PWD/.local/prod-run"`); forward slashes are fine in paths.
-- If execution policy blocks `pnpm.ps1`, call `pnpm.cmd`.
+- 环境变量写成 `$env:NAME = '...'`，不是 `NAME=x cmd` 前缀。
+- `$PWD` 在双引号内会展开（`"$PWD/.local/prod-run"`）；路径里用正斜杠没问题。
+- 如果执行策略拦住 `pnpm.ps1`，就调用 `pnpm.cmd`。
 
-Process/memory inspection belongs here rather than in bash: `ps -W` reports no memory or CPU, and `tasklist` output depends on the console code page.
+进程/内存检查放这里而不是 bash：`ps -W` 不报告内存和 CPU，`tasklist` 的输出又依赖控制台代码页。
 
 ```powershell
-# Session/process tree, filtered to this checkout so other Electron apps are safe
+# 会话/进程树，按本检出目录过滤，避免误伤其他 Electron 应用
 Get-CimInstance Win32_Process |
   Where-Object { $_.CommandLine -match [regex]::Escape('PomodoroLogger-Enhanced') } |
   Select-Object ProcessId, ParentProcessId, Name
@@ -26,161 +30,203 @@ Get-Process -Name electron |
   Select-Object Id, @{n='WS_MB';e={[math]::Round($_.WorkingSet64/1MB,1)}},
                    @{n='Private_MB';e={[math]::Round($_.PrivateMemorySize64/1MB,1)}}
 
-taskkill /PID <pid> /T /F      # Electron children do not die with the parent
+taskkill /PID <pid> /T /F      # Electron 子进程不会随父进程一起退出
 Get-NetTCPConnection -LocalPort 2003 -State Listen | Select-Object OwningProcess
 ```
 
-## Commands
+## 常用命令
 
 ```powershell
-pnpm                                # install; postinstall rebuilds native modules (electron-builder install-app-deps)
-pnpm build                          # tsc --noEmit + both webpack bundles
-pnpm typecheck                      # tsc --noEmit -p tsconfig.json only
+pnpm                                # 安装；postinstall 重建原生模块（electron-builder install-app-deps）
+pnpm build                          # tsc --noEmit + 两个 webpack bundle
+pnpm typecheck                      # 只跑 tsc --noEmit -p tsconfig.json
 pnpm lint                           # eslint src/**/*.{ts,tsx} test/**/*.{ts,js}
 pnpm test                           # jest --forceExit
-pnpm test src/renderer/components/Timer/Timer.test.tsx   # single file
-pnpm test -t "some test name"       # single test by name
+pnpm test src/renderer/components/Timer/Timer.test.tsx   # 单个文件
+pnpm test -t "some test name"       # 按名字跑单个测试
 pnpm test:watch
 pnpm test:coverage
 ```
 
-Team workflow: `/init` continues to write `CODEBUDDY.md`; after running it, move the content into this file and restore the `@AGENTS.md` stub.
+团队工作流：`/init` 仍会写 `CODEBUDDY.md`；跑完之后把内容挪进本文件，并恢复 `@AGENTS.md` 存根。
 
-Development (two terminals — `pnpm start` does NOT launch Electron itself):
+开发（两个终端——`pnpm start` **不会**自己拉起 Electron）：
 
 ```powershell
-pnpm start        # webpack main (watch) + renderer dev server on :2003
-npx electron .    # second terminal; downloads Electron on first run
+pnpm start        # webpack 主进程（watch）+ 渲染层 dev server，端口 :2003
+npx electron .    # 第二个终端；首次运行会下载 Electron
 ```
 
-Production build / packaging:
+生产构建 / 打包：
 
 ```powershell
-# Build + run the production bundle. The release build takes a single-instance
-# lock per Electron profile, so without a separate profile this run quits
-# immediately whenever the installed app is open (src/main/init.ts).
-# Only Electron's profile moves: the SQLite database still lives under
-# %APPDATA%\PomodoroLogger (src/main/config.ts), i.e. this run reads and writes
-# the same data as the installed app. The $env: line below also redirects the
-# data directory (it stays set for the rest of the shell session).
+# 构建并运行生产 bundle。release 构建每个 Electron profile 会拿单实例锁，
+# 所以不给独立 profile 的话，只要安装版开着，这次运行会立刻退出
+# （src/main/init.ts）。
+# 只有 Electron 的 profile 换了位置：SQLite 数据库仍在
+# %APPDATA%\PomodoroLogger 下（src/main/config.ts），也就是说这次运行
+# 读写的是和安装版同一份数据。下面那行 $env: 同时改掉数据目录
+# （它在本 shell 会话剩余时间里一直生效）。
 pnpm start:prod -- --user-data-dir="$PWD/.local/prod-run"
 
 $env:APPDATA = "$PWD/.local/prod-appdata"
 pnpm start:prod -- --user-data-dir="$PWD/.local/prod-run"
 
-pnpm run pack     # electron-builder --dir (pnpm pack alone builds an npm tarball)
-pnpm run dist-win # or dist-mac / dist-linux / dist-all (each one is a separate script)
+pnpm run pack     # electron-builder --dir（单跑 pnpm pack 只会打一个 npm tarball）
+pnpm run dist-win # 或 dist-mac / dist-linux / dist-all（每个都是独立脚本）
 ```
 
-CI (`.github/workflows/test.yml`) runs `pnpm lint`, `pnpm typecheck` and `pnpm test --ci` on every push/PR; `build.yml` packages with `pnpm exec electron-builder` per OS (the old `action-electron-builder` was removed because it hard-codes yarn). Releases are cut manually via the `Build/release` workflow → semantic-release; never bump `package.json` version or create tags by hand.
+CI（`.github/workflows/test.yml`）在每次 push/PR 上跑 `pnpm lint`、`pnpm typecheck` 和 `pnpm test --ci`；`build.yml` 分平台用 `pnpm exec electron-builder` 打包（老的 `action-electron-builder` 已移除，因为它把 yarn 写死了）。
+发版通过 `Build/release` workflow → semantic-release 手工触发；永远不要手动改 `package.json` 版本号或打 tag。
 
-### Package manager
+### 包管理器
 
-pnpm 11, pinned in `packageManager`. `pnpm-workspace.yaml` is the only place for
-install behaviour: `nodeLinker: hoisted` (electron-builder needs a flat
-`node_modules`), `overrides` (replaces yarn's `resolutions`), and `allowBuilds`.
-pnpm 11 defaults `strictDepBuilds` to `true`, so a dependency with an unreviewed
-install script fails the whole install with a non-zero exit — list it as `true`
-or `false` instead of relying on a warning. `electron` 44 and `better-sqlite3`
-13 ship no install script: the former downloads its binary on the first
-`electron .`, the latter loads its bundled `prebuilds/`. `get-windows` 10 is the
-one native module with a real `install` script (`node-pre-gyp install
---fallback-to-build`): `@electron/rebuild` compiles its napi addon from
-`binding.gyp` during `pnpm install`, so that step needs node-gyp plus a Python
-(the runners ship one) and `get-windows` must stay in `allowBuilds`. The
-packaged app loads the prebuilt `lib/binding/napi-9-<platform>-<arch>/*.node`
-(node-pre-gyp's `module_path`); `build/` is excluded from `build.files`.
+pnpm 11，版本钉在 `packageManager`。
+`pnpm-workspace.yaml` 是安装行为的唯一位置：`nodeLinker: hoisted`（electron-builder 需要扁平的 `node_modules`）、`overrides`（取代 yarn 的 `resolutions`）、`allowBuilds`。
+pnpm 11 的 `strictDepBuilds` 默认为 `true`，所以一个带未审核安装脚本的依赖会让整个安装以非零码失败——要显式列成 `true` 或 `false`，不要指望只给个警告。
+`electron` 44 和 `better-sqlite3` 13 不带安装脚本：前者在第一次 `electron .` 时下载二进制，后者加载自带的 `prebuilds/`。
+`get-windows` 10 是唯一带真实 `install` 脚本的原生模块（`node-pre-gyp install --fallback-to-build`）：`@electron/rebuild` 在 `pnpm install` 期间用 `binding.gyp` 编译它的 napi addon，所以这一步需要 node-gyp 加一个 Python（CI runner 自带），并且 `get-windows` 必须留在 `allowBuilds` 里。
+打包后的应用加载预构建的 `lib/binding/napi-9-<platform>-<arch>/*.node`（node-pre-gyp 的 `module_path`）；`build/` 被排除在 `build.files` 之外。
 
-`pnpm pack` is a built-in command and does **not** run `scripts.pack`; use
-`pnpm run pack`. The store lives outside the repo (configured globally, on this
-machine `E:\pnpm-store`) and must sit on the same drive as the checkout,
-otherwise pnpm silently copies instead of hard-linking.
+`pnpm pack` 是内置命令，**不会**执行 `scripts.pack`；要用 `pnpm run pack`。
+store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且必须和检出目录在同一个盘，否则 pnpm 会静默地复制而不是硬链接。
 
-## Build toolchain constraints
+## 构建工具链约束
 
-- Babel 8 (`babel-loader`) transpiles everything in webpack and Jest. There is **no** `ts-loader` / `ts-jest`: `typescript` is aliased to `@typescript/typescript6` because typescript-eslint needs the TS 6 JS compiler API, while `@typescript/native` provides the `tsc` used for type-checking only. Adding a loader that needs the TS compiler API will break the build.
-- Bundles: `dist/main.js` (entry `src/main/main.ts`), `dist/preload.js`, `dist/worker.js` (child-process worker), `dist/app.js` + `dist/index.html` (renderer). `.tsx` alone gets the React transform, so generic arrow functions in `.ts` files stay unambiguous — keep `preset-react` scoped to `.tsx`.
-- Native/ESM-only modules (`better-sqlite3`, `get-windows`, `electron-updater`) are webpack `externals` in the main build and are shimmed for Jest through `moduleNameMapper` / `transformIgnorePatterns` in `jest.config.js`.
+- Babel 8（`babel-loader`）负责 webpack 和 Jest 里的全部转译。
+  这里**没有** `ts-loader` / `ts-jest`：`typescript` 被别名到 `@typescript/typescript6`，因为 typescript-eslint 需要 TS 6 的 JS 编译器 API，而 `@typescript/native` 只提供类型检查用的 `tsc`。
+  加一个依赖 TS 编译器 API 的 loader 会直接搞坏构建。
+- 产物：`dist/main.js`（入口 `src/main/main.ts`）、`dist/preload.js`、`dist/worker.js`（子进程 worker）、`dist/app.js` + `dist/index.html`（渲染层）。
+  只有 `.tsx` 会拿到 React 转换，所以 `.ts` 里的泛型箭头函数不会产生歧义——`preset-react` 要一直限定在 `.tsx`。
+- 原生/纯 ESM 模块（`better-sqlite3`、`get-windows`、`electron-updater`）在主进程构建里是 webpack `externals`，在 Jest 里通过 `jest.config.js` 的 `moduleNameMapper` / `transformIgnorePatterns` 打桩。
 
-## Architecture
+## 架构
 
-### Process & security model
+### 进程与安全模型
 
-- `src/main/main.ts` reads the hardware-acceleration setting synchronously (before `app.ready`) and then dynamically imports `src/main/init.ts`, which creates the frameless/transparent `BrowserWindow` (`sandbox: true`, `contextIsolation: true`, `nodeIntegration: false`), the tray, close-to-tray behavior, window-mode handling and the auto-updater.
-- The renderer reaches the main process only through `src/main/preload.ts`, which exposes a narrow `window.api` (`ExposedAPI` in `src/main/ipc/type.ts`). Every channel name, payload shape and sender is validated on the main side (`src/main/ipc/ipc.ts` `handleCommand` + `src/main/ipc/validate.ts`). When adding a capability, extend the type union, the preload method and the main handler together.
-- All in-app messages go through the feedback layer (`src/renderer/components/feedback`): `feedback.toast` / `notice` / `confirm` / `alert`. Importing antd's `message` / `notification` directly is blocked by `no-restricted-imports`. Content dialogs must use `AppModal` (`src/renderer/components/AppModal.tsx`), which applies the shared instant dialog motion; importing antd's `Modal` directly is blocked too. antd's click ripple is disabled globally in `Application` because software rendering (the default) turns its 2s animation into a full-window 60fps repaint.
+- `src/main/main.ts` 同步读取硬件加速设置（在 `app.ready` 之前），然后动态 import `src/main/init.ts`，由它创建无边框/透明 `BrowserWindow`（`sandbox: true`、`contextIsolation: true`、`nodeIntegration: false`）、托盘、关闭到托盘行为、窗口模式处理和自动更新。
+- 渲染层只能通过 `src/main/preload.ts` 触达主进程，它暴露一个很窄的 `window.api`（`ExposedAPI`，定义在 `src/main/ipc/type.ts`）。
+  每个通道名、payload 结构和发送方都在主进程侧校验（`src/main/ipc/ipc.ts` 的 `handleCommand` + `src/main/ipc/validate.ts`）。
+  新增能力时，类型联合、preload 方法和主进程 handler 要一起改。
+- 应用内所有提示都走 feedback 层（`src/renderer/components/feedback`）：`feedback.toast` / `notice` / `confirm` / `alert`。
+  直接 import antd 的 `message` / `notification` 会被 `no-restricted-imports` 拦下。
+  内容型对话框必须用 `AppModal`（`src/renderer/components/AppModal.tsx`），它套了统一的「立即弹出」动效；直接 import antd 的 `Modal` 同样被拦。
+  antd 的点击波纹在 `Application` 里被全局关掉，因为软件渲染（默认）会把那个 2 秒动画变成整窗 60fps 重绘。
 
-### Data layer (single writer)
+### 数据层（单写入者）
 
-- The main process owns the only SQLite connection (`src/main/db/index.ts`, `connection.ts`, `schema.ts`, `repository.ts`). Repositories mirror the old NeDB API (`find`/`findOne`/`insert`/`update`/`remove`/`count`) so action code did not have to be rewritten.
-- The renderer never touches SQLite. `src/renderer/dbs.ts` builds IPC proxies named `sessionDB`, `settingDB`, `kanbanDB`, `cardsDB`, `listsDB`, `moveDB`; `src/main/db/ipc.ts` whitelists database names and the seven allowed operations. Tests install a real in-memory bridge in `test/dbBridge.ts` instead.
-- Legacy NeDB → SQLite migration runs inside `initializeDatabaseFile()` (`migrate.ts`), keeping the old `.nedb` files untouched and backing up to `db-bk/pre-sqlite-<ts>`.
-- `NODE_ENV=test` switches the database to `:memory:` and pins the data directory to `.local/test` (`src/main/config.ts`); dev runs use `.local/dev`; production uses `%APPDATA%\PomodoroLogger`.
+- 主进程独占唯一的 SQLite 连接（`src/main/db/index.ts`、`connection.ts`、`schema.ts`、`repository.ts`）。
+  repository 沿用旧的 NeDB API（`find`/`findOne`/`insert`/`update`/`remove`/`count`），这样 action 代码不用重写。
+- 渲染层从不直接碰 SQLite。
+  `src/renderer/dbs.ts` 构造名为 `sessionDB`、`settingDB`、`kanbanDB`、`cardsDB`、`listsDB`、`moveDB` 的 IPC 代理；`src/main/db/ipc.ts` 白名单化数据库名和七个允许的操作。
+  测试则通过 `test/dbBridge.ts` 安装一个真实的内存桥接。
+- 旧 NeDB → SQLite 迁移在 `initializeDatabaseFile()`（`migrate.ts`）里跑，旧的 `.nedb` 文件保持不动，并备份到 `db-bk/pre-sqlite-<ts>`。
+- `NODE_ENV=test` 把数据库切到 `:memory:`，数据目录钉在 `.local/test`（`src/main/config.ts`）；开发运行用 `.local/dev`；生产用 `%APPDATA%\PomodoroLogger`。
 
-### Diagnostics (logs & crash page)
+### 诊断（日志与崩溃页）
 
-- `src/main/log.ts` is the only component that writes log files. They live in `<dataDir>/logs` (production `%APPDATA%\PomodoroLogger\logs`), split by scope: `app.log`, `active-win.log`, `crash.log`, `data.log`; `migration.log` is written once by `migrate.ts` into the same folder. Diagnostics never go into `db/` and never into the asar.
-- Levels are `debug < info < warn < error` (`src/shared/log.ts`); production defaults to `info`, dev and tests to `debug`, and `--log-level` / `POMODORO_LOG_LEVEL` override the stored setting. `crash` and `data` ignore the level entirely (see `LEVEL_EXEMPT_SCOPES`). Writes are synchronous (a crash report has to survive `app.exit`), bounded by a 1 MiB rotation per file, a 5 s identical-message window and 20 lines per second.
-- `ImportData` writes its outcome to `data.log` at every exit: the JSON parser's message, or up to 500 of the validator's findings (`ValidationResult.recordedIssues`, split into <8 KiB blocks) when the file is refused, or the resulting record counts and merge warnings when it is accepted. The dialog only shows the first 20 (`ValidationResult.issues`) and offers an **Open Log Folder** button. `ClearUserFiles` logs the completion of a delete-all.
-- A renderer crash is sent over `IpcEventName.ReportError` (`send`), written to `crash.log`, and then shown on the full-window `src/renderer/components/ErrorScreen.tsx`. **The app no longer restarts itself**; restart is a button on that page. `AppErrorBoundary` must stay *outside* `Application` in `app.tsx` — a boundary inside it unmounts together with the tree it is supposed to replace. The page draws its own drag bar and caption buttons because the frameless window has no native ones.
-- Main-process failures are recorded by `src/main/crashHandlers.ts` (`uncaughtException` / `unhandledRejection`) and `installWindowDiagnostics()` in `init.ts` (`did-fail-load`, `preload-error`, `unresponsive`, `render-process-gone`, `child-process-gone`).
+- `src/main/log.ts` 是唯一写日志文件的组件。
+  日志在 `<dataDir>/logs`（生产是 `%APPDATA%\PomodoroLogger\logs`），按 scope 拆分：`app.log`、`active-win.log`、`crash.log`、`data.log`；`migration.log` 由 `migrate.ts` 写一次，也放在同一目录。
+  诊断信息绝不进 `db/`，也绝不进 asar。
+- 级别是 `debug < info < warn < error`（`src/shared/log.ts`）；生产默认 `info`，开发和测试默认 `debug`，`--log-level` / `POMODORO_LOG_LEVEL` 能覆盖已存的设置。
+  `crash` 和 `data` 完全忽略级别（见 `LEVEL_EXEMPT_SCOPES`）。
+  写入是同步的（崩溃报告必须能活过 `app.exit`），并受这些限制：单文件 1 MiB 轮转、相同消息 5 秒窗口、每秒最多 20 行。
+- `ImportData` 在每条退出路径上都把结果写进 `data.log`：JSON 解析器的报错信息；文件被拒时写校验器最多 500 条发现（`ValidationResult.recordedIssues`，按 8 KiB 以下分块）；文件被接受时写结果计数和合并警告。
+  对话框只展示前 20 条（`ValidationResult.issues`），并提供一个 **Open Log Folder** 按钮。
+  `ClearUserFiles` 会记录「删除全部」的完成。
+- 渲染层崩溃经 `IpcEventName.ReportError`（`send`）上报，写进 `crash.log`，然后显示在整窗的 `src/renderer/components/ErrorScreen.tsx` 上。
+  **应用不再自己重启**；重启是那个页面上的一个按钮。
+  `AppErrorBoundary` 必须留在 `app.tsx` 里 `Application` 的*外面*——放在里面的话，它会和它本该替换的那棵树一起卸载。
+  这个页面自己画拖拽条和窗口按钮，因为无边框窗口没有原生的。
+- 主进程故障由 `src/main/crashHandlers.ts`（`uncaughtException` / `unhandledRejection`）和 `init.ts` 里的 `installWindowDiagnostics()`（`did-fail-load`、`preload-error`、`unresponsive`、`render-process-gone`、`child-process-gone`）记录。
 
-### CPU-heavy work
+### CPU 密集任务
 
-- `src/main/worker/fork.ts` lazily forks `worker.js` for History aggregation (tokenizing every window title for the word cloud). It shuts the child down after 60s idle and `src/main/db/ipc.ts` falls back to in-process aggregation if the worker fails.
-- The renderer's remaining web worker (`src/renderer/workers`) is the tokenizer; `DBWorker` is a thin wrapper over the IPC proxies.
+- `src/main/worker/fork.ts` 懒加载 fork `worker.js` 做 History 聚合（为词云分词每一个窗口标题）。
+  空闲 60 秒后关掉子进程；worker 出故障时 `src/main/db/ipc.ts` 回退到进程内聚合。
+- 渲染层剩下的那个 web worker（`src/renderer/workers`）是分词器；`DBWorker` 只是 IPC 代理上的一层薄封装。
 
-### Renderer state & UI
+### 渲染层状态与 UI
 
-- `src/renderer/store/index.ts` is plain Redux + thunk; `src/renderer/reducers/index.ts` combines `timer`, `history`, `kanban`, `story`. Each feature folder (`components/Timer`, `History`, `Kanban`, `UserGuide`) owns its `action.ts` + reducer + tests — follow that pattern rather than adding cross-cutting slices.
-- `src/renderer/components/appTabs.ts` is the single source of truth for pages; the tab bar, Ctrl+Tab handling and compact-mode transitions all derive from `APP_TABS` / `planTabChange`. Do not add a parallel tab list.
-- Inactive pages are not kept forever: `DestroyOnTimeoutWrapper` drops a page's subtree after a per-page grace period (`TAB_UNLOAD_DELAY` in `Application.tsx`). The delays differ on purpose — history re-runs the whole `aggHistory` aggregation on every mount, kanban only re-reads the board rows, setting can still have an import/export in flight — so a new page needs an explicit entry, and shrinking a delay is a behaviour change, not a free win. `timer` stays mounted permanently because it owns the running session. With `unloadOnCloseToTray` on, a hidden window squeezes that grace to `HIDDEN_TAB_UNLOAD_DELAY` (30s), so a new page has to be wired into both places.
-- The title bar keeps `-webkit-app-region: drag` so normal windows get the native move and Aero Snap, but Chromium clips that region once a scroller is scrolled (the cut strip follows the scroller's width). Any press that still reaches the renderer on the bar must therefore start `windowDrag` too, otherwise the window cannot be moved after scrolling — see `src/renderer/components/AppTitleBar/dragRegion.ts` and `src/main/ipc/windowDrag.ts`.
-- `src/components/**` is the shared visualization/widget library (`Visualization/*`, `common/*`) imported from the renderer with relative paths — it is not the renderer's own component tree.
-- Drag-driven settings take one of two paths, and a new slider has to pick one deliberately. The four durations use `Setting/PreviewSlider.tsx`: the value stays in local state for the whole drag and is committed once, on release. They must, because `Timer/index.tsx` maps the whole store and its `shouldComponentUpdate` re-renders on any of the four durations, so a per-event store write re-rendered the entire timer page (progress ring, `PomodoroNumView`'s SVG wall) ~100 times per drag. The three opacities cannot do that -- their value *is* what the window shows -- so they go through `Setting/useSliderChange.ts` (folded to one change per animation frame) and are written on a per-key 300 ms debounce (`persistSettingWithDebounce` in `Timer/action.ts`); every settings write rewrites the whole `settings` table in its own WAL commit, so persisting each event was a fsync per pointer event.
-- Theme: `src/renderer/theme` (tokens + `applyTheme`, CSS custom properties `--pl-*`) is applied through `ThemeController`. The first-paint theme crosses the process boundary via `additionalArguments` → `window.api.initialTheme` so the renderer never flashes the wrong theme; keep both sides in sync when touching startup theming.
-- Styling is styled-components (plus a few `.scss` global files); do not add standalone CSS files for components.
-- A window-sized surface must stay a plain `background-color`. A live resize repaints the whole window once per frame, and `color-mix()` there (the obvious way to fold `themeBackgroundOpacity` into the color) cost ~10 points of four cores on every repaint; solid fill + the element's own `opacity` is the same arithmetic. Measured 45% → 33% on a 1440x960 window, with and without hardware acceleration. See the layer table in `Application.tsx`.
-- A rounded 1px frame on the window's clipping container (`Main`) costs an extra full-window composite pass per frame, so the renderer drops both while the window is resized (`WindowEventName.ResizingChanged`, sent from `init.ts` with a 120 ms idle timer): 8.8 ms → 6.5 ms per presented frame and 55 → 37 quads at 3.33 Mpx with software rendering. Without it a large window cannot present a frame per mouse event and visibly trails the cursor, which is the "拉大卡顿" report with hardware acceleration off. Corner rounding is therefore square for the duration of a drag; do not re-add a radius/border to that element without measuring `Display::DrawAndSwap` in a trace.
+- `src/renderer/store/index.ts` 是朴素 Redux + thunk；`src/renderer/reducers/index.ts` 合并 `timer`、`history`、`kanban`、`story`。
+  每个功能目录（`components/Timer`、`History`、`Kanban`、`UserGuide`）自己持有 `action.ts` + reducer + 测试——按这个模式来，不要加横切的 slice。
+- `src/renderer/components/appTabs.ts` 是页面的唯一事实来源；标签栏、Ctrl+Tab 处理和紧凑模式切换全部从 `APP_TABS` / `planTabChange` 推导。
+  不要加一份并行的标签列表。
+- 非活动页面不会永远保留：`DestroyOnTimeoutWrapper` 在每页各自的宽限期后丢弃该页子树（`Application.tsx` 里的 `TAB_UNLOAD_DELAY`）。
+  这些延迟不同是有意的——history 每次 mount 都会重跑整个 `aggHistory` 聚合，kanban 只重读看板行，setting 可能还有导入/导出在飞——所以新页面需要显式加一条，缩短延迟是行为变更，不是白捡的好处。
+  `timer` 永久挂载，因为它持有正在运行的会话。
+  开了 `unloadOnCloseToTray` 时，隐藏窗口会把宽限期压缩到 `HIDDEN_TAB_UNLOAD_DELAY`（30 秒），所以新页面在这两处都要接上。
+- 标题栏保留 `-webkit-app-region: drag`，这样普通窗口能拿到原生移动和 Aero Snap，但 Chromium 在滚动容器滚动后会把那块区域裁掉（被裁掉的条带跟着滚动容器的宽度走）。
+  因此任何仍能到达渲染层的标题栏按下事件都必须同时启动 `windowDrag`，否则滚动之后窗口就拖不动了——见 `src/renderer/components/AppTitleBar/dragRegion.ts` 和 `src/main/ipc/windowDrag.ts`。
+- `src/components/**` 是共享的可视化/小部件库（`Visualization/*`、`common/*`），渲染层用相对路径引用它——它不是渲染层自己的组件树。
+- 拖动驱动的设置走两条路之一，新滑块必须明确选边。
+  四个时长用 `Setting/PreviewSlider.tsx`：整个拖动过程中值留在本地 state，只在松手时提交一次。
+  它们必须这样，因为 `Timer/index.tsx` 映射了整个 store，其 `shouldComponentUpdate` 会对四个时长中的任何一个重渲染，所以每事件写一次 store 会让整个番茄钟页面（进度环、`PomodoroNumView` 的 SVG 墙）在一次拖动里重渲染约 100 次。
+  三个不透明度不能这么做——它们的值*就是*窗口显示的内容——所以它们走 `Setting/useSliderChange.ts`（折到每帧一次变更），再按 key 做 300 ms 防抖写入（`Timer/action.ts` 的 `persistSettingWithDebounce`）；每次设置写入都会在自己的 WAL 提交里重写整张 `settings` 表，所以每事件持久化就是每个指针事件一次 fsync。
+- 主题：`src/renderer/theme`（tokens + `applyTheme`，CSS 自定义属性 `--pl-*`）通过 `ThemeController` 应用。
+  首次绘制的主题经 `additionalArguments` → `window.api.initialTheme` 跨进程边界传递，这样渲染层不会闪一下错误的主题；动启动主题时两侧都要同步改。
+- 样式用 styled-components（外加少量 `.scss` 全局文件）；不要为组件添加独立 CSS 文件。
+- 占满窗口的平面必须保持纯 `background-color`。
+  实时 resize 每帧都会重绘整个窗口，在那里用 `color-mix()`（把 `themeBackgroundOpacity` 折进颜色最直觉的写法）每次重绘要吃掉四个核里约 10 个点；纯色填充 + 元素自身的 `opacity` 是同样的算术。
+  在 1440x960 窗口上实测 45% → 33%，开不开硬件加速都一样。
+  见 `Application.tsx` 里的图层表。
+- 窗口裁剪容器（`Main`）上的圆角 1px 边框会让每帧多一次全窗口合成 pass，所以渲染层在窗口 resize 期间把两者都去掉（`WindowEventName.ResizingChanged`，由 `init.ts` 在 120 ms 空闲计时后发出）：软件渲染下，每个呈现帧 8.8 ms → 6.5 ms，3.33 Mpx 下 55 → 37 个 quad。
+  没有这个处理，大窗口做不到每个鼠标事件呈现一帧，会明显跟不上光标，也就是关掉硬件加速时那个「拉大卡顿」的报告。
+  因此拖动期间圆角是方的；没在 trace 里量过 `Display::DrawAndSwap` 之前，不要给那个元素加回圆角或边框。
 
-### Internationalization
+### 国际化
 
-The UI ships English and Simplified Chinese with a small custom `t()`, not an
-i18n library — the renderer has no provider, so bare `render(<Component />)`
-tests keep working and a switch re-renders components guarded by `React.memo` /
-`shouldComponentUpdate`. `src/shared/i18n/en.ts` is the source of truth for the
-key tree and interpolation signatures; `zh.ts` is typed as
-`CatalogShape<typeof en>`, so a missing key or a wrong parameter list fails
-`pnpm typecheck`. The renderer reads strings through `useI18n()` (function
-components) or the module level `t()` (class components, helpers, constant
-tables); the main process has its own `m()` in `src/main/i18n.ts`.
-`Setting.language` (`'system' | 'en' | 'zh'`) lives in the `timer` slice and
-reaches the first paint through `additionalArguments`, exactly like the theme.
-Keep `language` in the `settingUiStates` / `uiStateNames` / `trayStateKeys`
-whitelists. See `docs/i18n.md`.
+界面提供英文和简体中文，用的是一个小自研 `t()` 而不是 i18n 库——渲染层没有 Provider，所以裸写的 `render(<Component />)` 测试能继续工作，语言切换也能让被 `React.memo` / `shouldComponentUpdate` 保护的组件重渲染。
+`src/shared/i18n/en.ts` 是 key 树和插值签名的唯一事实来源；`zh.ts` 的类型是 `CatalogShape<typeof en>`，所以缺 key 或参数表不对都会让 `pnpm typecheck` 失败。
+渲染层通过 `useI18n()`（函数组件）或模块级 `t()`（类组件、工具函数、常量表）取文案；主进程有自己的 `m()`，在 `src/main/i18n.ts`。
+`Setting.language`（`'system' | 'en' | 'zh'`）放在 `timer` slice 里，和主题一样经 `additionalArguments` 到达首次绘制。
+要把 `language` 留在 `settingUiStates` / `uiStateNames` / `trayStateKeys` 白名单里。
+见 `docs/i18n.md`。
 
-### Activity tracking & statistics
+### 活动追踪与统计
 
-`src/renderer/monitor` collects the active window (`src/main/activeWin.ts` wraps `get-windows`, lazily imported and logged to `logs/active-win.log`), aggregates per-app/per-title time into a `PomodoroRecord`, optionally captures screenshots, and saves sessions through the DB proxy. Efficiency scoring lives in `src/shared/efficiency/efficiency.ts`; history aggregation in `src/utils/aggPomodoro.ts` and `src/shared/dataMerger`.
+`src/renderer/monitor` 采集活动窗口（`src/main/activeWin.ts` 包装 `get-windows`，懒加载并记录到 `logs/active-win.log`），按应用/按标题把时间聚合成 `PomodoroRecord`，可选截图，再通过 DB 代理保存会话。
+效率打分在 `src/shared/efficiency/efficiency.ts`；历史聚合在 `src/utils/aggPomodoro.ts` 和 `src/shared/dataMerger`。
 
-### Development time scale
+### 开发期时间缩放
 
-`src/config.ts` compresses the timer in non-production by `DEBUG_TIME_SCALE` (120): writes use `scaleMs`, reads expand back to nominal, statistics stay nominal. Any new timer/session code must go through these helpers or the dev clock, progress ring and history totals disagree.
+`src/config.ts` 在非生产环境按 `DEBUG_TIME_SCALE`（120）压缩计时器：写入走 `scaleMs`，读取再展开回名义值，统计数据保持名义值。
+任何新的计时/会话代码都必须经过这些工具函数，否则开发时钟、进度环和历史总计会互相矛盾。
 
-## Testing conventions
+## 测试约定
 
-- `jest.config.js` uses `jsdom`, Babel transforms, `maxWorkers: min(8, cpus)`, 30s per-test timeout, and JUnit output (`junit.xml`). `test/setup-env.js` pins `NODE_ENV=test` and polyfills `matchMedia`/`MessageChannel`/`ResizeObserver` for antd.
-- `setupFilesAfterEnv` wiring in `test/` provides the DB bridge, React act environment, jsdom compat and console gating — new tests get these automatically.
-- `posttest` deletes `.local/test`; action tests exercise real SQLite transactions, so prefer repository-level assertions over mocks.
+- `jest.config.js` 使用 `jsdom`、Babel 转译、`maxWorkers: min(8, cpus)`、每测试 30 秒超时和 JUnit 输出（`junit.xml`）。
+  `test/setup-env.js` 钉住 `NODE_ENV=test`，并为 antd polyfill `matchMedia`/`MessageChannel`/`ResizeObserver`。
+- `test/` 里的 `setupFilesAfterEnv` 装配提供了 DB 桥接、React act 环境、jsdom 兼容和 console 拦截——新测试自动获得这些。
+- `posttest` 删除 `.local/test`；action 测试跑的是真实 SQLite 事务，所以优先断言 repository 层的结果而不是 mock。
+- 流程（红绿循环、seam、垂直切片）见 `/tdd` skill；本仓库的判据（哪些契约可测、mock 停在哪、时钟与隔离、覆盖率）见 `docs/testing.md`。
 
-## Conventions
+## 约定
 
-- Commit messages must follow Conventional Commits (commitlint); the type decides the semantic-release version. Husky + lint-staged run prettier and `eslint --fix` on staged files.
-- Undo an unpushed commit by rewriting it, not by reverting: `git reset --soft <base>` (or `git reset --hard` when the work is disposable), then commit the intended change. `revert:` is not a type semantic-release understands, so a revert commit adds a changelog entry the release never wanted, while the entry it cancels stays behind and describes a feature that no longer ships. `git status -sb` says whether the commits are still local (`ahead N`); once they are on `origin`, rewrite nothing and revert instead.
-- Keep renderer code free of Node globals — filesystem paths and native modules belong in `src/main`.
+- 提交信息必须符合 Conventional Commits（commitlint）；类型决定 semantic-release 的版本号。
+  Husky + lint-staged 会对暂存文件跑 prettier 和 `eslint --fix`。
+- 撤销未推送的提交要重写，而不是 revert：`git reset --soft <base>`（工作可丢弃时用 `git reset --hard`），然后重新提交想要的改动。
+  `revert:` 不是 semantic-release 认识的类型，所以 revert 提交会往 changelog 里加一条发版根本不需要的记录，而被它抵消的那条又会留下来，描述一个已经不再发布的功能。
+  `git status -sb` 会告诉你这些提交是否还在本地（`ahead N`）；一旦到了 `origin`，就什么都不要重写，改用 revert。
+- 渲染层代码不要出现 Node 全局——文件系统路径和原生模块属于 `src/main`。
 
-## Keeping this file accurate
+## Agent skills
 
-This document drifts as the code changes; treat it as a claim to verify, not as ground truth. Before relying on a command, path or behavior described here, confirm it against `package.json`, the config files or the source.
+工程类 skill（`/to-tickets`、`/to-spec`、`/grill-with-docs` 等）从 `docs/agents/` 读这几份配置，不要另立约定。
 
-When a task proves a statement here wrong or incomplete (a script was renamed, a file moved, a behavior changed, a constraint was lifted), update this file in the same change and say so in the hand-off. Prefer editing the existing entry over appending a note about the old one. Keep it dense: commands, non-obvious constraints and cross-file architecture only — no generic engineering advice.
+### Issue tracker
+
+issue 和 spec 是 `.scratch/<feature-slug>/` 下的 markdown 文件，不是 GitHub Issues。见 `docs/agents/issue-tracker.md`。
+
+### Domain docs
+
+单上下文：根目录 `GLOSSARY.md` + `docs/adr/`，文件不存在时静默跳过。见 `docs/agents/domain.md`。
+
+## 保持本文件的准确性
+
+随着代码的变更，本文档会逐渐偏离实际情况；把它当作需要验证的声明，而不是事实。
+依赖这里写的某条命令、路径或行为之前，先对着 `package.json`、配置文件或源码确认一遍。
+
+某项任务证明这里的说法错了或不完整时（脚本改名了、文件挪走了、行为变了、某个约束解除了），在同一次改动里更新本文件，并在交接时说明。
+优先改原有条目，而不是在后面补一句关于旧行为的注记。
+保持密集：只写命令、不显然的约束和跨文件架构，不写通用的工程建议。

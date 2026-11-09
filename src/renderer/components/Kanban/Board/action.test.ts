@@ -63,30 +63,51 @@ describe('board actions', () => {
         expect(list[list.length - 1]).toBe('list');
     });
 
-    it('persists edits, last visit, timer finish and removal', async () => {
+    it('persists edits and the last visit time', async () => {
         const _id = uid();
         let state: KanbanBoardState = {};
         // @ts-ignore
         const dispatch: Dispatch = (action: any) => {
-            try {
-                state = boardReducer(state, action);
-            } catch (e) {
-                console.warn(e);
-            }
+            state = boardReducer(state, action);
         };
+
         await actions.addBoard(_id, _id)(dispatch);
-        actions.editBoard(_id, 'new_name', 'new_name')(dispatch);
-        actions.setLastVisitTime(_id, 1000)(dispatch);
-        expect(state[_id].lastVisitTime).toBe(1000);
-        await actions.onTimerFinished(_id, '111', 123, [])(dispatch);
+        await actions.editBoard(_id, 'new_name', 'new_name')(dispatch);
+        await actions.setLastVisitTime(_id, 1000)(dispatch);
+
         expect(state[_id].name).toBe('new_name');
         expect(state[_id].description).toBe('new_name');
+        expect(state[_id].lastVisitTime).toBe(1000);
+        expect(await db.findOne({ _id })).toStrictEqual(state[_id]);
+    });
+
+    it('records a finished session on the board', async () => {
+        const _id = uid();
+        let state: KanbanBoardState = {};
+        // @ts-ignore
+        const dispatch: Dispatch = (action: any) => {
+            state = boardReducer(state, action);
+        };
+
+        await actions.addBoard(_id, _id)(dispatch);
+        await actions.onTimerFinished(_id, '111', 123, [])(dispatch);
+
         expect(state[_id].relatedSessions).toStrictEqual(['111']);
         expect(state[_id].spentHours).toStrictEqual(123);
-        await new Promise((r) => setTimeout(r, 500));
-        const board = await db.findOne({ _id });
-        expect(board).toStrictEqual(state[_id]);
-        actions.deleteBoard(_id)(dispatch);
+        expect(await db.findOne({ _id })).toStrictEqual(state[_id]);
+    });
+
+    it('removes the board from the state', async () => {
+        const _id = uid();
+        let state: KanbanBoardState = {};
+        // @ts-ignore
+        const dispatch: Dispatch = (action: any) => {
+            state = boardReducer(state, action);
+        };
+
+        await actions.addBoard(_id, _id)(dispatch);
+        await actions.deleteBoard(_id)(dispatch);
+
         expect(state[_id]).toBeUndefined();
     });
 

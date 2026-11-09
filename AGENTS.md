@@ -83,7 +83,13 @@ pnpm 11 defaults `strictDepBuilds` to `true`, so a dependency with an unreviewed
 install script fails the whole install with a non-zero exit — list it as `true`
 or `false` instead of relying on a warning. `electron` 44 and `better-sqlite3`
 13 ship no install script: the former downloads its binary on the first
-`electron .`, the latter loads its bundled `prebuilds/`.
+`electron .`, the latter loads its bundled `prebuilds/`. `get-windows` 10 is the
+one native module with a real `install` script (`node-pre-gyp install
+--fallback-to-build`): `@electron/rebuild` compiles its napi addon from
+`binding.gyp` during `pnpm install`, so that step needs node-gyp plus a Python
+(the runners ship one) and `get-windows` must stay in `allowBuilds`. The
+packaged app loads the prebuilt `lib/binding/napi-9-<platform>-<arch>/*.node`
+(node-pre-gyp's `module_path`); `build/` is excluded from `build.files`.
 
 `pnpm pack` is a built-in command and does **not** run `scripts.pack`; use
 `pnpm run pack`. The store lives outside the repo (configured globally, on this

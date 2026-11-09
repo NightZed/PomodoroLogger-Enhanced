@@ -7,7 +7,6 @@ import {
     deleteScreenshots,
     deleteAllUserData,
 } from './sessionManager';
-import { generateRandomName } from '../utils';
 import { PomodoroRecord } from './type';
 import { createRecord } from '../../../test/utils';
 import dbs from '../dbs';
@@ -15,14 +14,9 @@ import dbs from '../dbs';
 describe('sessionManager', () => {
     it('persists a session so it shows up in the session list', async () => {
         const record: PomodoroRecord = {
-            switchActivities: [],
-            _id: generateRandomName(),
-            boardId: generateRandomName(),
-            startTime: new Date().getTime(),
-            apps: {},
-            switchTimes: 0,
-            screenStaticDuration: 0,
-            spentTimeInHour: 0,
+            ...createRecord('board-add', 0, []),
+            _id: 'session-add',
+            startTime: 1_700_000_000_000,
         };
 
         await addSession(record);
@@ -33,14 +27,9 @@ describe('sessionManager', () => {
 
     it('removes a session by its start time', async () => {
         const record: PomodoroRecord = {
-            _id: generateRandomName(),
-            boardId: generateRandomName(),
-            startTime: new Date().getTime(),
-            switchActivities: [],
-            apps: {},
-            switchTimes: 0,
-            screenStaticDuration: 0,
-            spentTimeInHour: 0,
+            ...createRecord('board-remove', 0, []),
+            _id: 'session-remove',
+            startTime: 1_700_000_001_000,
         };
 
         await addSession(record);
@@ -97,11 +86,15 @@ describe('sessionManager', () => {
         expect((await dbs.settingDB.findOne({ name: 'setting' }))?.themeId).toBe('keep-me');
     });
 
-    it('should return today sessions', async () => {
-        const todaySession = createRecord('today', 0, []);
-        const yesterdayRecord = createRecord('yesterday', 0, []);
-        yesterdayRecord.startTime =
-            new Date().getTime() - (new Date().getHours() + 1) * 3600 * 1000;
+    it('returns only sessions started today', async () => {
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+        const midnight = startOfToday.getTime();
+        const todaySession = { ...createRecord('today', 0, []), startTime: midnight + 3600_000 };
+        const yesterdayRecord = {
+            ...createRecord('yesterday', 0, []),
+            startTime: midnight - 3600_000,
+        };
         await addSession(todaySession);
         await addSession(yesterdayRecord);
         const sessions = await getTodaySessions();

@@ -212,11 +212,11 @@ importers:
         specifier: ^3.1.0
         version: 3.1.0(redux@5.0.1)
       sass:
-        specifier: ^1.107.1
-        version: 1.107.1
+        specifier: ^1.108.0
+        version: 1.108.0
       sass-loader:
         specifier: ^17.1.0
-        version: 17.1.0(sass@1.107.1)(webpack@5.112.2)
+        version: 17.1.0(sass@1.108.0)(webpack@5.112.2)
       semantic-release:
         specifier: ^25.0.9
         version: 25.0.9(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
@@ -239,11 +239,11 @@ importers:
         specifier: ^5.112.2
         version: 5.112.2(clean-css@5.3.3)(csso@5.0.5)(html-minifier-terser@6.1.0)(postcss@8.5.28)(svgo@3.3.5)(uglify-js@3.19.3)(webpack-cli@7.3.1)
       webpack-bundle-analyzer:
-        specifier: ^5.4.1
-        version: 5.4.1
+        specifier: ^5.4.2
+        version: 5.4.2
       webpack-cli:
         specifier: ^7.3.1
-        version: 7.3.1(js-yaml@4.3.2)(json5@2.2.3)(webpack-bundle-analyzer@5.4.1)(webpack-dev-server@6.1.0)(webpack@5.112.2)
+        version: 7.3.1(js-yaml@4.3.2)(json5@2.2.3)(webpack-bundle-analyzer@5.4.2)(webpack-dev-server@6.1.0)(webpack@5.112.2)
       webpack-dev-server:
         specifier: ^6.1.0
         version: 6.1.0(supports-color@10.2.2)(webpack-cli@7.3.1)(webpack@5.112.2)
@@ -6319,8 +6319,8 @@ packages:
       webpack:
         optional: true
 
-  sass@1.107.1:
-    resolution: {integrity: sha512-aJ1/LvxOOb04YhmiBjzZn3jVwdHKol+OVhoMV6fFl02fF9T3i+5Mg9l/CnzqtM+NX5Jn5o3lAbs/ZJivTCLHfQ==}
+  sass@1.108.0:
+    resolution: {integrity: sha512-9HwnefouIfwY+XuA1rS5xOhALH5vsoe3SzYICG3MEwpkMbE7tpuh5ytZFRXUKPYkxY7lKdIbqxl+DxQGo8jwQQ==}
     engines: {node: '>=20.19.0'}
     hasBin: true
 
@@ -7033,8 +7033,8 @@ packages:
     resolution: {integrity: sha512-VwddBukDzu71offAQR975unBIGqfKZpM+8ZX6ySk8nYhVoo5CYaZyzt3YBvYtRtO+aoGlqxPg/B87NGVZ/fu6g==}
     engines: {node: '>=12'}
 
-  webpack-bundle-analyzer@5.4.1:
-    resolution: {integrity: sha512-iapXbcmT36pf1Mm2cttxOQXvVh400kpysh6IO17zNoyLX0+rwsvz/N1c3wEwjCOjLxGO42U/z4o6R9rZg4wIug==}
+  webpack-bundle-analyzer@5.4.2:
+    resolution: {integrity: sha512-STw41VwPFXH2SDo/S9E3V1MRNOwusR0OOnqvrO1RYoaFRq01hZaSPsHzn1LuJ0nXnyHVQoe2ELMcJKmUyXPdbg==}
     engines: {node: '>= 20.9.0'}
     hasBin: true
 
@@ -14298,12 +14298,12 @@ snapshots:
     dependencies:
       truncate-utf8-bytes: 1.0.2
 
-  sass-loader@17.1.0(sass@1.107.1)(webpack@5.112.2):
+  sass-loader@17.1.0(sass@1.108.0)(webpack@5.112.2):
     optionalDependencies:
-      sass: 1.107.1
+      sass: 1.108.0
       webpack: 5.112.2(clean-css@5.3.3)(csso@5.0.5)(html-minifier-terser@6.1.0)(postcss@8.5.28)(svgo@3.3.5)(uglify-js@3.19.3)(webpack-cli@7.3.1)
 
-  sass@1.107.1:
+  sass@1.108.0:
     dependencies:
       chokidar: 5.0.0
       immutable: 5.1.9
@@ -15037,7 +15037,7 @@ snapshots:
 
   webidl-conversions@7.0.0: {}
 
-  webpack-bundle-analyzer@5.4.1:
+  webpack-bundle-analyzer@5.4.2:
     dependencies:
       '@discoveryjs/json-ext': 0.6.3
       acorn: 8.19.0
@@ -15053,7 +15053,7 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  webpack-cli@7.3.1(js-yaml@4.3.2)(json5@2.2.3)(webpack-bundle-analyzer@5.4.1)(webpack-dev-server@6.1.0)(webpack@5.112.2):
+  webpack-cli@7.3.1(js-yaml@4.3.2)(json5@2.2.3)(webpack-bundle-analyzer@5.4.2)(webpack-dev-server@6.1.0)(webpack@5.112.2):
     dependencies:
       '@discoveryjs/json-ext': 1.1.0
       commander: 14.0.3
@@ -15065,7 +15065,7 @@ snapshots:
     optionalDependencies:
       js-yaml: 4.3.2
       json5: 2.2.3
-      webpack-bundle-analyzer: 5.4.1
+      webpack-bundle-analyzer: 5.4.2
       webpack-dev-server: 6.1.0(supports-color@10.2.2)(webpack-cli@7.3.1)(webpack@5.112.2)
 
   webpack-dev-middleware@8.5.0(webpack@5.112.2):
@@ -15109,7 +15109,7 @@ snapshots:
       ws: 8.22.0
     optionalDependencies:
       webpack: 5.112.2(clean-css@5.3.3)(csso@5.0.5)(html-minifier-terser@6.1.0)(postcss@8.5.28)(svgo@3.3.5)(uglify-js@3.19.3)(webpack-cli@7.3.1)
-      webpack-cli: 7.3.1(js-yaml@4.3.2)(json5@2.2.3)(webpack-bundle-analyzer@5.4.1)(webpack-dev-server@6.1.0)(webpack@5.112.2)
+      webpack-cli: 7.3.1(js-yaml@4.3.2)(json5@2.2.3)(webpack-bundle-analyzer@5.4.2)(webpack-dev-server@6.1.0)(webpack@5.112.2)
     transitivePeerDependencies:
       - bufferutil
       - supports-color
@@ -15143,7 +15143,7 @@ snapshots:
       watchpack: 2.6.3
       webpack-sources: 3.6.0
     optionalDependencies:
-      webpack-cli: 7.3.1(js-yaml@4.3.2)(json5@2.2.3)(webpack-bundle-analyzer@5.4.1)(webpack-dev-server@6.1.0)(webpack@5.112.2)
+      webpack-cli: 7.3.1(js-yaml@4.3.2)(json5@2.2.3)(webpack-bundle-analyzer@5.4.2)(webpack-dev-server@6.1.0)(webpack@5.112.2)
     transitivePeerDependencies:
       - '@minify-html/node'
       - '@napi-rs/image'

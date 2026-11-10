@@ -156,7 +156,15 @@ const ConfirmContent: React.FC<{
     );
 };
 
-/** Blocking decision with OK / Cancel. */
+/**
+ * Blocking decision with OK / Cancel.
+ *
+ * Clicking the mask (the empty area around the dialog) dismisses it and runs
+ * `onCancel`, exactly like the Cancel button: a decision dialog has to be as
+ * easy to back out of as it is to confirm, and there is no work in progress
+ * that a stray click could destroy. `alert` keeps its mask closed instead --
+ * there it is the only acknowledgement there is.
+ */
 export const confirm = ({
     title,
     content,
@@ -178,7 +186,7 @@ export const confirm = ({
         cancelText,
         width,
         centered: true,
-        mask: { closable: false },
+        mask: { closable: true },
         onOk,
         onCancel,
         getContainer: getPopupContainer,

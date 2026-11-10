@@ -15,7 +15,7 @@
  * batching question is actually exercised.
  */
 import * as React from 'react';
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { applyMiddleware, createStore, Store } from 'redux';
 import { thunk } from 'redux-thunk';
@@ -360,6 +360,34 @@ describe('Application page switching', () => {
 
         act(() => {
             modal.destroy();
+        });
+    });
+
+    it('lets a confirm dialog be dismissed by clicking the mask', () => {
+        // Clicking the empty area around a decision dialog is the same choice
+        // as Cancel -- the user must be able to back out without hunting for
+        // the button. `alert` is deliberately left mask-closed.
+        const onCancel = jest.fn();
+        let modal: ReturnType<typeof feedback.confirm>;
+        act(() => {
+            modal = feedback.confirm({ title: 'Confirm action', onCancel });
+        });
+
+        const wrap = document.querySelector<HTMLElement>('.ant-modal-wrap');
+        expect(wrap).not.toBeNull();
+
+        // rc-dialog only treats a click as a mask click when the mousedown that
+        // started it also landed on the wrap (so dragging out of the dialog
+        // does not close it).
+        act(() => {
+            fireEvent.mouseDown(wrap!);
+            fireEvent.click(wrap!);
+        });
+
+        expect(onCancel).toHaveBeenCalledTimes(1);
+
+        act(() => {
+            modal!.destroy();
         });
     });
 

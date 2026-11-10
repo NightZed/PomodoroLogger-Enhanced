@@ -537,6 +537,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                 </Content>
                 <EditKanbanForm
                     boardId={editingBoardId || ''}
+                    boardName={editingBoardId ? props.boards[editingBoardId]?.name : undefined}
                     form={boardForm}
                     visible={visible}
                     onSave={handleSave}

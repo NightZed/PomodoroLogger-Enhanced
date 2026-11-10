@@ -2,8 +2,13 @@ import * as React from 'react';
 import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { Form, FormInstance } from 'antd';
 import { EditKanbanForm } from './BoardEditor';
+import { feedback } from '../feedback';
 
 jest.mock('antd/lib/input/TextArea', () => ({ __esModule: true, default: () => null }));
+jest.mock('../feedback', () => ({
+    ...jest.requireActual('../feedback'),
+    feedback: { confirm: jest.fn(), toast: jest.fn() },
+}));
 
 const createBoardForm = (
     container: HTMLDivElement,
@@ -121,4 +126,61 @@ describe('EditKanbanForm board name validation', () => {
             expect(warn.mock.calls.flat().join(' ')).not.toContain('`callback` is deprecated');
         }
     );
+});
+
+describe('EditKanbanForm delete', () => {
+    afterEach(() => {
+        cleanup();
+        document.body.innerHTML = '';
+        jest.clearAllMocks();
+    });
+
+    it('names the board in a modal confirm and deletes only after it is accepted', async () => {
+        // Deleting used to be an in-place Popconfirm. It sits on a plain button
+        // here, but the three delete paths share one confirmation now so the
+        // dialog says which board is about to disappear.
+        const onDelete = jest.fn();
+        const Harness = () => {
+            const [form] = Form.useForm();
+            return (
+                <EditKanbanForm
+                    boardId="board-1"
+                    boardName="Work"
+                    form={form}
+                    visible={true}
+                    isCreating={false}
+                    onSave={jest.fn()}
+                    onCancel={jest.fn()}
+                    onDelete={onDelete}
+                    nameValidator={() => true}
+                />
+            );
+        };
+
+        render(<Harness />);
+
+        const deleteButton = Array.from(document.body.querySelectorAll('button')).find(
+            (button) => button.textContent?.trim() === 'Delete'
+        );
+        expect(deleteButton).toBeDefined();
+
+        await act(async () => {
+            fireEvent.click(deleteButton!);
+        });
+
+        expect(feedback.confirm).toHaveBeenCalledTimes(1);
+        expect(feedback.confirm).toHaveBeenCalledWith(
+            expect.objectContaining({
+                title: expect.stringContaining('Work'),
+                onOk: expect.any(Function),
+            })
+        );
+        expect(onDelete).not.toHaveBeenCalled();
+
+        const { onOk } = (feedback.confirm as jest.Mock).mock.calls[0][0];
+        await act(async () => {
+            onOk();
+        });
+        expect(onDelete).toHaveBeenCalledTimes(1);
+    });
 });

@@ -537,6 +537,12 @@ export const zh: CatalogShape<typeof en> = {
             paused: '已暂停',
             labelExists: '标签已存在',
             cannotDeleteList: '无法删除正在专注 / 已完成的列表。',
+            deleteListConfirm: (title: string): string => `删除列表「${title}」？`,
+            deleteListDetail: '列表中的所有卡片会一并删除。',
+            deleteCardConfirm: (title: string): string => `删除卡片「${title}」？`,
+            deleteCardDetail: '此操作无法撤销。',
+            deleteBoardConfirm: (name: string): string => `删除看板「${name}」？`,
+            deleteBoardDetail: '看板中的所有列表和卡片会一并删除。',
         },
         timer: {
             cannotSwitchMode: (isFocusing: boolean, isRunning: boolean): string =>

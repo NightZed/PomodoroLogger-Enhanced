@@ -16,8 +16,14 @@ import { act, cleanup, fireEvent, render } from '@testing-library/react';
 
 import { rootReducer } from '../../../reducers';
 import { POPUP_CONTAINER_ID } from '../../popupLayer';
+import { feedback } from '../../feedback';
 import { actions } from '../action';
 import { CardInDetail } from './CardEditor';
+
+jest.mock('../../feedback', () => ({
+    ...jest.requireActual('../../feedback'),
+    feedback: { confirm: jest.fn(), toast: jest.fn() },
+}));
 
 const CARD = {
     _id: 'card-1',
@@ -105,5 +111,64 @@ describe('CardEditor close', () => {
         expect(modalText()).toContain('Created:');
         expect(modalText()).toContain('Actual Spent Time');
         expect(modalText()).not.toContain('Create a new card');
+    });
+});
+
+describe('CardEditor delete', () => {
+    let store: any;
+
+    beforeEach(() => {
+        const popupLayer = document.createElement('div');
+        popupLayer.id = POPUP_CONTAINER_ID;
+        document.body.appendChild(popupLayer);
+
+        // The auto-sizing textarea reports NaN heights in jsdom; antd logs it.
+        jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+        store = createStore(rootReducer, preloadedState as any, applyMiddleware(thunk));
+
+        render(
+            <Provider store={store}>
+                <CardInDetail />
+            </Provider>
+        );
+    });
+
+    afterEach(() => {
+        cleanup();
+        document.body.innerHTML = '';
+        (console.error as jest.Mock).mockRestore();
+        (console.warn as jest.Mock).mockRestore();
+        jest.clearAllMocks();
+    });
+
+    it('names the card in a modal confirm and deletes only after it is accepted', async () => {
+        await act(async () => {
+            store.dispatch(actions.setEditCard(true, 'list-1', 'card-1') as any);
+            await new Promise((resolve) => setTimeout(resolve, 0));
+        });
+
+        const deleteButton = Array.from(document.querySelectorAll('.ant-modal button')).find(
+            (button) => button.textContent?.trim() === 'Delete'
+        );
+        expect(deleteButton).toBeDefined();
+
+        await act(async () => {
+            fireEvent.click(deleteButton!);
+        });
+
+        expect(feedback.confirm).toHaveBeenCalledTimes(1);
+        expect(feedback.confirm).toHaveBeenCalledWith(
+            expect.objectContaining({ title: expect.stringContaining(CARD.title) })
+        );
+        expect(store.getState().kanban.cards['card-1']).toBeDefined();
+
+        const { onOk } = (feedback.confirm as jest.Mock).mock.calls[0][0];
+        await act(async () => {
+            onOk();
+            await new Promise((resolve) => setTimeout(resolve, 0));
+        });
+        expect(store.getState().kanban.cards['card-1']).toBeUndefined();
     });
 });

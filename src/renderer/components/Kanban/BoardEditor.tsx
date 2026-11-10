@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { Button, Form, Input, Tabs } from 'antd';
 import type { RuleObject } from 'antd/es/form';
-import { ConfirmPopover } from '../feedback';
+import { feedback, FEEDBACK_MESSAGES } from '../feedback';
 import { AppModal } from '../AppModal';
 import { getPopupContainer } from '../popupLayer';
 import { DistractingListModalButton } from '../Setting/DistractingList';
@@ -15,6 +15,8 @@ import { useI18n } from '../../i18n';
 
 interface FormProps {
     boardId: string;
+    /** Shown in the delete confirmation so the dialog names its target. */
+    boardName?: string;
     onSave?: (values: { name: string; description: string }) => void;
     onCancel?: any;
     form: any;
@@ -29,8 +31,17 @@ export const EditKanbanForm = (props: FormProps) => {
     const { t } = useI18n();
     const [internalForm] = Form.useForm();
     const form = props.form ?? internalForm;
-    const { onSave, isCreating, nameValidator, visible, onDelete, boardId, onCancel, createdTime } =
-        props;
+    const {
+        onSave,
+        isCreating,
+        nameValidator,
+        visible,
+        onDelete,
+        boardId,
+        boardName,
+        onCancel,
+        createdTime,
+    } = props;
     const [showMarkdownPreview, setShowMarkdownPreview] = useState(false);
     const [description, setDescription] = useState('');
 
@@ -68,6 +79,15 @@ export const EditKanbanForm = (props: FormProps) => {
         },
         [isCreating, nameValidator, t]
     );
+
+    const onDeleteClick = useCallback(() => {
+        feedback.confirm({
+            kind: 'warning',
+            title: FEEDBACK_MESSAGES.kanban.deleteBoardConfirm(boardName ?? ''),
+            content: FEEDBACK_MESSAGES.kanban.deleteBoardDetail,
+            onOk: onDelete,
+        });
+    }, [boardName, onDelete]);
 
     const onTabChange = useCallback(
         (key: string) => {
@@ -166,11 +186,14 @@ export const EditKanbanForm = (props: FormProps) => {
                     {!isCreating ? (
                         <>
                             <Form.Item>
-                                <ConfirmPopover onConfirm={onDelete}>
-                                    <Button type="primary" danger icon={<Icon type={'delete'} />}>
-                                        Delete
-                                    </Button>
-                                </ConfirmPopover>
+                                <Button
+                                    type="primary"
+                                    danger
+                                    icon={<Icon type={'delete'} />}
+                                    onClick={onDeleteClick}
+                                >
+                                    {t('common.delete')}
+                                </Button>
                             </Form.Item>
                             <DistractingListModalButton boardId={boardId} />
                         </>

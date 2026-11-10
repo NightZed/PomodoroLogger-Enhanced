@@ -8,7 +8,7 @@ import { genMapDispatchToProp, matchParent } from '../../../utils';
 import { Button, Col, DatePicker, Form, Input, InputNumber, Row, Tabs, Tooltip } from 'antd';
 import { AppModal } from '../../AppModal';
 import { AntdIcon as Icon } from '../../antdIcon';
-import { ConfirmPopover } from '../../feedback';
+import { feedback, FEEDBACK_MESSAGES } from '../../feedback';
 import { getPopupContainer } from '../../popupLayer';
 import { uid } from '../../../../utils/uid';
 import dayjs, { Dayjs } from 'dayjs';
@@ -119,6 +119,19 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
         deleteCard(card._id, listId);
         onCancel?.();
     }, [card, deleteCard, listId, onCancel]);
+
+    const onDeleteClick = React.useCallback(() => {
+        if (!card) {
+            return;
+        }
+
+        feedback.confirm({
+            kind: 'warning',
+            title: FEEDBACK_MESSAGES.kanban.deleteCardConfirm(card.title),
+            content: FEEDBACK_MESSAGES.kanban.deleteCardDetail,
+            onOk: onDelete,
+        });
+    }, [card, onDelete]);
 
     const [isEditingActualTime, setIsEditingActualTime] = useState(false);
     const contentRef = useRef<any>(null);
@@ -783,11 +796,14 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                     </Form.Item>
                     {thisIsCreating ? undefined : (
                         <Row>
-                            <ConfirmPopover onConfirm={onDelete}>
-                                <Button type="primary" danger icon={<Icon type={'delete'} />}>
-                                    {t('common.delete')}
-                                </Button>
-                            </ConfirmPopover>
+                            <Button
+                                type="primary"
+                                danger
+                                icon={<Icon type={'delete'} />}
+                                onClick={onDeleteClick}
+                            >
+                                {t('common.delete')}
+                            </Button>
                         </Row>
                     )}
                 </Form>

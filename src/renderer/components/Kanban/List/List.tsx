@@ -428,12 +428,13 @@ export const List: FC<Props> = React.memo((props: Props) => {
 
         feedback.confirm({
             kind: 'warning',
-            title: FEEDBACK_MESSAGES.confirm.defaultTitle,
+            title: FEEDBACK_MESSAGES.kanban.deleteListConfirm(props.title),
+            content: FEEDBACK_MESSAGES.kanban.deleteListDetail,
             onOk: () => {
                 deleteList(_id, boardId);
             },
         });
-    }, [focused, done, _id, boardId, deleteList]);
+    }, [focused, done, _id, boardId, deleteList, props.title]);
 
     const onSave = () => {
         props.renameList(props._id, value);

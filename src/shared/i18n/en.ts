@@ -593,6 +593,18 @@ export const en = {
             paused: 'Paused',
             labelExists: 'Label already exists',
             cannotDeleteList: 'Cannot delete the focused / done list.',
+            /**
+             * Delete confirmations. The name travels with the dialog so the
+             * question names the thing about to disappear -- "Are you sure?"
+             * alone left the user guessing which list or card the menu item
+             * belonged to.
+             */
+            deleteListConfirm: (title: string): string => `Delete list "${title}"?`,
+            deleteListDetail: 'Every card in this list will be deleted too.',
+            deleteCardConfirm: (title: string): string => `Delete card "${title}"?`,
+            deleteCardDetail: 'This cannot be undone.',
+            deleteBoardConfirm: (name: string): string => `Delete board "${name}"?`,
+            deleteBoardDetail: 'Every list and card of this board will be deleted too.',
         },
         /** Timer actions. */
         timer: {

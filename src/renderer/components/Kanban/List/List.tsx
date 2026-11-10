@@ -8,7 +8,7 @@ import { Card } from '../Card';
 import { Button, Dropdown, Input, Tooltip } from 'antd';
 import type { MenuProps } from 'antd';
 import { AntdIcon as Icon, IconComponent } from '../../antdIcon';
-import { ConfirmPopover, feedback, FEEDBACK_MESSAGES } from '../../feedback';
+import { feedback, FEEDBACK_MESSAGES } from '../../feedback';
 import { KanbanActionTypes } from '../action';
 import { CardActionTypes, CardsState } from '../Card/action';
 import { CardView, List as ListType } from '../type';
@@ -413,13 +413,26 @@ export const List: FC<Props> = React.memo((props: Props) => {
         props.setEditCard(true, props.listId, undefined);
     };
 
+    // The confirmation cannot live inside the Dropdown menu item: the very
+    // click that opens it also closes the menu, and the popup it opened is
+    // chasing a trigger that is already being hidden. That is why a
+    // `Popconfirm` in the item's label only opened "sometimes" -- and why the
+    // 2019 fix for the same bug (818ec34) had to open it by hand from the
+    // item's `onClick`. Going through the shared modal confirm instead means
+    // the menu may close freely: the dialog lives in its own layer.
     const onDelete = React.useCallback(() => {
         if (focused || done) {
             feedback.toast({ kind: 'warning', content: FEEDBACK_MESSAGES.kanban.cannotDeleteList });
             return;
         }
 
-        deleteList(_id, boardId);
+        feedback.confirm({
+            kind: 'warning',
+            title: FEEDBACK_MESSAGES.confirm.defaultTitle,
+            onOk: () => {
+                deleteList(_id, boardId);
+            },
+        });
     }, [focused, done, _id, boardId, deleteList]);
 
     const onSave = () => {
@@ -441,9 +454,6 @@ export const List: FC<Props> = React.memo((props: Props) => {
         inputRef.current.focus();
     }, [props.title]);
 
-    /** The shared popover forwards the antd instance, so the menu can open it. */
-    const popConfirmRef = useRef<{ setVisible: (visible: boolean) => void } | null>(null);
-
     const menu: MenuProps = React.useMemo(
         () =>
             !focused && !done
@@ -459,11 +469,8 @@ export const List: FC<Props> = React.memo((props: Props) => {
                           {
                               key: '3',
                               icon: <Icon type={'delete'} />,
-                              label: (
-                                  <ConfirmPopover onConfirm={onDelete} ref={popConfirmRef as any}>
-                                      {t('common.delete')}
-                                  </ConfirmPopover>
-                              ),
+                              label: t('common.delete'),
+                              onClick: onDelete,
                           },
                       ],
                   }

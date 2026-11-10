@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { List } from './List';
+import { feedback } from '../../feedback';
 
 jest.mock('@hello-pangea/dnd', () => ({
     Draggable: (props: any) =>
@@ -25,7 +26,7 @@ jest.mock('../../Visualization/Timeline', () => ({
 }));
 jest.mock('../../feedback', () => ({
     ...jest.requireActual('../../feedback'),
-    feedback: { toast: jest.fn() },
+    feedback: { toast: jest.fn(), confirm: jest.fn() },
 }));
 
 const makeCards = (count: number) => {
@@ -171,6 +172,69 @@ describe('List progressive card mounting', () => {
 
         expect(writes).toBeLessThanOrEqual(2);
         expect(lastValue).toEqual(['card-1']);
+    });
+});
+
+describe('List delete menu', () => {
+    afterEach(() => {
+        cleanup();
+        jest.clearAllMocks();
+    });
+
+    it('confirms through the shared modal, not a popover inside the closing menu', async () => {
+        // The delete item used to carry a `Popconfirm` as its label. The click
+        // that opened it also closed the Dropdown, so the popup (whose trigger
+        // was being hidden at the same time) only appeared intermittently.
+        // The item now opens the shared modal confirm, which the menu closing
+        // cannot touch.
+        const { ids, cards } = makeCards(2);
+        const deleteList = jest.fn();
+        const { container } = render(
+            <List
+                {...({
+                    _id: 'list-1',
+                    listId: 'list-1',
+                    index: 0,
+                    boardId: 'board-1',
+                    title: 'List',
+                    cards: ids,
+                    cardsState: cards,
+                    cardView: 'preview',
+                    setVisibleCards: noop,
+                    setEditCard: noop,
+                    setSearchReg: noop,
+                    setContent: noop,
+                    deleteList,
+                    renameList: noop,
+                    addCard: noop,
+                } as any)}
+            />
+        );
+
+        await act(async () => {
+            fireEvent.click(
+                container.querySelector('.list-head-icon .anticon-menu') as HTMLElement
+            );
+        });
+
+        const items = Array.from(document.querySelectorAll('.ant-dropdown-menu-item'));
+        // Edit first, then the divider, then Delete.
+        expect(items.length).toBe(2);
+
+        await act(async () => {
+            fireEvent.click(items[items.length - 1]);
+        });
+
+        expect(feedback.confirm).toHaveBeenCalledTimes(1);
+        expect(feedback.confirm).toHaveBeenCalledWith(expect.objectContaining({ kind: 'warning' }));
+        // Nothing is removed until the dialog is accepted.
+        expect(deleteList).not.toHaveBeenCalled();
+
+        const { onOk } = (feedback.confirm as jest.Mock).mock.calls[0][0];
+        await act(async () => {
+            onOk();
+        });
+        expect(deleteList).toHaveBeenCalledWith('list-1', 'board-1');
     });
 });
 

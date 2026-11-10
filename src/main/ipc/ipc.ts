@@ -45,6 +45,10 @@ import {
     unwrapImportPayload,
 } from '../../shared/dataTransfer/payload';
 import { validateSourceData } from '../../shared/dataTransfer/validate';
+import {
+    analyzeUnknownProjects,
+    describeUnknownProjects,
+} from '../../shared/dataTransfer/unknownProjects';
 import { initializeDbIpc } from '../db/ipc';
 import { openExternalUrl } from '../openExternal';
 import { openDataDir } from '../openDataDir';
@@ -556,12 +560,23 @@ export function initialize() {
 
         // Same facts the dialog shows, plus counts, so a later report can say
         // what actually landed in the database.
+        //
+        // `unknown` is what the History view will render as "Unknown": sessions
+        // with no board, or with a board id this database does not have. It is
+        // computed from the merged result, not from the file, because the merge
+        // is a union -- a board the file omits may already exist locally, and
+        // those sessions will not be Unknown at all.
+        const unknown = analyzeUnknownProjects(
+            merged.payload.merged.records,
+            merged.payload.merged.boards
+        );
         const counts = [
             `records=${merged.payload.merged.records.length}`,
             `move=${merged.payload.merged.move.length}`,
             `cards=${Object.keys(merged.payload.merged.cards).length}`,
             `lists=${Object.keys(merged.payload.merged.lists).length}`,
             `boards=${Object.keys(merged.payload.merged.boards).length}`,
+            `unknown=${unknown.total}`,
         ].join(' ');
         const headline = `import completed file="${fileName}" bytes=${bytes} ${counts} warnings=${warnings.length}`;
 
@@ -569,6 +584,14 @@ export function initialize() {
             logIssueChunks('warn', headline, warnings);
         } else {
             log('data', 'info', headline);
+        }
+
+        if (unknown.total > 0) {
+            logIssueChunks(
+                'warn',
+                `import unknown-projects file="${fileName}" ${describeUnknownProjects(unknown)}`,
+                unknown.lines.map((message) => ({ path: '', message }))
+            );
         }
 
         return { status: 'imported', warnings, meta };

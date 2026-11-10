@@ -132,6 +132,8 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
   `crash` 和 `data` 完全忽略级别（见 `LEVEL_EXEMPT_SCOPES`）。
   写入是同步的（崩溃报告必须能活过 `app.exit`），并受这些限制：单文件 1 MiB 轮转、相同消息 5 秒窗口、每秒最多 20 行。
 - `ImportData` 在每条退出路径上都把结果写进 `data.log`：JSON 解析器的报错信息；文件被拒时写校验器最多 500 条发现（`ValidationResult.recordedIssues`，按 8 KiB 以下分块）；文件被接受时写结果计数和合并警告。
+  接受时还会把合并结果里会被历史页渲染成 `Unknown` 的会话（没有 `boardId`，或 `boardId` 指向不存在的看板）逐条写进同一文件（同样最多 500 条），标题行带 `unknown=N`。
+  这份报告只进日志，不进对话框，因为「会话没有项目」是正常状态而不是导入失败（`src/shared/dataTransfer/unknownProjects.ts`）。
   对话框只展示前 20 条（`ValidationResult.issues`），并提供一个 **Open Log Folder** 按钮。
   `ClearUserFiles` 会记录「删除全部」的完成。
 - 渲染层崩溃经 `IpcEventName.ReportError`（`send`）上报，写进 `crash.log`，然后显示在整窗的 `src/renderer/components/ErrorScreen.tsx` 上。

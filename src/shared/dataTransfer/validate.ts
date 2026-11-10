@@ -57,7 +57,7 @@ const MAX_SHOWN_ISSUES = 20;
  * 500 lines is enough to locate the pattern and still bounded, so a
  * systematically broken file cannot exhaust memory or the log file.
  */
-const MAX_RECORDED_ISSUES = 500;
+export const MAX_RECORDED_ISSUES = 500;
 
 export const isFiniteNumber = (value: unknown): value is number =>
     typeof value === 'number' && Number.isFinite(value);

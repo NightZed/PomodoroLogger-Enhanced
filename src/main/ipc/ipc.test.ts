@@ -468,6 +468,61 @@ describe('main/ipc', () => {
             expect(call?.[3]).toContain('lost a card');
         });
 
+        it('writes the sessions that will render as Unknown to data.log', async () => {
+            const file = tempFile('unknown', JSON.stringify(emptyData));
+            (dialog.showOpenDialog as jest.Mock).mockResolvedValue({
+                canceled: false,
+                filePaths: [file],
+            });
+            (readAllData as jest.Mock).mockResolvedValue(emptyData);
+            (sendWorkerMessage as jest.Mock).mockResolvedValue({
+                payload: {
+                    merged: {
+                        ...emptyData,
+                        records: [
+                            {
+                                _id: 'r1',
+                                apps: {},
+                                spentTimeInHour: 0.5,
+                                switchTimes: 0,
+                                startTime: 1000,
+                            },
+                            {
+                                _id: 'r2',
+                                apps: {},
+                                spentTimeInHour: 0.25,
+                                switchTimes: 0,
+                                startTime: 2000,
+                                boardId: 'gone',
+                            },
+                        ],
+                    },
+                },
+            });
+
+            const result = await handlers['importData'](trustedEvent);
+
+            expect(result.status).toBe('imported');
+            // Nothing new in the dialog: this is a log-only report, so the
+            // result keeps its usual shape.
+            expect(result.warnings).toEqual([]);
+
+            const calls = (log as jest.Mock).mock.calls.filter(([scope]) => scope === 'data');
+            const headline = calls.find(([, , message]) =>
+                String(message).includes('import completed')
+            );
+            expect(headline?.[2]).toContain('unknown=2');
+
+            const detail = calls.find(([, , message]) =>
+                String(message).includes('import unknown-projects')
+            );
+            expect(detail?.[1]).toBe('warn');
+            expect(detail?.[2]).toContain('noBoardId=1');
+            expect(detail?.[2]).toContain('dangling=1');
+            expect(detail?.[3]).toContain('records["r1"] boardId missing');
+            expect(detail?.[3]).toContain('records["r2"] boardId="gone" not in boards');
+        });
+
         it('returns the selected wallpaper path or nothing when cancelled', async () => {
             (dialog.showOpenDialog as jest.Mock).mockResolvedValueOnce({
                 canceled: false,

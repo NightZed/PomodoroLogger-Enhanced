@@ -290,10 +290,10 @@ WIP 限制（进行中列表最多几张卡）作为**独立的看板功能**后
 - 顶部增加归属筛选：「全部 / 未挂卡 / 无项目」。
 - 数据来源：渲染层已有的 `kanban.cards`，构建一次 `Set<sessionId>`，不需要额外查询。
 
-**2. 看板页「未分配番茄」抽屉**
+**2. 看板页「未分配番茄」弹窗**
 
 - 入口：进入看板后，顶部工具栏右侧「未分配 N」按钮（N 为该板未挂卡会话数）。
-- 点击从右侧滑出抽屉：
+- 点击打开弹窗（`AppModal`，不是 antd `Drawer`：弹窗与全应用其它对话框共用同一套无动效打开方式，软件渲染下不用为滑入动画重绘整窗）：
 
 ```
                                 ┌────────────────────────────────────┐
@@ -312,7 +312,9 @@ WIP 限制（进行中列表最多几张卡）作为**独立的看板功能**后
 
 - 行内「未挂卡」可点，打开同一个卡片选择弹窗（范围固定为本项目）。
 - 与按天弹窗共用草稿 + 保存逻辑；不提供「跳到当天」（避免把 History 的日期状态提升成跨页状态）。
-- 抽屉里不放「改项目 / 删除」，这两个操作只在按天弹窗里做，避免同一记录两处入口。
+- 弹窗里不放「改项目 / 删除」，这两个操作只在按天弹窗里做，避免同一记录两处入口。
+- 数据读取放在 `useUnassignedSessions(boardId)`（`Board/useUnassignedSessions.ts`），由 `Kanban` 调用：按钮的 N 和弹窗的列表来自同一次查询，弹窗本身是纯展示组件（`rows` / `total` 由 props 传入），保存成功后调 `onSaved` 重新读取。
+- 保存失败时弹窗保持打开；`applySessionEdits` 的返回值经 `applyEdits` 写回 `kanban.cards`，看板上的卡片时长立刻更正。
 - 数据来源：主进程新命令 `listUnassignedSessions(boardId, limit)`：
   1. 读 `cards.session_ids` 列构建 `Set`；
   2. 查 `sessions WHERE board_id = ?`；
@@ -342,7 +344,7 @@ applySessionEdits([
 4. 卡片 `actual` 不做前端加减：主进程返回受影响卡片的新 `sessionIds` 与新 `actual`，渲染层整体覆盖，避免浮点漂移。
 5. 看板级 `spentHours` / `relatedSessions` 按**会話**累加，与挂到哪张卡无关。因此：只换卡时看板汇总不动；改项目时旧看板要移除该会话并扣减时长、新看板加上；删除记录同理。
 6. 删除记录也要先从所有卡片解绑并扣减 `actual`，否则卡片会引用一条已不存在的会话。
-7. 保存成功后两处面板都要刷新：History 重新聚合（`reloadToken`），抽屉重新拉 `listUnassignedSessions` 与「未分配 N」。
+7. 保存成功后两处面板都要刷新：History 重新聚合（`reloadToken`），看板页重新拉 `listUnassignedSessions` 与「未分配 N」。
 
 实现细节（第 4 步定稿）：
 
@@ -414,7 +416,7 @@ UI：
 3. 一番茄一卡：结束遮罩卡片选择器 + `timerFinished` 签名收敛。
 4. `applySessionEdits` 事务命令 + `listUnassignedSessions` 查询。
 5. History 按天管理弹窗：草稿状态、行内项目/卡片编辑、项目与卡片选择弹窗、批量设置、删除标记。
-6. 看板页「未分配」抽屉：复用 4 与 5 的组件和命令。
+6. 看板页「未分配」弹窗：复用 4 与 5 的组件和命令。
 7. 卡片跨看板移动：`moveCardToBoard` + CardEditor 入口 + 目标列表选择弹窗。
 8. 孤立数据清理入口。
 9. i18n（en + zh）与测试。

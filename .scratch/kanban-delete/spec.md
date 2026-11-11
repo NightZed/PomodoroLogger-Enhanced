@@ -192,6 +192,14 @@ Status: draft（设计已定，实现未开始）
 
 实现涉及：`SessionEndingMask` 的 `showPicker` / `editing` 扩展为同时控制两行；`FocusSelector` 过滤隐藏看板（已完成）；`Timer.onSessionConfirmed` 传单个 `cardId`；`actions.timerFinished`、`Board.onTimerFinished` 的 `cardIds: string[]` 改为 `cardId?: string`。
 
+实现细节（第 3 步定稿）：
+
+- 卡片选择弹窗落在 `src/renderer/components/Kanban/CardPicker.tsx`，按 `board.lists` 分栏，含「不挂卡」和「取消」，`zIndex` 默认 1100（结束遮罩是 z-index 1000 的 fixed 层）。它必须渲染在 `Mask` 的**兄弟位置**而不是内部：React portal 的事件仍沿 React 树冒泡，放在 `Mask` 内会让弹窗里的每次点击都触发遮罩自己的 `onCancel`，直接确认掉这次会话。
+- 遮罩回调用 `string | null` 传卡：`null` 表示用户明确选了「不挂卡」，`undefined` 表示没有做出选择（例如托盘菜单、F5 这类没有卡片的确认路径）。`Timer.resolveCardId` 只在后者回退到 `defaultCardId`（`focusedList` 的第一张卡），所以「不挂卡」不会被默认值悄悄覆盖。
+- 托盘菜单 / F5 / 背景点击在遮罩显示期间确认时，同样按「第一张卡」处理，与遮罩的默认选中保持一致。
+- 遮罩打开或切换项目都会把卡片重置为目标项目的第一张卡；`focusedList` 里已被删除的卡（`kanban.cards` 里查不到）会被跳过，避免留下悬空引用。
+- `Card.onTimerFinished` 仍是 `$push sessionIds + $inc actual`，但现在只会对一张卡调用。
+
 WIP 限制（进行中列表最多几张卡）作为**独立的看板功能**后续单独做，默认不限，不影响番茄归属。不放在「设置-计时器」里。
 
 ### 按天管理弹窗（已定）

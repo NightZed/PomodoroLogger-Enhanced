@@ -269,6 +269,25 @@ export const en = {
             empty: 'No matching projects',
             hidden: 'Hidden',
         },
+        unassigned: {
+            button: (count: number): string => `Unassigned (${count})`,
+            title: (board: string): string => `Unassigned · ${board}`,
+            hint: 'These focus sessions are not counted by any card yet.',
+            empty: 'Nothing is waiting for a card',
+            noCard: 'No card',
+            appCount: (count: number): string => `${count} ${plural(count, 'app', 'apps')}`,
+            more: (count: number): string => `${count} more not shown`,
+            selected: (count: number): string => `${count} selected`,
+            assignTo: 'Assign to a card',
+            save: 'Save',
+            nothingPicked: 'Pick a card for at least one session',
+            confirmTitle: 'Assign these sessions?',
+            confirmBody: (count: number): string =>
+                `${count} ${count === 1 ? 'session' : 'sessions'} will be counted by the chosen card.`,
+            saved: 'Sessions assigned',
+            saveFailed: (detail: string): string =>
+                'Could not assign sessions' + (detail ? `: ${detail}` : ''),
+        },
         cardEditor: {
             createTitle: 'Create a new card',
             editTitle: 'Edit',

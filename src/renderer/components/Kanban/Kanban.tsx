@@ -20,6 +20,8 @@ import { isShallowEqualByKeys } from '../../utils';
 import { thinScrollBar } from '../../style/scrollbar';
 import { EditKanbanForm } from './BoardEditor';
 import { PlayPauseButton } from './Board/PlayPauseButton';
+import { UnassignedPanel } from './Board/UnassignedPanel';
+import { useUnassignedSessions } from './Board/useUnassignedSessions';
 import { Search } from '../../../components/common/Search/Search';
 import { getBoardSearchTags } from './boardTags';
 import { PomodoroRecord } from '../../monitor/type';
@@ -27,6 +29,7 @@ import { CardView } from './type';
 import { debounce } from 'lodash';
 import { useI18n } from '../../i18n';
 import type { PlainMessageKey } from '../../../shared/i18n';
+import type { SessionEditsResult } from '../../../shared/sessionEdits';
 
 const { Option } = Select;
 
@@ -170,6 +173,8 @@ interface Props extends KanbanState, KanbanActionTypes, BoardActionTypes, TimerA
      * long as the component.
      */
     currentTab: tabType;
+    /** Writes a session-edit transaction's card state back into the store. */
+    applyEdits?: (result: SessionEditsResult) => void;
 }
 
 export const Kanban: FunctionComponent<Props> = React.memo(
@@ -199,6 +204,19 @@ export const Kanban: FunctionComponent<Props> = React.memo(
         // a transient view choice, not a setting worth persisting.
         const [showHidden, setShowHidden] = useState(false);
         const [editingBoardId, setEditingBoardId] = useState<string | undefined>('');
+        const [unassignedOpen, setUnassignedOpen] = useState(false);
+        // Sessions of the chosen board that no card counts. Read here so the
+        // header button and the panel share one query.
+        const {
+            rows: unassignedRows,
+            total: unassignedTotal,
+            reload: reloadUnassigned,
+        } = useUnassignedSessions(props.kanban.chosenBoardId);
+        React.useEffect(() => {
+            if (unassignedOpen) {
+                void reloadUnassigned();
+            }
+        }, [unassignedOpen, reloadUnassigned]);
         const hiddenBoardCount = React.useMemo(
             () => Object.values(props.boards).filter((board) => board.hidden).length,
             [props.boards]
@@ -495,6 +513,13 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                             }
                                         />
                                     </CardViewSwitch>
+                                    <Button
+                                        style={{ marginRight: 4 }}
+                                        disabled={unassignedTotal === 0}
+                                        onClick={() => setUnassignedOpen(true)}
+                                    >
+                                        {t('kanban.unassigned.button', unassignedTotal)}
+                                    </Button>
                                     <PlayPauseButton
                                         showPlay={
                                             !(props.isFocusingOnChosenBoard && props.isTimerRunning)
@@ -579,6 +604,19 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                         editingBoardId ? props.boards[editingBoardId]?.createdTime : undefined
                     }
                 />
+                {props.kanban.chosenBoardId === undefined ? null : (
+                    <UnassignedPanel
+                        boardId={props.kanban.chosenBoardId}
+                        boardName={props.boards[props.kanban.chosenBoardId]?.name ?? ''}
+                        open={unassignedOpen}
+                        onClose={() => setUnassignedOpen(false)}
+                        rows={unassignedRows}
+                        total={unassignedTotal}
+                        onSaved={reloadUnassigned}
+                        applyEdits={props.applyEdits}
+                        cards={props.cards}
+                    />
+                )}
             </Layout>
         );
     },

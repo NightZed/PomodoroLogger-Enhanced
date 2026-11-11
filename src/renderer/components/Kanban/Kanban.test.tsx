@@ -10,6 +10,14 @@ jest.mock('./Board/Overview', () => ({
         </div>
     ),
 }));
+// The drawer and its card picker are connected and have their own tests;
+// this page is rendered bare, without a store.
+jest.mock('./Board/UnassignedPanel', () => ({ UnassignedPanel: () => null }));
+// The hook queries the database on mount; this page's tests do not wait for
+// that promise, and an unawaited state update outside `act` trips the gate.
+jest.mock('./Board/useUnassignedSessions', () => ({
+    useUnassignedSessions: () => ({ rows: [], total: 0, reload: jest.fn() }),
+}));
 jest.mock('./Board/PlayPauseButton', () => ({
     PlayPauseButton: ({ onClick, showPlay }: any) => (
         <button data-testid="play-pause" data-play={String(showPlay)} onClick={onClick} />

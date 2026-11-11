@@ -19,6 +19,12 @@ jest.mock('../../workers', () => ({
 // chart then mounted and blew up as soon as the calendar section became
 // visible.
 jest.mock('../Visualization/WordCloud', () => ({ WordCloud: () => null }));
+/**
+ * The per-day editor is a connected component; these tests render `History`
+ * bare (it takes everything through props), so it has no store to read. Its own
+ * test file covers it against a real store.
+ */
+jest.mock('./SessionDayEditor', () => ({ SessionDayEditor: () => null }));
 jest.mock('../../../components/Visualization/TimeTreemap', () => ({
     TimeTreemap: () => null,
 }));

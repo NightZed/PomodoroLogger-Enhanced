@@ -21,6 +21,7 @@ import { TimeBadge } from '../../../components/Visualization/Badge/Badge';
 import { workers } from '../../workers';
 import { Card as CardState } from '../Kanban/type';
 import { TimeTreemap } from '../../../components/Visualization/TimeTreemap';
+import { SessionDayEditor } from './SessionDayEditor';
 import { useI18n } from '../../i18n';
 
 const { Option } = Select;
@@ -121,6 +122,9 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
     const [errorMsg, setErrorMsg] = useState<string | undefined>(undefined);
     // Bumped by the retry button to re-run the aggregation effect as is.
     const [reloadToken, setReloadToken] = useState(0);
+    // The per-day editor: its Save changes sessions and cards, so both the
+    // aggregation and the selected day's records have to be re-read.
+    const [editorOpen, setEditorOpen] = useState(false);
     const container = useRef<HTMLDivElement | null>(null);
     const [calendarWidth, setCalendarWidth] = useState(document.body.clientWidth - 40);
 
@@ -330,7 +334,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         return () => {
             cancelled = true;
         };
-    }, [targetDate, props.chosenId]);
+    }, [targetDate, props.chosenId, reloadToken]);
 
     const onChange = (v: string) => {
         props.setChosenProjectId(v || undefined);
@@ -577,6 +581,15 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                                     showNum={false}
                                     chooseRecord={props.chooseRecord}
                                 />
+                                {shownPomodoros ? (
+                                    <Button
+                                        size="small"
+                                        style={{ marginLeft: 8 }}
+                                        onClick={() => setEditorOpen(true)}
+                                    >
+                                        {t('history.manage')}
+                                    </Button>
+                                ) : undefined}
                             </div>
                             {aggInfo.total.count === 0 ? (
                                 <div
@@ -609,6 +622,14 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                     <Loading size={'large'} />
                 )}
             </SubContainer>
+            <SessionDayEditor
+                open={editorOpen}
+                records={shownPomodoros ?? []}
+                onClose={() => setEditorOpen(false)}
+                // Sessions and cards both changed; the aggregation effect and
+                // the selected day's query read the same token.
+                onSaved={() => setReloadToken((token) => token + 1)}
+            />
         </Container>
     );
 });

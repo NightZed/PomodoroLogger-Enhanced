@@ -9,7 +9,9 @@
  */
 import { DBs, loadDBs } from '../src/main/db';
 import { deleteKanbanItems } from '../src/main/db/kanbanDeletion';
+import { applySessionEdits, listUnassignedSessions } from '../src/main/db/sessionEdits';
 import type { DeleteKanbanItemsPayload } from '../src/shared/kanbanDeletion';
+import type { SessionEdit, UnassignedSessionsQuery } from '../src/shared/sessionEdits';
 import type { DbName } from '../src/main/db/types';
 
 const api = (window as any).api ?? {};
@@ -36,5 +38,13 @@ api.dbRequest = async (name: DbName, operation: string, args: unknown[] = []) =>
  * the expand/remove/recalculate path is covered by the renderer action tests.
  */
 api.deleteKanbanItems = (payload: DeleteKanbanItemsPayload) => deleteKanbanItems(payload);
+
+/**
+ * Same reasoning as the cascade delete: the editor's transaction and the
+ * unassigned query are main-process code, exercised against the real
+ * in-memory database rather than restated by a stub.
+ */
+api.applySessionEdits = (edits: SessionEdit[]) => applySessionEdits(edits);
+api.listUnassignedSessions = (query: UnassignedSessionsQuery) => listUnassignedSessions(query);
 
 (window as any).api = api;

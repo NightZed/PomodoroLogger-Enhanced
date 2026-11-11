@@ -29,12 +29,16 @@ const FocusSelectorInner: FunctionComponent<Props> = (props: Props) => {
     // Sort boards by creation time in descending order so the newest project
     // is rendered first in the dropdown, i.e. closest to the select box.
     // Legacy boards without createdTime are treated as the oldest.
+    // Hidden boards are omitted entirely: they are not offered as focus
+    // targets (their sessions still keep their project name in History).
     // Memoized because this component is on the always-mounted Timer page: a
     // card edit in the Kanban page used to recreate/sort every Option even
     // though the board list had not changed.
     const sortedBoards = React.useMemo(
         () =>
-            Object.values(props.boards).sort((a, b) => (b.createdTime ?? 0) - (a.createdTime ?? 0)),
+            Object.values(props.boards)
+                .filter((board) => !board.hidden)
+                .sort((a, b) => (b.createdTime ?? 0) - (a.createdTime ?? 0)),
         [props.boards]
     );
 

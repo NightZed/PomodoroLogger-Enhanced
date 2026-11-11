@@ -10,6 +10,7 @@ const boards = {
     legacy: { _id: 'legacy', name: 'Legacy Project' },
     newest: { _id: 'newest', name: 'Newest Project', createdTime: 30 },
     middle: { _id: 'middle', name: 'Middle Project', createdTime: 10 },
+    hidden: { _id: 'hidden', name: 'Hidden Project', createdTime: 40, hidden: true },
 };
 
 const renderSelector = (boardId?: string, width?: number) => {
@@ -46,6 +47,20 @@ describe('Timer FocusSelector', () => {
         const { container } = renderSelector();
 
         expect(openOptions(container)).toEqual([
+            'Newest Project',
+            'Middle Project',
+            'Oldest Project',
+            'Legacy Project',
+            'No Focusing Project',
+        ]);
+    });
+
+    it('omits hidden boards even though they are the newest', () => {
+        const { container } = renderSelector();
+
+        const names = openOptions(container);
+        expect(names).not.toContain('Hidden Project');
+        expect(names).toEqual([
             'Newest Project',
             'Middle Project',
             'Oldest Project',

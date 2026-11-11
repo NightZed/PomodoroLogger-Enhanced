@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
-import { Button, Form, Input, Tabs } from 'antd';
+import { Button, Form, Input, Switch, Tabs } from 'antd';
 import type { RuleObject } from 'antd/es/form';
 import { feedback, FEEDBACK_MESSAGES } from '../feedback';
 import { AppModal } from '../AppModal';
@@ -17,7 +17,7 @@ interface FormProps {
     boardId: string;
     /** Shown in the delete confirmation so the dialog names its target. */
     boardName?: string;
-    onSave?: (values: { name: string; description: string }) => void;
+    onSave?: (values: { name: string; description: string; hidden?: boolean }) => void;
     onCancel?: any;
     form: any;
     visible: boolean;
@@ -133,6 +133,17 @@ export const EditKanbanForm = (props: FormProps) => {
                     >
                         <Input onKeyDown={onKeydown} />
                     </Form.Item>
+                    {!isCreating ? (
+                        <Form.Item
+                            label={t('kanban.boardEditor.hidden')}
+                            name="hidden"
+                            valuePropName="checked"
+                            extra={t('kanban.boardEditor.hiddenHint')}
+                            style={{ marginBottom: 12 }}
+                        >
+                            <Switch />
+                        </Form.Item>
+                    ) : undefined}
                     {!isCreating && createdTime !== undefined ? (
                         <CreatedTime style={{ marginTop: -4, marginBottom: 8 }}>
                             {t('kanban.page.created')}: {formatTimeYmdHm(createdTime)}

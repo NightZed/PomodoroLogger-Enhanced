@@ -72,11 +72,12 @@ describe('board actions', () => {
         };
 
         await actions.addBoard(_id, _id)(dispatch);
-        await actions.editBoard(_id, 'new_name', 'new_name')(dispatch);
+        await actions.editBoard(_id, 'new_name', 'new_name', true)(dispatch);
         await actions.setLastVisitTime(_id, 1000)(dispatch);
 
         expect(state[_id].name).toBe('new_name');
         expect(state[_id].description).toBe('new_name');
+        expect(state[_id].hidden).toBe(true);
         expect(state[_id].lastVisitTime).toBe(1000);
         expect(await db.findOne({ _id })).toStrictEqual(state[_id]);
     });

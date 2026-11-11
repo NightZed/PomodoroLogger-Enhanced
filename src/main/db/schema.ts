@@ -67,6 +67,7 @@ export const boardSpec: TableSpec = {
         f('pin', 'pin', 'boolean', false),
         f('cardView', 'card_view', 'text', 'full'),
         f('distractionList', 'distraction_list', 'json'),
+        f('hidden', 'hidden', 'boolean', false),
     ],
 };
 
@@ -168,6 +169,7 @@ export function createSchema(db: Database) {
             pin               INTEGER NOT NULL DEFAULT 0,
             card_view         TEXT,
             distraction_list  TEXT,
+            hidden            INTEGER NOT NULL DEFAULT 0,
             doc               TEXT NOT NULL
         );
 

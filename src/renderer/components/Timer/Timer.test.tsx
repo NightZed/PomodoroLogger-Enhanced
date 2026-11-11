@@ -295,6 +295,18 @@ describe('Timer page', () => {
         expect(view.actions.setBoardId).toHaveBeenCalledWith(undefined);
     });
 
+    it('clears a focusing project that was hidden on the kanban page', async () => {
+        const view = await renderTimer();
+
+        await rerenderTimer(view, {
+            ...view.props,
+            timer: { ...view.props.timer, isRunning: true },
+            kanban: { ...view.props.kanban, boards: { b1: { ...boards.b1, hidden: true } } },
+        });
+
+        expect(view.actions.setBoardId).toHaveBeenCalledWith(undefined);
+    });
+
     it('renders the compact layout without the help and side bar controls', async () => {
         const compact = await renderTimer({ compact: true });
 

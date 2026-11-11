@@ -61,6 +61,11 @@ export interface KanbanBoard {
     pin?: boolean;
     cardView?: CardView;
     distractionList?: DistractingRow[];
+    /**
+     * Hidden from the overview and from the Timer's project picker. The board
+     * still exists, so its sessions keep their project name in History.
+     */
+    hidden?: boolean;
 }
 
 export interface List {

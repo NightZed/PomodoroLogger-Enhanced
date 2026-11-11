@@ -25,9 +25,10 @@ import { memorizeDispatchToProps } from '../../../utils';
 import { PlayPauseButton } from './PlayPauseButton';
 import { Pin } from '../../../../components/common/Pin/Pin';
 
-const BriefCard = styled.div`
+const BriefCard = styled.div<{ $dimmed?: boolean }>`
     word-break: break-word;
     position: relative;
+    opacity: ${({ $dimmed }) => ($dimmed ? 0.6 : 1)};
     /* Keep the card a stacking context so the negative-z-index shadow
        pseudo-element paints above the card's own background (but below the
        content) instead of disappearing behind it. */
@@ -399,6 +400,7 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
 
     return (
         <BriefCard
+            $dimmed={!!props.hidden}
             onClick={onClick ? () => onClick(props._id) : undefined}
             onMouseLeave={onMouseLeave}
             onMouseEnter={onMouseEnter}

@@ -84,9 +84,12 @@ const onTimerFinished = createAction(
     })
 );
 
-const editBoard = createAction('[Board]EDIT', (_id: string, name: string, description: string) => ({
-    payload: { _id, name, description },
-}));
+const editBoard = createAction(
+    '[Board]EDIT',
+    (_id: string, name: string, description: string, hidden: boolean) => ({
+        payload: { _id, name, description, hidden },
+    })
+);
 
 const setPin = createAction('[Board]SET_PIN', (_id: string, pin: boolean) => ({
     payload: { _id, pin },
@@ -192,12 +195,13 @@ export const boardReducer = createReducer<KanbanBoardState>({}, (builder) => {
                 },
             };
         })
-        .addCase(editBoard, (state, { payload: { _id, name, description } }) => ({
+        .addCase(editBoard, (state, { payload: { _id, name, description, hidden } }) => ({
             ...state,
             [_id]: {
                 ...state[_id],
                 name,
                 description,
+                hidden,
             },
         }))
         .addCase(setDistractionList, (state, { payload: { _id, distractionList } }) => ({
@@ -524,10 +528,12 @@ export const actions = {
             await actions.setLastVisitTime(_id, new Date().getTime())(dispatch);
         },
 
-    editBoard: (_id: string, name: string, description: string) => async (dispatch: Dispatch) => {
-        dispatch(editBoard(_id, name, description));
-        await db.update({ _id }, { $set: { name, description } });
-    },
+    editBoard:
+        (_id: string, name: string, description: string, hidden: boolean) =>
+        async (dispatch: Dispatch) => {
+            dispatch(editBoard(_id, name, description, hidden));
+            await db.update({ _id }, { $set: { name, description, hidden } });
+        },
 
     setPin: (_id: string, pin: boolean) => async (dispatch: Dispatch) => {
         dispatch(setPin(_id, pin));

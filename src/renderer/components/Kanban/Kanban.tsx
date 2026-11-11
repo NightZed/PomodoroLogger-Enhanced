@@ -149,6 +149,7 @@ const Header = styled.div`
 interface FormValue {
     name: string;
     description: string;
+    hidden?: boolean;
 }
 
 interface Props extends KanbanState, KanbanActionTypes, BoardActionTypes, TimerActionTypes {
@@ -194,7 +195,14 @@ export const Kanban: FunctionComponent<Props> = React.memo(
         const [boardForm] = Form.useForm();
         const [visible, setVisible] = useState(false);
         const [showTable, setShowTable] = useState(false);
+        // Local to the page on purpose: which board scope the overview shows is
+        // a transient view choice, not a setting worth persisting.
+        const [showHidden, setShowHidden] = useState(false);
         const [editingBoardId, setEditingBoardId] = useState<string | undefined>('');
+        const hiddenBoardCount = React.useMemo(
+            () => Object.values(props.boards).filter((board) => board.hidden).length,
+            [props.boards]
+        );
         const getSuggestions = React.useCallback(() => {
             const board = props.kanban.chosenBoardId
                 ? props.boards[props.kanban.chosenBoardId]
@@ -238,12 +246,12 @@ export const Kanban: FunctionComponent<Props> = React.memo(
             search.cancel();
             setSearchReg(undefined);
         }, [currentTab, setSearchReg, search]);
-        const valueHandler: (values: FormValue) => void = ({ name, description }: FormValue) => {
+        const valueHandler: (values: FormValue) => void = ({ name, description, hidden }) => {
             if (editingBoardId === undefined) {
                 props.addBoard(uid(), name, description);
             } else {
                 // Edit board
-                props.editBoard(editingBoardId, name, description);
+                props.editBoard(editingBoardId, name, description, !!hidden);
             }
         };
         const handleSave = (values: FormValue) => {
@@ -268,13 +276,14 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                 setEditingBoardId(id);
                 setVisible(true);
                 if (id === undefined) {
-                    boardForm.setFieldsValue({ name: '', description: '' });
+                    boardForm.setFieldsValue({ name: '', description: '', hidden: false });
                 } else {
                     const board = boardsRef.current[id];
                     if (board !== undefined) {
                         boardForm.setFieldsValue({
                             name: board.name,
                             description: board.description,
+                            hidden: !!board.hidden,
                         });
                     }
                 }
@@ -501,6 +510,23 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                             </>
                         ) : (
                             <LabelButton>
+                                <Segmented
+                                    shape="round"
+                                    aria-label={t('kanban.page.boardScope')}
+                                    style={{ marginRight: 12 }}
+                                    value={showHidden ? 'hidden' : 'active'}
+                                    onChange={(value) => setShowHidden(value === 'hidden')}
+                                    options={[
+                                        {
+                                            value: 'active',
+                                            label: t('kanban.page.activeBoards'),
+                                        },
+                                        {
+                                            value: 'hidden',
+                                            label: t('kanban.page.hiddenBoards', hiddenBoardCount),
+                                        },
+                                    ]}
+                                />
                                 <label>{t('kanban.page.showTable')} </label>
                                 <Switch onChange={onShowTableChange} checked={showTable} />
                             </LabelButton>
@@ -526,7 +552,11 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                             display: props.kanban.chosenBoardId === undefined ? undefined : 'none',
                         }}
                     >
-                        <Overview showConfigById={showConfigById} showTable={showTable} />
+                        <Overview
+                            showConfigById={showConfigById}
+                            showTable={showTable}
+                            showHidden={showHidden}
+                        />
                     </div>
                     {props.kanban.chosenBoardId === undefined ? null : (
                         <Board

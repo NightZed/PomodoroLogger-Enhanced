@@ -472,8 +472,13 @@ class Timer extends Component<Props, State> {
         // board that no longer exists (a dangling entry in `FocusSelector` and
         // a focus target that can never be resolved). Clear it as soon as the
         // referenced board disappears.
+        //
+        // The same applies to a board the user just hid: FocusSelector no
+        // longer offers it, so keeping it selected would leave the Timer
+        // crediting a project that is no longer visible there.
         const { boardId } = this.props.timer;
-        if (boardId !== undefined && this.props.kanban.boards[boardId] === undefined) {
+        const focusedBoard = boardId === undefined ? undefined : this.props.kanban.boards[boardId];
+        if (boardId !== undefined && (focusedBoard === undefined || focusedBoard.hidden)) {
             this.props.setBoardId(undefined);
         }
     }

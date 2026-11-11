@@ -269,7 +269,7 @@ describe('Kanban page', () => {
         expect((global as any).__formProps.createdTime).toBe(board.createdTime);
 
         fireEvent.click(getByTestId('form-save'));
-        expect(actions.editBoard).toHaveBeenCalledWith('b1', 'New Board', 'New desc');
+        expect(actions.editBoard).toHaveBeenCalledWith('b1', 'New Board', 'New desc', false);
     });
 
     it('deletes the chosen board from the settings form', () => {

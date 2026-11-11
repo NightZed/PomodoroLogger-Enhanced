@@ -16,6 +16,21 @@ import { useI18n } from '../../../i18n';
 
 const Container = styled.div``;
 
+const EmptyHint = styled.div`
+    padding: 24px;
+    text-align: center;
+    font-size: 14px;
+    color: var(--pl-text-secondary);
+`;
+
+/**
+ * The overview shows one scope at a time: `showHidden=false` lists the boards
+ * still in use, `true` lists the ones the user hid. Exported so the split has
+ * one definition for both the card grid and the table.
+ */
+export const getBoardsForScope = (boards: KanbanBoardState, showHidden: boolean): KanbanBoard[] =>
+    Object.values(boards).filter((board) => !!board.hidden === showHidden);
+
 // Waterfall geometry, matching what react-stack-grid used before the React 19
 // migration removed it: fixed-width columns, a 5px gutter, and cards placed in
 // the currently shortest column (left to right on equal heights).
@@ -62,6 +77,8 @@ interface Props {
     boards: KanbanBoardState;
     lists: ListsState;
     cards: CardsState;
+    /** Which subset the overview lists: false = active, true = hidden. */
+    showHidden?: boolean;
 }
 
 const columns = [
@@ -123,7 +140,16 @@ const columns = [
 
 const OverviewTableInner: FC<Props> = (props: Props) => {
     const { t } = useI18n();
-    const { boards, lists: listsById, cards: cardsById } = props;
+    const { lists: listsById, cards: cardsById } = props;
+
+    // The table lists one scope at a time, matching the card grid.
+    const boards = React.useMemo(() => {
+        const filtered: KanbanBoardState = {};
+        for (const board of getBoardsForScope(props.boards, !!props.showHidden)) {
+            filtered[board._id] = board;
+        }
+        return filtered;
+    }, [props.boards, props.showHidden]);
 
     // The aggregation walks every card of every board. The table re-renders
     // when it is sorted, paged or when an IdTrend resolves, so keep the result
@@ -150,6 +176,8 @@ const OverviewTableInner: FC<Props> = (props: Props) => {
 interface InputProps {
     showTable?: boolean;
     showConfigById?: (boardId: string) => void;
+    /** false/undefined = active boards, true = hidden boards. */
+    showHidden?: boolean;
 }
 
 const OverviewTable = connect((state: RootState) => ({
@@ -237,6 +265,7 @@ interface OverviewCardsProps {
     cards: CardsState;
     minimize: boolean;
     showConfigById?: (boardId: string) => void;
+    showHidden?: boolean;
 }
 
 interface BoardRect {
@@ -676,8 +705,13 @@ const OverviewCards = connect(
         setId: (_id: string) => actions.setChosenBoardId(_id)(dispatch),
     })
 )(((props: OverviewCardsProps) => {
+    const { t } = useI18n();
     const { boardsById, setId } = props;
-    const boards = React.useMemo(() => Object.values(boardsById), [boardsById]);
+    // One scope at a time: the overview never mixes active and hidden boards.
+    const boards = React.useMemo(
+        () => getBoardsForScope(boardsById, !!props.showHidden),
+        [boardsById, props.showHidden]
+    );
     const ids = React.useMemo(
         () =>
             getSortedBoardIds(
@@ -691,16 +725,25 @@ const OverviewCards = connect(
     );
 
     return (
-        <ResponsiveBoardGrid suspended={props.minimize}>
-            {ids.map((_id) => (
-                <BoardBrief
-                    key={_id}
-                    boardId={_id}
-                    onClick={setId}
-                    onSettingClick={props.showConfigById}
-                />
-            ))}
-        </ResponsiveBoardGrid>
+        <>
+            <ResponsiveBoardGrid suspended={props.minimize}>
+                {ids.map((_id) => (
+                    <BoardBrief
+                        key={_id}
+                        boardId={_id}
+                        onClick={setId}
+                        onSettingClick={props.showConfigById}
+                    />
+                ))}
+            </ResponsiveBoardGrid>
+            {ids.length === 0 ? (
+                <EmptyHint>
+                    {props.showHidden
+                        ? t('kanban.page.noHiddenBoards')
+                        : t('kanban.page.noActiveBoards')}
+                </EmptyHint>
+            ) : undefined}
+        </>
     );
 }) as FC<OverviewCardsProps>);
 
@@ -708,6 +751,10 @@ const OverviewCards = connect(
 // toggling the table view, ...) does not re-render the board grid: the
 // connected `OverviewCards` would otherwise rebuild every `BoardBrief`.
 export const Overview: FC<InputProps> = React.memo(
-    ({ showTable = false, showConfigById }: InputProps) =>
-        showTable ? <OverviewTable /> : <OverviewCards showConfigById={showConfigById} />
+    ({ showTable = false, showConfigById, showHidden = false }: InputProps) =>
+        showTable ? (
+            <OverviewTable showHidden={showHidden} />
+        ) : (
+            <OverviewCards showConfigById={showConfigById} showHidden={showHidden} />
+        )
 );

@@ -3,9 +3,11 @@ import {
     assertOpenExternalUrl,
     assertScreenshotDataUrl,
     assertScreenshotPaths,
+    assertSessionEdits,
     assertString,
     assertTrayIconPayload,
     assertTrayMenuItems,
+    assertUnassignedSessionsQuery,
 } from './validate';
 
 describe('IPC validators', () => {
@@ -47,5 +49,40 @@ describe('IPC validators', () => {
         expect(() => assertScreenshotDataUrl('https://example.com/a.jpg')).toThrow(TypeError);
         expect(assertScreenshotPaths(['a.jpg'])).toEqual(['a.jpg']);
         expect(() => assertScreenshotPaths([1])).toThrow(TypeError);
+    });
+
+    it('keeps "detach" (null) and "leave alone" (undefined) apart in session edits', () => {
+        expect(
+            assertSessionEdits([
+                { _id: 's1', boardId: 'b1' },
+                { _id: 's2', cardId: null },
+                { _id: 's3', delete: true },
+                { _id: 's4', boardId: null, cardId: 'c1' },
+            ])
+        ).toEqual([
+            { _id: 's1', delete: false, boardId: 'b1', cardId: undefined },
+            { _id: 's2', delete: false, boardId: undefined, cardId: null },
+            { _id: 's3', delete: true, boardId: undefined, cardId: undefined },
+            { _id: 's4', delete: false, boardId: null, cardId: 'c1' },
+        ]);
+
+        expect(() => assertSessionEdits([{ _id: 's1' }])).toThrow(TypeError);
+        expect(() =>
+            assertSessionEdits([
+                { _id: 's1', cardId: null },
+                { _id: 's1', boardId: 'b1' },
+            ])
+        ).toThrow(TypeError);
+        expect(() => assertSessionEdits([{ _id: 's1', boardId: 1 }])).toThrow(TypeError);
+    });
+
+    it('checks the unassigned-sessions query', () => {
+        expect(assertUnassignedSessionsQuery(undefined)).toEqual({});
+        expect(assertUnassignedSessionsQuery({ boardId: 'b1', limit: 10 })).toEqual({
+            boardId: 'b1',
+            limit: 10,
+        });
+        expect(() => assertUnassignedSessionsQuery({ limit: 0 })).toThrow(TypeError);
+        expect(() => assertUnassignedSessionsQuery({ limit: Infinity })).toThrow(TypeError);
     });
 });

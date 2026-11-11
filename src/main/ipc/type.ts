@@ -7,6 +7,12 @@ import type { AggPomodoroInfo } from '../../renderer/components/History/op';
 import type { Language, LanguagePreference } from '../../shared/i18n';
 import type { LogLevel } from '../../shared/log';
 import type { DeleteKanbanItemsPayload, KanbanDeletionResult } from '../../shared/kanbanDeletion';
+import type {
+    SessionEdit,
+    SessionEditsResult,
+    UnassignedSessionsQuery,
+    UnassignedSessionsResult,
+} from '../../shared/sessionEdits';
 import type { TrayActionKey, TrayMenuItem } from '../../renderer/components/Timer/sessionState';
 
 export type { TrayMenuItem };
@@ -24,6 +30,10 @@ export enum IpcEventName {
     ImportData = 'importData',
     /** Cascade-deletes cards/lists/boards and their derived rows in one transaction. */
     DeleteKanbanItems = 'deleteKanbanItems',
+    /** Applies a batch of session edits (project / card / delete) in one transaction. */
+    ApplySessionEdits = 'applySessionEdits',
+    /** Lists sessions that no card counts, newest first. */
+    ListUnassignedSessions = 'listUnassignedSessions',
     SelectWallpaper = 'selectWallpaper',
     ActiveWin = 'activeWin',
     OpenAtLogin = 'openAtLogin',
@@ -269,6 +279,10 @@ export type ExposedAPI = {
     [IpcEventName.DeleteKanbanItems](
         payload: DeleteKanbanItemsPayload
     ): Promise<KanbanDeletionResult>;
+    [IpcEventName.ApplySessionEdits](edits: SessionEdit[]): Promise<SessionEditsResult>;
+    [IpcEventName.ListUnassignedSessions](
+        query: UnassignedSessionsQuery
+    ): Promise<UnassignedSessionsResult>;
     [IpcEventName.SelectWallpaper](): Promise<string | undefined>;
     [IpcEventName.ExportData](): Promise<ExportResult>;
     [IpcEventName.ActiveWin](): Promise<BaseResult | undefined>;

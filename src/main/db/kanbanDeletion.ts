@@ -9,7 +9,8 @@ import type { DeleteKanbanItemsPayload, KanbanDeletionResult } from '../../share
  * noise would otherwise accumulate in `spentHours`).
  */
 const HOUR_PRECISION = 1e6;
-const roundHours = (value: number): number => Math.round(value * HOUR_PRECISION) / HOUR_PRECISION;
+export const roundHours = (value: number): number =>
+    Math.round(value * HOUR_PRECISION) / HOUR_PRECISION;
 
 /**
  * Cascade delete for the kanban tree, in one SQLite transaction.

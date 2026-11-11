@@ -1,5 +1,6 @@
 import type { RendererErrorPayload, TrayIconPayload, TrayMenuItem } from './type';
 import type { DeleteKanbanItemsPayload } from '../../shared/kanbanDeletion';
+import type { SessionEdit, UnassignedSessionsQuery } from '../../shared/sessionEdits';
 
 /**
  * Small runtime validators for the preload boundary. TypeScript disappears at
@@ -79,6 +80,74 @@ export function assertDeleteKanbanItemsPayload(value: unknown): DeleteKanbanItem
         throw new TypeError('deleteKanbanItems needs at least one of cards/lists/boards');
     }
     return { cards, lists, boards };
+}
+
+/** Upper bound for one session-edit batch; the editor pages anyway. */
+const MAX_SESSION_EDITS = 500;
+
+/**
+ * `null` is a real value here (detach), so it is checked separately from
+ * `undefined` (leave alone) instead of collapsing into "optional".
+ */
+const readOptionalId = (value: unknown, name: string): string | null | undefined => {
+    if (value === undefined) {
+        return undefined;
+    }
+    if (value === null) {
+        return null;
+    }
+    return assertString(value, name, 200);
+};
+
+export function assertSessionEdits(value: unknown): SessionEdit[] {
+    const entries = assertArray(value, 'applySessionEdits', MAX_SESSION_EDITS);
+    const seen = new Set<string>();
+    const edits: SessionEdit[] = [];
+
+    for (const [index, entry] of entries.entries()) {
+        const item = assertPlainObject(entry, `applySessionEdits[${index}]`);
+        const _id = assertString(item._id, `applySessionEdits[${index}]._id`, 200);
+        if (seen.has(_id)) {
+            throw new TypeError(`applySessionEdits repeats session ${_id}`);
+        }
+        seen.add(_id);
+
+        const isDelete =
+            item.delete === undefined
+                ? false
+                : assertBoolean(item.delete, `applySessionEdits[${index}].delete`);
+        const boardId = readOptionalId(item.boardId, `applySessionEdits[${index}].boardId`);
+        const cardId = readOptionalId(item.cardId, `applySessionEdits[${index}].cardId`);
+
+        if (!isDelete && boardId === undefined && cardId === undefined) {
+            throw new TypeError(`applySessionEdits[${index}] has nothing to change`);
+        }
+        edits.push({ _id, delete: isDelete, boardId, cardId });
+    }
+
+    return edits;
+}
+
+export function assertUnassignedSessionsQuery(value: unknown): UnassignedSessionsQuery {
+    if (value === undefined || value === null) {
+        return {};
+    }
+
+    const query = assertPlainObject(value, 'listUnassignedSessions query');
+    const boardId =
+        query.boardId === undefined
+            ? undefined
+            : assertString(query.boardId, 'listUnassignedSessions.boardId', 200);
+
+    let limit: number | undefined;
+    if (query.limit !== undefined) {
+        if (typeof query.limit !== 'number' || !Number.isFinite(query.limit) || query.limit < 1) {
+            throw new TypeError('listUnassignedSessions.limit must be a positive number');
+        }
+        limit = Math.trunc(query.limit);
+    }
+
+    return { boardId, limit };
 }
 
 export function assertTrayMenuItems(value: unknown): TrayMenuItem[] {

@@ -192,6 +192,7 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
 
 番茄的卡片归属是**一番茄一卡**：结束遮罩（`SessionEndingMask`）在 `focusedList` 只有一张卡时自动选它，多张时让用户选一张或选「不挂卡」，然后 `Timer.onSessionConfirmed` 把单个 `cardId` 交给 `timerFinished` → `Board.onTimerFinished`，只有那张卡的 `actual` 增加。
 不要退回「挂到 `focusedList` 的每一张卡」：那会让卡片时长按列表卡片数放大，而 `dataMerger` 的 `setBoardInfo` 按卡片重算看板时长，导出再导入后 `spentHours` 会变成实际的 N 倍。
+事后改归属（改项目 / 挂卡 / 删除）统一走主进程的 `applySessionEdits` 单事务：卡片按 `board.lists → list.cards` 反查归属，跨看板挂卡整批拒绝，换卡先解绑再挂一次，改项目同时把看板 `spentHours` / `relatedSessions` 转到新板。
 
 ### 开发期时间缩放
 

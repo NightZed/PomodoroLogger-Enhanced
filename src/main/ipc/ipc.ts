@@ -65,13 +65,17 @@ import {
     assertOptionalBoolean,
     assertScreenshotDataUrl,
     assertScreenshotPaths,
+    assertSessionEdits,
     assertString,
     assertTrayMenuItems,
+    assertUnassignedSessionsQuery,
     assertOneOf,
 } from './validate';
 import type { Validator } from './validate';
 import { deleteKanbanItems } from '../db/kanbanDeletion';
+import { applySessionEdits, listUnassignedSessions } from '../db/sessionEdits';
 import type { DeleteKanbanItemsPayload } from '../../shared/kanbanDeletion';
+import type { SessionEdit, UnassignedSessionsQuery } from '../../shared/sessionEdits';
 
 /**
  * Only the page loaded into the app window may talk to these channels. The
@@ -603,6 +607,14 @@ export function initialize() {
         IpcEventName.DeleteKanbanItems,
         (payload: DeleteKanbanItemsPayload) => deleteKanbanItems(payload),
         [assertDeleteKanbanItemsPayload]
+    );
+    handle(IpcEventName.ApplySessionEdits, (edits: SessionEdit[]) => applySessionEdits(edits), [
+        assertSessionEdits,
+    ]);
+    handle(
+        IpcEventName.ListUnassignedSessions,
+        (query: UnassignedSessionsQuery) => listUnassignedSessions(query),
+        [assertUnassignedSessionsQuery]
     );
     handle(IpcEventName.SelectWallpaper, async (): Promise<string | undefined> => {
         const result = await dialog.showOpenDialog({

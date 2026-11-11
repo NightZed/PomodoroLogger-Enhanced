@@ -25,6 +25,7 @@ import type {
 import type { BaseResult } from 'get-windows';
 import type { DbName } from './db/types';
 import type { LogLevel } from '../shared/log';
+import type { DeleteKanbanItemsPayload, KanbanDeletionResult } from '../shared/kanbanDeletion';
 import type { TrayActionKey } from '../renderer/components/Timer/sessionState';
 import { parseInitialTheme } from './ipc/initialTheme';
 import { parseInitialLanguage } from './ipc/initialLanguage';
@@ -88,6 +89,8 @@ const api: ExposedAPI = {
             : undefined,
 
     [IpcEventName.ImportData]: () => invoke<ImportResult>(IpcEventName.ImportData),
+    [IpcEventName.DeleteKanbanItems]: (payload: DeleteKanbanItemsPayload) =>
+        invoke<KanbanDeletionResult>(IpcEventName.DeleteKanbanItems, payload),
     [IpcEventName.SelectWallpaper]: () => invoke<string | undefined>(IpcEventName.SelectWallpaper),
     [IpcEventName.ExportData]: () => invoke<ExportResult>(IpcEventName.ExportData),
     [IpcEventName.ActiveWin]: () => invoke<BaseResult | undefined>(IpcEventName.ActiveWin),

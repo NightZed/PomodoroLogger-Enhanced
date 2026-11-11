@@ -8,6 +8,8 @@
  * their own mock after this file has run.
  */
 import { DBs, loadDBs } from '../src/main/db';
+import { deleteKanbanItems } from '../src/main/db/kanbanDeletion';
+import type { DeleteKanbanItemsPayload } from '../src/shared/kanbanDeletion';
 import type { DbName } from '../src/main/db/types';
 
 const api = (window as any).api ?? {};
@@ -27,5 +29,12 @@ api.dbRequest = async (name: DbName, operation: string, args: unknown[] = []) =>
     }
     return repository[operation](...args);
 };
+
+/**
+ * The cascade delete now lives in the main process. Tests exercise the real
+ * implementation against the in-memory database instead of stubbing it, so
+ * the expand/remove/recalculate path is covered by the renderer action tests.
+ */
+api.deleteKanbanItems = (payload: DeleteKanbanItemsPayload) => deleteKanbanItems(payload);
 
 (window as any).api = api;

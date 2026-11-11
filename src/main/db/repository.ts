@@ -476,7 +476,10 @@ function buildSqlWhere(spec: TableSpec, query: any): SqlCondition | null {
 }
 
 export class SqliteRepository<T = any> implements DbRepository<T> {
-    constructor(protected readonly db: Database, protected readonly spec: TableSpec) {}
+    constructor(
+        protected readonly db: Database,
+        protected readonly spec: TableSpec
+    ) {}
 
     private rawRows(query?: any, columns?: string[]): any[] {
         const where = buildSqlWhere(this.spec, query);
@@ -692,6 +695,51 @@ export class SqliteRepository<T = any> implements DbRepository<T> {
         return this.insertSync(docs);
     }
 
+    /**
+     * Synchronous reads for work that runs inside `runInTransaction` (cascade
+     * deletes, imports). The async variants yield to the event loop during long
+     * scans, which a transaction callback cannot do.
+     */
+    findSync<R = T>(query: any = {}, projection?: any): R[] {
+        const result: R[] = [];
+        for (const { doc } of this.selectRows(query)) {
+            if (matchesQuery(doc, query)) {
+                result.push(applyProjection(doc, projection) as R);
+            }
+        }
+        return result;
+    }
+
+    /** Synchronous counterpart of `remove`; the caller owns the transaction. */
+    removeSync(query: any = {}, options: RemoveOptions = {}): number {
+        const matches = this.selectRows(query).filter(({ doc }) => matchesQuery(doc, query));
+        const targets = options.multi ? matches : matches.slice(0, 1);
+        if (targets.length === 0) {
+            return 0;
+        }
+
+        const statement = this.spec.hasId
+            ? this.db.prepare(`DELETE FROM ${this.spec.table} WHERE _id = ?`)
+            : this.db.prepare(`DELETE FROM ${this.spec.table} WHERE rowid = ?`);
+        for (const target of targets) {
+            statement.run(this.spec.hasId ? target.doc._id : target.row._rowid);
+        }
+        return targets.length;
+    }
+
+    /**
+     * Synchronous counterpart of `update`, without upsert: cascade deletes only
+     * rewrite documents that already exist. The caller owns the transaction.
+     */
+    updateSync(query: any, update: any, options: { multi?: boolean } = {}): number {
+        const matches = this.selectRows(query).filter(({ doc }) => matchesQuery(doc, query));
+        const targets = options.multi ? matches : matches.slice(0, 1);
+        for (const target of targets) {
+            this.write(target.row, applyUpdate(target.doc, update, false));
+        }
+        return targets.length;
+    }
+
     /** Used by the import flow, which owns the surrounding transaction. */
     clearSync() {
         this.db.prepare(`DELETE FROM ${this.spec.table}`).run();
@@ -784,8 +832,7 @@ export class SettingsRepository implements DbRepository {
 
     getValueSync(key: string): any {
         const row = this.db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as
-            | { value: string }
-            | undefined;
+            { value: string } | undefined;
         if (!row) {
             return undefined;
         }

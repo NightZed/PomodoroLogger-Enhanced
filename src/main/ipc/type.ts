@@ -6,6 +6,7 @@ import type { DbName, HistoryData } from '../db/types';
 import type { AggPomodoroInfo } from '../../renderer/components/History/op';
 import type { Language, LanguagePreference } from '../../shared/i18n';
 import type { LogLevel } from '../../shared/log';
+import type { DeleteKanbanItemsPayload, KanbanDeletionResult } from '../../shared/kanbanDeletion';
 import type { TrayActionKey, TrayMenuItem } from '../../renderer/components/Timer/sessionState';
 
 export type { TrayMenuItem };
@@ -21,6 +22,8 @@ export enum IpcEventName {
     InstallUpdate = 'install-update',
     ExportData = 'exportData',
     ImportData = 'importData',
+    /** Cascade-deletes cards/lists/boards and their derived rows in one transaction. */
+    DeleteKanbanItems = 'deleteKanbanItems',
     SelectWallpaper = 'selectWallpaper',
     ActiveWin = 'activeWin',
     OpenAtLogin = 'openAtLogin',
@@ -263,6 +266,9 @@ export type ExposedAPI = {
     readonly initialLanguage?: InitialLanguageSetting;
 
     [IpcEventName.ImportData](): Promise<ImportResult>;
+    [IpcEventName.DeleteKanbanItems](
+        payload: DeleteKanbanItemsPayload
+    ): Promise<KanbanDeletionResult>;
     [IpcEventName.SelectWallpaper](): Promise<string | undefined>;
     [IpcEventName.ExportData](): Promise<ExportResult>;
     [IpcEventName.ActiveWin](): Promise<BaseResult | undefined>;

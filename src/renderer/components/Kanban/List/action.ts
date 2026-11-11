@@ -2,6 +2,7 @@ import { createAction, createReducer } from '@reduxjs/toolkit';
 import { Dispatch } from 'redux';
 import { actions as cardAction } from '../Card/action';
 import { actions as boardActions } from '../Board/action';
+import { applyKanbanDeletion, deleteKanbanItems } from '../deletion';
 import { uid } from '../../../../utils/uid';
 import { workers } from '../../../workers';
 import { List, ListsState } from '../type';
@@ -150,6 +151,16 @@ export const listReducer = createReducer<ListsState>({}, (builder) => {
                 cards: state[_id].cards.filter((v) => v !== cardId),
             },
         }))
+        .addCase(applyKanbanDeletion, (state, { payload }) => {
+            const next = { ...state };
+            for (const _id of payload.lists) {
+                delete next[_id];
+            }
+            for (const [id, list] of Object.entries(payload.updatedLists)) {
+                next[id] = list;
+            }
+            return next;
+        })
         .addCase(setVisibleCards, (state, { payload: { listId, cards } }) => ({
             ...state,
             [listId]: {
@@ -201,18 +212,11 @@ export const actions = {
         dispatch(addCard(_id, cardId));
         await db.update({ _id }, { $push: { cards: cardId } }, {});
     },
-    deleteList: (_id: string, boardId?: string) => async (dispatch: Dispatch) => {
-        if (boardId !== undefined) {
-            await boardActions.deleteList(boardId, _id)(dispatch);
-            return;
-        }
-
-        dispatch(deleteList(_id));
-        await db.remove({ _id });
+    deleteList: (_id: string, _boardId?: string) => async (dispatch: Dispatch) => {
+        await deleteKanbanItems({ lists: [_id] })(dispatch);
     },
     deleteCard: (_id: string, cardId: string) => async (dispatch: Dispatch) => {
-        dispatch(deleteCard(_id, cardId));
-        await db.update({ _id }, { $pull: { cards: cardId } }, {});
+        await deleteKanbanItems({ cards: [cardId] })(dispatch);
     },
     addList: (_id: string, title: string) => async (dispatch: Dispatch) => {
         dispatch(addList(_id, title));

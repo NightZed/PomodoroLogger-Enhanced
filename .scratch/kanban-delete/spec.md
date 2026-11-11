@@ -65,9 +65,13 @@ Status: draft（设计已定，实现未开始）
 1. 展开净集合：
    - `boards` → 该板的所有 `lists`
    - `lists` → 每个 list 的 `cards`
-2. 删除顺序：`moves`（先）→ `cards` → `lists` → `boards`。
-3. 重算受影响看板的 `spentHours` 与 `relatedSessions`（按剩余卡片求和，删看板时该板本身也不在了，跳过）。
-4. 返回删除计数，供日志与 UI 使用。
+2. 删除 `cards`、`lists`、`boards`，以及相关 `moves`（`cardId` 命中，或 `fromListId` / `toListId` 命中）。
+3. 更新仍存在的列表：从 `cards` 数组移除被删卡片。
+4. 更新仍存在的看板：
+   - `lists` 去掉被删除的列表；
+   - `spentHours` 扣减被删卡片的 `actual`（下限 0），而不是按剩余卡片重算——按卡片求和会抹掉从未挂卡的会话时长；
+   - `relatedSessions` 只去掉「仅被被删卡片引用」的会话；未被任何卡片引用的会话保持不变。
+5. 返回实际删除的 id 与受影响列表/看板的最终状态，渲染层一次 `applyKanbanDeletion` 覆盖三个 slice。
 
 ### 级联表
 
@@ -389,7 +393,7 @@ UI：
 ## 测试
 
 - 事务级联：删卡片/列表/看板后，`cards`、`lists`、`boards`、`moves` 无残留，`sessions` 不变。
-- `spentHours` / `relatedSessions` 在删除后等于剩余卡片的求和。
+- `spentHours` 按被删卡片的 `actual` 扣减（下限 0）；`relatedSessions` 只移除仅被被删卡片引用的会话，未挂卡的会话不会被删除操作抹掉。
 - `hidden`：筛选、聚焦下拉过滤、导出导入携带、合并时保留本地值。
 - 改项目 / 删记录的自动解绑与看板汇总重算。
 - 一番茄一卡：单卡时自动挂、多卡时选卡、选「不挂卡」时不写 `sessionIds`；任何情况下只改一张卡的 `actual`。

@@ -1,6 +1,7 @@
 import { createAction, createReducer } from '@reduxjs/toolkit';
 import { Dispatch } from 'redux';
 import { actions as listActions } from '../List/action';
+import { applyKanbanDeletion, deleteKanbanItems } from '../deletion';
 import { actions as cardActions } from '../Card/action';
 import { actions as kanbanActions } from '../action';
 import { actions as historyActions } from '../../History/action';
@@ -168,6 +169,16 @@ export const boardReducer = createReducer<KanbanBoardState>({}, (builder) => {
         .addCase(deleteBoard, (state, { payload: { _id } }) => {
             const { [_id]: _del, ...rest } = state;
             return rest;
+        })
+        .addCase(applyKanbanDeletion, (state, { payload }) => {
+            const next = { ...state };
+            for (const _id of payload.boards) {
+                delete next[_id];
+            }
+            for (const [id, board] of Object.entries(payload.updatedBoards)) {
+                next[id] = board;
+            }
+            return next;
         })
         .addCase(deleteList, (state, { payload: { _id, listId } }) => ({
             ...state,
@@ -428,7 +439,6 @@ export const actions = {
         await db.update({ _id }, { $push: { lists: listId } });
     },
     deleteBoard: (_id: string) => async (dispatch: Dispatch, getState?: () => RootState) => {
-        dispatch(deleteBoard(_id));
         // `timer.boardId` (the focusing project on the Timer page) may
         // point at the board being deleted. Leaving it dangling makes the
         // Timer's sider keep rendering the lists/cards of a nonexistent
@@ -438,12 +448,10 @@ export const actions = {
             dispatch(timerActions.setBoardId(undefined));
         }
         await kanbanActions.setChosenBoardId(undefined)(dispatch);
-        await db.remove({ _id });
+        await deleteKanbanItems({ boards: [_id] })(dispatch);
     },
-    deleteList: (_id: string, listId: string) => async (dispatch: Dispatch) => {
-        dispatch(deleteList(_id, listId));
-        await listActions.deleteList(listId)(dispatch);
-        await db.update({ _id }, { $pull: { lists: listId } });
+    deleteList: (_boardId: string, listId: string) => async (dispatch: Dispatch) => {
+        await deleteKanbanItems({ lists: [listId] })(dispatch);
     },
 
     addBoard:

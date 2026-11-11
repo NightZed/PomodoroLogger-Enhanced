@@ -59,6 +59,7 @@ import type { LogLevel } from '../../shared/log';
 import { clearUserFiles, deleteScreenshots, saveScreenshot } from '../userFiles';
 import {
     assertBoolean,
+    assertDeleteKanbanItemsPayload,
     assertOpenExternalUrl,
     assertRendererErrorPayload,
     assertOptionalBoolean,
@@ -69,6 +70,8 @@ import {
     assertOneOf,
 } from './validate';
 import type { Validator } from './validate';
+import { deleteKanbanItems } from '../db/kanbanDeletion';
+import type { DeleteKanbanItemsPayload } from '../../shared/kanbanDeletion';
 
 /**
  * Only the page loaded into the app window may talk to these channels. The
@@ -596,6 +599,11 @@ export function initialize() {
 
         return { status: 'imported', warnings, meta };
     });
+    handle(
+        IpcEventName.DeleteKanbanItems,
+        (payload: DeleteKanbanItemsPayload) => deleteKanbanItems(payload),
+        [assertDeleteKanbanItemsPayload]
+    );
     handle(IpcEventName.SelectWallpaper, async (): Promise<string | undefined> => {
         const result = await dialog.showOpenDialog({
             properties: ['openFile'],

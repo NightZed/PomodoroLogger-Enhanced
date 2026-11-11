@@ -1,5 +1,6 @@
 import { createAction, createReducer } from '@reduxjs/toolkit';
 import { Dispatch } from 'redux';
+import { applyKanbanDeletion, deleteKanbanItems } from '../deletion';
 import { actions as listActions } from '../List/action';
 import { workers } from '../../../workers';
 import { Card, CardLabel } from '../type';
@@ -103,10 +104,8 @@ export const actions = {
         dispatch(addActualTime(_id, plus));
         await db.update({ _id }, { $inc: { 'spentTimeInHour.actual': plus } });
     },
-    deleteCard: (_id: string, listId: string) => async (dispatch: Dispatch) => {
-        await listActions.deleteCard(listId, _id)(dispatch);
-        dispatch(deleteCard(_id));
-        await db.remove({ _id });
+    deleteCard: (_id: string, _listId: string) => async (dispatch: Dispatch) => {
+        await deleteKanbanItems({ cards: [_id] })(dispatch);
     },
     onTimerFinished:
         (_id: string, sessionId: string, spentTimeInHour: number) => async (dispatch: Dispatch) => {
@@ -228,6 +227,16 @@ export const cardReducer = createReducer<CardsState>({}, (builder) => {
         .addCase(deleteCard, (state, { payload: { _id } }) => {
             const { [_id]: _deleted, ...rest } = state;
             return rest;
+        })
+        .addCase(applyKanbanDeletion, (state, { payload }) => {
+            if (payload.cards.length === 0) {
+                return state;
+            }
+            const next = { ...state };
+            for (const _id of payload.cards) {
+                delete next[_id];
+            }
+            return next;
         })
         .addCase(setCards, (state, { payload }) => payload)
         .addCase(addActualTime, (state, { payload: { _id, plus } }) => {

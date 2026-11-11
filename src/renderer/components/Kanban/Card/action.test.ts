@@ -45,12 +45,11 @@ describe("Cards' actions", () => {
         const dispatch = jest.fn();
         await actions.addCard(_id, '', 'abc', '')(dispatch);
         await actions.deleteCard(_id, '')(dispatch);
-        expect(dispatch.mock.calls[3][0]).toStrictEqual({
-            type: '[Card]DELETE_CARD',
-            payload: {
-                _id,
-            },
-        });
+        // The delete now goes through the cascade command; the reducer applies
+        // its result in one `applyKanbanDeletion` action.
+        const last = dispatch.mock.calls[dispatch.mock.calls.length - 1][0];
+        expect(last.type).toBe('[Kanban]APPLY_DELETION');
+        expect(last.payload.cards).toEqual([_id]);
 
         const card = await db.findOne({ _id });
         expect(card).toBeFalsy();

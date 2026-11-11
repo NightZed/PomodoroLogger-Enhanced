@@ -1,4 +1,5 @@
 import type { RendererErrorPayload, TrayIconPayload, TrayMenuItem } from './type';
+import type { DeleteKanbanItemsPayload } from '../../shared/kanbanDeletion';
 
 /**
  * Small runtime validators for the preload boundary. TypeScript disappears at
@@ -52,6 +53,32 @@ export function assertPlainObject(value: unknown, name: string): Record<string, 
         throw new TypeError(`${name} must be a plain object`);
     }
     return value as Record<string, unknown>;
+}
+
+/** Upper bound for one cascade request; a bigger delete is a bug, not a use case. */
+const MAX_DELETED_IDS = 500;
+
+export function assertDeleteKanbanItemsPayload(value: unknown): DeleteKanbanItemsPayload {
+    const payload = assertPlainObject(value, 'deleteKanbanItems payload');
+    const readIds = (field: 'cards' | 'lists' | 'boards'): string[] | undefined => {
+        const raw = payload[field];
+        if (raw === undefined) {
+            return undefined;
+        }
+        const ids = assertArray(raw, `deleteKanbanItems.${field}`, MAX_DELETED_IDS);
+        for (const [index, id] of ids.entries()) {
+            assertString(id, `deleteKanbanItems.${field}[${index}]`, 200);
+        }
+        return ids as string[];
+    };
+
+    const cards = readIds('cards');
+    const lists = readIds('lists');
+    const boards = readIds('boards');
+    if (cards === undefined && lists === undefined && boards === undefined) {
+        throw new TypeError('deleteKanbanItems needs at least one of cards/lists/boards');
+    }
+    return { cards, lists, boards };
 }
 
 export function assertTrayMenuItems(value: unknown): TrayMenuItem[] {

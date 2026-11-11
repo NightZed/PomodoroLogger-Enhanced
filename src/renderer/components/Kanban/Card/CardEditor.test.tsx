@@ -140,10 +140,20 @@ describe('CardEditor delete', () => {
         document.body.innerHTML = '';
         (console.error as jest.Mock).mockRestore();
         (console.warn as jest.Mock).mockRestore();
+        jest.restoreAllMocks();
         jest.clearAllMocks();
     });
 
     it('names the card in a modal confirm and deletes only after it is accepted', async () => {
+        // The cascade runs in the main process; this test is about the dialog,
+        // so stub the command with the result it would return for this card.
+        jest.spyOn((window as any).api, 'deleteKanbanItems').mockResolvedValue({
+            cards: ['card-1'],
+            lists: [],
+            boards: [],
+            updatedLists: {},
+            updatedBoards: {},
+        });
         await act(async () => {
             store.dispatch(actions.setEditCard(true, 'list-1', 'card-1') as any);
             await new Promise((resolve) => setTimeout(resolve, 0));

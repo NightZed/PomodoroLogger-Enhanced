@@ -329,8 +329,18 @@ applySessionEdits([
 2. **唯一归属**：挂到目标卡之前，先把该会话从其他所有卡片的 `sessionIds` 中移除，并按 `spentTimeInHour` 扣减那些卡片的 `actual`。保证一条会话最多只计一次卡片时长。
 3. 目标卡已经有该会话时不做任何事（幂等）。
 4. 卡片 `actual` 不做前端加减：主进程返回受影响卡片的新 `sessionIds` 与新 `actual`，渲染层整体覆盖，避免浮点漂移。
-5. 看板级 `spentHours` / `relatedSessions` 不变——它们按会话累加，与挂到哪张卡无关。
-6. 保存成功后两处面板都要刷新：History 重新聚合（`reloadToken`），抽屉重新拉 `listUnassignedSessions` 与「未分配 N」。
+5. 看板级 `spentHours` / `relatedSessions` 按**会話**累加，与挂到哪张卡无关。因此：只换卡时看板汇总不动；改项目时旧看板要移除该会话并扣减时长、新看板加上；删除记录同理。
+6. 删除记录也要先从所有卡片解绑并扣减 `actual`，否则卡片会引用一条已不存在的会话。
+7. 保存成功后两处面板都要刷新：History 重新聚合（`reloadToken`），抽屉重新拉 `listUnassignedSessions` 与「未分配 N」。
+
+实现细节（第 4 步定稿）：
+
+- 主进程序列：读 `cards` / `lists` / `boards` / 目标 `sessions` → 在事务外完成全部校验与草稿计算 → 开事务写入。校验失败时数据库和打开的弹窗都不动。
+- 卡片的看板归属由 `board.lists → list.cards` 反查，卡片自身没有 `boardId`；跨看板挂卡、目标卡不存在、会话没有项目却要挂卡，都会整批拒绝。
+- 同一张卡上的重复引用按出现次数各扣一次时长，存量脏数据不会留下虚高。
+- `boardId: null` 用 `$unset` 写库（而不是 `$set null`）：历史与聚合都按「字段不存在」处理，避免出现 `boardId: null` 这种半合法值。
+- `listUnassignedSessions` 走 `findHistory`，只取 `_id / startTime / spentTimeInHour / apps / boardId`。**`boardId` 必须出现在字段列表里**：`findHistory` 在最后还会用内存匹配器再过一遍投影后的文档，没选中的查询字段会让所有行被过滤掉。
+- `listUnassignedSessions` 返回的总数是全量计数，`sessions` 只是按 `startTime` 倒序的前 `limit` 条（默认 200，上限 500）。
 
 ### 卡片跨看板移动
 
@@ -409,6 +419,8 @@ UI：
 - 未挂卡判定：被多张卡引用的会话不算未挂卡；从所有卡解绑后立刻算未挂卡。
 - `listUnassignedSessions`：总数与分页数一致，隐藏看板不影响该查询。
 - `applySessionEdits`：移动语义下旧卡 `actual` 扣减、新卡累加、旧卡 `sessionIds` 移除；重复调用幂等；禁止跨看板挂卡。
+- 改项目时看板汇总跟着走（旧板移除并扣减、新板加上）；只换卡时看板汇总不变；删除记录会先从卡片解绑并更新看板；同一张卡上的重复引用按次数扣减。
+- `listUnassignedSessions` 的 `boardId` 过滤有效（依赖把 `boardId` 选进 `findHistory` 的字段列表）。
 - 草稿语义：删除标记可撤销；未保存时关闭需确认；保存一次提交全部变更，任一校验失败整体回滚。
 - 改项目会清空该行卡片；跨项目的批量设置卡片被禁用；`cardId: null` 能退回未挂卡。
 - `moveCardToBoard`：源/目标列表引用正确、写了一条 move、会话 boardId 跟随、源/目标看板汇总重算、多卡共享时旧卡 `actual` 扣减、移入 done 列表设置 `completedTime`。

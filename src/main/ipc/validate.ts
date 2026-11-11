@@ -1,5 +1,6 @@
 import type { RendererErrorPayload, TrayIconPayload, TrayMenuItem } from './type';
 import type { DeleteKanbanItemsPayload } from '../../shared/kanbanDeletion';
+import type { MoveCardPayload } from '../../shared/cardMove';
 import type { SessionEdit, UnassignedSessionsQuery } from '../../shared/sessionEdits';
 
 /**
@@ -126,6 +127,14 @@ export function assertSessionEdits(value: unknown): SessionEdit[] {
     }
 
     return edits;
+}
+
+export function assertMoveCardPayload(value: unknown): MoveCardPayload {
+    const payload = assertPlainObject(value, 'moveCardToBoard payload');
+    return {
+        cardId: assertString(payload.cardId, 'moveCardToBoard.cardId', 200),
+        targetListId: assertString(payload.targetListId, 'moveCardToBoard.targetListId', 200),
+    };
 }
 
 export function assertUnassignedSessionsQuery(value: unknown): UnassignedSessionsQuery {

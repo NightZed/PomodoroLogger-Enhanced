@@ -26,6 +26,7 @@ import type { BaseResult } from 'get-windows';
 import type { DbName } from './db/types';
 import type { LogLevel } from '../shared/log';
 import type { DeleteKanbanItemsPayload, KanbanDeletionResult } from '../shared/kanbanDeletion';
+import type { CardMoveResult, MoveCardPayload } from '../shared/cardMove';
 import type {
     SessionEdit,
     SessionEditsResult,
@@ -101,6 +102,8 @@ const api: ExposedAPI = {
         invoke<SessionEditsResult>(IpcEventName.ApplySessionEdits, edits),
     [IpcEventName.ListUnassignedSessions]: (query: UnassignedSessionsQuery) =>
         invoke<UnassignedSessionsResult>(IpcEventName.ListUnassignedSessions, query),
+    [IpcEventName.MoveCardToBoard]: (payload: MoveCardPayload) =>
+        invoke<CardMoveResult>(IpcEventName.MoveCardToBoard, payload),
     [IpcEventName.SelectWallpaper]: () => invoke<string | undefined>(IpcEventName.SelectWallpaper),
     [IpcEventName.ExportData]: () => invoke<ExportResult>(IpcEventName.ExportData),
     [IpcEventName.ActiveWin]: () => invoke<BaseResult | undefined>(IpcEventName.ActiveWin),

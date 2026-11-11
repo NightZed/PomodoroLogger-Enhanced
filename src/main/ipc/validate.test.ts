@@ -1,5 +1,6 @@
 import {
     assertBoolean,
+    assertMoveCardPayload,
     assertOpenExternalUrl,
     assertScreenshotDataUrl,
     assertScreenshotPaths,
@@ -84,5 +85,15 @@ describe('IPC validators', () => {
         });
         expect(() => assertUnassignedSessionsQuery({ limit: 0 })).toThrow(TypeError);
         expect(() => assertUnassignedSessionsQuery({ limit: Infinity })).toThrow(TypeError);
+    });
+
+    it('checks the card-move payload', () => {
+        expect(assertMoveCardPayload({ cardId: 'c1', targetListId: 'l1' })).toEqual({
+            cardId: 'c1',
+            targetListId: 'l1',
+        });
+        expect(() => assertMoveCardPayload({ cardId: 'c1' })).toThrow(TypeError);
+        expect(() => assertMoveCardPayload({ cardId: 1, targetListId: 'l1' })).toThrow(TypeError);
+        expect(() => assertMoveCardPayload(null)).toThrow(TypeError);
     });
 });

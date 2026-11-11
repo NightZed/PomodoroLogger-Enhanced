@@ -19,6 +19,11 @@ export interface ProjectPickerProps {
     onPick: (boardId?: string) => void;
     onClose: () => void;
     zIndex?: number;
+    /**
+     * Whether to offer the "no project" button. Moving a card always needs a
+     * destination board, so the move dialog turns it off.
+     */
+    allowNone?: boolean;
 }
 
 interface Props extends ProjectPickerProps {
@@ -175,9 +180,11 @@ const ProjectPickerInner = (props: Props) => {
                     ))}
                 </Grid>
             )}
-            <NoProject type="button" onClick={() => props.onPick(undefined)}>
-                {t('kanban.projectPicker.none')}
-            </NoProject>
+            {props.allowNone === false ? undefined : (
+                <NoProject type="button" onClick={() => props.onPick(undefined)}>
+                    {t('kanban.projectPicker.none')}
+                </NoProject>
+            )}
         </AppModal>
     );
 };

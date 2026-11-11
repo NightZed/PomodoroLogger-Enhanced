@@ -259,6 +259,20 @@ export const en = {
             empty: 'This board has no cards yet',
             untitled: '(Untitled)',
         },
+        cardMove: {
+            button: 'Move to…',
+            listTitle: (board: string): string => `Move to · ${board}`,
+            sessions: (count: number): string =>
+                `${count} ${plural(count, 'focus session', 'focus sessions')} will move with this card`,
+            shared: (count: number): string =>
+                `${count} of them also counted by other cards and will leave those cards first`,
+            irreversible: 'This cannot be undone.',
+            cancel: 'Cancel',
+            confirm: 'Move',
+            moved: 'Card moved',
+            failed: (detail: string): string =>
+                'Could not move the card' + (detail ? `: ${detail}` : ''),
+        },
         projectPicker: {
             title: 'Choose a project',
             search: 'Search projects…',

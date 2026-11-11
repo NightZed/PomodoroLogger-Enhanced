@@ -21,6 +21,7 @@ import { EditorContainer } from '../style/editorStyle';
 import { CreatedTime } from '../style/CreatedTime';
 import { formatTimeYmdHm } from '../../Visualization/Timeline';
 import { LabelEditor } from './LabelEditor';
+import { CardMoveDialog } from '../CardMoveDialog';
 import { useI18n } from '../../../i18n';
 /**
  * The class antd puts on the editor's dialog wrap (the Modal's wrapClassName
@@ -79,6 +80,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
     useEffect(() => {
         if (!visible) {
             setLinkModalVisible(false);
+            setMoveOpen(false);
             pendingLinkRef.current = null;
             return;
         }
@@ -137,6 +139,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
     const contentRef = useRef<any>(null);
 
     const [linkModalVisible, setLinkModalVisible] = useState(false);
+    const [moveOpen, setMoveOpen] = useState(false);
     const [linkUrl, setLinkUrl] = useState('');
     const [linkText, setLinkText] = useState('');
     const linkUrlInputRef = useRef<any>(null);
@@ -419,7 +422,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
     latestOnCancelRef.current = onCancel;
 
     useEffect(() => {
-        if (!visible || linkModalVisible) {
+        if (!visible || linkModalVisible || moveOpen) {
             return undefined;
         }
 
@@ -487,7 +490,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
         return () => {
             document.removeEventListener('keydown', handler);
         };
-    }, [visible, linkModalVisible]);
+    }, [visible, linkModalVisible, moveOpen]);
 
     const onContentKeyDown = React.useCallback(
         (event: React.KeyboardEvent<any>) => {
@@ -804,6 +807,13 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                             >
                                 {t('common.delete')}
                             </Button>
+                            <Button
+                                style={{ marginLeft: 8 }}
+                                icon={<Icon type={'swap'} />}
+                                onClick={() => setMoveOpen(true)}
+                            >
+                                {t('kanban.cardMove.button')}
+                            </Button>
                         </Row>
                     )}
                 </Form>
@@ -835,6 +845,13 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                     onPressEnter={confirmLink}
                 />
             </AppModal>
+            <CardMoveDialog
+                open={moveOpen}
+                cardId={card?._id}
+                sourceListId={listId}
+                onClose={() => setMoveOpen(false)}
+                onMoved={onCancel}
+            />
         </AppModal>
     );
 });

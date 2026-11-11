@@ -66,6 +66,7 @@ import {
     assertScreenshotDataUrl,
     assertScreenshotPaths,
     assertSessionEdits,
+    assertMoveCardPayload,
     assertString,
     assertTrayMenuItems,
     assertUnassignedSessionsQuery,
@@ -73,8 +74,10 @@ import {
 } from './validate';
 import type { Validator } from './validate';
 import { deleteKanbanItems } from '../db/kanbanDeletion';
+import { moveCardToBoard } from '../db/cardMove';
 import { applySessionEdits, listUnassignedSessions } from '../db/sessionEdits';
 import type { DeleteKanbanItemsPayload } from '../../shared/kanbanDeletion';
+import type { MoveCardPayload } from '../../shared/cardMove';
 import type { SessionEdit, UnassignedSessionsQuery } from '../../shared/sessionEdits';
 
 /**
@@ -616,6 +619,9 @@ export function initialize() {
         (query: UnassignedSessionsQuery) => listUnassignedSessions(query),
         [assertUnassignedSessionsQuery]
     );
+    handle(IpcEventName.MoveCardToBoard, (payload: MoveCardPayload) => moveCardToBoard(payload), [
+        assertMoveCardPayload,
+    ]);
     handle(IpcEventName.SelectWallpaper, async (): Promise<string | undefined> => {
         const result = await dialog.showOpenDialog({
             properties: ['openFile'],

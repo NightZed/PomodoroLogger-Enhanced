@@ -240,6 +240,18 @@ export const zh: CatalogShape<typeof en> = {
             empty: '这个看板还没有卡片',
             untitled: '（无标题）',
         },
+        cardMove: {
+            button: '移动到…',
+            listTitle: (board: string): string => `移动到 · ${board}`,
+            sessions: (count: number): string => `这张卡片的 ${count} 个番茄记录会一并迁移`,
+            shared: (count: number): string =>
+                `其中 ${count} 条同时属于其他卡片，会先从那些卡片移出`,
+            irreversible: '此操作不可撤销。',
+            cancel: '取消',
+            confirm: '移动',
+            moved: '卡片已移动',
+            failed: (detail: string): string => '移动失败' + (detail ? `：${detail}` : ''),
+        },
         projectPicker: {
             title: '选择项目',
             search: '搜索项目…',

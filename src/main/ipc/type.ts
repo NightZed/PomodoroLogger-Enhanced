@@ -7,6 +7,7 @@ import type { AggPomodoroInfo } from '../../renderer/components/History/op';
 import type { Language, LanguagePreference } from '../../shared/i18n';
 import type { LogLevel } from '../../shared/log';
 import type { DeleteKanbanItemsPayload, KanbanDeletionResult } from '../../shared/kanbanDeletion';
+import type { CardMoveResult, MoveCardPayload } from '../../shared/cardMove';
 import type {
     SessionEdit,
     SessionEditsResult,
@@ -34,6 +35,8 @@ export enum IpcEventName {
     ApplySessionEdits = 'applySessionEdits',
     /** Lists sessions that no card counts, newest first. */
     ListUnassignedSessions = 'listUnassignedSessions',
+    /** Moves one card to another list, migrating its sessions' project. */
+    MoveCardToBoard = 'moveCardToBoard',
     SelectWallpaper = 'selectWallpaper',
     ActiveWin = 'activeWin',
     OpenAtLogin = 'openAtLogin',
@@ -283,6 +286,7 @@ export type ExposedAPI = {
     [IpcEventName.ListUnassignedSessions](
         query: UnassignedSessionsQuery
     ): Promise<UnassignedSessionsResult>;
+    [IpcEventName.MoveCardToBoard](payload: MoveCardPayload): Promise<CardMoveResult>;
     [IpcEventName.SelectWallpaper](): Promise<string | undefined>;
     [IpcEventName.ExportData](): Promise<ExportResult>;
     [IpcEventName.ActiveWin](): Promise<BaseResult | undefined>;

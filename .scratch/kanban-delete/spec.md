@@ -366,7 +366,8 @@ applySessionEdits([
 3. 写一条 `move` 记录（`fromListId → toListId`），保证导出再导入时 `cloneList` 不会把卡片放回旧列表。
 4. 目标列表是目标看板的 `doneList` 时设置 `completedTime = now`（与拖拽语义一致）；移出 done 列表保留原值。
 5. 对卡片里的每条会话：先从**其他卡片**的 `sessionIds` 解绑并扣减那些卡的 `actual`（唯一归属，与批量挂卡的移动语义一致），再把 `sessions.boardId` 改成目标看板。
-6. 全量重算源看板与目标看板的 `relatedSessions` / `spentHours`。
+6. 跨板时把每条会话从源看板的 `relatedSessions` / `spentHours` 移出，再累加到目标看板。
+   **不做全量重算**：`spentHours` 是会话级汇总，按卡片求和会把「有项目但没挂卡」的会话时长抹掉（与删除路径同一条原则）。
 7. 返回受影响的卡片与看板最终状态，渲染层整体覆盖。
 
 UI：
@@ -391,6 +392,17 @@ UI：
 - 目标看板是隐藏板时标注「已隐藏」，仍可选（与项目选择弹窗一致）。
 - 批量移动暂不做，命令按单卡设计；后续接多选时扩展入参即可。
 - 移动不可撤销，确认框要写明会话会跟随迁移。
+
+实现细节（第 7 步定稿）：
+
+- 主进程命令在 `src/main/db/cardMove.ts`，返回 `updatedCards` / `updatedLists` / `updatedBoards`（`src/shared/cardMove.ts`）；渲染层 `applyCardMove`（`Kanban/cardMove.ts`）在 cards / lists / boards 三个 reducer 里整体替换，和删除、会话编辑同一套「事务返回终态」的写法。
+- 卡片没有 `boardId`，跨板判断按**每条会话自己的 `boardId`** 做，而不是看卡片原来的看板：存量脏数据里会话可能已经指向别处，按会话判断才能让源看板的扣减落在正确的板上。
+- 卡片同时出现在多个列表（旧数据）时，从所有源列表移除，`move` 记录的 `fromListId` 取第一个；不在任何列表的孤儿卡不写 `move` 记录（没有旧位置需要压住），仍然可以移动。
+- `completedTime` 只在目标列表是该看板的 `doneList` 时写 `Date.now()`；离开 done 列表保留原值，与拖拽一致。
+- 会话解绑其他卡片时按出现次数扣减，和 `applySessionEdits` 一样，存量重复引用不会留下虚高。
+- UI 是两步弹窗：`ProjectPicker`（`allowNone={false}`，移动必须有目标板）+ `ListPicker`（`Kanban/ListPicker.tsx`，标出 `focused` / `done`，默认选 `focusedList`，源列表禁用）。`ListPicker` 的「取消」回到选项目那一步，不是关闭整个流程。
+- 入口在 `CardEditor` 底部与「删除」并列，仅编辑态显示；`CardMoveDialog`（`Kanban/CardMoveDialog.tsx`）自己 connect，避免把整张 `cards` / `lists` 表塞进重量级的卡片编辑弹窗。
+- 卡片编辑弹窗的 document 级 Esc/Ctrl+Enter 监听要把 `moveOpen` 一起排除，否则在移动弹窗里按 Esc 会关掉背后的编辑器并丢掉未保存内容（与插入链接弹窗同一处理）。
 
 ## 孤立数据清理
 

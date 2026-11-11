@@ -29,19 +29,20 @@ interface Props extends CardPickerProps {
 
 const Columns = styled.div`
     display: flex;
+    align-items: flex-start;
     gap: 12px;
-    max-height: 360px;
+    max-height: 380px;
     overflow-x: auto;
-    overflow-y: hidden;
+    padding-bottom: 4px;
 `;
 
 const Column = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    flex: 1 0 160px;
-    min-width: 160px;
-    max-height: 360px;
+    gap: 6px;
+    flex: 1 0 150px;
+    min-width: 150px;
+    max-height: 380px;
     overflow-y: auto;
     padding-right: 4px;
 `;
@@ -49,23 +50,30 @@ const Column = styled.div`
 const ColumnTitle = styled.div`
     position: sticky;
     top: 0;
-    padding: 4px 0;
+    /* Opaque and stacked: without both, cards scrolling underneath show
+       through the sticky heading and the two read as one blur. */
+    z-index: 1;
+    padding: 6px 0;
+    margin-bottom: 2px;
     font-size: 12px;
     font-weight: 600;
     color: var(--pl-text-secondary);
     background-color: var(--pl-bg-elevated);
+    border-bottom: 1px solid var(--pl-border);
 `;
 
 const CardOption = styled.button<{ $selected: boolean }>`
     display: block;
+    flex: none;
     width: 100%;
-    padding: 5px 8px;
+    padding: 6px 8px;
     border-radius: 4px;
     border: 1px solid ${({ $selected }) => ($selected ? 'transparent' : 'var(--pl-border)')};
     background-color: ${({ $selected }) =>
         $selected ? 'var(--pl-accent)' : 'var(--pl-bg-elevated)'};
     color: ${({ $selected }) => ($selected ? '#fff' : 'var(--pl-text)')};
     font-size: 13px;
+    line-height: 1.4;
     text-align: left;
     cursor: pointer;
     white-space: nowrap;
@@ -122,6 +130,9 @@ const CardPickerInner = (props: Props) => {
             title={t('kanban.cardPicker.title', board?.name ?? '')}
             onCancel={props.onClose}
             zIndex={props.zIndex ?? 1100}
+            /* Wide enough for three columns without a horizontal scrollbar;
+               antd still clamps it to the viewport on narrow windows. */
+            width={760}
             footer={
                 <FooterRow>
                     <Button onClick={() => props.onPick(undefined)}>

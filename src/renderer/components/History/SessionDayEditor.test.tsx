@@ -4,6 +4,7 @@ import { Provider } from 'react-redux';
 import { createStore } from 'redux';
 import { SessionDayEditor } from './SessionDayEditor';
 import { feedback } from '../feedback';
+import { cardReducer } from '../Kanban/Card/action';
 import type { PomodoroRecord } from '../../monitor/type';
 
 jest.mock('../feedback', () => ({
@@ -63,7 +64,18 @@ const record = (
 });
 
 const renderEditor = (records: PomodoroRecord[]) => {
-    const store = createStore((value: any) => value, state);
+    // The real card reducer: saving has to land in the store, not just in the
+    // database, or the next open still shows the old ownership.
+    const store = createStore(
+        (value: any, action: any) => ({
+            ...value,
+            kanban: {
+                ...value.kanban,
+                cards: cardReducer(value.kanban.cards, action),
+            },
+        }),
+        state
+    );
     const onSaved = jest.fn();
     const onClose = jest.fn();
     const view = render(
@@ -71,7 +83,7 @@ const renderEditor = (records: PomodoroRecord[]) => {
             <SessionDayEditor open records={records} onClose={onClose} onSaved={onSaved} />
         </Provider>
     );
-    return { ...view, onSaved, onClose };
+    return { ...view, store, onSaved, onClose };
 };
 
 /** Runs the confirm dialog's OK action, so the transaction actually fires. */
@@ -183,6 +195,28 @@ describe('SessionDayEditor', () => {
 
         expect(view.onClose).not.toHaveBeenCalled();
         expect(feedback.confirm).toHaveBeenCalledTimes(1);
+    });
+
+    it('writes the transaction result back into the store', async () => {
+        applySessionEdits.mockResolvedValueOnce({
+            deleted: [],
+            sessions: [{ _id: 's1', boardId: 'b1' }],
+            updatedCards: {
+                c1: card('c1', 'Card One', []),
+                c2: card('c2', 'Card Two', ['s1']),
+            },
+            updatedBoards: {},
+        });
+
+        const view = renderEditor([record('s1', 9, 'b1')]);
+        fireEvent.click(view.getByTestId('session-card-s1'));
+        fireEvent.click(view.getByText('Card Two'));
+        fireEvent.click(view.getByRole('button', { name: 'Save' }));
+        await acceptConfirm();
+
+        const cards = view.store.getState().kanban.cards;
+        expect(cards.c1.sessionIds).toStrictEqual([]);
+        expect(cards.c2.sessionIds).toStrictEqual(['s1']);
     });
 
     it('reports a failed transaction and keeps the editor open', async () => {

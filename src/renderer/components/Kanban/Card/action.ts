@@ -1,6 +1,7 @@
 import { createAction, createReducer } from '@reduxjs/toolkit';
 import { Dispatch } from 'redux';
 import { applyKanbanDeletion, deleteKanbanItems } from '../deletion';
+import { applySessionEditsResult } from '../sessionEdits';
 import { actions as listActions } from '../List/action';
 import { workers } from '../../../workers';
 import { Card, CardLabel } from '../type';
@@ -239,6 +240,13 @@ export const cardReducer = createReducer<CardsState>({}, (builder) => {
             return next;
         })
         .addCase(setCards, (state, { payload }) => payload)
+        .addCase(applySessionEditsResult, (state, { payload }) => {
+            const updated = payload.updatedCards;
+            if (Object.keys(updated).length === 0) {
+                return state;
+            }
+            return { ...state, ...updated };
+        })
         .addCase(addActualTime, (state, { payload: { _id, plus } }) => {
             return {
                 ...state,

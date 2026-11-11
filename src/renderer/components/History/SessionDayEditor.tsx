@@ -12,7 +12,8 @@ import type { RootState } from '../../reducers';
 import type { PomodoroRecord } from '../../monitor/type';
 import type { CardsState } from '../Kanban/Card/action';
 import type { KanbanBoardState } from '../Kanban/Board/action';
-import type { SessionEdit } from '../../../shared/sessionEdits';
+import type { SessionEdit, SessionEditsResult } from '../../../shared/sessionEdits';
+import { applySessionEditsResult } from '../Kanban/sessionEdits';
 
 type Filter = 'all' | 'unassigned' | 'noProject';
 
@@ -45,6 +46,8 @@ export interface SessionDayEditorProps {
 interface Props extends SessionDayEditorProps {
     boards: KanbanBoardState;
     cards: CardsState;
+    /** Copies the transaction's card/board state into the store. */
+    applyEdits: (result: SessionEditsResult) => void;
 }
 
 type PickerState =
@@ -341,7 +344,11 @@ const SessionDayEditorInner = (props: Props) => {
             onOk: async () => {
                 setSaving(true);
                 try {
-                    await window.api.applySessionEdits(edits);
+                    const result = await window.api.applySessionEdits(edits);
+                    // The store is what this dialog reads its card column from,
+                    // so the transaction has to land there too -- otherwise the
+                    // next open shows the old cards until a restart.
+                    props.applyEdits(result);
                     feedback.toast({ kind: 'success', content: t('history.sessionEditor.saved') });
                     props.onSaved();
                     props.onClose();
@@ -523,7 +530,10 @@ const SessionDayEditorInner = (props: Props) => {
     );
 };
 
-export const SessionDayEditor = connect((state: RootState) => ({
-    boards: state.kanban.boards,
-    cards: state.kanban.cards,
-}))(SessionDayEditorInner);
+export const SessionDayEditor = connect(
+    (state: RootState) => ({
+        boards: state.kanban.boards,
+        cards: state.kanban.cards,
+    }),
+    { applyEdits: applySessionEditsResult }
+)(SessionDayEditorInner);

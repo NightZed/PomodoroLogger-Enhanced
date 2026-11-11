@@ -148,7 +148,45 @@ Status: draft（设计已定，实现未开始）
 - `focusedList` 为空 / 项目没有 focusedList → 不挂卡，进入「未分配番茄」。
 - 一次番茄最多写入一张卡的 `sessionIds`，时长只累加一次。
 
-实现涉及：`SessionEndingMask` 增加卡片选择器；`Timer.onSessionConfirmed` 传单个 `cardId`；`actions.timerFinished`、`Board.onTimerFinished` 的 `cardIds: string[]` 改为 `cardId?: string`。
+#### 与遮罩上的项目选择共存
+
+遮罩上已经有一个可编辑的项目选择（`SessionEndingMask` 的 `FocusSelector`，点击大标题进入编辑态），卡片选择必须和它共用同一套编辑态，不能各自占用点击区域。
+
+非编辑态：
+
+```
+┌──────────────────────────────────────────────┐
+│                  项目 A                      │  ← 点击进入编辑
+│           卡片：写文档（3 张中）               │  ← 仅多卡时出现，点击同样进入编辑
+│              Session Finished                │
+│             [ 开始短休息 ]                    │
+│           Today's Pomodoros ● ● ● ○          │
+└──────────────────────────────────────────────┘
+```
+
+编辑态（点项目名或卡片行）：
+
+```
+┌──────────────────────────────────────────────┐
+│              [ 项目 A        ▾ ]             │
+│        本次专注  [ 写文档     ▾ ]            │  ← 仅多卡时出现
+│                     [ 确认 ]                 │  ← 仅无项目（locked）时出现
+│              Session Finished                │
+│             [ 开始短休息 ]                    │
+│           Today's Pomodoros ● ● ● ○          │
+└──────────────────────────────────────────────┘
+```
+
+规则：
+
+- 无项目（`needsProject`）时只显示项目选择器，不显示卡片行；选完项目后卡片行才出现。`locked` 与确认按钮只服务于「无项目」，与卡片无关。
+- 卡片行只在当前项目的 `focusedList` 有 ≥ 2 张卡时出现；1 张时自动挂、不占位；0 张时不挂卡。
+- 切换项目会重置卡片选择为目标项目的第一张可挂卡（或「不挂卡」），因为卡片属于列表，跨项目不成立。
+- 点「确认」时同时快照 `boardId` 与 `cardId`，`onSessionConfirmed` 用快照写入，避免遮罩延迟关闭期间的选择变化。
+- 卡片选择器复用「选择卡片」弹窗（按列表分栏，含「不挂卡」），不新增第三方下拉。
+- compact 模式下非编辑态只显示卡片标题，编辑态仍可展开。
+
+实现涉及：`SessionEndingMask` 的 `showPicker` / `editing` 扩展为同时控制两行；`FocusSelector` 过滤隐藏看板（已完成）；`Timer.onSessionConfirmed` 传单个 `cardId`；`actions.timerFinished`、`Board.onTimerFinished` 的 `cardIds: string[]` 改为 `cardId?: string`。
 
 WIP 限制（进行中列表最多几张卡）作为**独立的看板功能**后续单独做，默认不限，不影响番茄归属。不放在「设置-计时器」里。
 

@@ -237,6 +237,7 @@ WIP 限制（进行中列表最多几张卡）作为**独立的看板功能**后
 - 批量设置卡片要求选中记录的草稿项目一致且非空，否则按钮置灰并提示。
 - 有未保存改动时关闭要经 `feedback.confirm` 二次确认；保存前汇总「修改 N 条 / 删除 M 条」再提交。
 - 保存成功后 `History` bump `reloadToken`：聚合和「当天的记录」查询共用这个 token，两处一起刷新。
+- **事务结果必须写回 store**：`applySessionEdits` 返回 `updatedCards` / `updatedBoards`，由 `applySessionEditsResult`（`Kanban/sessionEdits.ts`）在 cards / boards 两个 reducer 里整体替换。只写数据库不更新 store 时，项目列会因重新查询而正确，卡片列却要等应用重启——编辑器的卡片归属读的就是 `kanban.cards`。
 - `History.test.tsx` 用 `jest.mock('./SessionDayEditor')` 挡掉这个 connected 子树（它需要 store，而 History 测试是裸渲染），编辑器的行为由自己的测试文件覆盖。
 
 ### 项目 / 卡片选择弹窗

@@ -91,11 +91,44 @@ describe('board actions', () => {
         };
 
         await actions.addBoard(_id, _id)(dispatch);
-        await actions.onTimerFinished(_id, '111', 123, [])(dispatch);
+        await actions.onTimerFinished(_id, '111', 123, undefined)(dispatch);
 
         expect(state[_id].relatedSessions).toStrictEqual(['111']);
         expect(state[_id].spentHours).toStrictEqual(123);
         expect(await db.findOne({ _id })).toStrictEqual(state[_id]);
+    });
+
+    it('credits a finished session to exactly one card', async () => {
+        const _id = uid();
+        let state: KanbanBoardState = {};
+        // @ts-ignore
+        const dispatch: Dispatch = (action: any) => {
+            state = boardReducer(state, action);
+        };
+
+        await actions.addBoard(_id, _id)(dispatch);
+        const first = uid();
+        const second = uid();
+        for (const cardId of [first, second]) {
+            await cardsDB.insert({
+                _id: cardId,
+                title: cardId,
+                content: '',
+                sessionIds: [],
+                spentTimeInHour: { estimated: 0, actual: 0 },
+            });
+        }
+
+        await actions.onTimerFinished(_id, 's1', 0.5, first)(dispatch);
+
+        const credited = await cardsDB.findOne({ _id: first });
+        const untouched = await cardsDB.findOne({ _id: second });
+        expect(credited.sessionIds).toStrictEqual(['s1']);
+        expect(credited.spentTimeInHour.actual).toBeCloseTo(0.5);
+        // The list usually holds more than one card; only the picked one counts
+        // the session, so the board total does not get multiplied on import.
+        expect(untouched.sessionIds).toStrictEqual([]);
+        expect(untouched.spentTimeInHour.actual).toBe(0);
     });
 
     it('removes the board from the state', async () => {

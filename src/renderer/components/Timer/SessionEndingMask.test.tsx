@@ -17,8 +17,18 @@ jest.mock('./PomodoroNumView', () => ({
 }));
 
 const boards = {
-    b1: { _id: 'b1', name: 'Project One' },
-    b2: { _id: 'b2', name: 'Project Two' },
+    b1: { _id: 'b1', name: 'Project One', lists: ['l1'], focusedList: 'l1' },
+    b2: { _id: 'b2', name: 'Project Two', lists: [], focusedList: 'l2' },
+};
+
+const lists = {
+    l1: { _id: 'l1', title: 'Todo', cards: ['c1'] as string[] },
+    l2: { _id: 'l2', title: 'Doing', cards: [] as string[] },
+};
+
+const cards = {
+    c1: { _id: 'c1', title: 'Card One' },
+    c2: { _id: 'c2', title: 'Card Two' },
 };
 
 const state = {
@@ -29,12 +39,13 @@ const state = {
         compact: false,
         themeId: DAY_THEME_ID,
     },
-    kanban: { boards },
+    kanban: { boards, lists, cards },
 };
 
 const renderMask = (
     props: Partial<React.ComponentProps<typeof TimerMask>> = {},
-    timer: Partial<typeof state.timer> = {}
+    timer: Partial<typeof state.timer> = {},
+    kanban: Partial<typeof state.kanban> = {}
 ) => {
     // Mirrors the one reducer case the mask can dispatch: picking a project on
     // the mask changes the focusing selection, like `timer.boardId` does.
@@ -46,6 +57,7 @@ const renderMask = (
         {
             ...state,
             timer: { ...state.timer, ...timer },
+            kanban: { ...state.kanban, ...kanban },
         }
     );
     const view = render(
@@ -189,5 +201,74 @@ describe('TimerMask', () => {
         expect(view.getByText('Break')).toBeTruthy();
         expect(view.getByRole('button', { name: /Start Focusing/ })).toBeTruthy();
         expect(view.queryByTitle('Extend 5 minutes')).toBeNull();
+    });
+});
+
+describe('TimerMask card attribution', () => {
+    afterEach(cleanup);
+
+    // Two cards in the focused list: the only case where the mask asks.
+    const twoCards = {
+        lists: {
+            l1: { _id: 'l1', title: 'Todo', cards: ['c1', 'c2'] },
+            l2: { _id: 'l2', title: 'Doing', cards: [] },
+        },
+    };
+
+    it('credits the only card of the focused list without asking', () => {
+        const onCancel = jest.fn();
+        const view = renderMask({ onCancel });
+
+        // One card needs no choice, so the mask stays uncluttered.
+        expect(view.queryByText(/^Card:/)).toBeNull();
+
+        fireEvent.click(view.container.firstElementChild!);
+        expect(onCancel).toHaveBeenCalledWith('c1');
+    });
+
+    it('lets the mask pick one of several cards', () => {
+        const onStart = jest.fn();
+        const view = renderMask({ onStart }, {}, twoCards);
+
+        fireEvent.click(view.getByText('Card: Card One (of 2)'));
+        fireEvent.click(view.getByRole('button', { name: 'Card: Card One' }));
+        fireEvent.click(view.getByRole('button', { name: 'Card Two' }));
+
+        fireEvent.click(view.getByRole('button', { name: /Start Short Break/ }));
+        expect(onStart).toHaveBeenCalledWith('c2');
+    });
+
+    it('sends an explicit "no card" when the picker says so', () => {
+        const onStart = jest.fn();
+        const view = renderMask({ onStart }, {}, twoCards);
+
+        fireEvent.click(view.getByText('Card: Card One (of 2)'));
+        fireEvent.click(view.getByRole('button', { name: 'Card: Card One' }));
+        fireEvent.click(view.getByRole('button', { name: 'No card' }));
+
+        fireEvent.click(view.getByRole('button', { name: /Start Short Break/ }));
+        // `null`, not `undefined`: the user chose "No card" on purpose, so the
+        // Timer must not fall back to the focused list's first card.
+        expect(onStart).toHaveBeenCalledWith(null);
+    });
+
+    it('does not ask for a card when the focused list is empty', () => {
+        const onCancel = jest.fn();
+        const view = renderMask(
+            { onCancel },
+            {},
+            {
+                lists: {
+                    l1: { _id: 'l1', title: 'Todo', cards: [] },
+                    l2: { _id: 'l2', title: 'Doing', cards: [] },
+                },
+            }
+        );
+
+        expect(view.queryByText(/^Card:/)).toBeNull();
+
+        fireEvent.click(view.container.firstElementChild!);
+        // Nothing to credit: the session stays unattributed.
+        expect(onCancel).toHaveBeenCalledWith(null);
     });
 });

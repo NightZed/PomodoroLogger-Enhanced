@@ -190,6 +190,9 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
 `src/renderer/monitor` 采集活动窗口（`src/main/activeWin.ts` 包装 `get-windows`，懒加载并记录到 `logs/active-win.log`），按应用/按标题把时间聚合成 `PomodoroRecord`，可选截图，再通过 DB 代理保存会话。
 效率打分在 `src/shared/efficiency/efficiency.ts`；历史聚合在 `src/utils/aggPomodoro.ts` 和 `src/shared/dataMerger`。
 
+番茄的卡片归属是**一番茄一卡**：结束遮罩（`SessionEndingMask`）在 `focusedList` 只有一张卡时自动选它，多张时让用户选一张或选「不挂卡」，然后 `Timer.onSessionConfirmed` 把单个 `cardId` 交给 `timerFinished` → `Board.onTimerFinished`，只有那张卡的 `actual` 增加。
+不要退回「挂到 `focusedList` 的每一张卡」：那会让卡片时长按列表卡片数放大，而 `dataMerger` 的 `setBoardInfo` 按卡片重算看板时长，导出再导入后 `spentHours` 会变成实际的 N 倍。
+
 ### 开发期时间缩放
 
 `src/config.ts` 在非生产环境按 `DEBUG_TIME_SCALE`（120）压缩计时器：写入走 `scaleMs`，读取再展开回名义值，统计数据保持名义值。

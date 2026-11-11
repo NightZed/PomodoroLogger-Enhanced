@@ -2,11 +2,14 @@ import { Button, ConfigProvider, Row } from 'antd';
 import { LONG_BREAK_INTERVAL } from './action';
 import { FocusSelector } from './FocusSelector';
 import { PomodoroNumView } from './PomodoroNumView';
+import { CardPicker } from '../Kanban/CardPicker';
 import React from 'react';
 import styled from 'styled-components';
 import { connect } from 'react-redux';
 import { RootState } from '../../reducers';
 import type { KanbanBoardState } from '../Kanban/Board/action';
+import type { CardsState } from '../Kanban/Card/action';
+import type { ListsState } from '../Kanban/type';
 import { PomodoroRecord } from '../../monitor/type';
 import { NIGHT_THEME_ID } from '../../theme/tokens';
 import { t } from '../../i18n';
@@ -79,6 +82,23 @@ const PickerRow = styled.div`
     margin-bottom: 1em;
 `;
 
+/**
+ * The card line under the project name. It is only rendered when the focused
+ * list holds more than one card, so it does not take up space for the common
+ * single-card flow.
+ */
+const CardLine = styled.div`
+    margin-bottom: 0.5em;
+    font-size: 1.1em;
+    opacity: 0.85;
+    cursor: pointer;
+
+    &:hover {
+        color: white;
+        text-decoration: underline;
+    }
+`;
+
 const PomodoroSummary = styled.div`
     display: flex;
     flex-direction: column;
@@ -89,8 +109,9 @@ const PomodoroSummary = styled.div`
 
 export interface InputProps {
     showMask: boolean;
-    onCancel: () => void;
-    onStart: () => void;
+    /** `null` is an explicit "no card"; `undefined` means no pick was made. */
+    onCancel: (cardId?: string | null) => void;
+    onStart: (cardId?: string | null) => void;
     pomodoros: PomodoroRecord[];
     newPomodoro?: PomodoroRecord;
     extendCurrentSession: (timeInMinutes: number) => void;
@@ -100,6 +121,8 @@ export interface MaskProps extends InputProps {
     isFocusing: boolean;
     boardId?: string;
     boards: KanbanBoardState;
+    lists: ListsState;
+    cards: CardsState;
     isLongBreak: boolean;
     compact: boolean;
     nightTheme: boolean;
@@ -120,24 +143,75 @@ const TimerMaskInner = (props: MaskProps) => {
     const [editing, setEditing] = React.useState(false);
     const locked = needsProject && !acknowledged;
     const showPicker = needsProject || editing;
-    const wasShown = React.useRef(props.showMask);
+
+    /**
+     * Cards the finished session can be credited to: the focused list of the
+     * project it will be filed under. A card that disappeared from `cards`
+     * (deleted on the Kanban page mid-session) is skipped -- crediting it would
+     * only leave a dangling reference.
+     */
+    const focusedListId =
+        props.boardId === undefined ? undefined : props.boards[props.boardId]?.focusedList;
+    const candidates = React.useMemo(() => {
+        const ids = focusedListId === undefined ? [] : (props.lists[focusedListId]?.cards ?? []);
+        return ids.filter((cardId) => props.cards[cardId] !== undefined);
+    }, [focusedListId, props.lists, props.cards]);
+
+    // One session belongs to at most one card. `undefined` means "no card",
+    // which is also what an empty focused list yields.
+    const [chosenCardId, setChosenCardId] = React.useState<string | undefined>(undefined);
+    const [cardPickerOpen, setCardPickerOpen] = React.useState(false);
+
+    // Starts empty (not `props.showMask`): a mask that is already up on the
+    // first render still has to pick its defaults, exactly like one that opens
+    // later.
+    const wasShown = React.useRef(false);
+    const lastBoardId = React.useRef(props.boardId);
     React.useEffect(() => {
         // Re-arm on every open. Changing `boardId` while the mask is up does not
         // reset the acknowledgement: picking a project is what unlocks there,
         // not the moment the selector changes.
-        if (props.showMask && !wasShown.current) {
+        const opened = props.showMask && !wasShown.current;
+        // A card belongs to a list, and a list to a board, so a new project
+        // invalidates the card pick rather than carrying it over.
+        const boardChanged = lastBoardId.current !== props.boardId;
+        wasShown.current = props.showMask;
+        lastBoardId.current = props.boardId;
+
+        if (opened) {
             setAcknowledged(false);
             setEditing(false);
         }
-        wasShown.current = props.showMask;
-    }, [props.showMask]);
+        if (!props.showMask) {
+            setCardPickerOpen(false);
+            return;
+        }
+
+        // Default to the same card a confirmation without an explicit pick
+        // credits (see `Timer.defaultCardId`): the first card of the focused
+        // list. An explicit "no card" survives, and so does a still-valid pick.
+        setChosenCardId((prev) =>
+            opened || boardChanged || (prev !== undefined && !candidates.includes(prev))
+                ? candidates[0]
+                : prev
+        );
+    }, [props.showMask, props.boardId, candidates]);
 
     const onProjectClick = (event: React.MouseEvent) => {
         event.stopPropagation();
     };
     const onStartClick = (event: React.MouseEvent) => {
         event.stopPropagation();
-        props.onStart();
+        props.onStart(chosenCardId ?? null);
+    };
+    /** The card line opens the same edit state as the project name. */
+    const onCardLineClick = (event: React.MouseEvent) => {
+        event.stopPropagation();
+        setEditing(true);
+    };
+    const onCardRowClick = (event: React.MouseEvent) => {
+        event.stopPropagation();
+        setCardPickerOpen(true);
     };
 
     /** Releases the lock only; the session is saved by the next background click. */
@@ -152,7 +226,7 @@ const TimerMaskInner = (props: MaskProps) => {
             setEditing(false);
             return;
         }
-        props.onCancel();
+        props.onCancel(chosenCardId ?? null);
     };
 
     const extend10 = React.useCallback(
@@ -170,90 +244,137 @@ const TimerMaskInner = (props: MaskProps) => {
         [extendCurrentSession]
     );
 
+    const chosenCard = chosenCardId === undefined ? undefined : props.cards[chosenCardId];
+    // The card row only earns its space when there is a real choice to make:
+    // one card is credited automatically, none means no attribution.
+    const showCardChoice = candidates.length > 1;
+
     return (
-        <Mask
-            $nightTheme={props.nightTheme}
-            style={{ display: props.showMask ? 'flex' : 'none' }}
-            onClick={locked ? undefined : onBackgroundClick}
-        >
-            <MaskInnerContainer $compact={props.compact}>
-                <Row onClick={onProjectClick} justify="center" style={{ width: '100%' }}>
-                    {props.isFocusing ? (
-                        showPicker ? (
-                            <PickerRow>
-                                <FocusSelector
-                                    width={props.compact ? 200 : 240}
-                                    id="focus-selector-mask"
-                                    onSelected={() => setEditing(false)}
-                                />
-                                {locked ? (
-                                    <Button onClick={onConfirmClick}>
-                                        {t('timer.session.confirm')}
-                                    </Button>
-                                ) : undefined}
-                            </PickerRow>
+        <>
+            <Mask
+                $nightTheme={props.nightTheme}
+                style={{ display: props.showMask ? 'flex' : 'none' }}
+                onClick={locked ? undefined : onBackgroundClick}
+            >
+                <MaskInnerContainer $compact={props.compact}>
+                    <Row onClick={onProjectClick} justify="center" style={{ width: '100%' }}>
+                        {props.isFocusing ? (
+                            showPicker ? (
+                                <>
+                                    <PickerRow>
+                                        <FocusSelector
+                                            width={props.compact ? 200 : 240}
+                                            id="focus-selector-mask"
+                                            onSelected={() => setEditing(false)}
+                                        />
+                                        {locked ? (
+                                            <Button onClick={onConfirmClick}>
+                                                {t('timer.session.confirm')}
+                                            </Button>
+                                        ) : undefined}
+                                    </PickerRow>
+                                    {showCardChoice ? (
+                                        <PickerRow>
+                                            <Button onClick={onCardRowClick}>
+                                                {t('timer.session.card')}:{' '}
+                                                {chosenCard?.title ?? t('timer.session.noCard')}
+                                            </Button>
+                                        </PickerRow>
+                                    ) : undefined}
+                                </>
+                            ) : (
+                                <>
+                                    <ProjectName
+                                        $compact={props.compact}
+                                        onClick={() => setEditing(true)}
+                                    >
+                                        {props.boards[props.boardId!]?.name}
+                                    </ProjectName>
+                                    {showCardChoice ? (
+                                        <CardLine onClick={onCardLineClick}>
+                                            {t(
+                                                'timer.session.cardLine',
+                                                chosenCard?.title ?? t('timer.session.noCard'),
+                                                candidates.length
+                                            )}
+                                        </CardLine>
+                                    ) : undefined}
+                                </>
+                            )
                         ) : (
-                            <ProjectName $compact={props.compact} onClick={() => setEditing(true)}>
-                                {props.boards[props.boardId!]?.name}
+                            <ProjectName $compact={props.compact}>
+                                {t('timer.session.break')}
                             </ProjectName>
-                        )
-                    ) : (
-                        <ProjectName $compact={props.compact}>
-                            {t('timer.session.break')}
-                        </ProjectName>
-                    )}
-                    <h1
-                        style={{
-                            color: 'white',
-                            fontSize: props.compact ? '2em' : '3.5em',
-                            marginBottom: props.compact ? '0.6em' : '1em',
-                            width: '100%',
-                        }}
-                    >
-                        {t('timer.session.finished')}
-                    </h1>
-                </Row>
-                <ConfigProvider wave={{ disabled: true }}>
-                    <Button size="large" onClick={onStartClick}>
-                        {!props.isFocusing
-                            ? t('timer.session.startFocusing')
-                            : props.isLongBreak
-                              ? t('timer.session.startLongBreak')
-                              : t('timer.session.startShortBreak')}
-                    </Button>
-                </ConfigProvider>
-                <PomodoroSummary>
-                    <h1 style={{ color: 'white', margin: 0 }}>
-                        {t('timer.session.todayPomodoros')}
-                    </h1>
-                    <PomodoroNumView
-                        pomodoros={props.pomodoros}
-                        color={'#f9ec52'}
-                        showNum={false}
-                        newPomodoro={props.newPomodoro}
-                        compact={props.compact}
-                    />
-                </PomodoroSummary>
-            </MaskInnerContainer>
-            {props.isFocusing ? (
-                <ButtonContainer>
-                    <Button
-                        style={{ margin: 4 }}
-                        title={t('timer.session.extend5')}
-                        onClick={extend5}
-                    >
-                        +5
-                    </Button>
-                    <Button
-                        style={{ margin: 4 }}
-                        title={t('timer.session.extend10')}
-                        onClick={extend10}
-                    >
-                        +10
-                    </Button>
-                </ButtonContainer>
-            ) : undefined}
-        </Mask>
+                        )}
+                        <h1
+                            style={{
+                                color: 'white',
+                                fontSize: props.compact ? '2em' : '3.5em',
+                                marginBottom: props.compact ? '0.6em' : '1em',
+                                width: '100%',
+                            }}
+                        >
+                            {t('timer.session.finished')}
+                        </h1>
+                    </Row>
+                    <ConfigProvider wave={{ disabled: true }}>
+                        <Button size="large" onClick={onStartClick}>
+                            {!props.isFocusing
+                                ? t('timer.session.startFocusing')
+                                : props.isLongBreak
+                                  ? t('timer.session.startLongBreak')
+                                  : t('timer.session.startShortBreak')}
+                        </Button>
+                    </ConfigProvider>
+                    <PomodoroSummary>
+                        <h1 style={{ color: 'white', margin: 0 }}>
+                            {t('timer.session.todayPomodoros')}
+                        </h1>
+                        <PomodoroNumView
+                            pomodoros={props.pomodoros}
+                            color={'#f9ec52'}
+                            showNum={false}
+                            newPomodoro={props.newPomodoro}
+                            compact={props.compact}
+                        />
+                    </PomodoroSummary>
+                </MaskInnerContainer>
+                {props.isFocusing ? (
+                    <ButtonContainer>
+                        <Button
+                            style={{ margin: 4 }}
+                            title={t('timer.session.extend5')}
+                            onClick={extend5}
+                        >
+                            +5
+                        </Button>
+                        <Button
+                            style={{ margin: 4 }}
+                            title={t('timer.session.extend10')}
+                            onClick={extend10}
+                        >
+                            +10
+                        </Button>
+                    </ButtonContainer>
+                ) : undefined}
+            </Mask>
+            {/*
+             * Sibling of the mask, not a child: React portals still bubble their
+             * events through the React tree, so a dialog nested inside `Mask`
+             * would hand every click to the mask's own onClick -- which confirms
+             * the session.
+             */}
+            <CardPicker
+                open={cardPickerOpen}
+                boardId={props.boardId}
+                value={chosenCardId}
+                onPick={(cardId) => {
+                    setChosenCardId(cardId);
+                    setCardPickerOpen(false);
+                }}
+                onClose={() => setCardPickerOpen(false)}
+            />
+        </>
     );
 };
 
@@ -262,6 +383,8 @@ export const TimerMask = connect((state: RootState, _props: InputProps) => ({
     isLongBreak: !((state.timer.iBreak + 1) % LONG_BREAK_INTERVAL),
     boardId: state.timer.boardId,
     boards: state.kanban.boards,
+    lists: state.kanban.lists,
+    cards: state.kanban.cards,
     compact: state.timer.compact,
     nightTheme: state.timer.themeId === NIGHT_THEME_ID,
 }))(TimerMaskInner);

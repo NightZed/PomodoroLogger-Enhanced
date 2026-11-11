@@ -182,6 +182,9 @@ export const en = {
             shortBreak: 'Short Break',
             extend5: 'Extend 5 minutes',
             extend10: 'Extend 10 minutes',
+            card: 'Card',
+            noCard: 'No card',
+            cardLine: (title: string, total: number): string => `Card: ${title} (of ${total})`,
         },
         focusSelector: {
             placeholder: 'Choose Your Focus',
@@ -248,6 +251,13 @@ export const en = {
             focused: 'Focused List',
             done: 'Done List',
             cardCount: (count: number): string => `${count} ${plural(count, 'Card', 'Cards')}`,
+        },
+        cardPicker: {
+            title: (board: string): string => `Choose a card · ${board}`,
+            noCard: 'No card',
+            cancel: 'Cancel',
+            empty: 'This board has no cards yet',
+            untitled: '(Untitled)',
         },
         cardEditor: {
             createTitle: 'Create a new card',

@@ -164,6 +164,9 @@ export const zh: CatalogShape<typeof en> = {
             shortBreak: '短休',
             extend5: '延长 5 分钟',
             extend10: '延长 10 分钟',
+            card: '卡片',
+            noCard: '不挂卡',
+            cardLine: (title: string, total: number): string => `卡片：${title}（共 ${total} 张）`,
         },
         focusSelector: {
             placeholder: '选择专注项目',
@@ -229,6 +232,13 @@ export const zh: CatalogShape<typeof en> = {
             focused: '专注列表',
             done: '完成列表',
             cardCount: (count: number): string => `${count} 张卡片`,
+        },
+        cardPicker: {
+            title: (board: string): string => `选择卡片 · ${board}`,
+            noCard: '不挂卡',
+            cancel: '取消',
+            empty: '这个看板还没有卡片',
+            untitled: '（无标题）',
         },
         cardEditor: {
             createTitle: '新建卡片',

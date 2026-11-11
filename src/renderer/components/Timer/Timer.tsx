@@ -966,59 +966,96 @@ class Timer extends Component<Props, State> {
     }
 
     /**
-     * `confirmedBoardId` is the focusing project snapshotted when the user
-     * clicked the ending mask (see `onMaskClick`), not the live selection: what
-     * the record is credited to must not change while this debounced handler
-     * runs.
+     * The card a confirmation without an explicit pick credits: the first card
+     * of the focusing project's focused list. The ending mask preselects the
+     * same one, so the tray, F5 and the mask's default all agree.
      */
-    private onSessionConfirmed = debounce(async (confirmedBoardId?: string) => {
-        if (this.monitor) {
-            this.monitor.clear();
-            this.monitor = undefined;
+    private defaultCardId(boardId?: string): string | undefined {
+        const focusedListId =
+            boardId === undefined ? undefined : this.props.kanban.boards[boardId]?.focusedList;
+        if (focusedListId === undefined) {
+            return undefined;
         }
 
-        if (this.stagedSession === undefined) {
-            // Resting session
-            await this.props.timerFinished();
-        } else {
-            this.setState({ pomodoroNum: this.state.pomodoroNum + 1 });
-            this.stagedSession.spentTimeInHour += this.extendedTimeInMinute / 60;
-            this.extendedTimeInMinute = 0;
-            const boardId = confirmedBoardId;
-            // `boardId` may point to a board that no longer exists (e.g. deleted
-            // right after a session, or a corrupted value persisted by older
-            // builds). Fall back to an unattributed session instead of crashing
-            // on `kanban.boards[boardId].focusedList`.
-            const focusedListId =
-                boardId === undefined ? undefined : this.props.kanban.boards[boardId]?.focusedList;
-            if (boardId !== undefined && focusedListId !== undefined) {
-                this.stagedSession.boardId = boardId;
-                const cards: string[] = this.props.kanban.lists[focusedListId]?.cards ?? [];
-                await this.props.timerFinished(this.stagedSession, cards, boardId);
-            } else {
-                await this.props.timerFinished(this.stagedSession);
+        return (this.props.kanban.lists[focusedListId]?.cards ?? []).find(
+            (cardId) => this.props.kanban.cards[cardId] !== undefined
+        );
+    }
+
+    /**
+     * `picked` comes from the ending mask, where `null` means the user chose
+     * "No card" on purpose and `undefined` means no pick was offered (or the
+     * caller has no UI, like the tray). Only the latter falls back to the
+     * mask's own default.
+     */
+    private resolveCardId(picked: string | null | undefined, boardId?: string): string | undefined {
+        if (picked === null) {
+            return undefined;
+        }
+
+        return picked ?? this.defaultCardId(boardId);
+    }
+
+    /**
+     * `confirmedBoardId` and `confirmedCardId` are the focusing project and the
+     * card snapshotted when the user clicked the ending mask (see
+     * `onMaskClick`), not the live selection: what the record is credited to
+     * must not change while this debounced handler runs.
+     */
+    private onSessionConfirmed = debounce(
+        async (confirmedBoardId?: string, confirmedCardId?: string) => {
+            if (this.monitor) {
+                this.monitor.clear();
+                this.monitor = undefined;
             }
 
-            const finishedSessions = this.state.pomodorosToday.concat([this.stagedSession]);
-            this.setState({
-                pomodorosToday: finishedSessions,
-                leftTime: '',
-            });
-            this.stagedSession = undefined;
-        }
+            if (this.stagedSession === undefined) {
+                // Resting session
+                await this.props.timerFinished();
+            } else {
+                this.setState({ pomodoroNum: this.state.pomodoroNum + 1 });
+                this.stagedSession.spentTimeInHour += this.extendedTimeInMinute / 60;
+                this.extendedTimeInMinute = 0;
+                const boardId = confirmedBoardId;
+                // `boardId` may point to a board that no longer exists (e.g.
+                // deleted right after a session, or a corrupted value persisted
+                // by older builds). Fall back to an unattributed session
+                // instead of crashing on `kanban.boards[boardId]`.
+                const focusedListId =
+                    boardId === undefined
+                        ? undefined
+                        : this.props.kanban.boards[boardId]?.focusedList;
+                if (boardId !== undefined && focusedListId !== undefined) {
+                    this.stagedSession.boardId = boardId;
+                    // One session belongs to at most one card: the mask's pick,
+                    // or nothing when the user chose "No card".
+                    await this.props.timerFinished(this.stagedSession, confirmedCardId, boardId);
+                } else {
+                    await this.props.timerFinished(this.stagedSession);
+                }
 
-        const startNextSession = this.nextSessionStarter;
-        this.nextSessionStarter = undefined;
-        if (startNextSession !== undefined) {
-            await new Promise((r) => setTimeout(r, 30));
-            startNextSession();
-        } else {
-            // Confirmed with no follow-up session: the tray was showing the
-            // confirming disc -- put the idle app icon back. (A follow-up
-            // start paints its own running icon via `updateLeftTime`.)
-            this.resetStat();
-        }
-    }, 50);
+                const finishedSessions = this.state.pomodorosToday.concat([this.stagedSession]);
+                this.setState({
+                    pomodorosToday: finishedSessions,
+                    leftTime: '',
+                });
+                this.stagedSession = undefined;
+            }
+
+            const startNextSession = this.nextSessionStarter;
+            this.nextSessionStarter = undefined;
+            if (startNextSession !== undefined) {
+                await new Promise((r) => setTimeout(r, 30));
+                startNextSession();
+            } else {
+                // Confirmed with no follow-up session: the tray was showing the
+                // confirming disc -- put the idle app icon back. (A follow-up
+                // start paints its own running icon via `updateLeftTime`.)
+                this.resetStat();
+            }
+        },
+        50
+    );
 
     private focusOnCurrentWindow() {
         window.api.focusOnWindow();
@@ -1086,18 +1123,24 @@ class Timer extends Component<Props, State> {
         this.performModeSwitch();
     };
 
-    private onMaskClick = () => {
+    private onMaskClick = (pickedCardId?: string | null) => {
         this.props.setSessionEnding(false);
-        // Snapshot the focusing project: the session keeps the project it was
-        // confirmed with, even if the selection changes right after.
-        this.onSessionConfirmed(this.props.timer.boardId);
+        // Snapshot the focusing project and the card: the session keeps both
+        // for the confirmation, even if the selection changes right after.
+        this.onSessionConfirmed(
+            this.props.timer.boardId,
+            this.resolveCardId(pickedCardId, this.props.timer.boardId)
+        );
     };
 
-    private onMaskButtonClick = async () => {
+    private onMaskButtonClick = async (pickedCardId?: string | null) => {
         this.props.setSessionEnding(false);
         // The mask button starts the session it names: the cycle's next one.
         this.nextSessionStarter = () => this.onStart();
-        this.onSessionConfirmed(this.props.timer.boardId);
+        this.onSessionConfirmed(
+            this.props.timer.boardId,
+            this.resolveCardId(pickedCardId, this.props.timer.boardId)
+        );
     };
 
     /**

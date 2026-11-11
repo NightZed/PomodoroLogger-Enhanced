@@ -520,8 +520,14 @@ export const actions = {
         await cardActions.setCompletedTime(cardId, new Date().getTime())(dispatch);
     },
 
+    /**
+     * Credits a finished session to the board and, when the session picked one,
+     * to exactly one of its cards. The board owns the session list and the
+     * board-level time; the card only ever sees the sessions that were actually
+     * credited to it.
+     */
     onTimerFinished:
-        (_id: string, sessionId: string, timeSpent: number, cardIds: string[]) =>
+        (_id: string, sessionId: string, timeSpent: number, cardId?: string) =>
         async (dispatch: Dispatch) => {
             dispatch(onTimerFinished(_id, sessionId, timeSpent));
             dispatch(historyActions.setExpiringKey(_id));
@@ -529,7 +535,7 @@ export const actions = {
                 { _id },
                 { $push: { relatedSessions: sessionId }, $inc: { spentHours: timeSpent } }
             );
-            for (const cardId of cardIds) {
+            if (cardId !== undefined) {
                 await cardActions.onTimerFinished(cardId, sessionId, timeSpent)(dispatch);
             }
 

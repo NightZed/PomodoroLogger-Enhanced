@@ -564,8 +564,14 @@ export const actions = {
         );
         window.api.setLogLevel(level);
     },
+    /**
+     * `cardId` is the single card this session is credited to. A session
+     * belongs to at most one card (see the ending mask): the list it ran in
+     * used to have every one of its cards incremented, which multiplied the
+     * card totals by the number of cards in the focused list.
+     */
     timerFinished:
-        (sessionData?: PomodoroRecord, cardIds: string[] = [], boardId?: string | undefined) =>
+        (sessionData?: PomodoroRecord, cardId?: string, boardId?: string | undefined) =>
         async (dispatch: Dispatch) => {
             dispatch(timerFinished());
             dispatch(historyActions.setExpiringKey(new Date().toString()));
@@ -576,7 +582,7 @@ export const actions = {
                         boardId,
                         sessionData._id,
                         sessionData.spentTimeInHour,
-                        cardIds
+                        cardId
                     )(dispatch);
                 }
             }

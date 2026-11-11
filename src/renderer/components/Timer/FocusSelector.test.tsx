@@ -69,6 +69,15 @@ describe('Timer FocusSelector', () => {
         ]);
     });
 
+    it('does not show a hidden board as the current selection', () => {
+        const { container } = renderSelector('hidden');
+
+        // The stored board id must not leak into the control just because the
+        // board is no longer offered (antd prints the raw value otherwise).
+        expect(container.textContent).not.toContain('Hidden');
+        expect(container.textContent).not.toContain('hidden');
+    });
+
     it('selects a project', () => {
         const { container, dispatch } = renderSelector();
 

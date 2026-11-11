@@ -52,6 +52,20 @@ const FocusSelectorInner: FunctionComponent<Props> = (props: Props) => {
         [sortedBoards]
     );
 
+    // A board can be hidden while it is still the stored selection (the Timer
+    // clears it, but the mask and the sider may render one frame earlier). An
+    // antd Select with a value that is not among its options prints the raw id,
+    // so treat that value as "nothing selected" instead.
+    const value = React.useMemo(() => {
+        if (props.chosenId === undefined) {
+            return undefined;
+        }
+
+        return sortedBoards.some((board) => board._id === props.chosenId)
+            ? props.chosenId
+            : undefined;
+    }, [props.chosenId, sortedBoards]);
+
     let style: any = {
         minWidth: 100,
         width: '100%',
@@ -64,7 +78,7 @@ const FocusSelectorInner: FunctionComponent<Props> = (props: Props) => {
     return (
         <ConfigProvider theme={{ token: { motionDurationMid: '120ms' } }}>
             <Select
-                value={props.chosenId}
+                value={value}
                 style={style}
                 placeholder={t('timer.focusSelector.placeholder')}
                 onChange={onChange}

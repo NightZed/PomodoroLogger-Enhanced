@@ -14,8 +14,8 @@ import type {
 } from '../../../shared/dataRepair';
 import type { TranslateFn } from '../../../shared/i18n';
 
-/** Long lists are truncated for rendering only; select-all still hits all. */
-const MAX_ROWS = 100;
+/** Rows rendered per group until "show all" is clicked. */
+const MAX_ROWS = 50;
 
 export interface DataRepairDialogProps {
     open: boolean;
@@ -136,7 +136,13 @@ const cardMeta = (issue: CardIssue, t: TranslateFn): string => {
     if (issue.sessionCount > 0) {
         parts.push(t('dataRepair.sessions', issue.sessionCount));
     }
-    const meta = parts.length > 0 ? parts.join(' · ') : t('dataRepair.noRecord');
+    if (parts.length === 0) {
+        parts.push(t('dataRepair.noRecord'));
+    }
+    // The id is the only stable handle a user can quote in a bug report, and
+    // titles are editable (two "调研" cards are otherwise indistinguishable).
+    parts.push(issue._id);
+    const meta = parts.join(' · ');
     return issue.listTitle === undefined ? meta : `${issue.listTitle} · ${meta}`;
 };
 
@@ -165,6 +171,7 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
     }, []);
 
     const [selected, setSelected] = React.useState<Set<string>>(() => defaultSelection(report));
+    const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
     const [busy, setBusy] = React.useState(false);
     const [restoreIds, setRestoreIds] = React.useState<string[] | undefined>();
     const initialized = React.useRef(false);
@@ -180,6 +187,7 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
         if (!initialized.current) {
             initialized.current = true;
             setSelected(defaultSelection(report));
+            setExpanded(new Set());
             return;
         }
         const valid = new Set(reportKeys(report));
@@ -230,9 +238,24 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
         );
     };
 
-    const cardRows = (cards: CardIssue[]): React.ReactNode => (
+    /** Rows a group shows before "show all" is clicked. */
+    const visibleRows = <T,>(group: string, rows: T[]): T[] =>
+        expanded.has(group) ? rows : rows.slice(0, MAX_ROWS);
+
+    const showAllButton = (group: string, total: number): React.ReactNode =>
+        expanded.has(group) || total <= MAX_ROWS ? undefined : (
+            <Button
+                type="link"
+                size="small"
+                onClick={() => setExpanded((current) => new Set(current).add(group))}
+            >
+                {t('dataRepair.showAll', total - MAX_ROWS)}
+            </Button>
+        );
+
+    const cardRows = (group: string, cards: CardIssue[]): React.ReactNode => (
         <>
-            {cards.slice(0, MAX_ROWS).map((card) => (
+            {visibleRows(group, cards).map((card) => (
                 <Row key={card._id}>
                     <Checkbox
                         aria-label={card.title || t('dataRepair.untitled')}
@@ -250,9 +273,7 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
                     </Button>
                 </Row>
             ))}
-            {cards.length > MAX_ROWS ? (
-                <Note>{t('dataRepair.truncated', cards.length - MAX_ROWS)}</Note>
-            ) : undefined}
+            {showAllButton(group, cards.length)}
         </>
     );
 
@@ -262,8 +283,19 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
     const moveKeys = report.moves.total > 0 ? [MOVES_KEY] : [];
     const danglingKeys = report.dangling.map(refKey);
 
-    const selectedCardIds = [...detachedKeys, ...orphanKeys].filter((key) => selected.has(key));
+    const selectedCardKeys = [...detachedKeys, ...orphanKeys].filter((key) => selected.has(key));
+    const selectedCardIds = selectedCardKeys.map((key) => key.slice('card:'.length));
     const selectedCardCount = selectedCardIds.length;
+    const selectedListIds = listKeys
+        .filter((key) => selected.has(key))
+        .map((key) => key.slice('list:'.length));
+    const refIds = (kind: DanglingRefIssue['kind']): string[] =>
+        report.dangling
+            .filter((issue) => issue.kind === kind && selected.has(refKey(issue)))
+            .map((issue) => issue.ownerId);
+    const selectedRefCount = danglingKeys.filter((key) => selected.has(key)).length;
+    const deleteCount =
+        selectedCardCount + selectedListIds.length + (selected.has(MOVES_KEY) ? 1 : 0);
 
     const hasAnyIssue =
         report.detachedCards.length > 0 ||
@@ -272,51 +304,13 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
         report.moves.total > 0 ||
         report.dangling.length > 0;
 
-    const apply = async (): Promise<void> => {
-        const cardIds = [...detachedKeys, ...orphanKeys]
-            .filter((key) => selected.has(key))
-            .map((key) => key.slice('card:'.length));
-        const listIds = listKeys.filter((key) => selected.has(key)).map((key) => key.slice(5));
-        const repairRefs = (kind: DanglingRefIssue['kind']): string[] =>
-            report.dangling
-                .filter((issue) => issue.kind === kind && selected.has(refKey(issue)))
-                .map((issue) => issue.ownerId);
-
-        const payload: DataRepairPayload = {
-            cardIds,
-            listIds,
-            removeOrphanMoves: selected.has(MOVES_KEY),
-            listCardRefIds: repairRefs('listCards'),
-            boardListRefIds: repairRefs('boardLists'),
-            cardSessionRefIds: repairRefs('cardSessions'),
-        };
-
-        if (
-            cardIds.length === 0 &&
-            listIds.length === 0 &&
-            !payload.removeOrphanMoves &&
-            payload.listCardRefIds.length === 0 &&
-            payload.boardListRefIds.length === 0 &&
-            payload.cardSessionRefIds.length === 0
-        ) {
-            return;
-        }
-
+    const runRepair = async (payload: DataRepairPayload): Promise<DataRepairResult | undefined> => {
         setBusy(true);
         try {
             const result = await window.api.repairData(payload);
             props.applyRepair(result);
-            feedback.toast({
-                kind: 'success',
-                content: t(
-                    'dataRepair.done',
-                    result.removedCards.length,
-                    result.removedLists.length,
-                    result.removedMoves,
-                    result.repairedRefs
-                ),
-            });
             props.onRescan();
+            return result;
         } catch (error) {
             const detail = error instanceof Error ? error.message : String(error);
             feedback.alert({
@@ -324,15 +318,79 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
                 title: t('dataRepair.failed'),
                 content: t('dataRepair.failedDetail', detail),
             });
+            return undefined;
         } finally {
             setBusy(false);
         }
     };
 
-    const deletionSelected =
-        selectedCardCount > 0 ||
-        listKeys.some((key) => selected.has(key)) ||
-        selected.has(MOVES_KEY);
+    /**
+     * One action, one confirmation window. The dialog cannot know whether the
+     * user reads "apply" as "delete" or "fix", so it shows exactly what this
+     * selection will do before touching the database -- even when the selection
+     * only repairs references and deletes nothing.
+     */
+    const apply = (): void => {
+        if (selected.size === 0) {
+            return;
+        }
+
+        const payload: DataRepairPayload = {
+            cardIds: selectedCardIds,
+            listIds: selectedListIds,
+            removeOrphanMoves: selected.has(MOVES_KEY),
+            listCardRefIds: refIds('listCards'),
+            boardListRefIds: refIds('boardLists'),
+            cardSessionRefIds: refIds('cardSessions'),
+        };
+
+        feedback.confirm({
+            kind: 'warning',
+            title: t('dataRepair.confirmTitle'),
+            content: (
+                <div>
+                    {deleteCount > 0 ? (
+                        <>
+                            <div>{t('dataRepair.confirmDelete')}</div>
+                            {selectedCardCount > 0 ? (
+                                <div>· {t('dataRepair.confirmCards', selectedCardCount)}</div>
+                            ) : undefined}
+                            {selectedListIds.length > 0 ? (
+                                <div>· {t('dataRepair.confirmLists', selectedListIds.length)}</div>
+                            ) : undefined}
+                            {selected.has(MOVES_KEY) ? (
+                                <div>· {t('dataRepair.confirmMoves', report.moves.total)}</div>
+                            ) : undefined}
+                        </>
+                    ) : undefined}
+                    {selectedRefCount > 0 ? (
+                        <>
+                            <div>{t('dataRepair.confirmRepair')}</div>
+                            <div>· {t('dataRepair.confirmRefs', selectedRefCount)}</div>
+                        </>
+                    ) : undefined}
+                    <div style={{ marginTop: 8 }}>{t('dataRepair.confirmNote')}</div>
+                </div>
+            ),
+            okText: t('dataRepair.confirmOk'),
+            onOk: async () => {
+                const result = await runRepair(payload);
+                if (result === undefined) {
+                    return;
+                }
+                feedback.toast({
+                    kind: 'success',
+                    content: t(
+                        'dataRepair.done',
+                        result.removedCards.length,
+                        result.removedLists.length,
+                        result.removedMoves,
+                        result.repairedRefs
+                    ),
+                });
+            },
+        });
+    };
 
     return (
         <AppModal
@@ -344,22 +402,10 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
                 <Footer>
                     <SelectedCount>{t('dataRepair.selected', selected.size)}</SelectedCount>
                     <FooterButtons>
-                        <Button
-                            disabled={selectedCardCount === 0 || busy}
-                            onClick={() =>
-                                setRestoreIds(
-                                    [...detachedKeys, ...orphanKeys]
-                                        .filter((key) => selected.has(key))
-                                        .map((key) => key.slice('card:'.length))
-                                )
-                            }
-                        >
-                            {t('dataRepair.restoreSelected', selectedCardCount)}
-                        </Button>
                         <Button onClick={props.onClose}>{t('common.cancel')}</Button>
                         <Button
                             type="primary"
-                            danger={deletionSelected}
+                            danger={deleteCount > 0}
                             loading={busy}
                             disabled={selected.size === 0}
                             onClick={apply}
@@ -378,16 +424,23 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
 
                     {report.detachedCards.length > 0 || report.orphanCards.length > 0 ? (
                         <>
-                            <GroupTitle style={{ marginTop: 8 }}>
-                                {t('dataRepair.cards')}
-                            </GroupTitle>
+                            <GroupHeader style={{ marginTop: 8 }}>
+                                <GroupTitle>{t('dataRepair.cards')}</GroupTitle>
+                                <Button
+                                    size="small"
+                                    disabled={selectedCardCount === 0 || busy}
+                                    onClick={() => setRestoreIds(selectedCardIds)}
+                                >
+                                    {t('dataRepair.restoreSelected', selectedCardCount)}
+                                </Button>
+                            </GroupHeader>
                             {report.detachedCards.length > 0 ? (
                                 <>
                                     {groupHeader(
                                         t('dataRepair.detachedGroup', report.detachedCards.length),
                                         detachedKeys
                                     )}
-                                    {cardRows(report.detachedCards)}
+                                    {cardRows('detached', report.detachedCards)}
                                 </>
                             ) : undefined}
                             {report.orphanCards.length > 0 ? (
@@ -410,7 +463,7 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
                                     >
                                         {t('dataRepair.selectAll')}
                                     </Checkbox>
-                                    {cardRows(report.orphanCards)}
+                                    {cardRows('orphan', report.orphanCards)}
                                 </>
                             ) : undefined}
                         </>
@@ -420,7 +473,7 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
                         <>
                             {groupHeader(t('dataRepair.lists', report.lists.length), listKeys)}
                             <Note>{t('dataRepair.listNote')}</Note>
-                            {report.lists.slice(0, MAX_ROWS).map((list) => (
+                            {visibleRows('lists', report.lists).map((list) => (
                                 <Row key={list._id}>
                                     <Checkbox
                                         checked={selected.has(`list:${list._id}`)}
@@ -428,14 +481,11 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
                                     />
                                     <RowBody>
                                         <RowTitle title={list.title}>{list.title}</RowTitle>
+                                        <RowMeta>{list._id}</RowMeta>
                                     </RowBody>
                                 </Row>
                             ))}
-                            {report.lists.length > MAX_ROWS ? (
-                                <Note>
-                                    {t('dataRepair.truncated', report.lists.length - MAX_ROWS)}
-                                </Note>
-                            ) : undefined}
+                            {showAllButton('lists', report.lists.length)}
                         </>
                     ) : undefined}
 
@@ -453,7 +503,7 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
                                 danglingKeys
                             )}
                             <Note>{t('dataRepair.danglingNote')}</Note>
-                            {report.dangling.slice(0, MAX_ROWS).map((issue) => (
+                            {visibleRows('dangling', report.dangling).map((issue) => (
                                 <Row key={refKey(issue)}>
                                     <Checkbox
                                         checked={selected.has(refKey(issue))}
@@ -482,11 +532,7 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
                                     </RowBody>
                                 </Row>
                             ))}
-                            {report.dangling.length > MAX_ROWS ? (
-                                <Note>
-                                    {t('dataRepair.truncated', report.dangling.length - MAX_ROWS)}
-                                </Note>
-                            ) : undefined}
+                            {showAllButton('dangling', report.dangling.length)}
                         </>
                     ) : undefined}
                 </Scroller>

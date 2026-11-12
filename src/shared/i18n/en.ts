@@ -514,8 +514,18 @@ export const en = {
         sessions: (count: number): string => `${count} ${plural(count, 'session', 'sessions')}`,
         noRecord: 'No time recorded',
         untitled: '(Untitled)',
-        truncated: (count: number): string =>
-            `${count} more not shown; select-all and apply still cover them.`,
+        showAll: (count: number): string => `Show all (${count} more)`,
+        confirmTitle: 'Apply these fixes?',
+        confirmDelete: 'Will be deleted:',
+        confirmRepair: 'Will be repaired:',
+        confirmCards: (count: number): string => `${count} ${plural(count, 'card', 'cards')}`,
+        confirmLists: (count: number): string => `${count} ${plural(count, 'list', 'lists')}`,
+        confirmMoves: (count: number): string =>
+            `${count} ${plural(count, 'move record', 'move records')}`,
+        confirmRefs: (count: number): string =>
+            `${count} ${plural(count, 'reference', 'references')}`,
+        confirmNote: 'Deleting cannot be undone. Focus sessions are not deleted.',
+        confirmOk: 'Apply',
         done: (cards: number, lists: number, moves: number, refs: number): string =>
             `Removed ${cards} ${plural(cards, 'card', 'cards')} and ` +
             `${lists} ${plural(lists, 'list', 'lists')}, dropped ` +

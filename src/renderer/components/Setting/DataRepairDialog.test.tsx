@@ -5,11 +5,12 @@ import type { DataIssuesReport } from '../../../shared/dataRepair';
 
 const mockToast = jest.fn();
 const mockAlert = jest.fn();
+const mockConfirm = jest.fn();
 jest.mock('../feedback', () => ({
     feedback: {
         toast: (...args: any[]) => mockToast(...args),
         alert: (...args: any[]) => mockAlert(...args),
-        confirm: jest.fn(),
+        confirm: (...args: any[]) => mockConfirm(...args),
         notice: jest.fn(),
     },
 }));
@@ -42,6 +43,7 @@ const onClose = jest.fn();
 beforeEach(() => {
     mockToast.mockClear();
     mockAlert.mockClear();
+    mockConfirm.mockClear();
     repairData.mockReset();
     applyRepair.mockClear();
     onRescan.mockClear();
@@ -71,6 +73,22 @@ const renderDialog = (value: DataIssuesReport = report) =>
 
 const applyButton = () => screen.getByRole('button', { name: /Apply to selected/ });
 
+/** Runs the confirmation dialog's OK action, so the transaction actually fires. */
+const acceptConfirm = async () => {
+    await act(async () => {
+        await mockConfirm.mock.calls[0][0].onOk();
+    });
+};
+
+/** Renders the confirmation body as text. */
+const confirmText = () => {
+    const content = mockConfirm.mock.calls[0][0].content;
+    const { container, unmount } = render(<>{content}</>);
+    const text = container.textContent ?? '';
+    unmount();
+    return text;
+};
+
 describe('DataRepairDialog', () => {
     it('starts with the old-deletion residue checked and accident cards unchecked', () => {
         renderDialog();
@@ -81,12 +99,28 @@ describe('DataRepairDialog', () => {
         expect(screen.getByRole('button', { name: 'Restore selected (1)' })).toBeTruthy();
     });
 
-    it('sends only the checked rows and applies the result', async () => {
+    it('shows the counts before touching anything', async () => {
         renderDialog();
 
-        await act(async () => {
-            fireEvent.click(applyButton());
-        });
+        fireEvent.click(applyButton());
+
+        // Nothing has been written yet.
+        expect(repairData).not.toHaveBeenCalled();
+        expect(applyRepair).not.toHaveBeenCalled();
+
+        const text = confirmText();
+        expect(text).toContain('1 card');
+        expect(text).toContain('1 list');
+        expect(text).toContain('3 move records');
+        expect(text).toContain('2 references');
+        expect(text).toContain('Deleting cannot be undone');
+    });
+
+    it('sends the whole selection once confirmed', async () => {
+        renderDialog();
+
+        fireEvent.click(applyButton());
+        await acceptConfirm();
 
         expect(repairData).toHaveBeenCalledWith({
             cardIds: ['c1'],
@@ -99,6 +133,22 @@ describe('DataRepairDialog', () => {
         expect(applyRepair).toHaveBeenCalledWith(expect.objectContaining({ removedCards: ['c1'] }));
         expect(onRescan).toHaveBeenCalledTimes(1);
         expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ kind: 'success' }));
+    });
+
+    it('confirms even when the selection only repairs references', () => {
+        renderDialog({
+            detachedCards: [],
+            orphanCards: [],
+            lists: [],
+            moves: { total: 0, cardCount: 0 },
+            dangling: [{ kind: 'listCards', ownerId: 'l2', ownerTitle: '进行中', count: 1 }],
+        });
+
+        fireEvent.click(applyButton());
+
+        expect(mockConfirm).toHaveBeenCalledTimes(1);
+        expect(repairData).not.toHaveBeenCalled();
+        expect(confirmText()).toContain('1 reference');
     });
 
     it('restores a single card from its row without deleting anything', () => {
@@ -125,6 +175,28 @@ describe('DataRepairDialog', () => {
 
         expect(screen.getByText('0 selected')).toBeTruthy();
         expect((applyButton() as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it('renders 50 rows per group until "show all" is clicked', () => {
+        const orphans = Array.from({ length: 60 }, (_, index) => ({
+            _id: `c${index}`,
+            title: `card-${index}`,
+            spentHours: 0,
+            sessionCount: 0,
+        }));
+        renderDialog({
+            detachedCards: [],
+            orphanCards: orphans,
+            lists: [],
+            moves: { total: 0, cardCount: 0 },
+            dangling: [],
+        });
+
+        const cardBoxes = () => screen.getAllByRole('checkbox', { name: /^card-/ });
+        expect(cardBoxes()).toHaveLength(50);
+
+        fireEvent.click(screen.getByRole('button', { name: /Show all \(10 more\)/ }));
+        expect(cardBoxes()).toHaveLength(60);
     });
 
     it('says what the dangling repair does and does not delete', () => {

@@ -9,6 +9,12 @@ import type { LogLevel } from '../../shared/log';
 import type { DeleteKanbanItemsPayload, KanbanDeletionResult } from '../../shared/kanbanDeletion';
 import type { CardMoveResult, MoveCardPayload } from '../../shared/cardMove';
 import type {
+    DataIssuesReport,
+    DataRepairPayload,
+    DataRepairResult,
+} from '../../shared/dataRepair';
+
+import type {
     SessionEdit,
     SessionEditsResult,
     UnassignedSessionsQuery,
@@ -37,6 +43,10 @@ export enum IpcEventName {
     ListUnassignedSessions = 'listUnassignedSessions',
     /** Moves one card to another list, migrating its sessions' project. */
     MoveCardToBoard = 'moveCardToBoard',
+    /** Counts cards/lists/moves/refs that no longer resolve. */
+    ScanDataIssues = 'scanDataIssues',
+    /** Deletes or repairs the rows the data check reported. */
+    RepairData = 'repairData',
     SelectWallpaper = 'selectWallpaper',
     ActiveWin = 'activeWin',
     OpenAtLogin = 'openAtLogin',
@@ -287,6 +297,8 @@ export type ExposedAPI = {
         query: UnassignedSessionsQuery
     ): Promise<UnassignedSessionsResult>;
     [IpcEventName.MoveCardToBoard](payload: MoveCardPayload): Promise<CardMoveResult>;
+    [IpcEventName.ScanDataIssues](): Promise<DataIssuesReport>;
+    [IpcEventName.RepairData](payload: DataRepairPayload): Promise<DataRepairResult>;
     [IpcEventName.SelectWallpaper](): Promise<string | undefined>;
     [IpcEventName.ExportData](): Promise<ExportResult>;
     [IpcEventName.ActiveWin](): Promise<BaseResult | undefined>;

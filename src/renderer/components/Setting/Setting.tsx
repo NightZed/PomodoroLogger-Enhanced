@@ -9,11 +9,13 @@ import { DistractingListModalButton } from './DistractingList';
 import { isShallowEqualByKeys } from '../../utils';
 import pkg from '../../../../package.json';
 import type { ExportResult, ImportResult, UpdateErrorPayload } from '../../../main/ipc/type';
+import type { DataIssuesReport, DataRepairResult } from '../../../shared/dataRepair';
 import { refreshDbs } from '../../dbs';
 import { BUILTIN_THEMES, ThemeDefinition } from '../../theme/tokens';
 import SettingNav from './SettingNav';
 import PreviewSlider from './PreviewSlider';
 import { DEFAULT_SECTION, SectionId, SHORTCUTS } from './sections';
+import { DataRepairDialog } from './DataRepairDialog';
 import { useSliderChange } from './useSliderChange';
 import { isScreenshotAvailable } from '../../screenshotSupport';
 import { t, useI18n } from '../../i18n';
@@ -391,10 +393,29 @@ const LOG_LEVEL_OPTIONS: { value: LogLevel; labelKey: PlainMessageKey }[] = [
     { value: 'error', labelKey: 'settings.system.logLevelError' },
 ];
 
-interface Props extends TimerState, TimerActionTypes {}
+const EMPTY_DATA_REPORT: DataIssuesReport = {
+    detachedCards: [],
+    orphanCards: [],
+    lists: [],
+    moves: { total: 0, cardCount: 0 },
+    dangling: [],
+};
+
+const isEmptyDataReport = (report: DataIssuesReport): boolean =>
+    report.detachedCards.length === 0 &&
+    report.orphanCards.length === 0 &&
+    report.lists.length === 0 &&
+    report.moves.total === 0 &&
+    report.dangling.length === 0;
+
+interface Props extends TimerState, TimerActionTypes {
+    /** Applies the data check's result to `kanban.cards` / `lists` / `boards`. */
+    applyRepair: (result: DataRepairResult) => void;
+}
 export const Setting: React.FunctionComponent<Props> = React.memo(
     (props: Props) => {
         const {
+            applyRepair,
             followSystemTheme,
             setAutoUpdate,
             setCalendarBaseColor,
@@ -420,6 +441,9 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
         const { t } = useI18n();
         const [importing, setImporting] = useState(false);
         const [exporting, setExporting] = useState(false);
+        const [checking, setChecking] = useState(false);
+        const [report, setReport] = useState<DataIssuesReport | undefined>();
+        const [repairOpen, setRepairOpen] = useState(false);
         const onChangeFocus = React.useCallback(
             (v: number | [number, number]) => {
                 if (v instanceof Array) {
@@ -690,6 +714,50 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                     title: FEEDBACK_MESSAGES.setting.openDataDirFailed,
                     content: FEEDBACK_MESSAGES.setting.openDataDirFailedDetail(errorText(e)),
                 });
+            }
+        }, []);
+
+        /**
+         * The scan only reads; the dialog decides what to repair, and the repair
+         * command recomputes the affected rows. Keeping the two apart means a
+         * pomodoro that finishes while the dialog is open cannot be swept away
+         * by a snapshot taken before it existed.
+         */
+        const onCheckData = useCallback(async () => {
+            setChecking(true);
+            try {
+                const next = await window.api.scanDataIssues();
+                setReport(next);
+                if (isEmptyDataReport(next)) {
+                    feedback.toast({
+                        kind: 'info',
+                        content: FEEDBACK_MESSAGES.setting.dataCheckNone,
+                    });
+                    return;
+                }
+                setRepairOpen(true);
+            } catch (e) {
+                feedback.alert({
+                    kind: 'error',
+                    title: FEEDBACK_MESSAGES.setting.dataCheckFailed,
+                    content: FEEDBACK_MESSAGES.setting.dataCheckFailedDetail(errorText(e)),
+                    actions: <OpenLogFolderButton onClick={onOpenLogDir} />,
+                });
+            } finally {
+                setChecking(false);
+            }
+        }, [onOpenLogDir]);
+
+        /**
+         * A restore or a partial repair changes the set, so the dialog asks for
+         * a fresh scan instead of trying to patch its own copy. A failure here
+         * is not worth a second dialog: the repair already reported its own.
+         */
+        const rescanData = useCallback(async () => {
+            try {
+                setReport(await window.api.scanDataIssues());
+            } catch {
+                // Keep the previous report; the dialog still shows what it had.
             }
         }, []);
 
@@ -1254,6 +1322,11 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                     </Button>
                                 </ButtonWrapper>
                                 <ButtonWrapper>
+                                    <Button loading={checking} onClick={onCheckData}>
+                                        {t('settings.system.checkData')}
+                                    </Button>
+                                </ButtonWrapper>
+                                <ButtonWrapper>
                                     <Button danger={true} onClick={onDeleteConfirm}>
                                         {t('settings.system.deleteAllData')}
                                     </Button>
@@ -1283,6 +1356,13 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                     />
                     {t('settings.footer.version', pkg.version)}
                 </Footer>
+                <DataRepairDialog
+                    open={repairOpen}
+                    report={report ?? EMPTY_DATA_REPORT}
+                    onClose={() => setRepairOpen(false)}
+                    onRescan={rescanData}
+                    applyRepair={applyRepair}
+                />
             </Container>
         );
     },

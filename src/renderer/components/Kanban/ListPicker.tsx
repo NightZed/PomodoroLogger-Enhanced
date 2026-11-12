@@ -18,6 +18,8 @@ export interface ListPickerProps {
     onMove: (listId: string) => void;
     onCancel: () => void;
     busy?: boolean;
+    /** Confirm button text; the data check reuses the picker to restore cards. */
+    actionLabel?: string;
 }
 
 interface Props extends ListPickerProps {
@@ -156,7 +158,7 @@ const ListPickerInner = (props: Props) => {
                             }
                         }}
                     >
-                        {t('kanban.cardMove.confirm')}
+                        {props.actionLabel ?? t('kanban.cardMove.confirm')}
                     </Button>
                 </FooterRow>
             }
@@ -183,8 +185,14 @@ const ListPickerInner = (props: Props) => {
                     </ListOption>
                 ))}
             </Columns>
-            <Hint>{t('kanban.cardMove.sessions', sessionCount)}</Hint>
-            {sharedCount > 0 ? <Hint>{t('kanban.cardMove.shared', sharedCount)}</Hint> : undefined}
+            {card !== undefined ? (
+                <>
+                    <Hint>{t('kanban.cardMove.sessions', sessionCount)}</Hint>
+                    {sharedCount > 0 ? (
+                        <Hint>{t('kanban.cardMove.shared', sharedCount)}</Hint>
+                    ) : undefined}
+                </>
+            ) : undefined}
             <Hint>{t('kanban.cardMove.irreversible')}</Hint>
         </AppModal>
     );

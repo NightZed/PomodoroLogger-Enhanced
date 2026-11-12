@@ -1,5 +1,6 @@
 import {
     assertBoolean,
+    assertDataRepairPayload,
     assertMoveCardPayload,
     assertOpenExternalUrl,
     assertScreenshotDataUrl,
@@ -95,5 +96,26 @@ describe('IPC validators', () => {
         expect(() => assertMoveCardPayload({ cardId: 'c1' })).toThrow(TypeError);
         expect(() => assertMoveCardPayload({ cardId: 1, targetListId: 'l1' })).toThrow(TypeError);
         expect(() => assertMoveCardPayload(null)).toThrow(TypeError);
+    });
+
+    it('checks the data-repair payload', () => {
+        const payload = {
+            cardIds: ['c1'],
+            listIds: [],
+            removeOrphanMoves: true,
+            listCardRefIds: ['l1'],
+            boardListRefIds: [],
+            cardSessionRefIds: ['c2'],
+        };
+        expect(assertDataRepairPayload(payload)).toEqual(payload);
+
+        expect(() => assertDataRepairPayload({ ...payload, cardIds: [1] })).toThrow(TypeError);
+        expect(() => assertDataRepairPayload({ ...payload, removeOrphanMoves: 'yes' })).toThrow(
+            TypeError
+        );
+        expect(() => assertDataRepairPayload({ ...payload, listIds: undefined })).toThrow(
+            TypeError
+        );
+        expect(() => assertDataRepairPayload(null)).toThrow(TypeError);
     });
 });

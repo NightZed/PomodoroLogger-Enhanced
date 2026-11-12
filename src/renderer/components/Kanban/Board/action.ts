@@ -4,6 +4,7 @@ import { actions as listActions } from '../List/action';
 import { applyKanbanDeletion, deleteKanbanItems } from '../deletion';
 import { applySessionEditsResult } from '../sessionEdits';
 import { applyCardMove } from '../cardMove';
+import { applyDataRepair } from '../dataRepair';
 import { actions as cardActions } from '../Card/action';
 import { actions as kanbanActions } from '../action';
 import { actions as historyActions } from '../../History/action';
@@ -190,6 +191,13 @@ export const boardReducer = createReducer<KanbanBoardState>({}, (builder) => {
             return { ...state, ...updated };
         })
         .addCase(applyCardMove, (state, { payload }) => {
+            const updated = payload.updatedBoards;
+            if (Object.keys(updated).length === 0) {
+                return state;
+            }
+            return { ...state, ...updated };
+        })
+        .addCase(applyDataRepair, (state, { payload }) => {
             const updated = payload.updatedBoards;
             if (Object.keys(updated).length === 0) {
                 return state;

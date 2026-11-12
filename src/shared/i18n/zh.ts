@@ -447,6 +447,44 @@ export const zh: CatalogShape<typeof en> = {
         },
     },
 
+    dataRepair: {
+        title: '数据检查',
+        intro: '选择要处理的问题。恢复只会把卡片放回你选的列表，不会删除任何东西。',
+        empty: '没有需要处理的问题',
+        cards: '卡片',
+        detachedGroup: (count: number): string => `来自已删除的看板 / 列表（${count}）`,
+        orphanGroup: (count: number): string => `不属于任何列表（${count}）`,
+        lists: (count: number): string => `列表（${count}）`,
+        listNote: '原看板已删除，这些列表不再出现在任何看板中。删除列表不会删除其中的卡片。',
+        moves: (count: number): string => `移动记录（${count}）`,
+        movesNote: (count: number): string => `涉及 ${count} 张已不存在的卡片。`,
+        dangling: (count: number): string => `悬空引用（${count}）`,
+        danglingNote: '修复只移除指向不存在数据的引用，不会删除任何卡片、列表或番茄记录。',
+        danglingBoardLists: (owner: string, count: number): string =>
+            `看板「${owner}」有 ${count} 处无效的列表引用`,
+        danglingListCards: (owner: string, count: number): string =>
+            `列表「${owner}」有 ${count} 处无效的卡片引用`,
+        danglingCardSessions: (owner: string, count: number): string =>
+            `卡片「${owner}」有 ${count} 处无效的番茄引用`,
+        selectAll: '全选',
+        restore: '恢复',
+        restoreSelected: (count: number): string => `恢复选中 (${count})`,
+        restored: (count: number): string => `已恢复 ${count} 张卡片`,
+        restoreFailed: '恢复失败',
+        restoreFailedDetail: (restored: number, detail: string): string =>
+            `失败前已恢复 ${restored} 张卡片：${detail}`,
+        applySelected: (count: number): string => `处理选中项 (${count})`,
+        selected: (count: number): string => `已选 ${count} 项`,
+        sessions: (count: number): string => `${count} 个番茄`,
+        noRecord: '未记录时长',
+        untitled: '（无标题）',
+        truncated: (count: number): string => `还有 ${count} 条未显示；全选与处理仍作用于全部。`,
+        done: (cards: number, lists: number, moves: number, refs: number): string =>
+            `已删除 ${cards} 张卡片、${lists} 个列表、${moves} 条移动记录，修复 ${refs} 处引用`,
+        failed: '数据修复失败',
+        failedDetail: (detail: string): string => `数据未能修复：${detail}`,
+    },
+
     settings: {
         sectionsLabel: '设置分区',
         sections: {
@@ -516,6 +554,7 @@ export const zh: CatalogShape<typeof en> = {
             openLogFolder: '打开日志文件夹',
             exportData: '导出数据',
             importData: '导入数据',
+            checkData: '检查并修复数据',
             deleteAllData: '删除所有数据',
         },
         timer: {
@@ -657,6 +696,9 @@ export const zh: CatalogShape<typeof en> = {
             deleteFailed: '无法删除数据',
             deleteFailedDetail: (reason: string): string =>
                 `数据未能完全删除：${reason}。部分数据可能已被删除，应用未重启。`,
+            dataCheckNone: '没有发现数据问题',
+            dataCheckFailed: '检查失败',
+            dataCheckFailedDetail: (reason: string): string => `数据未能检查：${reason}`,
             exportDone: (fileName: string): string => `数据已导出到 ${fileName}`,
             exportFailed: '导出失败',
             exportFailedDetail: (reason: string): string => `数据无法导出：${reason}`,

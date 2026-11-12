@@ -476,6 +476,55 @@ export const en = {
         },
     },
 
+    dataRepair: {
+        title: 'Check & Repair Data',
+        intro:
+            'Pick what to fix. Restoring a card puts it back into a list you choose; ' +
+            'nothing is deleted by restoring.',
+        empty: 'Nothing to fix',
+        cards: 'Cards',
+        detachedGroup: (count: number): string => `From deleted boards / lists (${count})`,
+        orphanGroup: (count: number): string => `Not in any list (${count})`,
+        lists: (count: number): string => `Lists (${count})`,
+        listNote:
+            'The board they belonged to is gone, so these lists no longer appear anywhere. ' +
+            'Deleting a list does not delete its cards.',
+        moves: (count: number): string => `Move records (${count})`,
+        movesNote: (count: number): string =>
+            `They mention ${count} ${plural(count, 'card', 'cards')} that no longer exist.`,
+        dangling: (count: number): string => `Dangling references (${count})`,
+        danglingNote:
+            'Repairing removes only the references; no card, list or focus session is deleted.',
+        danglingBoardLists: (owner: string, count: number): string =>
+            `Board "${owner}" references ${count} missing ${plural(count, 'list', 'lists')}`,
+        danglingListCards: (owner: string, count: number): string =>
+            `List "${owner}" references ${count} missing ${plural(count, 'card', 'cards')}`,
+        danglingCardSessions: (owner: string, count: number): string =>
+            `Card "${owner}" references ${count} deleted ${plural(count, 'session', 'sessions')}`,
+        selectAll: 'Select all',
+        restore: 'Restore',
+        restoreSelected: (count: number): string => `Restore selected (${count})`,
+        restored: (count: number): string => `${count} ${plural(count, 'card', 'cards')} restored`,
+        restoreFailed: 'Could Not Restore Cards',
+        restoreFailedDetail: (restored: number, detail: string): string =>
+            `${restored} ${plural(restored, 'card', 'cards')} were restored before the failure: ` +
+            detail,
+        applySelected: (count: number): string => `Apply to selected (${count})`,
+        selected: (count: number): string => `${count} selected`,
+        sessions: (count: number): string => `${count} ${plural(count, 'session', 'sessions')}`,
+        noRecord: 'No time recorded',
+        untitled: '(Untitled)',
+        truncated: (count: number): string =>
+            `${count} more not shown; select-all and apply still cover them.`,
+        done: (cards: number, lists: number, moves: number, refs: number): string =>
+            `Removed ${cards} ${plural(cards, 'card', 'cards')} and ` +
+            `${lists} ${plural(lists, 'list', 'lists')}, dropped ` +
+            `${moves} ${plural(moves, 'move record', 'move records')}, repaired ` +
+            `${refs} ${plural(refs, 'reference', 'references')}`,
+        failed: 'Could Not Repair Data',
+        failedDetail: (detail: string): string => `The data could not be repaired: ${detail}`,
+    },
+
     settings: {
         /** Accessible name of the section list in `SettingNav`. */
         sectionsLabel: 'Settings sections',
@@ -548,6 +597,7 @@ export const en = {
             openLogFolder: 'Open Log Folder',
             exportData: 'Export Data',
             importData: 'Import Data',
+            checkData: 'Check & Repair Data',
             deleteAllData: 'Delete All Data',
         },
         timer: {
@@ -749,6 +799,10 @@ export const en = {
             deleteFailedDetail: (reason: string): string =>
                 `The data could not be fully deleted: ${reason}. Some data may already be gone; ` +
                 'the app was not restarted.',
+            dataCheckNone: 'No data problems found',
+            dataCheckFailed: 'Could Not Check the Data',
+            dataCheckFailedDetail: (reason: string): string =>
+                `The data could not be checked: ${reason}`,
             /** Export / import results, and the report of a refused file. */
             exportDone: (fileName: string): string => `Data exported to ${fileName}`,
             exportFailed: 'Export Failed',

@@ -53,6 +53,9 @@ jest.mock('../feedback', () => ({
             deleteFailed: 'Could Not Delete Data',
             deleteFailedDetail: (reason: string) =>
                 `The data could not be fully deleted: ${reason}.`,
+            dataCheckNone: 'No data problems found',
+            dataCheckFailed: 'Could Not Check the Data',
+            dataCheckFailedDetail: (reason: string) => `Could not check the data: ${reason}`,
             openDataDirFailed: 'Could Not Open Data Folder',
             openDataDirFailedDetail: (reason: string) =>
                 `Could not open the data folder: ${reason}`,
@@ -66,6 +69,39 @@ jest.mock('../feedback', () => ({
 // workers and the theming, none of which the data buttons depend on.
 jest.mock('./DistractingList', () => ({
     DistractingListModalButton: () => null,
+}));
+
+// The real dialog is a connected subtree (it renders the card-restore flow);
+// this file drives the page's own orchestration: scan, open, apply, rescan.
+jest.mock('./DataRepairDialog', () => ({
+    DataRepairDialog: ({ open, report, onClose, onRescan, applyRepair }: any) =>
+        open ? (
+            <div>
+                <span data-testid="repair-cards">{report.orphanCards.length}</span>
+                <button
+                    data-testid="repair-apply"
+                    onClick={() =>
+                        applyRepair({
+                            removedCards: [],
+                            removedLists: [],
+                            updatedCards: {},
+                            updatedLists: {},
+                            updatedBoards: {},
+                            removedMoves: 0,
+                            repairedRefs: 0,
+                        })
+                    }
+                >
+                    apply
+                </button>
+                <button data-testid="repair-rescan" onClick={onRescan}>
+                    rescan
+                </button>
+                <button data-testid="repair-close" onClick={onClose}>
+                    close
+                </button>
+            </div>
+        ) : null,
 }));
 const mockDeleteAllUserData = jest.fn<Promise<void>, []>().mockResolvedValue(undefined);
 jest.mock('../../monitor/sessionManager', () => ({
@@ -111,7 +147,11 @@ import type { ExportResult, ImportResult } from '../../../main/ipc/type';
 const exportData = jest.fn<Promise<ExportResult>, []>();
 const openDataDir = jest.fn<Promise<void>, []>();
 const openLogDir = jest.fn<Promise<void>, []>();
+const scanDataIssues = jest.fn();
+const repairData = jest.fn();
+const applyRepair = jest.fn();
 const props = (): any => ({
+    applyRepair,
     focusDuration: 1500,
     restDuration: 300,
     longBreakDuration: 900,
@@ -216,11 +256,16 @@ beforeEach(() => {
     importData.mockReset();
     openDataDir.mockReset();
     openLogDir.mockReset();
+    scanDataIssues.mockReset();
+    repairData.mockReset();
+    applyRepair.mockClear();
     (window as any).api = {
         exportData,
         importData,
         openDataDir,
         openLogDir,
+        scanDataIssues,
+        repairData,
         restart: mockRestart,
         checkUpdate: jest.fn(),
         onUpdateAvailable: jest.fn(() => jest.fn()),
@@ -583,6 +628,84 @@ describe('Setting screenshot option', () => {
         } finally {
             delete (window.api as any).isPackaged;
         }
+    });
+});
+
+describe('Setting data check', () => {
+    const emptyReport = {
+        detachedCards: [],
+        orphanCards: [],
+        lists: [],
+        moves: { total: 0, cardCount: 0 },
+        dangling: [],
+    };
+    const cardIssue = (id: string) => ({
+        _id: id,
+        title: id,
+        spentHours: 1,
+        sessionCount: 1,
+    });
+
+    it('says so when nothing needs attention', async () => {
+        scanDataIssues.mockResolvedValue(emptyReport);
+        await mount();
+
+        fireEvent.click(button('Check & Repair Data'));
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        expect(mockToast).toHaveBeenCalledWith(
+            expect.objectContaining({ content: 'No data problems found' })
+        );
+        expect(screen.queryByTestId('repair-cards')).toBeNull();
+    });
+
+    it('opens the dialog with the scan result', async () => {
+        scanDataIssues.mockResolvedValue({
+            ...emptyReport,
+            orphanCards: [cardIssue('c1'), cardIssue('c2')],
+        });
+        await mount();
+
+        fireEvent.click(button('Check & Repair Data'));
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        expect(screen.getByTestId('repair-cards').textContent).toBe('2');
+    });
+
+    it('hands the repair result to the store and rescans on demand', async () => {
+        scanDataIssues.mockResolvedValue({ ...emptyReport, orphanCards: [cardIssue('c1')] });
+        await mount();
+
+        fireEvent.click(button('Check & Repair Data'));
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        fireEvent.click(screen.getByTestId('repair-apply'));
+        expect(applyRepair).toHaveBeenCalledWith(expect.objectContaining({ removedCards: [] }));
+
+        fireEvent.click(screen.getByTestId('repair-rescan'));
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(scanDataIssues).toHaveBeenCalledTimes(2);
+    });
+
+    it('reports a failed scan and keeps the dialog closed', async () => {
+        scanDataIssues.mockRejectedValue(new Error('disk gone'));
+        await mount();
+
+        fireEvent.click(button('Check & Repair Data'));
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        expect(mockAlert).toHaveBeenCalledTimes(1);
+        expect(screen.queryByTestId('repair-cards')).toBeNull();
     });
 });
 

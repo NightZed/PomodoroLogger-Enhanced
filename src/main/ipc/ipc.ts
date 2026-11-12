@@ -67,6 +67,7 @@ import {
     assertScreenshotPaths,
     assertSessionEdits,
     assertMoveCardPayload,
+    assertDataRepairPayload,
     assertString,
     assertTrayMenuItems,
     assertUnassignedSessionsQuery,
@@ -75,9 +76,11 @@ import {
 import type { Validator } from './validate';
 import { deleteKanbanItems } from '../db/kanbanDeletion';
 import { moveCardToBoard } from '../db/cardMove';
+import { repairData, scanDataIssues } from '../db/dataRepair';
 import { applySessionEdits, listUnassignedSessions } from '../db/sessionEdits';
 import type { DeleteKanbanItemsPayload } from '../../shared/kanbanDeletion';
 import type { MoveCardPayload } from '../../shared/cardMove';
+import type { DataRepairPayload } from '../../shared/dataRepair';
 import type { SessionEdit, UnassignedSessionsQuery } from '../../shared/sessionEdits';
 
 /**
@@ -621,6 +624,10 @@ export function initialize() {
     );
     handle(IpcEventName.MoveCardToBoard, (payload: MoveCardPayload) => moveCardToBoard(payload), [
         assertMoveCardPayload,
+    ]);
+    handle(IpcEventName.ScanDataIssues, () => scanDataIssues());
+    handle(IpcEventName.RepairData, (payload: DataRepairPayload) => repairData(payload), [
+        assertDataRepairPayload,
     ]);
     handle(IpcEventName.SelectWallpaper, async (): Promise<string | undefined> => {
         const result = await dialog.showOpenDialog({

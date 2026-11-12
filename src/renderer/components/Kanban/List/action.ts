@@ -4,6 +4,7 @@ import { actions as cardAction } from '../Card/action';
 import { actions as boardActions } from '../Board/action';
 import { applyKanbanDeletion, deleteKanbanItems } from '../deletion';
 import { applyCardMove } from '../cardMove';
+import { applyDataRepair } from '../dataRepair';
 import { uid } from '../../../../utils/uid';
 import { workers } from '../../../workers';
 import { List, ListsState } from '../type';
@@ -167,6 +168,22 @@ export const listReducer = createReducer<ListsState>({}, (builder) => {
                 return state;
             }
             return { ...state, ...payload.updatedLists };
+        })
+        .addCase(applyDataRepair, (state, { payload }) => {
+            if (
+                payload.removedLists.length === 0 &&
+                Object.keys(payload.updatedLists).length === 0
+            ) {
+                return state;
+            }
+            const next = { ...state };
+            for (const _id of payload.removedLists) {
+                delete next[_id];
+            }
+            for (const [id, list] of Object.entries(payload.updatedLists)) {
+                next[id] = list;
+            }
+            return next;
         })
         .addCase(setVisibleCards, (state, { payload: { listId, cards } }) => ({
             ...state,

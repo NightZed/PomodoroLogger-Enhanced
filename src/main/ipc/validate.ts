@@ -1,6 +1,7 @@
 import type { RendererErrorPayload, TrayIconPayload, TrayMenuItem } from './type';
 import type { DeleteKanbanItemsPayload } from '../../shared/kanbanDeletion';
 import type { MoveCardPayload } from '../../shared/cardMove';
+import type { DataRepairPayload } from '../../shared/dataRepair';
 import type { SessionEdit, UnassignedSessionsQuery } from '../../shared/sessionEdits';
 
 /**
@@ -134,6 +135,26 @@ export function assertMoveCardPayload(value: unknown): MoveCardPayload {
     return {
         cardId: assertString(payload.cardId, 'moveCardToBoard.cardId', 200),
         targetListId: assertString(payload.targetListId, 'moveCardToBoard.targetListId', 200),
+    };
+}
+
+/** Upper bound for one data-repair request; a bigger batch is a bug. */
+const MAX_REPAIR_IDS = 2000;
+
+const readIdList = (value: unknown, name: string): string[] => {
+    const ids = assertArray(value, name, MAX_REPAIR_IDS);
+    return ids.map((id, index) => assertString(id, `${name}[${index}]`, 200));
+};
+
+export function assertDataRepairPayload(value: unknown): DataRepairPayload {
+    const payload = assertPlainObject(value, 'repairData payload');
+    return {
+        cardIds: readIdList(payload.cardIds, 'repairData.cardIds'),
+        listIds: readIdList(payload.listIds, 'repairData.listIds'),
+        removeOrphanMoves: assertBoolean(payload.removeOrphanMoves, 'repairData.removeOrphanMoves'),
+        listCardRefIds: readIdList(payload.listCardRefIds, 'repairData.listCardRefIds'),
+        boardListRefIds: readIdList(payload.boardListRefIds, 'repairData.boardListRefIds'),
+        cardSessionRefIds: readIdList(payload.cardSessionRefIds, 'repairData.cardSessionRefIds'),
     };
 }
 

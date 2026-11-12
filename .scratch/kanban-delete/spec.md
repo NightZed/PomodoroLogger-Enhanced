@@ -494,7 +494,7 @@ UI：
 8. 检查与修复数据：明细、卡片的恢复与删除、列表/移动记录删除、悬空引用修复。
 9. 拖动事务化：跨列表拖动现在是「update 源列表 → update 目标列表 → insert move」三次独立写，中途崩溃会留下既不在源列表也不在目标列表的孤儿卡。收进一条主进程事务命令，顺带把 `completedTime` 和 move 记录一起写入。
 10. 会话写入与挂卡合并为事务：`recordFinishedSession` 一次写入会话、看板、卡片；写失败不挂卡并提示。
-11. i18n（en + zh）与测试。
+11. i18n（en + zh）与测试收尾：新文案两边成对，历史页的 `Unknown` 改为本地化文案；补齐选择弹窗、移动/恢复流程的测试。
 
 ## 测试
 
@@ -518,6 +518,12 @@ UI：
 - `repairData`：只处理 payload 里的行（未勾选的孤立卡与死引用保持原样）；删卡时从所有列表移除该 id；删列表时从所有看板移除该 id；删除后再扫为空；删除不动 `sessions` 与看板汇总。
 - 弹窗：默认勾选残留卡/列表/move/悬空引用，不勾孤立卡；payload 只含勾选项；行内与批量恢复都打开恢复流程；空报告显示空状态。
 - 设置页：空报告只 toast；有报告打开弹窗；`applyRepair` 写回 store；恢复/处理后重新扫描。
+- `recordFinishedSession`：会话、看板 `relatedSessions` / `spentHours` / `lastVisitTime`、卡片 `sessionIds` / `actual` 一起落库；无卡、无项目、看板被删、卡片被删都各有一条；重复 `_id` 拒绝；插入失败时看板与卡片不被记账；小时数按 `roundHours` 收敛。
+- `timerFinished`：成功时把事务返回的行写回 store；失败时不产生 `applyFinishedSession`、toast 提示，且会话、看板、卡片都没有变化。
+- `ProjectPicker`：默认创建时间新到旧、搜索忽略大小写、隐藏板有标记且仍可选、`allowNone={false}` 时没有「无项目」。
+- `CardPicker`：按看板列表分栏、空列表不占一栏、无标题卡显示占位、底栏「不挂卡」。
+- `CardMoveDialog` / `RestoreCardsDialog`：两步流程、成功后关闭并回调、失败时停留在弹窗；恢复批量在部分失败时只把真正恢复成功的卡片交回调用方。
+- i18n：新增文案在 `en.ts` / `zh.ts` 成对存在（类型强制）；历史页的项目名在项目被删后显示本地化的「未知项目」，且该字符串不进缓存，切换语言后不会残留旧语言。
 
 ## Open questions
 

@@ -252,6 +252,7 @@ export const en = {
             done: 'Done List',
             cardCount: (count: number): string => `${count} ${plural(count, 'Card', 'Cards')}`,
         },
+        dragFailed: 'Could not move the card. The board was reloaded.',
         cardPicker: {
             title: (board: string): string => `Choose a card · ${board}`,
             noCard: 'No card',

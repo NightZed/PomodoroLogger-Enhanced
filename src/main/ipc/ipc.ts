@@ -67,6 +67,7 @@ import {
     assertScreenshotPaths,
     assertSessionEdits,
     assertMoveCardPayload,
+    assertMoveCardInBoardPayload,
     assertDataRepairPayload,
     assertString,
     assertTrayMenuItems,
@@ -76,10 +77,12 @@ import {
 import type { Validator } from './validate';
 import { deleteKanbanItems } from '../db/kanbanDeletion';
 import { moveCardToBoard } from '../db/cardMove';
+import { moveCardInBoard } from '../db/cardDrag';
 import { repairData, scanDataIssues } from '../db/dataRepair';
 import { applySessionEdits, listUnassignedSessions } from '../db/sessionEdits';
 import type { DeleteKanbanItemsPayload } from '../../shared/kanbanDeletion';
 import type { MoveCardPayload } from '../../shared/cardMove';
+import type { MoveCardInBoardPayload } from '../../shared/cardDrag';
 import type { DataRepairPayload } from '../../shared/dataRepair';
 import type { SessionEdit, UnassignedSessionsQuery } from '../../shared/sessionEdits';
 
@@ -625,6 +628,11 @@ export function initialize() {
     handle(IpcEventName.MoveCardToBoard, (payload: MoveCardPayload) => moveCardToBoard(payload), [
         assertMoveCardPayload,
     ]);
+    handle(
+        IpcEventName.MoveCardInBoard,
+        (payload: MoveCardInBoardPayload) => moveCardInBoard(payload),
+        [assertMoveCardInBoardPayload]
+    );
     handle(IpcEventName.ScanDataIssues, () => scanDataIssues());
     handle(IpcEventName.RepairData, (payload: DataRepairPayload) => repairData(payload), [
         assertDataRepairPayload,

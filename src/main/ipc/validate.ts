@@ -1,6 +1,7 @@
 import type { RendererErrorPayload, TrayIconPayload, TrayMenuItem } from './type';
 import type { DeleteKanbanItemsPayload } from '../../shared/kanbanDeletion';
 import type { MoveCardPayload } from '../../shared/cardMove';
+import type { MoveCardInBoardPayload } from '../../shared/cardDrag';
 import type { DataRepairPayload } from '../../shared/dataRepair';
 import type { SessionEdit, UnassignedSessionsQuery } from '../../shared/sessionEdits';
 
@@ -135,6 +136,23 @@ export function assertMoveCardPayload(value: unknown): MoveCardPayload {
     return {
         cardId: assertString(payload.cardId, 'moveCardToBoard.cardId', 200),
         targetListId: assertString(payload.targetListId, 'moveCardToBoard.targetListId', 200),
+    };
+}
+
+export function assertMoveCardInBoardPayload(value: unknown): MoveCardInBoardPayload {
+    const payload = assertPlainObject(value, 'moveCardInBoard payload');
+    if (
+        typeof payload.toIndex !== 'number' ||
+        !Number.isFinite(payload.toIndex) ||
+        payload.toIndex < 0
+    ) {
+        throw new TypeError('moveCardInBoard.toIndex must be a non-negative number');
+    }
+    return {
+        cardId: assertString(payload.cardId, 'moveCardInBoard.cardId', 200),
+        fromListId: assertString(payload.fromListId, 'moveCardInBoard.fromListId', 200),
+        toListId: assertString(payload.toListId, 'moveCardInBoard.toListId', 200),
+        toIndex: Math.trunc(payload.toIndex),
     };
 }
 

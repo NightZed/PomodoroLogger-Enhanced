@@ -1,16 +1,62 @@
 import { createAction, createReducer } from '@reduxjs/toolkit';
 import { Dispatch } from 'redux';
 import { actions as cardAction } from '../Card/action';
-import { actions as boardActions } from '../Board/action';
 import { applyKanbanDeletion, deleteKanbanItems } from '../deletion';
 import { applyCardMove } from '../cardMove';
 import { applyDataRepair } from '../dataRepair';
 import { uid } from '../../../../utils/uid';
 import { workers } from '../../../workers';
+import { feedback } from '../../feedback';
+import { t } from '../../../i18n';
+import type { RootState } from '../../../reducers';
 import { List, ListsState } from '../type';
 
 const db = workers.dbWorkers.listsDB;
-const moveDB = workers.dbWorkers.moveDB;
+
+/**
+ * Resolves the indexes the drag library reported into real indexes in
+ * `list.cards`.
+ *
+ * A filtered column (board search) reports positions inside `visibleCards`, so
+ * both the card being dragged and the drop position have to be translated. The
+ * reducer and the thunk share this: resolving twice risks picking different
+ * cards and leaving the screen and the database disagreeing.
+ */
+const resolveDragIndexes = (
+    lists: ListsState,
+    fromListId: string,
+    toListId: string,
+    fromIndex: number,
+    toIndex: number
+): { cardId: string; fromIndex: number; toIndex: number } | null => {
+    const fromList = lists[fromListId];
+    if (fromList === undefined) {
+        return null;
+    }
+
+    let realFrom = fromIndex;
+    let realTo = toIndex;
+    if (fromList.visibleCards) {
+        realFrom = fromList.cards.indexOf(fromList.visibleCards[fromIndex]);
+        if (realFrom < 0) {
+            return null;
+        }
+        if (fromListId === toListId) {
+            if (toIndex < fromList.visibleCards.length) {
+                realTo = fromList.cards.indexOf(fromList.visibleCards[toIndex]);
+            } else {
+                const lastVisible = fromList.visibleCards[fromList.visibleCards.length - 1];
+                realTo = fromList.cards.indexOf(lastVisible) + 1;
+            }
+        }
+    }
+
+    const cardId = fromList.cards[realFrom];
+    if (cardId === undefined) {
+        return null;
+    }
+    return { cardId, fromIndex: realFrom, toIndex: realTo };
+};
 
 const addList = createAction('[List]ADD', (_id: string, title: string) => ({
     payload: { _id, title },
@@ -20,13 +66,9 @@ const setLists = createAction('[List]SET_Lists', (lists: ListsState) => ({ paylo
 
 const moveCard = createAction(
     '[List]MOVE_CARD',
-    (
-        fromListId: string,
-        toListId: string,
-        fromIndex: number,
-        toIndex: number,
-        done: (movedCardId: string) => void
-    ) => ({ payload: { fromListId, toListId, fromIndex, toIndex, done } })
+    (fromListId: string, toListId: string, fromIndex: number, toIndex: number) => ({
+        payload: { fromListId, toListId, fromIndex, toIndex },
+    })
 );
 
 const renameList = createAction('[List]RENAME', (_id, title) => ({ payload: { _id, title } }));
@@ -53,79 +95,47 @@ export const listReducer = createReducer<ListsState>({}, (builder) => {
             },
         }))
         .addCase(setLists, (state, { payload }) => payload)
-        .addCase(
-            moveCard,
-            (state, { payload: { fromListId, toListId, fromIndex, toIndex, done } }) => {
-                const fromList = state[fromListId];
-                const fromCards = Array.from(fromList.cards);
-                if (fromList.visibleCards) {
-                    // user is actually moving one of the visible cards
-                    fromIndex = fromCards.indexOf(fromList.visibleCards[fromIndex]);
-                    if (fromListId === toListId) {
-                        if (toIndex < fromList.visibleCards.length) {
-                            toIndex = fromCards.indexOf(fromList.visibleCards[toIndex]);
-                        } else {
-                            const lastVisible =
-                                fromList.visibleCards[fromList.visibleCards.length - 1];
-                            const lastVisibleIndex = fromCards.indexOf(lastVisible);
-                            toIndex = lastVisibleIndex + 1;
-                        }
-                    }
-                }
+        .addCase(moveCard, (state, { payload: { fromListId, toListId, fromIndex, toIndex } }) => {
+            const resolved = resolveDragIndexes(state, fromListId, toListId, fromIndex, toIndex);
+            if (resolved === null) {
+                return state;
+            }
 
-                (async () => {
-                    // I hate to write effect in reducer. But I did not find a clean way to get the correct fromIndex
-                    const from: List = await db.findOne({ _id: fromListId });
-                    const fromCards = from.cards;
-                    const [rm] = fromCards.splice(fromIndex, 1);
-                    if (fromListId === toListId) {
-                        fromCards.splice(toIndex, 0, rm);
-                        await db.update({ _id: fromListId }, { $set: { cards: fromCards } }, {});
-                        return rm;
-                    }
+            const fromCards = Array.from(state[fromListId].cards);
+            const [moved] = fromCards.splice(resolved.fromIndex, 1);
+            if (moved === undefined) {
+                return state;
+            }
 
-                    const dest: List = await db.findOne({ _id: toListId });
-                    const destCards = dest.cards;
-                    destCards.splice(toIndex, 0, rm);
-                    await db.update({ _id: fromListId }, { $set: { cards: fromCards } }, {});
-                    await db.update({ _id: toListId }, { $set: { cards: destCards } }, {});
-                    await moveDB.insert({
-                        fromListId,
-                        toListId,
-                        cardId: rm,
-                        time: new Date().getTime(),
-                    });
-                    return rm;
-                })().then(done);
-
-                if (fromListId === toListId) {
-                    const [del] = fromCards.splice(fromIndex, 1);
-                    fromCards.splice(toIndex, 0, del);
-                    return {
-                        ...state,
-                        [fromListId]: {
-                            ...state[fromListId],
-                            cards: fromCards,
-                        },
-                    };
-                }
-
-                const toCards = Array.from(state[toListId].cards);
-                const [del] = fromCards.splice(fromIndex, 1);
-                toCards.splice(toIndex, 0, del);
+            if (fromListId === toListId) {
+                fromCards.splice(resolved.toIndex, 0, moved);
                 return {
                     ...state,
                     [fromListId]: {
                         ...state[fromListId],
                         cards: fromCards,
                     },
-                    [toListId]: {
-                        ...state[toListId],
-                        cards: toCards,
-                    },
                 };
             }
-        )
+
+            const toList = state[toListId];
+            if (toList === undefined) {
+                return state;
+            }
+            const toCards = Array.from(toList.cards);
+            toCards.splice(resolved.toIndex, 0, moved);
+            return {
+                ...state,
+                [fromListId]: {
+                    ...state[fromListId],
+                    cards: fromCards,
+                },
+                [toListId]: {
+                    ...toList,
+                    cards: toCards,
+                },
+            };
+        })
         .addCase(renameList, (state, { payload: { _id, title } }) => {
             return {
                 ...state,
@@ -159,15 +169,23 @@ export const listReducer = createReducer<ListsState>({}, (builder) => {
                 delete next[_id];
             }
             for (const [id, list] of Object.entries(payload.updatedLists)) {
-                next[id] = list;
+                next[id] = { ...list, visibleCards: state[id]?.visibleCards };
             }
             return next;
         })
         .addCase(applyCardMove, (state, { payload }) => {
-            if (Object.keys(payload.updatedLists).length === 0) {
+            const ids = Object.keys(payload.updatedLists);
+            if (ids.length === 0) {
                 return state;
             }
-            return { ...state, ...payload.updatedLists };
+            const next = { ...state };
+            for (const id of ids) {
+                // `visibleCards` is renderer state (the board search filter);
+                // the transaction returns the row as stored, which may carry a
+                // stale copy. Keep whatever the current view is filtering by.
+                next[id] = { ...payload.updatedLists[id], visibleCards: state[id]?.visibleCards };
+            }
+            return next;
         })
         .addCase(applyDataRepair, (state, { payload }) => {
             if (
@@ -181,7 +199,7 @@ export const listReducer = createReducer<ListsState>({}, (builder) => {
                 delete next[_id];
             }
             for (const [id, list] of Object.entries(payload.updatedLists)) {
-                next[id] = list;
+                next[id] = { ...list, visibleCards: state[id]?.visibleCards };
             }
             return next;
         })
@@ -210,17 +228,47 @@ export const actions = {
 
     moveCard:
         (fromListId: string, toListId: string, fromIndex: number, toIndex: number) =>
-        async (dispatch: Dispatch) => {
-            const movedCardId = await new Promise<string>((resolve) => {
-                dispatch(moveCard(fromListId, toListId, fromIndex, toIndex, resolve));
-            });
-            if (movedCardId == null || fromListId === toListId) {
+        async (dispatch: Dispatch, getState: () => RootState) => {
+            // The indexes the drag library reports are positions in the
+            // *filtered* column while a search is active. Resolve them against
+            // the real arrays once, and use the same result for the optimistic
+            // update and for the write -- two separate resolutions could pick
+            // different cards and leave the screen and the database disagreeing.
+            const resolved = resolveDragIndexes(
+                getState().kanban.lists,
+                fromListId,
+                toListId,
+                fromIndex,
+                toIndex
+            );
+            if (resolved === null) {
                 return;
             }
 
-            // The board that owns the destination list decides whether the move
-            // completes the card (moving inside one list never recompletes it)
-            await boardActions.onCardMovedInto(toListId, movedCardId)(dispatch);
+            dispatch(moveCard(fromListId, toListId, fromIndex, toIndex));
+
+            try {
+                const result = await window.api.moveCardInBoard({
+                    cardId: resolved.cardId,
+                    fromListId,
+                    toListId,
+                    toIndex: resolved.toIndex,
+                });
+                // The optimistic update guessed the same indexes, but the
+                // transaction is the authority: replace both lists (and the
+                // card when landing in the done list stamped `completedTime`).
+                dispatch(applyCardMove(result));
+            } catch (error) {
+                // Reload rather than try to invert the optimistic splice: the
+                // write may have failed for a reason that also changed other
+                // rows, and the list is the source of truth.
+                await (dispatch as any)(actions.fetchLists());
+                feedback.toast({
+                    kind: 'error',
+                    content: t('kanban.dragFailed'),
+                });
+                console.error(error);
+            }
         },
     renameList: (_id: string, title: string) => async (dispatch: Dispatch) => {
         dispatch(renameList(_id, title));

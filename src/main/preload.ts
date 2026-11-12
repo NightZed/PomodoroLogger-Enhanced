@@ -27,6 +27,7 @@ import type { DbName } from './db/types';
 import type { LogLevel } from '../shared/log';
 import type { DeleteKanbanItemsPayload, KanbanDeletionResult } from '../shared/kanbanDeletion';
 import type { CardMoveResult, MoveCardPayload } from '../shared/cardMove';
+import type { MoveCardInBoardPayload } from '../shared/cardDrag';
 import type { DataIssuesReport, DataRepairPayload, DataRepairResult } from '../shared/dataRepair';
 import type {
     SessionEdit,
@@ -105,6 +106,8 @@ const api: ExposedAPI = {
         invoke<UnassignedSessionsResult>(IpcEventName.ListUnassignedSessions, query),
     [IpcEventName.MoveCardToBoard]: (payload: MoveCardPayload) =>
         invoke<CardMoveResult>(IpcEventName.MoveCardToBoard, payload),
+    [IpcEventName.MoveCardInBoard]: (payload: MoveCardInBoardPayload) =>
+        invoke<CardMoveResult>(IpcEventName.MoveCardInBoard, payload),
     [IpcEventName.ScanDataIssues]: () => invoke<DataIssuesReport>(IpcEventName.ScanDataIssues),
     [IpcEventName.RepairData]: (payload: DataRepairPayload) =>
         invoke<DataRepairResult>(IpcEventName.RepairData, payload),

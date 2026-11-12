@@ -345,88 +345,39 @@ describe('board actions', () => {
         // expect(state).toStrictEqual(oldState);
     });
 
-    it('stamps completedTime when a card lands in the done list', async () => {
-        const boardId = uid();
-        const listId = uid();
-        const doneListId = uid();
-        const cardId = uid();
-        await listsDB.insert({ _id: listId, title: 'TODO', cards: [cardId] });
-        await listsDB.insert({ _id: doneListId, title: 'Done', cards: [] });
-        await cardsDB.insert({
-            _id: cardId,
-            title: 'card',
-            content: '',
-            sessionIds: [],
-            spentTimeInHour: { estimated: 0, actual: 0 },
-        });
-        await db.insert({
-            ...defaultBoard,
-            _id: boardId,
-            name: 'board',
-            description: '',
-            lists: [listId, doneListId],
-            focusedList: listId,
-            doneList: doneListId,
-        } as KanbanBoard);
-
-        const dispatch = jest.fn();
-        await actions.onCardMovedInto(doneListId, cardId)(dispatch);
-        expect(dispatch.mock.calls[0][0].type).toBe('[Card]SET_COMPLETED_TIME');
-        const stamped = await cardsDB.findOne({ _id: cardId });
-        expect(typeof stamped.completedTime).toBe('number');
-
-        // moving into a list that is not a done list never clears the stamp:
-        // it just becomes the last completion time
-        await actions.onCardMovedInto(listId, cardId)(dispatch);
-        const kept = await cardsDB.findOne({ _id: cardId });
-        expect(kept.completedTime).toBe(stamped.completedTime);
-    });
-
-    it('does not stamp completedTime for lists outside any done list', async () => {
-        const listId = uid();
-        const cardId = uid();
-        await listsDB.insert({ _id: listId, title: 'TODO', cards: [cardId] });
-        await cardsDB.insert({
-            _id: cardId,
-            title: 'card',
-            content: '',
-            sessionIds: [],
-            spentTimeInHour: { estimated: 0, actual: 0 },
-        });
-
-        const dispatch = jest.fn();
-        await actions.onCardMovedInto(listId, cardId)(dispatch);
-        expect(dispatch).not.toHaveBeenCalled();
-        const card = await cardsDB.findOne({ _id: cardId });
-        expect(card.completedTime).toBeUndefined();
-    });
-
     it('stamps completedTime through the full board moveCard flow like the app does', async () => {
-        // simulate the app wiring: a real store (thunk middleware) with the
-        // combined kanban reducers, dispatching through Board.moveCard exactly
-        // like Board.tsx's onDragEnd does
-        const store = createStore(kanbanReducer, applyMiddleware(thunk));
+        // Simulate the app wiring: the store root carries the kanban slice
+        // under `kanban` (that is what the thunk reads), with thunk middleware
+        // so `dispatch(actions.moveCard(...))` runs the whole flow.
+        const store = createStore(
+            (state: any = {}, action: any) => ({ kanban: kanbanReducer(state.kanban, action) }),
+            applyMiddleware(thunk)
+        );
         const dispatch = store.dispatch as any;
 
-        await actions.addBoard('b-full', 'board')(dispatch);
-        const state: any = store.getState();
+        await dispatch(actions.addBoard('b-full', 'board'));
+        const state: any = store.getState().kanban;
         const [, todoId, , doneListId] = state.boards['b-full'].lists;
         const cardId = state.lists[todoId].cards[0];
         expect(cardId).toBeDefined();
 
         // drag the welcome card from TODO into the done list
-        await actions.moveCard(todoId, doneListId, 0, 0)(dispatch);
+        await dispatch(actions.moveCard(todoId, doneListId, 0, 0));
         const stamped = await cardsDB.findOne({ _id: cardId });
         expect(typeof stamped.completedTime).toBe('number');
         // the redux state must be updated too, otherwise the card UI would not
         // show the timestamp until a refetch
-        expect((store.getState() as any).cards[cardId].completedTime).toBe(stamped.completedTime);
+        expect((store.getState() as any).kanban.cards[cardId].completedTime).toBe(
+            stamped.completedTime
+        );
 
         // dragging it back out keeps the last completion time
-        await actions.moveCard(doneListId, todoId, 0, 0)(dispatch);
+        await dispatch(actions.moveCard(doneListId, todoId, 0, 0));
         const kept = await cardsDB.findOne({ _id: cardId });
         expect(kept.completedTime).toBe(stamped.completedTime);
-        expect((store.getState() as any).cards[cardId].completedTime).toBe(stamped.completedTime);
+        expect((store.getState() as any).kanban.cards[cardId].completedTime).toBe(
+            stamped.completedTime
+        );
     });
 
     it('backfills completedTime from the latest move into the done list', async () => {

@@ -525,24 +525,16 @@ export const actions = {
 
     moveCard:
         (fromListId: string, toListId: string, fromIndex: number, toIndex: number) =>
-        async (dispatch: Dispatch) => {
-            await listActions.moveCard(fromListId, toListId, fromIndex, toIndex)(dispatch);
+        async (dispatch: Dispatch, getState: () => RootState) => {
+            // The list thunk resolves the drag indexes against the store before
+            // writing, so it needs the same `getState` the store handed us.
+            await listActions.moveCard(
+                fromListId,
+                toListId,
+                fromIndex,
+                toIndex
+            )(dispatch, getState);
         },
-
-    /**
-     * Called by the list actions after a card landed in `toListId`. When that
-     * list is the done list of a board, the card is stamped with the completion
-     * time. Cards moved out of the done list keep the stamp (it becomes the
-     * "last completed" time).
-     */
-    onCardMovedInto: (toListId: string, cardId: string) => async (dispatch: Dispatch) => {
-        const board: KanbanBoard = await db.findOne({ doneList: toListId });
-        if (!board) {
-            return;
-        }
-
-        await cardActions.setCompletedTime(cardId, new Date().getTime())(dispatch);
-    },
 
     /**
      * Credits a finished session to the board and, when the session picked one,

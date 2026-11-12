@@ -88,10 +88,14 @@ describe('listActions', () => {
     it('inserts a card at index 2 of the target list', async () => {
         let state: ListsState = {};
         const dispatch: any = (action: any) => {
+            if (typeof action === 'function') {
+                return action(dispatch, () => ({ kanban: { lists: state } }));
+            }
             state = listReducer(state, action);
+            return action;
         };
         const [_id0, _id1] = await moveCardSetup(dispatch);
-        await actions.moveCard(_id0, _id1, 0, 2)(dispatch);
+        await dispatch(actions.moveCard(_id0, _id1, 0, 2));
         const doc0: List = await db.findOne({ _id: _id0 });
         expect(doc0.cards).toStrictEqual(['1', '2']);
         const doc1: List = await db.findOne({ _id: _id1 });
@@ -101,10 +105,14 @@ describe('listActions', () => {
     it('inserts a card at the head of the target list', async () => {
         let state: ListsState = {};
         const dispatch: any = (action: any) => {
+            if (typeof action === 'function') {
+                return action(dispatch, () => ({ kanban: { lists: state } }));
+            }
             state = listReducer(state, action);
+            return action;
         };
         const [_id0, _id1] = await moveCardSetup(dispatch);
-        await actions.moveCard(_id0, _id1, 0, 0)(dispatch);
+        await dispatch(actions.moveCard(_id0, _id1, 0, 0));
         const doc0: List = await db.findOne({ _id: _id0 });
         expect(doc0.cards).toStrictEqual(['1', '2']);
         const doc1: List = await db.findOne({ _id: _id1 });
@@ -114,10 +122,14 @@ describe('listActions', () => {
     it('reorders cards within the same list', async () => {
         let state: ListsState = {};
         const dispatch: any = (action: any) => {
+            if (typeof action === 'function') {
+                return action(dispatch, () => ({ kanban: { lists: state } }));
+            }
             state = listReducer(state, action);
+            return action;
         };
         const [_id0, _id1] = await moveCardSetup(dispatch);
-        await actions.moveCard(_id0, _id0, 0, 2)(dispatch);
+        await dispatch(actions.moveCard(_id0, _id0, 0, 2));
         const doc0: List = await db.findOne({ _id: _id0 });
         expect(doc0.cards).toStrictEqual(['1', '2', '0']);
         const doc1: List = await db.findOne({ _id: _id1 });
@@ -127,17 +139,21 @@ describe('listActions', () => {
     it('moves only within the filtered card order', async () => {
         let state: ListsState = {};
         const dispatch: any = (action: any) => {
+            if (typeof action === 'function') {
+                return action(dispatch, () => ({ kanban: { lists: state } }));
+            }
             state = listReducer(state, action);
+            return action;
         };
         const [_id0, _id1] = await moveCardSetup(dispatch);
         await actions.setVisibleCards(_id0, ['2'])(dispatch);
-        await actions.moveCard(_id0, _id1, 0, 0)(dispatch);
+        await dispatch(actions.moveCard(_id0, _id1, 0, 0));
         const doc0: List = await db.findOne({ _id: _id0 });
         expect(doc0.cards).toStrictEqual(['0', '1']);
         const doc1: List = await db.findOne({ _id: _id1 });
         expect(doc1.cards).toStrictEqual(['2', '10', '11', '12']);
         await actions.setVisibleCards(_id1, ['10', '11'])(dispatch);
-        await actions.moveCard(_id1, _id0, 0, 0)(dispatch);
+        await dispatch(actions.moveCard(_id1, _id0, 0, 0));
         {
             const doc0: List = await db.findOne({ _id: _id0 });
             expect(doc0.cards).toStrictEqual(['10', '0', '1']);
@@ -149,7 +165,11 @@ describe('listActions', () => {
     it('keeps the filtered order when reordering one list', async () => {
         let state: ListsState = {};
         const dispatch: any = (action: any) => {
+            if (typeof action === 'function') {
+                return action(dispatch, () => ({ kanban: { lists: state } }));
+            }
             state = listReducer(state, action);
+            return action;
         };
         const [_id0, _id1] = await moveCardSetup(dispatch);
         await addCard(_id0, '3', dispatch);
@@ -157,13 +177,13 @@ describe('listActions', () => {
         await addCard(_id0, '5', dispatch);
         await addCard(_id0, '6', dispatch);
         await actions.setVisibleCards(_id0, ['2', '4', '6'])(dispatch);
-        await actions.moveCard(_id0, _id0, 0, 1)(dispatch);
+        await dispatch(actions.moveCard(_id0, _id0, 0, 1));
         {
             const doc0: List = await db.findOne({ _id: _id0 });
             expect(doc0.cards).toStrictEqual(['0', '1', '3', '4', '2', '5', '6']);
         }
         await actions.setVisibleCards(_id0, ['4', '2', '6'])(dispatch);
-        await actions.moveCard(_id0, _id0, 0, 2)(dispatch);
+        await dispatch(actions.moveCard(_id0, _id0, 0, 2));
         {
             const doc0: List = await db.findOne({ _id: _id0 });
             expect(doc0.cards).toStrictEqual(['0', '1', '3', '2', '5', '6', '4']);
@@ -177,11 +197,15 @@ describe('listReducer', () => {
 
         // @ts-ignore
         const dispatch: Dispatch = (action: any) => {
+            if (typeof action === 'function') {
+                return action(dispatch, () => ({ kanban: { lists: state } }));
+            }
             state = listReducer(state, action);
+            return action;
         };
 
         const [_id0, _id1] = await moveCardSetup(dispatch);
-        await actions.moveCard(_id0, _id0, 0, 2)(dispatch);
+        await (dispatch as any)(actions.moveCard(_id0, _id0, 0, 2));
         expect(state[_id0].cards).toStrictEqual(['1', '2', '0']);
         expect(state[_id1].cards).toStrictEqual(['10', '11', '12']);
 
@@ -210,6 +234,9 @@ describe('listReducer', () => {
 
         // @ts-ignore
         const dispatch: Dispatch = (action: any) => {
+            if (typeof action === 'function') {
+                return action(dispatch, () => ({ kanban: { lists: state } }));
+            }
             if (action.type.startsWith('[Card]')) {
                 if (action.payload.title === 'newcardid') {
                     cardAdded = true;
@@ -221,7 +248,7 @@ describe('listReducer', () => {
         };
 
         const [_id0, _id1] = await moveCardSetup(dispatch);
-        await actions.moveCard(_id0, _id1, 0, 2)(dispatch);
+        await (dispatch as any)(actions.moveCard(_id0, _id1, 0, 2));
         expect(state[_id0].cards).toStrictEqual(['1', '2']);
         expect(state[_id1].cards).toStrictEqual(['10', '11', '0', '12']);
 
@@ -240,7 +267,11 @@ describe('listReducer', () => {
         // the lists from the state
         let state: ListsState = {};
         const dispatch: any = (action: any) => {
+            if (typeof action === 'function') {
+                return action(dispatch, () => ({ kanban: { lists: state } }));
+            }
             state = listReducer(state, action);
+            return action;
         };
 
         await actions.addList(todoId, todoId)(dispatch);
@@ -261,17 +292,17 @@ describe('listReducer', () => {
         });
 
         // a plain list is not a done list: no stamp
-        await actions.moveCard(todoId, plainId, 0, 0)(dispatch);
+        await dispatch(actions.moveCard(todoId, plainId, 0, 0));
         expect((await cardsDB.findOne({ _id: cardId })).completedTime).toBeUndefined();
 
         // landing in the done list stamps the completion time
-        await actions.moveCard(plainId, doneId, 0, 0)(dispatch);
+        await dispatch(actions.moveCard(plainId, doneId, 0, 0));
         const stamped = await cardsDB.findOne({ _id: cardId });
         expect(typeof stamped.completedTime).toBe('number');
 
         // moving around inside the done list does not re-stamp
         const stampedTime = stamped.completedTime;
-        await actions.moveCard(doneId, doneId, 0, 0)(dispatch);
+        await dispatch(actions.moveCard(doneId, doneId, 0, 0));
         expect((await cardsDB.findOne({ _id: cardId })).completedTime).toBe(stampedTime);
     });
 });

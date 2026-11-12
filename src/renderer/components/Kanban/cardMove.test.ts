@@ -69,4 +69,21 @@ describe('applyCardMove', () => {
         );
         expect(next).toBe(state);
     });
+
+    it('keeps the board search filter when a transaction replaces a list', () => {
+        const withFilter = { ...list('l1', ['c1']), visibleCards: ['c1'] };
+        const next = listReducer(
+            { l1: withFilter },
+            applyCardMove({
+                updatedCards: {},
+                updatedLists: { l1: list('l1', ['c2', 'c1']) },
+                updatedBoards: {},
+            })
+        );
+
+        expect(next.l1.cards).toStrictEqual(['c2', 'c1']);
+        // The transaction returns the stored row; the filter lives only in the
+        // renderer and must survive the replacement.
+        expect(next.l1.visibleCards).toStrictEqual(['c1']);
+    });
 });

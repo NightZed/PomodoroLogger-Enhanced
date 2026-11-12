@@ -233,6 +233,7 @@ export const zh: CatalogShape<typeof en> = {
             done: '完成列表',
             cardCount: (count: number): string => `${count} 张卡片`,
         },
+        dragFailed: '无法移动卡片，看板已重新加载。',
         cardPicker: {
             title: (board: string): string => `选择卡片 · ${board}`,
             noCard: '不挂卡',

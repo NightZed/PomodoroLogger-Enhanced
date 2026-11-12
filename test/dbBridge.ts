@@ -9,6 +9,7 @@
  */
 import { DBs, loadDBs } from '../src/main/db';
 import { deleteKanbanItems } from '../src/main/db/kanbanDeletion';
+import { moveCardInBoard } from '../src/main/db/cardDrag';
 import { applySessionEdits, listUnassignedSessions } from '../src/main/db/sessionEdits';
 import type { DeleteKanbanItemsPayload } from '../src/shared/kanbanDeletion';
 import type { SessionEdit, UnassignedSessionsQuery } from '../src/shared/sessionEdits';
@@ -46,5 +47,12 @@ api.deleteKanbanItems = (payload: DeleteKanbanItemsPayload) => deleteKanbanItems
  */
 api.applySessionEdits = (edits: SessionEdit[]) => applySessionEdits(edits);
 api.listUnassignedSessions = (query: UnassignedSessionsQuery) => listUnassignedSessions(query);
+
+/**
+ * Dragging now writes through one transaction in the main process. Point the
+ * bridge at the real implementation so the list action tests keep verifying the
+ * database, not a restatement of the algorithm.
+ */
+api.moveCardInBoard = (payload: any) => moveCardInBoard(payload);
 
 (window as any).api = api;

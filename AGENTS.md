@@ -187,10 +187,10 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
 
 ### 活动追踪与统计
 
-`src/renderer/monitor` 采集活动窗口（`src/main/activeWin.ts` 包装 `get-windows`，懒加载并记录到 `logs/active-win.log`），按应用/按标题把时间聚合成 `PomodoroRecord`，可选截图，再通过 DB 代理保存会话。
+`src/renderer/monitor` 采集活动窗口（`src/main/activeWin.ts` 包装 `get-windows`，懒加载并记录到 `logs/active-win.log`），按应用/按标题把时间聚合成 `PomodoroRecord`，可选截图；番茄结束时由主进程 `recordFinishedSession`（`src/main/db/finishedSession.ts`）在一条事务里写入会话行、看板汇总与卡片归属，失败整笔回滚、不挂卡，渲染层用 `applyFinishedSession` 替换事务返回的行。
 效率打分在 `src/shared/efficiency/efficiency.ts`；历史聚合在 `src/utils/aggPomodoro.ts` 和 `src/shared/dataMerger`。
 
-番茄的卡片归属是**一番茄一卡**：结束遮罩（`SessionEndingMask`）在 `focusedList` 只有一张卡时自动选它，多张时让用户选一张或选「不挂卡」，然后 `Timer.onSessionConfirmed` 把单个 `cardId` 交给 `timerFinished` → `Board.onTimerFinished`，只有那张卡的 `actual` 增加。
+番茄的卡片归属是**一番茄一卡**：结束遮罩（`SessionEndingMask`）在 `focusedList` 只有一张卡时自动选它，多张时让用户选一张或选「不挂卡」，然后 `Timer.onSessionConfirmed` 把单个 `cardId` 交给 `timerFinished` → `recordFinishedSession`，只有那张卡的 `actual` 增加。
 不要退回「挂到 `focusedList` 的每一张卡」：那会让卡片时长按列表卡片数放大，而 `dataMerger` 的 `setBoardInfo` 按卡片重算看板时长，导出再导入后 `spentHours` 会变成实际的 N 倍。
 事后改归属（改项目 / 挂卡 / 删除）统一走主进程的 `applySessionEdits` 单事务：卡片按 `board.lists → list.cards` 反查归属，跨看板挂卡整批拒绝，换卡先解绑再挂一次，改项目同时把看板 `spentHours` / `relatedSessions` 转到新板。
 它的返回值必须 `dispatch(applySessionEditsResult)` 写回 store——只写库不更新 `kanban.cards` / `kanban.boards`，界面要等重启才看到新的卡片归属。

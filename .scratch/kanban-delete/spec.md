@@ -417,6 +417,22 @@ UI：
 - 索引解析 `resolveDragIndexes` 由 reducer 与 thunk 共用：搜索过滤下的可见索引到这里一次换算，两边用同一个结果，避免屏幕和数据库各选一张卡。
 - `Board.onCardMovedInto` 删除：`completedTime` 已由事务写，不再需要渲染层二次请求。
 
+### 番茄结束的写入
+
+番茄结束原来是三次独立写：`addSession` 插会话、看板 `$push relatedSessions` + `$inc spentHours`、卡片 `$push sessionIds` + `$inc actual`。而 `addSession` 自己的 `.catch(console.error)` 把插入失败吞掉了，`timerFinished` 仍然继续挂卡——卡片于是指向一条不存在的会话，正是「有 sessionId 没有记录」。
+
+现在走主进程 `recordFinishedSession`（`src/shared/finishedSession.ts` + `src/main/db/finishedSession.ts`），一个事务完成：
+
+- 入参只有 `session` 与 `cardId`。看板归属取 `session.boardId`，`timerFinished` 的第三个参数随之删除——会话自己的 `boardId` 就是历史页判断项目的那一列，多传一份只会让两者有机会不一致。
+- 顺序固定：先插会话行，成功后再写看板与卡片。任何一步失败都整笔回滚，不会出现「看板时长加了、会话没写进去」。
+- 看板或卡片在专注期间被删掉时跳过对应的更新，会话照常落库并保留悬空的 `boardId`：历史页显示 `Unknown`，之后可以在会话编辑里重新分配。丢番茄记录比留一条未归属记录严重得多。
+- 重复 `_id` 直接拒绝（`session ... already exists`），重放不会把看板时长和卡片时长加两遍。
+- `relatedSessions` / `sessionIds` 用「过滤后追加」而不是 `$push`，同一个 id 不会被记两次；时长累加后过 `roundHours`，与删除、移动的精度一致。
+- 渲染层 `applyFinishedSession`（`Kanban/finishedSession.ts`）在 boards / cards 两个 reducer 里整体替换事务返回的行。写失败时不 dispatch，store 里不会留下乐观的小时数；同时 toast `timer.saveFailed`，主进程把失败写进 `data.log`。
+- `Board.onTimerFinished`、`Card.onTimerFinished`、`Card.addSession` 一并删除，`sessionManager.addSession` 不再吞错（保留给只写会话行的调用方）。
+
+之所以不满足于「插会话失败就跳过挂卡」：反方向的半套状态同样会发生——看板写完、卡片没写，或者两个都写了、会话没写。只有把四步放进同一个事务，两个方向才都关掉。
+
 ## 检查与修复数据
 
 设置 → 系统 → 数据管理新增「检查并修复数据」。它不再是一键删除：扫描结果按表分成卡片、列表、移动记录三组，另加一组悬空引用；用户逐项勾选后处理，卡片还可以恢复到指定列表。
@@ -464,7 +480,7 @@ UI：
   存量处理需要单独决定「同一会话被多卡引用时保留哪一张」，暂不纳入本设计。
 - 项目聚焦但没有卡片时产生的会话，属于正常状态而非错误，UI 不要用警告色。
 - **旧版本的导入不是事务**（v0.7.1 的 `writeAllFile` 先清空五张表，再 `Promise.all` 并发插入）。中途失败或崩溃会留下「卡片有 `sessionIds`、会话表却是空的」这种半套数据，也就是「有 sessionId 没有记录」。当前导入已改成单事务（`src/main/io/write.ts`），这类数据只能靠检查弹窗发现。
-- **番茄结束时的会话写入失败会被吞掉**：`timerFinished` 里 `addSession(...).catch(console.error)` 之后仍然调用 `onTimerFinished`，卡片和看板照样 `$push` 这个 id。触发条件是 SQLite 写失败（磁盘满、库被锁），正常使用很少见，但它是「有 sessionId 没有记录」的另一条来源，也是当前代码仍存在的缺口。
+- **番茄结束时的会话写入已改为单事务**（第 10 步）：`recordFinishedSession` 先插会话，再写看板与卡片，失败整笔回滚并 toast。旧的 `addSession(...).catch(console.error)` 会吞掉错误后继续挂卡，这也曾是「有 sessionId 没有记录」的另一条来源。
 
 ## 实施顺序
 
@@ -477,7 +493,7 @@ UI：
 7. 卡片跨看板移动：`moveCardToBoard` + CardEditor 入口 + 目标列表选择弹窗。
 8. 检查与修复数据：明细、卡片的恢复与删除、列表/移动记录删除、悬空引用修复。
 9. 拖动事务化：跨列表拖动现在是「update 源列表 → update 目标列表 → insert move」三次独立写，中途崩溃会留下既不在源列表也不在目标列表的孤儿卡。收进一条主进程事务命令，顺带把 `completedTime` 和 move 记录一起写入。
-10. 会话写入失败不挂卡：`timerFinished` 里 `addSession` 失败时应中止 `onTimerFinished`（或至少不把 `sessionId` 推给卡片和看板），避免制造「有 sessionId 没有记录」。
+10. 会话写入与挂卡合并为事务：`recordFinishedSession` 一次写入会话、看板、卡片；写失败不挂卡并提示。
 11. i18n（en + zh）与测试。
 
 ## 测试

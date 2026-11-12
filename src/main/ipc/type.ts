@@ -9,6 +9,7 @@ import type { LogLevel } from '../../shared/log';
 import type { DeleteKanbanItemsPayload, KanbanDeletionResult } from '../../shared/kanbanDeletion';
 import type { CardMoveResult, MoveCardPayload } from '../../shared/cardMove';
 import type { MoveCardInBoardPayload } from '../../shared/cardDrag';
+import type { FinishedSessionPayload, FinishedSessionResult } from '../../shared/finishedSession';
 import type {
     DataIssuesReport,
     DataRepairPayload,
@@ -50,6 +51,8 @@ export enum IpcEventName {
     ScanDataIssues = 'scanDataIssues',
     /** Deletes or repairs the rows the data check reported. */
     RepairData = 'repairData',
+    /** Writes a finished pomodoro and credits it to its board/card, atomically. */
+    RecordFinishedSession = 'recordFinishedSession',
     SelectWallpaper = 'selectWallpaper',
     ActiveWin = 'activeWin',
     OpenAtLogin = 'openAtLogin',
@@ -303,6 +306,9 @@ export type ExposedAPI = {
     [IpcEventName.MoveCardInBoard](payload: MoveCardInBoardPayload): Promise<CardMoveResult>;
     [IpcEventName.ScanDataIssues](): Promise<DataIssuesReport>;
     [IpcEventName.RepairData](payload: DataRepairPayload): Promise<DataRepairResult>;
+    [IpcEventName.RecordFinishedSession](
+        payload: FinishedSessionPayload
+    ): Promise<FinishedSessionResult>;
     [IpcEventName.SelectWallpaper](): Promise<string | undefined>;
     [IpcEventName.ExportData](): Promise<ExportResult>;
     [IpcEventName.ActiveWin](): Promise<BaseResult | undefined>;

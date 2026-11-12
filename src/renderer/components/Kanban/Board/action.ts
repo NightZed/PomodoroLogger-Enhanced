@@ -3,11 +3,11 @@ import { Dispatch } from 'redux';
 import { actions as listActions } from '../List/action';
 import { applyKanbanDeletion, deleteKanbanItems } from '../deletion';
 import { applySessionEditsResult } from '../sessionEdits';
+import { applyFinishedSession } from '../finishedSession';
 import { applyCardMove } from '../cardMove';
 import { applyDataRepair } from '../dataRepair';
 import { actions as cardActions } from '../Card/action';
 import { actions as kanbanActions } from '../action';
-import { actions as historyActions } from '../../History/action';
 import { uid } from '../../../../utils/uid';
 import { t } from '../../../i18n';
 import { actions as timerActions, DistractingRow } from '../../Timer/action';
@@ -80,13 +80,6 @@ const deleteList = createAction('[Board]DEL_LIST', (_id, listId) => ({ payload: 
 const setLastVisitTime = createAction('[Board]SET_LAST_VISIT_TIME', (_id, time) => ({
     payload: { _id, time },
 }));
-
-const onTimerFinished = createAction(
-    '[Board]ON_TIMER_FINISHED',
-    (_id: string, sessionId: string, spentTime: number) => ({
-        payload: { _id, sessionId, spentTime },
-    })
-);
 
 const editBoard = createAction(
     '[Board]EDIT',
@@ -211,15 +204,11 @@ export const boardReducer = createReducer<KanbanBoardState>({}, (builder) => {
                 lists: state[_id].lists.filter((v) => v !== listId),
             },
         }))
-        .addCase(onTimerFinished, (state, { payload: { _id, sessionId, spentTime } }) => {
-            return {
-                ...state,
-                [_id]: {
-                    ...state[_id],
-                    relatedSessions: state[_id].relatedSessions.concat([sessionId]),
-                    spentHours: state[_id].spentHours + spentTime,
-                },
-            };
+        .addCase(applyFinishedSession, (state, { payload }) => {
+            if (payload.board === undefined) {
+                return state;
+            }
+            return { ...state, [payload.board._id]: payload.board };
         })
         .addCase(setLastVisitTime, (state, { payload: { _id, time } }) => {
             return {
@@ -534,28 +523,6 @@ export const actions = {
                 fromIndex,
                 toIndex
             )(dispatch, getState);
-        },
-
-    /**
-     * Credits a finished session to the board and, when the session picked one,
-     * to exactly one of its cards. The board owns the session list and the
-     * board-level time; the card only ever sees the sessions that were actually
-     * credited to it.
-     */
-    onTimerFinished:
-        (_id: string, sessionId: string, timeSpent: number, cardId?: string) =>
-        async (dispatch: Dispatch) => {
-            dispatch(onTimerFinished(_id, sessionId, timeSpent));
-            dispatch(historyActions.setExpiringKey(_id));
-            await db.update(
-                { _id },
-                { $push: { relatedSessions: sessionId }, $inc: { spentHours: timeSpent } }
-            );
-            if (cardId !== undefined) {
-                await cardActions.onTimerFinished(cardId, sessionId, timeSpent)(dispatch);
-            }
-
-            await actions.setLastVisitTime(_id, new Date().getTime())(dispatch);
         },
 
     editBoard:

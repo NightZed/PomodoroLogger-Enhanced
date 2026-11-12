@@ -3,7 +3,7 @@ import { uid } from '../../../../utils/uid';
 import { AsyncDB } from '../../../../utils/dbHelper';
 import dbs from '../../../dbs';
 import { Dispatch } from 'redux';
-import { Card, CardLabel } from '../type';
+import { CardLabel } from '../type';
 
 const db = new AsyncDB(dbs.cardsDB);
 
@@ -72,30 +72,6 @@ describe("Cards' actions", () => {
         const card = await db.findOne({ _id });
         expect(card).not.toBeFalsy();
         expect(card.title).toBe('newName');
-    });
-
-    it('updates on timer finished', async () => {
-        const _id = uid();
-        const _d = jest.fn();
-        const dispatch = jest.fn();
-        await actions.addCard(_id, '', 'abc', '')(_d);
-        await actions.onTimerFinished(_id, 'session', 0.33)(dispatch);
-        await actions.onTimerFinished(_id, 'session1', 0.33)(dispatch);
-        await actions.onTimerFinished(_id, 'session2', 0.33)(dispatch);
-        expect(dispatch.mock.calls[0][0]).toStrictEqual({
-            type: '[Card]ADD_SESSION',
-            payload: {
-                _id,
-                sessionId: 'session',
-                spentTime: 0.33,
-            },
-        });
-
-        const card: Card = await db.findOne({ _id });
-        expect(card).not.toBeFalsy();
-        expect(card.sessionIds).toStrictEqual(['session', 'session1', 'session2']);
-        expect(card.spentTimeInHour.actual).toBeCloseTo(0.99);
-        expect(card.spentTimeInHour.estimated).toBe(0);
     });
 
     function expectExcept(actual: any, expected: any, except: string[]) {

@@ -10,8 +10,10 @@
 import { DBs, loadDBs } from '../src/main/db';
 import { deleteKanbanItems } from '../src/main/db/kanbanDeletion';
 import { moveCardInBoard } from '../src/main/db/cardDrag';
+import { recordFinishedSession } from '../src/main/db/finishedSession';
 import { applySessionEdits, listUnassignedSessions } from '../src/main/db/sessionEdits';
 import type { DeleteKanbanItemsPayload } from '../src/shared/kanbanDeletion';
+import type { FinishedSessionPayload } from '../src/shared/finishedSession';
 import type { SessionEdit, UnassignedSessionsQuery } from '../src/shared/sessionEdits';
 import type { DbName } from '../src/main/db/types';
 
@@ -54,5 +56,12 @@ api.listUnassignedSessions = (query: UnassignedSessionsQuery) => listUnassignedS
  * database, not a restatement of the algorithm.
  */
 api.moveCardInBoard = (payload: any) => moveCardInBoard(payload);
+
+/**
+ * A finished pomodoro is written by one main-process transaction. Pointing the
+ * bridge at the real implementation lets the timer tests verify that a failed
+ * write credits nothing, instead of restating the rule in a stub.
+ */
+api.recordFinishedSession = (payload: FinishedSessionPayload) => recordFinishedSession(payload);
 
 (window as any).api = api;

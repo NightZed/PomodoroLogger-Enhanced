@@ -151,6 +151,7 @@ export const zh: CatalogShape<typeof en> = {
             wordCloud: '词云',
             pomodorosToday: '今日番茄',
         },
+        saveFailed: '本次番茄未能保存，历史中不会出现这条记录，项目和卡片也没有计入时长。',
         session: {
             projectName: '项目名称',
             confirm: '确定',

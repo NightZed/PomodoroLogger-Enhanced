@@ -1,6 +1,7 @@
 import {
     assertBoolean,
     assertDataRepairPayload,
+    assertFinishedSessionPayload,
     assertMoveCardPayload,
     assertOpenExternalUrl,
     assertScreenshotDataUrl,
@@ -117,5 +118,38 @@ describe('IPC validators', () => {
             TypeError
         );
         expect(() => assertDataRepairPayload(null)).toThrow(TypeError);
+    });
+
+    it('checks a finished session before it reaches the database', () => {
+        const session = {
+            _id: 's1',
+            startTime: 1000,
+            spentTimeInHour: 0.5,
+            boardId: 'b1',
+            apps: {},
+        };
+        expect(assertFinishedSessionPayload({ session })).toEqual({ session, cardId: undefined });
+        expect(assertFinishedSessionPayload({ session, cardId: 'c1' })).toEqual({
+            session,
+            cardId: 'c1',
+        });
+
+        expect(() => assertFinishedSessionPayload({})).toThrow(TypeError);
+        expect(() => assertFinishedSessionPayload({ session: { ...session, _id: '' } })).toThrow(
+            TypeError
+        );
+        expect(() =>
+            assertFinishedSessionPayload({ session: { ...session, startTime: 0 } })
+        ).toThrow(TypeError);
+        expect(() =>
+            assertFinishedSessionPayload({ session: { ...session, spentTimeInHour: -1 } })
+        ).toThrow(TypeError);
+        expect(() =>
+            assertFinishedSessionPayload({ session: { ...session, spentTimeInHour: Infinity } })
+        ).toThrow(TypeError);
+        expect(() => assertFinishedSessionPayload({ session: { ...session, boardId: 7 } })).toThrow(
+            TypeError
+        );
+        expect(() => assertFinishedSessionPayload({ session, cardId: 7 })).toThrow(TypeError);
     });
 });

@@ -162,7 +162,6 @@ const actionNames = [
     'changeAppTab',
     'switchToKanban',
     'timerFinished',
-    'addSession',
 ];
 
 const makeActions = () =>

@@ -53,12 +53,21 @@ function _consistencyCheck(record: PomodoroRecord) {
     sumCheck('screenStaticDuration');
 }
 
+/**
+ * Write one session row.
+ *
+ * The rejection is NOT swallowed: a caller that credits the session to a board
+ * or card must know the row exists first, or it leaves behind an id that
+ * points at nothing. `Timer.timerFinished` goes through the main-process
+ * `recordFinishedSession` transaction for exactly that reason; this function
+ * stays for the paths that only need the insert.
+ */
 export async function addSession(record: PomodoroRecord) {
     if (!record.boardId) {
         // TODO: invoke ML inference
     }
     // @ts-ignore
-    await dbWorkers.sessionDB.insert(record).catch((err) => console.error(err));
+    await dbWorkers.sessionDB.insert(record);
 }
 
 export async function removeSession(startTime: number) {

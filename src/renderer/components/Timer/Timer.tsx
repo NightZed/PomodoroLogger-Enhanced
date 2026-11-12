@@ -1029,7 +1029,7 @@ class Timer extends Component<Props, State> {
                     this.stagedSession.boardId = boardId;
                     // One session belongs to at most one card: the mask's pick,
                     // or nothing when the user chose "No card".
-                    await this.props.timerFinished(this.stagedSession, confirmedCardId, boardId);
+                    await this.props.timerFinished(this.stagedSession, confirmedCardId);
                 } else {
                     await this.props.timerFinished(this.stagedSession);
                 }

@@ -1,9 +1,10 @@
 import { createAction, createReducer } from '@reduxjs/toolkit';
 import { Dispatch } from 'redux';
-import { addSession } from '../../monitor/sessionManager';
-import { actions as boardActions } from '../Kanban/Board/action';
 import { actions as kanbanActions } from '../Kanban/action';
 import { actions as historyActions } from '../History/action';
+import { applyFinishedSession } from '../Kanban/finishedSession';
+import { feedback } from '../feedback';
+import { t } from '../../i18n';
 import dbs from '../../dbs';
 import { PomodoroRecord } from '../../monitor/type';
 import { DEBUG_TIME_SCALE, scaleMs } from '../../../config';
@@ -569,22 +570,35 @@ export const actions = {
      * belongs to at most one card (see the ending mask): the list it ran in
      * used to have every one of its cards incremented, which multiplied the
      * card totals by the number of cards in the focused list.
+     *
+     * The write is one main-process transaction (session, board, card). A
+     * failure must not credit anything: the old code swallowed the insert's
+     * rejection and pushed the id into the board and the card anyway, which is
+     * how a card ended up naming a session that did not exist.
      */
     timerFinished:
-        (sessionData?: PomodoroRecord, cardId?: string, boardId?: string | undefined) =>
-        async (dispatch: Dispatch) => {
+        (sessionData?: PomodoroRecord, cardId?: string) => async (dispatch: Dispatch) => {
             dispatch(timerFinished());
             dispatch(historyActions.setExpiringKey(new Date().toString()));
-            if (sessionData) {
-                await addSession(sessionData).catch((err) => console.error(err));
-                if (boardId !== undefined) {
-                    await boardActions.onTimerFinished(
-                        boardId,
-                        sessionData._id,
-                        sessionData.spentTimeInHour,
-                        cardId
-                    )(dispatch);
-                }
+            if (sessionData === undefined) {
+                return;
+            }
+
+            try {
+                const result = await window.api.recordFinishedSession({
+                    session: sessionData,
+                    cardId,
+                });
+                dispatch(applyFinishedSession(result));
+            } catch (error) {
+                // The timer still advances -- the focus time was really spent
+                // -- but the session is not in the history and nothing was
+                // credited. Say so instead of failing silently.
+                feedback.toast({
+                    kind: 'error',
+                    content: t('timer.saveFailed'),
+                });
+                console.error('[timer] finished session was not saved', error);
             }
         },
     switchToKanban: (kanbanId: string) => (dispatch: Dispatch) => {

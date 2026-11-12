@@ -69,6 +69,7 @@ import {
     assertMoveCardPayload,
     assertMoveCardInBoardPayload,
     assertDataRepairPayload,
+    assertFinishedSessionPayload,
     assertString,
     assertTrayMenuItems,
     assertUnassignedSessionsQuery,
@@ -79,11 +80,13 @@ import { deleteKanbanItems } from '../db/kanbanDeletion';
 import { moveCardToBoard } from '../db/cardMove';
 import { moveCardInBoard } from '../db/cardDrag';
 import { repairData, scanDataIssues } from '../db/dataRepair';
+import { recordFinishedSession } from '../db/finishedSession';
 import { applySessionEdits, listUnassignedSessions } from '../db/sessionEdits';
 import type { DeleteKanbanItemsPayload } from '../../shared/kanbanDeletion';
 import type { MoveCardPayload } from '../../shared/cardMove';
 import type { MoveCardInBoardPayload } from '../../shared/cardDrag';
 import type { DataRepairPayload } from '../../shared/dataRepair';
+import type { FinishedSessionPayload } from '../../shared/finishedSession';
 import type { SessionEdit, UnassignedSessionsQuery } from '../../shared/sessionEdits';
 
 /**
@@ -637,6 +640,11 @@ export function initialize() {
     handle(IpcEventName.RepairData, (payload: DataRepairPayload) => repairData(payload), [
         assertDataRepairPayload,
     ]);
+    handle(
+        IpcEventName.RecordFinishedSession,
+        (payload: FinishedSessionPayload) => recordFinishedSession(payload),
+        [assertFinishedSessionPayload]
+    );
     handle(IpcEventName.SelectWallpaper, async (): Promise<string | undefined> => {
         const result = await dialog.showOpenDialog({
             properties: ['openFile'],

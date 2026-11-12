@@ -2,6 +2,7 @@ import type { RendererErrorPayload, TrayIconPayload, TrayMenuItem } from './type
 import type { DeleteKanbanItemsPayload } from '../../shared/kanbanDeletion';
 import type { MoveCardPayload } from '../../shared/cardMove';
 import type { MoveCardInBoardPayload } from '../../shared/cardDrag';
+import type { FinishedSessionPayload } from '../../shared/finishedSession';
 import type { DataRepairPayload } from '../../shared/dataRepair';
 import type { SessionEdit, UnassignedSessionsQuery } from '../../shared/sessionEdits';
 
@@ -196,6 +197,57 @@ export function assertUnassignedSessionsQuery(value: unknown): UnassignedSession
     }
 
     return { boardId, limit };
+}
+
+/**
+ * A finished pomodoro carries the whole activity breakdown, so only the fields
+ * the write path derives numbers from are checked. Everything else is opaque
+ * JSON the history page reads back verbatim; rejecting it here would mean
+ * duplicating the import validator without any of its context.
+ */
+export function assertFinishedSessionPayload(value: unknown): FinishedSessionPayload {
+    const payload = assertPlainObject(value, 'recordFinishedSession payload');
+    const session = assertPlainObject(payload.session, 'recordFinishedSession.session');
+
+    const _id = assertString(session._id, 'recordFinishedSession.session._id', 200);
+    if (_id.length === 0) {
+        throw new TypeError('recordFinishedSession.session._id must not be empty');
+    }
+
+    if (
+        typeof session.startTime !== 'number' ||
+        !Number.isFinite(session.startTime) ||
+        session.startTime <= 0
+    ) {
+        throw new TypeError('recordFinishedSession.session.startTime must be a positive number');
+    }
+
+    if (
+        typeof session.spentTimeInHour !== 'number' ||
+        !Number.isFinite(session.spentTimeInHour) ||
+        session.spentTimeInHour < 0
+    ) {
+        throw new TypeError(
+            'recordFinishedSession.session.spentTimeInHour must be a non-negative number'
+        );
+    }
+
+    if (session.boardId !== undefined) {
+        assertString(session.boardId, 'recordFinishedSession.session.boardId', 200);
+    }
+    if (session.apps !== undefined) {
+        assertPlainObject(session.apps, 'recordFinishedSession.session.apps');
+    }
+
+    const cardId =
+        payload.cardId === undefined
+            ? undefined
+            : assertString(payload.cardId, 'recordFinishedSession.cardId', 200);
+
+    return {
+        session: session as unknown as FinishedSessionPayload['session'],
+        cardId,
+    };
 }
 
 export function assertTrayMenuItems(value: unknown): TrayMenuItem[] {

@@ -2,6 +2,7 @@ import { createAction, createReducer } from '@reduxjs/toolkit';
 import { Dispatch } from 'redux';
 import { applyKanbanDeletion, deleteKanbanItems } from '../deletion';
 import { applySessionEditsResult } from '../sessionEdits';
+import { applyFinishedSession } from '../finishedSession';
 import { applyCardMove } from '../cardMove';
 import { applyDataRepair } from '../dataRepair';
 import { actions as listActions } from '../List/action';
@@ -11,13 +12,6 @@ import { Card, CardLabel } from '../type';
 const db = workers.dbWorkers.cardsDB;
 
 export type CardsState = { [_id: string]: Card };
-
-const addSession = createAction(
-    '[Card]ADD_SESSION',
-    (_id: string, sessionId: string, spentTime: number) => ({
-        payload: { _id, sessionId, spentTime },
-    })
-);
 
 const addCard = createAction(
     '[Card]ADD',
@@ -110,17 +104,6 @@ export const actions = {
     deleteCard: (_id: string, _listId: string) => async (dispatch: Dispatch) => {
         await deleteKanbanItems({ cards: [_id] })(dispatch);
     },
-    onTimerFinished:
-        (_id: string, sessionId: string, spentTimeInHour: number) => async (dispatch: Dispatch) => {
-            dispatch(addSession(_id, sessionId, spentTimeInHour));
-            await db.update(
-                { _id },
-                {
-                    $push: { sessionIds: sessionId },
-                    $inc: { 'spentTimeInHour.actual': spentTimeInHour },
-                }
-            );
-        },
     addCard:
         (_id: string, listId: string, title: string, content: string = '') =>
         async (dispatch: Dispatch) => {
@@ -284,19 +267,11 @@ export const cardReducer = createReducer<CardsState>({}, (builder) => {
                 },
             };
         })
-        .addCase(addSession, (state, { payload: { _id, sessionId, spentTime } }) => {
-            const card = state[_id];
-            return {
-                ...state,
-                [_id]: {
-                    ...card,
-                    sessionIds: [...card.sessionIds, sessionId],
-                    spentTimeInHour: {
-                        actual: card.spentTimeInHour.actual + spentTime,
-                        estimated: card.spentTimeInHour.estimated,
-                    },
-                },
-            };
+        .addCase(applyFinishedSession, (state, { payload }) => {
+            if (payload.card === undefined) {
+                return state;
+            }
+            return { ...state, [payload.card._id]: payload.card };
         });
 });
 

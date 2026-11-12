@@ -28,6 +28,7 @@ import type { LogLevel } from '../shared/log';
 import type { DeleteKanbanItemsPayload, KanbanDeletionResult } from '../shared/kanbanDeletion';
 import type { CardMoveResult, MoveCardPayload } from '../shared/cardMove';
 import type { MoveCardInBoardPayload } from '../shared/cardDrag';
+import type { FinishedSessionPayload, FinishedSessionResult } from '../shared/finishedSession';
 import type { DataIssuesReport, DataRepairPayload, DataRepairResult } from '../shared/dataRepair';
 import type {
     SessionEdit,
@@ -111,6 +112,8 @@ const api: ExposedAPI = {
     [IpcEventName.ScanDataIssues]: () => invoke<DataIssuesReport>(IpcEventName.ScanDataIssues),
     [IpcEventName.RepairData]: (payload: DataRepairPayload) =>
         invoke<DataRepairResult>(IpcEventName.RepairData, payload),
+    [IpcEventName.RecordFinishedSession]: (payload: FinishedSessionPayload) =>
+        invoke<FinishedSessionResult>(IpcEventName.RecordFinishedSession, payload),
     [IpcEventName.SelectWallpaper]: () => invoke<string | undefined>(IpcEventName.SelectWallpaper),
     [IpcEventName.ExportData]: () => invoke<ExportResult>(IpcEventName.ExportData),
     [IpcEventName.ActiveWin]: () => invoke<BaseResult | undefined>(IpcEventName.ActiveWin),

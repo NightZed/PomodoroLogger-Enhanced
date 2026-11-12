@@ -21,7 +21,18 @@ import { getAllSession } from '../../monitor/sessionManager';
 import { DEBUG_TIME_SCALE, scaleMs, timeScale } from '../../../config';
 import { PomodoroRecord } from '../../monitor/type';
 import dbs from '../../dbs';
+import { feedback } from '../feedback';
 import { Dispatch } from 'redux';
+
+jest.mock('../feedback', () => ({
+    feedback: {
+        toast: jest.fn(),
+        alert: jest.fn(),
+        confirm: jest.fn(),
+        notice: jest.fn(),
+        closeNotice: jest.fn(),
+    },
+}));
 
 describe('Reducer', () => {
     it('starts from the default timer state', () => {
@@ -282,6 +293,121 @@ describe('On timerFinished', () => {
         const sessions = await getAllSession();
         const found = sessions.find((v) => v.startTime === record.startTime);
         expect(found).not.toBeUndefined();
+    });
+
+    it('applies the board and card the main process wrote', async () => {
+        const record: PomodoroRecord = {
+            _id: '_apply',
+            startTime: new Date().getTime(),
+            boardId: 'b-apply',
+            spentTimeInHour: 0.25,
+            switchActivities: [],
+            apps: {},
+            screenStaticDuration: 0,
+            switchTimes: 1,
+        };
+        await dbs.kanbanDB.insert({
+            _id: 'b-apply',
+            name: 'Board',
+            description: '',
+            lists: [],
+            focusedList: '',
+            doneList: '',
+            relatedSessions: [],
+            spentHours: 0,
+        });
+        await dbs.cardsDB.insert({
+            _id: 'c-apply',
+            title: 'Card',
+            content: '',
+            sessionIds: [],
+            spentTimeInHour: { estimated: 0, actual: 0 },
+        });
+
+        const dispatched: any[] = [];
+        await actions.timerFinished(
+            record,
+            'c-apply'
+        )(((action: any) => {
+            dispatched.push(action);
+            return action;
+        }) as unknown as Dispatch);
+
+        const applied = dispatched.find(
+            (action) => action.type === '[Kanban]APPLY_FINISHED_SESSION'
+        );
+        expect(applied.payload.board.spentHours).toBe(0.25);
+        expect(applied.payload.board.relatedSessions).toEqual(['_apply']);
+        expect(applied.payload.card.sessionIds).toEqual(['_apply']);
+        expect(applied.payload.card.spentTimeInHour.actual).toBe(0.25);
+    });
+
+    it('credits nothing and says so when the session cannot be saved', async () => {
+        const record: PomodoroRecord = {
+            _id: '_failed',
+            startTime: new Date().getTime(),
+            boardId: 'b-failed',
+            spentTimeInHour: 0.25,
+            switchActivities: [],
+            apps: {},
+            screenStaticDuration: 0,
+            switchTimes: 1,
+        };
+        await dbs.kanbanDB.insert({
+            _id: 'b-failed',
+            name: 'Board',
+            description: '',
+            lists: [],
+            focusedList: '',
+            doneList: '',
+            relatedSessions: [],
+            spentHours: 1,
+        });
+        await dbs.cardsDB.insert({
+            _id: 'c-failed',
+            title: 'Card',
+            content: '',
+            sessionIds: [],
+            spentTimeInHour: { estimated: 0, actual: 0 },
+        });
+        const spy = jest
+            .spyOn((window as any).api, 'recordFinishedSession')
+            .mockRejectedValue(new Error('disk full'));
+        // The failure path logs on purpose; the console gate treats any
+        // unexpected output as a test failure, so silence it here only.
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+        try {
+            const dispatched: any[] = [];
+            await actions.timerFinished(
+                record,
+                'c-failed'
+            )(((action: any) => {
+                dispatched.push(action);
+                return action;
+            }) as unknown as Dispatch);
+
+            // The timer still advances, but the store must not show hours the
+            // database never received.
+            expect(dispatched.map((action) => action.type)).not.toContain(
+                '[Kanban]APPLY_FINISHED_SESSION'
+            );
+            expect(feedback.toast).toHaveBeenCalledWith(
+                expect.objectContaining({ kind: 'error', content: t('timer.saveFailed') })
+            );
+        } finally {
+            spy.mockRestore();
+            errorSpy.mockRestore();
+        }
+
+        const sessions = await getAllSession();
+        expect(sessions.find((v) => v._id === '_failed')).toBeUndefined();
+        const board = await dbs.kanbanDB.findOne({ _id: 'b-failed' });
+        expect(board.spentHours).toBe(1);
+        expect(board.relatedSessions).toEqual([]);
+        const card = await dbs.cardsDB.findOne({ _id: 'c-failed' });
+        expect(card.sessionIds).toEqual([]);
+        expect(card.spentTimeInHour.actual).toBe(0);
     });
 });
 

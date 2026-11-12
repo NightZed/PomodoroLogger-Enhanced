@@ -169,6 +169,8 @@ export const en = {
             wordCloud: 'Word Cloud',
             pomodorosToday: 'Pomodoros Today',
         },
+        saveFailed:
+            'This pomodoro could not be saved. It will not appear in your history and no project or card was credited.',
         session: {
             projectName: 'Project Name',
             confirm: 'Confirm',

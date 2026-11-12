@@ -404,6 +404,19 @@ UI：
 - 入口在 `CardEditor` 底部与「删除」并列，仅编辑态显示；`CardMoveDialog`（`Kanban/CardMoveDialog.tsx`）自己 connect，避免把整张 `cards` / `lists` 表塞进重量级的卡片编辑弹窗。
 - 卡片编辑弹窗的 document 级 Esc/Ctrl+Enter 监听要把 `moveOpen` 一起排除，否则在移动弹窗里按 Esc 会关掉背后的编辑器并丢掉未保存内容（与插入链接弹窗同一处理）。
 
+### 拖动事务化
+
+跨列表拖动原来是渲染层的三次独立写（源列表、目标列表、`move` 记录）。中途崩溃或强退会留下既不在源列表、也不在目标列表的卡片，也就是检查弹窗里「不属于任何列表」那一栏。
+
+现在走主进程 `moveCardInBoard`（`src/shared/cardDrag.ts` + `src/main/db/cardDrag.ts`），一个事务完成：
+
+- 输入 `cardId`、`fromListId`、`toListId`、`toIndex`；`toIndex` 是拖拽库报告的「移除后插入位置」，越界收敛到 `[0, length]`。
+- 同列表只重排：不写 `move`、不盖 `completedTime`。跨列表写一条 `move`，目标列表是该看板 `doneList` 时盖 `completedTime`，移出保留原值。
+- 两个列表必须属于同一看板（拖拽上下文只覆盖一个板）；只有一方能解析到看板时（旧数据里列表不在任何看板）允许通过，避免用户拖不动。
+- 渲染层先乐观更新（与原来同一套 reducer 逻辑），成功后用事务返回的 `updatedLists` / `updatedCards` 整体覆盖；失败时重新拉取列表并 toast，不做反向拼接。
+- 索引解析 `resolveDragIndexes` 由 reducer 与 thunk 共用：搜索过滤下的可见索引到这里一次换算，两边用同一个结果，避免屏幕和数据库各选一张卡。
+- `Board.onCardMovedInto` 删除：`completedTime` 已由事务写，不再需要渲染层二次请求。
+
 ## 检查与修复数据
 
 设置 → 系统 → 数据管理新增「检查并修复数据」。它不再是一键删除：扫描结果按表分成卡片、列表、移动记录三组，另加一组悬空引用；用户逐项勾选后处理，卡片还可以恢复到指定列表。

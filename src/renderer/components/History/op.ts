@@ -1,4 +1,5 @@
 import { getNameFromBoardId } from '../../getNameFromBoardId';
+import { t } from '../../i18n';
 import { PomodoroRecord } from '../../monitor/type';
 import {
     getTokenWeights,
@@ -17,9 +18,16 @@ async function resolveBoardName(boardId: string) {
         return boardNameCache.get(boardId) as string;
     }
 
-    const name = await getNameFromBoardId(boardId).catch(() => 'Unknown');
-    boardNameCache.set(boardId, name);
-    return name;
+    try {
+        const name = await getNameFromBoardId(boardId);
+        boardNameCache.set(boardId, name);
+        return name;
+    } catch {
+        // A board that no longer exists is normal (deleted projects keep their
+        // sessions). The label is localized, so it must NOT be cached: a cached
+        // string would survive a language switch.
+        return t('history.sessionEditor.unknownProject');
+    }
 }
 
 /**

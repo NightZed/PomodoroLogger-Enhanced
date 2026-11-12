@@ -268,7 +268,7 @@ export const en = {
             sessions: (count: number): string =>
                 `${count} ${plural(count, 'focus session', 'focus sessions')} will move with this card`,
             shared: (count: number): string =>
-                `${count} of them also counted by other cards and will leave those cards first`,
+                `${count} of them are also counted by other cards and will leave those cards first`,
             irreversible: 'This cannot be undone.',
             cancel: 'Cancel',
             confirm: 'Move',
@@ -494,7 +494,7 @@ export const en = {
             'Deleting a list does not delete its cards.',
         moves: (count: number): string => `Move records (${count})`,
         movesNote: (count: number): string =>
-            `They mention ${count} ${plural(count, 'card', 'cards')} that no longer exist.`,
+            `They involve ${count} ${plural(count, 'card', 'cards')} and point at rows that no longer exist.`,
         dangling: (count: number): string => `Dangling references (${count})`,
         danglingNote:
             'Repairing removes only the references; no card, list or focus session is deleted.',

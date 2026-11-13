@@ -176,6 +176,9 @@ export interface TimerState extends Setting {
     compact: boolean;
 
     currentTab: tabType;
+
+    /** Changes when the database changed underneath the page (import/delete). */
+    sessionReloadToken: number;
 }
 
 export const defaultState: TimerState = {
@@ -223,6 +226,7 @@ export const defaultState: TimerState = {
     language: 'system',
     logLevel: 'info',
     currentTab: 'timer',
+    sessionReloadToken: 0,
 };
 
 export const uiStateNames = [
@@ -244,6 +248,9 @@ export const uiStateNames = [
     'minimize',
     'compact',
     'language',
+    // Not a UI setting, but the page has to re-render when it changes so
+    // `componentDidUpdate` can re-read today's sessions.
+    'sessionReloadToken',
 ];
 
 // A session lives across start / pause / continue: pausing keeps `targetTime`
@@ -304,6 +311,12 @@ export const setBoardId = createAction('[Timer]SET_BOARD_ID', (boardId?: string)
     payload: { boardId },
 }));
 export const setMonitorInterval = createAction<number>('[Timer]SET_MONITOR_INTERVAL');
+/**
+ * Bumped after an import or a full delete, so the Timer reloads the sessions
+ * it shows from the database. The page stays mounted across tab switches, so
+ * its `pomodorosToday` list would otherwise keep the pre-operation snapshot.
+ */
+export const bumpSessionReloadToken = createAction('[Timer]BUMP_SESSION_RELOAD_TOKEN');
 export const setScreenShotInterval = createAction(
     '[Timer]SET_SCREEN_SHOT_INTERVAL',
     (interval?: number) => ({ payload: interval })
@@ -667,6 +680,10 @@ export const reducer = createReducer<TimerState>(defaultState, (builder) => {
         .addCase(setMonitorInterval, (state, { payload }) => ({
             ...state,
             monitorInterval: payload,
+        }))
+        .addCase(bumpSessionReloadToken, (state) => ({
+            ...state,
+            sessionReloadToken: state.sessionReloadToken + 1,
         }))
         .addCase(setScreenShotInterval, (state, { payload }) => ({
             ...state,

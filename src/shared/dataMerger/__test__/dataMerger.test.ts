@@ -162,7 +162,7 @@ describe('Data Merger placement stats', () => {
     });
 
     it('counts a card a move row put back into its list', () => {
-        const merger = new DataMerger(() => undefined);
+        const merger = new DataMerger();
         // The move points at a list the merged data does not have, so the
         // merger falls back to the list the card came from.
         merger.merge(
@@ -174,14 +174,14 @@ describe('Data Merger placement stats', () => {
     });
 
     it('does not count a card that simply stayed in its list', () => {
-        const merger = new DataMerger(() => undefined);
+        const merger = new DataMerger();
         merger.merge(baseWith([]), otherWithList());
 
         expect(merger.getStats().rehomed).toEqual([]);
     });
 
     it('resets the stats between merges', () => {
-        const merger = new DataMerger(() => undefined);
+        const merger = new DataMerger();
         merger.merge(
             baseWith([{ cardId: 'c', fromListId: 'l1', toListId: 'gone', time: 1 }]),
             otherWithList()

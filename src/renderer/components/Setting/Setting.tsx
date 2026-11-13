@@ -10,12 +10,14 @@ import { isShallowEqualByKeys } from '../../utils';
 import pkg from '../../../../package.json';
 import type { ExportResult, ImportResult, UpdateErrorPayload } from '../../../main/ipc/type';
 import type { DataIssuesReport, DataRepairResult } from '../../../shared/dataRepair';
+import type { ImportSummary } from '../../../shared/dataTransfer/importSummary';
 import { refreshDbs } from '../../dbs';
 import { BUILTIN_THEMES, ThemeDefinition } from '../../theme/tokens';
 import SettingNav from './SettingNav';
 import PreviewSlider from './PreviewSlider';
 import { DEFAULT_SECTION, SectionId, SHORTCUTS } from './sections';
 import { DataRepairDialog } from './DataRepairDialog';
+import { ImportReportDialog } from './ImportReportDialog';
 import { useSliderChange } from './useSliderChange';
 import { isScreenshotAvailable } from '../../screenshotSupport';
 import { t, useI18n } from '../../i18n';
@@ -252,7 +254,7 @@ const IssueFooter = styled.div`
 interface IssueReportProps {
     intro: string;
     items: { path: string; message: string }[];
-    /** Closing line, e.g. what happens next (the restart). */
+    /** Closing line, e.g. where the complete list was written. */
     footer?: string;
 }
 
@@ -411,11 +413,18 @@ const isEmptyDataReport = (report: DataIssuesReport): boolean =>
 interface Props extends TimerState, TimerActionTypes {
     /** Applies the data check's result to `kanban.cards` / `lists` / `boards`. */
     applyRepair: (result: DataRepairResult) => void;
+    /**
+     * Re-reads the kanban tree and the session-derived views. Import and
+     * "delete all" write straight to the database, so the store has to catch
+     * up without a restart.
+     */
+    reloadDataStore: () => Promise<void>;
 }
 export const Setting: React.FunctionComponent<Props> = React.memo(
     (props: Props) => {
         const {
             applyRepair,
+            reloadDataStore,
             followSystemTheme,
             setAutoUpdate,
             setCalendarBaseColor,
@@ -444,6 +453,8 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
         const [checking, setChecking] = useState(false);
         const [report, setReport] = useState<DataIssuesReport | undefined>();
         const [repairOpen, setRepairOpen] = useState(false);
+        const [importSummary, setImportSummary] = useState<ImportSummary | undefined>();
+        const [importReportOpen, setImportReportOpen] = useState(false);
         const onChangeFocus = React.useCallback(
             (v: number | [number, number]) => {
                 if (v instanceof Array) {
@@ -763,16 +774,15 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
 
         /**
          * Both destructive flows share this: the dialog tells the user what
-         * happens next, and the work runs behind its OK button. The promise
-         * returned by `onOk` keeps the dialog open with a spinner until the
-         * command finishes, so the restart is the very next thing that
-         * happens -- the old "toast, wait three seconds, restart" is gone.
+         * happens, and the work runs behind its OK button. The promise returned
+         * by `onOk` keeps the dialog open with a spinner until the command
+         * finishes, then the store is re-read instead of restarting the app.
          */
         const onDeleteConfirm = useCallback(() => {
             feedback.confirm({
                 kind: 'error',
                 title: FEEDBACK_MESSAGES.setting.deleteAllConfirm,
-                content: FEEDBACK_MESSAGES.setting.deleteAllRestartNote,
+                content: FEEDBACK_MESSAGES.setting.deleteAllNote,
                 okText: t('common.delete'),
                 onOk: async () => {
                     try {
@@ -790,10 +800,14 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                         return;
                     }
 
-                    window.api.restart();
+                    await reloadDataStore();
+                    feedback.toast({
+                        kind: 'success',
+                        content: FEEDBACK_MESSAGES.setting.deleteDone,
+                    });
                 },
             });
-        }, [onOpenLogDir, t]);
+        }, [onOpenLogDir, reloadDataStore, t]);
 
         /**
          * Reports a refused file: every problem the validator found, each with
@@ -824,10 +838,9 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
         );
 
         /**
-         * The import either succeeded or was refused; both end in a message,
-         * and the success case ends in a restart the renderer asks for -- the
-         * main process used to restart on its own, which meant a warning could
-         * never be shown before the window went away.
+         * The import either succeeded or was refused; both end in a message.
+         * A successful import re-reads the store and, when the merge left
+         * anything behind, opens a report that leads into the data check.
          */
         const onImportClick = useCallback(async () => {
             setImporting(true);
@@ -865,26 +878,21 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 return;
             }
 
-            if (result.warnings.length > 0) {
-                // Worth stopping for: the import happened, but something in it
-                // was adjusted or dropped on the way in.
-                feedback.alert({
-                    kind: 'warning',
-                    title: FEEDBACK_MESSAGES.setting.importWarningTitle,
-                    content: (
-                        <IssueReport
-                            intro={FEEDBACK_MESSAGES.setting.importWarningIntro}
-                            items={result.warnings}
-                            footer={FEEDBACK_MESSAGES.setting.importRestartNote}
-                        />
-                    ),
-                    okText: t('common.ok'),
-                    // The app restarts only after this is acknowledged, so the
-                    // list can actually be read -- and the log holds the same
-                    // details for a report.
-                    actions: <OpenLogFolderButton onClick={onOpenLogDir} />,
-                    onOk: restartApp,
-                });
+            // The import wrote straight to the database, so the store has to be
+            // re-read; there is nothing to restart for.
+            await reloadDataStore();
+
+            const { counts } = result.summary;
+            const needsAttention =
+                counts.cardsOutsideLists +
+                    counts.deadMoves +
+                    counts.danglingSessions +
+                    counts.unknownBoard >
+                0;
+
+            if (needsAttention) {
+                setImportSummary(result.summary);
+                setImportReportOpen(true);
                 return;
             }
 
@@ -892,8 +900,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 kind: 'success',
                 content: FEEDBACK_MESSAGES.setting.importDone,
             });
-            restartApp();
-        }, [onOpenLogDir, showImportIssues, t]);
+        }, [onOpenLogDir, reloadDataStore, showImportIssues]);
 
         const onExportClick = useCallback(async () => {
             setExporting(true);
@@ -1363,6 +1370,16 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                     onRescan={rescanData}
                     applyRepair={applyRepair}
                 />
+                <ImportReportDialog
+                    open={importReportOpen}
+                    summary={importSummary}
+                    onClose={() => setImportReportOpen(false)}
+                    onOpenLogDir={onOpenLogDir}
+                    onCheckData={() => {
+                        setImportReportOpen(false);
+                        onCheckData();
+                    }}
+                />
             </Container>
         );
     },
@@ -1389,10 +1406,6 @@ async function onImportData(): Promise<ImportResult> {
  * which is what makes the whole import flow testable without killing the
  * window mid-assertion.
  */
-function restartApp() {
-    window.api.restart();
-}
-
 /** The rejection of an IPC call is whatever the main process threw: a string. */
 function errorText(e: any): string {
     return typeof e === 'string' ? e : (e?.message ?? String(e));

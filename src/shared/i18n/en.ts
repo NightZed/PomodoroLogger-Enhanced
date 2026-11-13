@@ -467,15 +467,6 @@ export const en = {
             missingSpentTime: 'is missing; an object with "actual" and "estimated" is required',
             refersToCard: (id: string): string => `refers to card ${id}, which is not in the file`,
             refersToList: (id: string): string => `refers to list ${id}, which is not in the file`,
-            moveDropped: (id: string): string =>
-                `a move of card ${id} refers to a card that is not in the file; ` +
-                'the move will be dropped',
-            sessionNotCounted: (id: string): string =>
-                `refers to pomodoro ${id}, which is not in the file; ` +
-                'its time will not be counted',
-        },
-        merge: {
-            cardRemoved: (id: string): string => `Card ${id} will be removed`,
         },
     },
 
@@ -804,15 +795,13 @@ export const en = {
             openLogDirFailed: 'Could Not Open Log Folder',
             openLogDirFailedDetail: (reason: string): string =>
                 `The log folder could not be opened: ${reason}`,
-            importConfirm: 'Pomodoro Logger Enhanced will restart after importing. Continue?',
+            importConfirm: 'Importing merges the file into your data. Continue?',
             deleteAllConfirm: 'Delete all sessions, projects and boards? ',
-            deleteAllRestartNote:
-                'Your settings are kept. This cannot be undone, and the app restarts as soon as ' +
-                'the deletion finishes.',
+            deleteAllNote: 'Your settings are kept. This cannot be undone.',
+            deleteDone: 'All data deleted',
             deleteFailed: 'Could Not Delete Data',
             deleteFailedDetail: (reason: string): string =>
-                `The data could not be fully deleted: ${reason}. Some data may already be gone; ` +
-                'the app was not restarted.',
+                `The data could not be fully deleted: ${reason}. Some data may already be gone.`,
             dataCheckNone: 'No data problems found',
             dataCheckFailed: 'Could Not Check the Data',
             dataCheckFailedDetail: (reason: string): string =>
@@ -826,11 +815,32 @@ export const en = {
             importInvalidIntro:
                 'Nothing was imported and your current data was left untouched. ' +
                 'Fix the problems below in the file, then import it again:',
-            importWarningTitle: 'Imported with warnings',
-            importWarningIntro: 'The data was imported, but some entries had to be adjusted:',
-            importDone: 'Data imported. Restarting…',
-            /** Footer of the warnings dialog: the restart happens after OK. */
-            importRestartNote: 'The app will restart after you close this dialog.',
+            importDone: 'Data imported',
+            importReport: {
+                title: 'Import complete',
+                intro:
+                    'The data was merged. The entries below were left as they are; ' +
+                    'the full list is in the log folder.',
+                needsAttention: 'Needs attention',
+                hint: 'For your information',
+                rehomed: 'Rehomed automatically',
+                cardsOutsideLists: (count: number): string =>
+                    `${count} ${plural(count, 'card', 'cards')} not in any list`,
+                deadMoves: (count: number): string =>
+                    `${count} ${plural(count, 'move record', 'move records')} pointing at missing cards`,
+                danglingSessions: (count: number): string =>
+                    `${count} ${plural(count, 'card', 'cards')} referencing missing focus sessions`,
+                unknownBoard: (count: number): string =>
+                    `${count} ${plural(count, 'session', 'sessions')} whose project was deleted`,
+                noBoard: (count: number): string =>
+                    `${count} ${plural(count, 'session', 'sessions')} without a project`,
+                rehomedCards: (count: number): string =>
+                    `${count} ${plural(count, 'card', 'cards')} put back into a list by their move records`,
+                logHint: 'The full list with ids, titles and times is in data.log.',
+                openLog: 'Open Log Folder',
+                checkData: 'Check & Repair Data',
+                done: 'Done',
+            },
             /** Shown under a list that the validator had to shorten. */
             importIssuesLogged: 'The complete list was written to the log folder.',
             importFailedHint: 'Check the log folder for details.',

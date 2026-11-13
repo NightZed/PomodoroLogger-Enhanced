@@ -10,12 +10,10 @@
  *   user saw no message at all *and* the button stayed spinning forever,
  *   because `setImporting(false)` sat after the `await` that never came back;
  * - an import that worked but merged lossily dropped the merger's warnings on
- *   the floor (`// TODO: Show Warning`), and the main process restarted the app
- *   from inside its own handler, so the renderer never got a reply it could
- *   have reported anyway.
+ *   the floor (`// TODO: Show Warning`).
  *
- * The restart therefore has to be the renderer's job, which is what these tests
- * exercise end to end through the real component.
+ * Import and "delete all" no longer restart: the store is re-read instead, and
+ * an import with leftovers opens a report that leads into the data check.
  */
 import * as React from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -33,13 +31,10 @@ jest.mock('../feedback', () => ({
     },
     FEEDBACK_MESSAGES: {
         setting: {
-            importConfirm: 'Pomodoro Logger Enhanced will restart after importing. Continue?',
+            importConfirm: 'Importing merges the file into your data. Continue?',
             importInvalidTitle: 'This file cannot be imported',
             importInvalidIntro: 'Nothing was imported.',
-            importWarningTitle: 'Imported with warnings',
-            importWarningIntro: 'Some entries were adjusted:',
-            importDone: 'Data imported. Restarting',
-            importRestartNote: 'The app will restart after you close this dialog.',
+            importDone: 'Data imported',
             importIssuesLogged: 'The complete list was written to the log folder.',
             importFailed: 'Import Failed',
             importFailedDetail: (reason: string) => `Could not import: ${reason}`,
@@ -48,8 +43,8 @@ jest.mock('../feedback', () => ({
             exportFailed: 'Export Failed',
             exportFailedDetail: (reason: string) => `Could not export: ${reason}`,
             deleteAllConfirm: 'Delete all sessions, projects and boards? Your settings are kept.',
-            deleteAllRestartNote:
-                'Your settings are kept. This cannot be undone, and the app restarts as soon as the deletion finishes.',
+            deleteAllNote: 'Your settings are kept. This cannot be undone.',
+            deleteDone: 'All data deleted',
             deleteFailed: 'Could Not Delete Data',
             deleteFailedDetail: (reason: string) =>
                 `The data could not be fully deleted: ${reason}.`,
@@ -108,7 +103,24 @@ jest.mock('../../monitor/sessionManager', () => ({
     deleteAllUserData: () => mockDeleteAllUserData(),
 }));
 
-const mockRestart = jest.fn();
+// The report is a layout-only dialog; this file drives the page's orchestration
+// (reload, open, and the jump into the data check).
+jest.mock('./ImportReportDialog', () => ({
+    ImportReportDialog: ({ open, summary, onClose, onCheckData }: any) =>
+        open ? (
+            <div data-testid="import-report">
+                <span data-testid="import-report-cards">{summary.counts.cardsOutsideLists}</span>
+                <button data-testid="import-report-check" onClick={onCheckData}>
+                    check
+                </button>
+                <button data-testid="import-report-done" onClick={onClose}>
+                    done
+                </button>
+            </div>
+        ) : null,
+}));
+
+const mockReloadData = jest.fn<Promise<void>, []>().mockResolvedValue(undefined);
 
 const mockRefreshDbs = jest.fn().mockResolvedValue(undefined);
 jest.mock('../../dbs', () => ({
@@ -152,6 +164,7 @@ const repairData = jest.fn();
 const applyRepair = jest.fn();
 const props = (): any => ({
     applyRepair,
+    reloadDataStore: mockReloadData,
     focusDuration: 1500,
     restDuration: 300,
     longBreakDuration: 900,
@@ -250,7 +263,7 @@ beforeEach(() => {
     mockAlert.mockClear();
     mockToast.mockClear();
     mockConfirm.mockClear();
-    mockRestart.mockClear();
+    mockReloadData.mockClear();
     mockDeleteAllUserData.mockClear();
     exportData.mockReset();
     importData.mockReset();
@@ -266,7 +279,6 @@ beforeEach(() => {
         openLogDir,
         scanDataIssues,
         repairData,
-        restart: mockRestart,
         checkUpdate: jest.fn(),
         onUpdateAvailable: jest.fn(() => jest.fn()),
         onUpdateNotAvailable: jest.fn(() => jest.fn()),
@@ -423,8 +435,8 @@ describe('import of a file that cannot be used', () => {
         });
         expect(openLogDir).toHaveBeenCalledTimes(1);
 
-        // The whole point of the refusal: no restart, no data touched.
-        expect(mockRestart).not.toHaveBeenCalled();
+        // The whole point of the refusal: no reload, no data touched.
+        expect(mockReloadData).not.toHaveBeenCalled();
         expect(isLoading(button('Import Data'))).toBe(false);
     });
 
@@ -438,7 +450,7 @@ describe('import of a file that cannot be used', () => {
         expect(alertText()).toContain('ENOENT: no such file');
         expect(alertText()).toContain('Check the log folder for details.');
         expect(mockAlert.mock.calls[0][0].actions).toBeTruthy();
-        expect(mockRestart).not.toHaveBeenCalled();
+        expect(mockReloadData).not.toHaveBeenCalled();
         expect(isLoading(button('Import Data'))).toBe(false);
     });
 
@@ -450,52 +462,81 @@ describe('import of a file that cannot be used', () => {
 
         expect(mockAlert).not.toHaveBeenCalled();
         expect(mockToast).not.toHaveBeenCalled();
-        expect(mockRestart).not.toHaveBeenCalled();
+        expect(mockReloadData).not.toHaveBeenCalled();
     });
 });
 
 describe('import of a usable file', () => {
-    it('restarts straight away when nothing had to be adjusted', async () => {
-        importData.mockResolvedValue({ status: 'imported', warnings: [], meta: {} });
+    const summary = (over: Partial<Record<string, number>> = {}) => ({
+        counts: {
+            cardsOutsideLists: 0,
+            deadMoves: 0,
+            danglingSessions: 0,
+            unknownBoard: 0,
+            noBoard: 0,
+            rehomed: 0,
+            ...over,
+        },
+    });
+
+    it('reloads the store and stops at a toast when nothing needs attention', async () => {
+        importData.mockResolvedValue({ status: 'imported', summary: summary(), meta: {} });
         await mount();
 
         await click('Import Data');
 
-        expect(mockToast.mock.calls[0][0].content).toBe('Data imported. Restarting');
-        expect(mockRestart).toHaveBeenCalled();
+        expect(mockReloadData).toHaveBeenCalledTimes(1);
+        expect(mockToast.mock.calls[0][0].content).toBe('Data imported');
+        expect(screen.queryByTestId('import-report')).toBeNull();
     });
 
-    it('shows the warnings first and restarts once they are acknowledged', async () => {
-        // The old flow restarted inside the main process handler, so the merge
-        // notes could never be read by anyone: the user found out about dropped
-        // cards by noticing they were gone.
+    it('opens the report when the merge left something behind', async () => {
         importData.mockResolvedValue({
             status: 'imported',
-            warnings: [{ path: 'merge', message: 'Card "a1" will be removed' }],
+            summary: summary({ cardsOutsideLists: 12 }),
             meta: {},
         });
         await mount();
 
         await click('Import Data');
 
-        expect(mockAlert.mock.calls[0][0].title).toBe('Imported with warnings');
-        expect(alertText()).toContain('Card "a1" will be removed');
-        // The footer describes what happens next: the restart waits for OK.
-        expect(alertText()).toContain('The app will restart after you close this dialog.');
-        expect(mockAlert.mock.calls[0][0].actions).toBeTruthy();
-        // Still not restarted: the user has not closed the dialog yet.
-        expect(mockRestart).not.toHaveBeenCalled();
+        expect(mockReloadData).toHaveBeenCalledTimes(1);
+        expect(screen.getByTestId('import-report')).toBeTruthy();
+        expect(screen.getByTestId('import-report-cards').textContent).toBe('12');
+    });
 
+    it('goes straight to the data check from the report', async () => {
+        importData.mockResolvedValue({
+            status: 'imported',
+            summary: summary({ deadMoves: 2 }),
+            meta: {},
+        });
+        scanDataIssues.mockResolvedValue({
+            detachedCards: [],
+            orphanCards: [],
+            lists: [],
+            moves: { total: 0, cardCount: 0 },
+            dangling: [],
+        });
+        await mount();
+
+        await click('Import Data');
         await act(async () => {
-            mockAlert.mock.calls[0][0].onOk();
+            fireEvent.click(screen.getByTestId('import-report-check'));
+            await Promise.resolve();
         });
 
-        expect(mockRestart).toHaveBeenCalled();
+        expect(scanDataIssues).toHaveBeenCalledTimes(1);
+        expect(screen.queryByTestId('import-report')).toBeNull();
+        // An empty scan only toasts; the repair dialog stays closed.
+        expect(mockToast).toHaveBeenCalledWith(
+            expect.objectContaining({ content: 'No data problems found' })
+        );
     });
 });
 
 describe('delete of all data', () => {
-    it('deletes behind the confirmation dialog and restarts without a second notice', async () => {
+    it('deletes behind the confirmation dialog and reloads the store', async () => {
         await mount();
 
         await click('Delete All Data');
@@ -505,16 +546,13 @@ describe('delete of all data', () => {
         expect(options.title).toBe(
             'Delete all sessions, projects and boards? Your settings are kept.'
         );
-        // The confirmation itself says the app restarts, so the old
-        // "toast, wait three seconds, restart" would be a second notice of a
-        // fact the user already acknowledged.
-        expect(options.content).toContain('restarts');
+        expect(options.content).toBe('Your settings are kept. This cannot be undone.');
         expect(mockDeleteAllUserData).toHaveBeenCalledTimes(1);
-        expect(mockRestart).toHaveBeenCalledTimes(1);
-        expect(mockToast).not.toHaveBeenCalled();
+        expect(mockReloadData).toHaveBeenCalledTimes(1);
+        expect(mockToast.mock.calls[0][0].content).toBe('All data deleted');
     });
 
-    it('explains a failed deletion, offers the log folder and leaves the app running', async () => {
+    it('explains a failed deletion, offers the log folder and leaves the data alone', async () => {
         mockDeleteAllUserData.mockRejectedValueOnce(new Error('EPERM: resource busy'));
         await mount();
 
@@ -524,7 +562,7 @@ describe('delete of all data', () => {
         expect(mockAlert.mock.calls[0][0].title).toBe('Could Not Delete Data');
         expect(alertText()).toContain('EPERM: resource busy');
         expect(mockAlert.mock.calls[0][0].actions).toBeTruthy();
-        expect(mockRestart).not.toHaveBeenCalled();
+        expect(mockReloadData).not.toHaveBeenCalled();
     });
 });
 

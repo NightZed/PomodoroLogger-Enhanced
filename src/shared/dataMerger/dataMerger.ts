@@ -9,8 +9,6 @@ import {
     MoveInfo,
 } from '../../renderer/components/Kanban/type';
 import { PomodoroRecord } from '../../renderer/monitor/type';
-import { createTranslator } from '../i18n';
-import type { Language, TranslateFn } from '../i18n';
 
 export interface SourceData {
     records: PomodoroRecord[];
@@ -38,15 +36,6 @@ export class DataMerger {
     private cardLastMove: { [cardId: string]: MoveInfo } = {};
     private maybeBelongTo: { [cardId: string]: string[] } = {};
     private stats: MergeStats = { rehomed: [] };
-    private readonly t: TranslateFn;
-    constructor(
-        private warn: (s: string) => void = (s) => {
-            console.warn(s);
-        },
-        language: Language = 'en'
-    ) {
-        this.t = createTranslator(language);
-    }
     merge(a: SourceData, b: SourceData): SourceData {
         this.stats = { rehomed: [] };
         const ans = cloneDeep(a);
@@ -82,9 +71,10 @@ export class DataMerger {
                 if (this.cardLastMove[card] !== undefined) {
                     this.stats.rehomed.push({ cardId: card, listId });
                 }
-            } else {
-                this.warn(this.t('guard.merge.cardRemoved', card));
             }
+            // No list claims the card and no move row points at one: it stays
+            // in `cards` on purpose. Import does not delete, and the data check
+            // offers to restore or delete it afterwards.
         }
 
         // TODO: store removed card somewhere

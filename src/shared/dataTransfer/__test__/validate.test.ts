@@ -40,7 +40,6 @@ describe('a valid export', () => {
         expect(result.ok).toBe(true);
         if (result.ok) {
             expect(result.data).toStrictEqual(validData as SourceData);
-            expect(result.warnings).toStrictEqual([]);
         }
     });
 
@@ -198,9 +197,9 @@ describe('a file that is not a data export', () => {
             );
         });
 
-        it('only warns about a move of a card that is not in the file', () => {
-            // The merger drops such a row on its own, so it must not block an
-            // otherwise fine import.
+        it('accepts a move of a card that is not in the file', () => {
+            // Import keeps the row; the import report and the data check count
+            // it afterwards, so the validator must not block the file.
             const raw = clone();
             raw.move.push({
                 cardId: 'ghost',
@@ -208,25 +207,13 @@ describe('a file that is not a data export', () => {
                 toListId: 'focused',
                 time: 1,
             });
-            const result = validateSourceData(raw);
-            expect(result.ok).toBe(true);
-            if (result.ok) {
-                expect(result.warnings.map((w) => w.message).join()).toMatch(
-                    /move of card "ghost".*will be dropped/
-                );
-            }
+            expect(validateSourceData(raw).ok).toBe(true);
         });
 
-        it('only warns about a card pointing at a pomodoro that is not in the file', () => {
+        it('accepts a card pointing at a pomodoro that is not in the file', () => {
             const raw = clone();
             raw.cards.card_a.sessionIds.push('ghost-session');
-            const result = validateSourceData(raw);
-            expect(result.ok).toBe(true);
-            if (result.ok) {
-                expect(result.warnings.map((w) => w.message).join()).toMatch(
-                    /pomodoro "ghost-session".*will not be counted/
-                );
-            }
+            expect(validateSourceData(raw).ok).toBe(true);
         });
 
         it('does not run the reference checks when the shapes are already broken', () => {

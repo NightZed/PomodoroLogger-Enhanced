@@ -45,15 +45,12 @@ import {
     unwrapImportPayload,
 } from '../../shared/dataTransfer/payload';
 import { validateSourceData } from '../../shared/dataTransfer/validate';
-import {
-    analyzeUnknownProjects,
-    describeUnknownProjects,
-} from '../../shared/dataTransfer/unknownProjects';
+import { analyzeImport, buildImportLogGroups } from '../../shared/dataTransfer/importSummary';
 import { initializeDbIpc } from '../db/ipc';
 import { openExternalUrl } from '../openExternal';
 import { openDataDir } from '../openDataDir';
 import { openLogDir } from '../openLogDir';
-import { configureLogging, getLogDir, getSessionId, log, logError } from '../log';
+import { configureLogging, formatTimestamp, getLogDir, getSessionId, log, logError } from '../log';
 import { LOG_LEVELS } from '../../shared/log';
 import type { LogLevel } from '../../shared/log';
 import { clearUserFiles, deleteScreenshots, saveScreenshot } from '../userFiles';
@@ -115,19 +112,14 @@ function runValidators(validators: Validator[], args: unknown[]): void {
 const LOG_CHUNK_CHARS = 6000;
 
 /**
- * Writes every finding of a refused or lossy import to `data.log`.
+ * Writes a heading and its detail lines to `data.log`.
  *
- * The dialog shows at most 20 of them; a bug report needs the rest. Splitting
- * the list keeps each entry below the logger's per-detail cap (8 KiB), which
+ * Splitting keeps each entry below the logger's per-detail cap (8 KiB), which
  * would otherwise cut it silently. One block is one log entry, so even a
- * 500-finding import costs a handful of lines -- far below the per-second cap.
+ * 500-line import report costs a handful of lines -- far below the per-second
+ * cap. The detail lines get the logger's 4-space indent.
  */
-function logIssueChunks(
-    level: LogLevel,
-    headline: string,
-    items: { path: string; message: string }[]
-): void {
-    const lines = items.map((item) => (item.path ? `${item.path}: ${item.message}` : item.message));
+function logLineChunks(level: LogLevel, headline: string, lines: string[]): void {
     const chunks: string[] = [];
     let current = '';
 
@@ -152,6 +144,23 @@ function logIssueChunks(
         const part = chunks.length > 1 ? ` (part ${index + 1}/${chunks.length})` : '';
         log('data', level, `${headline}${part}`, chunk);
     });
+}
+
+/**
+ * Writes every finding of a refused import to `data.log`.
+ *
+ * The dialog shows at most 20 of them; a bug report needs the rest.
+ */
+function logIssueChunks(
+    level: LogLevel,
+    headline: string,
+    items: { path: string; message: string }[]
+): void {
+    logLineChunks(
+        level,
+        headline,
+        items.map((item) => (item.path ? `${item.path}: ${item.message}` : item.message))
+    );
 }
 
 /**
@@ -561,59 +570,46 @@ export function initialize() {
             payload: {
                 external: validation.data,
                 source: await readAllData(),
-                language: getMainLanguage(),
             },
         });
 
         await writeAllFile(merged.payload.merged);
 
-        // The merger's own notes (dropped cards, ...) used to be discarded
-        // here; they are the user's only warning that the merge was lossy, so
-        // they travel with the result and the renderer restarts afterwards.
-        const warnings = validation.warnings.concat(
-            splitWarnings(merged.payload.warning).map((message) => ({
-                path: 'merge',
-                message,
-            }))
-        );
-
-        // Same facts the dialog shows, plus counts, so a later report can say
-        // what actually landed in the database.
-        //
-        // `unknown` is what the History view will render as "Unknown": sessions
-        // with no board, or with a board id this database does not have. It is
-        // computed from the merged result, not from the file, because the merge
-        // is a union -- a board the file omits may already exist locally, and
-        // those sessions will not be Unknown at all.
-        const unknown = analyzeUnknownProjects(
-            merged.payload.merged.records,
-            merged.payload.merged.boards
-        );
-        const counts = [
+        // Import never repairs anything: a card no list names, a move whose
+        // endpoint is gone and a card naming a dead session all land in the
+        // database unchanged, and the data check cleans them up. Counting on
+        // the merged result is what makes these numbers match what that check
+        // will report a minute later -- and what makes the old "will be
+        // dropped" warnings unnecessary, since nothing is dropped here.
+        const summary = analyzeImport(merged.payload.merged, merged.payload.rehomed);
+        const { counts } = summary;
+        const stats = [
             `records=${merged.payload.merged.records.length}`,
             `move=${merged.payload.merged.move.length}`,
             `cards=${Object.keys(merged.payload.merged.cards).length}`,
             `lists=${Object.keys(merged.payload.merged.lists).length}`,
             `boards=${Object.keys(merged.payload.merged.boards).length}`,
-            `unknown=${unknown.total}`,
+            `orphanCards=${counts.cardsOutsideLists}`,
+            `deadMoves=${counts.deadMoves}`,
+            `danglingSessions=${counts.danglingSessions}`,
+            `unknownBoard=${counts.unknownBoard}`,
+            `noBoard=${counts.noBoard}`,
+            `rehomed=${counts.rehomed}`,
         ].join(' ');
-        const headline = `import completed file="${fileName}" bytes=${bytes} ${counts} warnings=${warnings.length}`;
+        log('data', 'info', `import completed file="${fileName}" bytes=${bytes} ${stats}`);
 
-        if (warnings.length > 0) {
-            logIssueChunks('warn', headline, warnings);
-        } else {
-            log('data', 'info', headline);
+        // One block per group, 4-space detail lines, at most 500 lines each.
+        for (const group of buildImportLogGroups(
+            merged.payload.merged,
+            merged.payload.rehomed,
+            (time) => formatTimestamp(new Date(time))
+        )) {
+            const lines =
+                group.more > 0 ? [...group.lines, `${group.more} more not shown`] : group.lines;
+            logLineChunks('info', group.title, lines);
         }
 
-        if (unknown.total > 0) {
-            logIssueChunks(
-                'warn',
-                `import unknown-projects file="${fileName}" ${describeUnknownProjects(unknown)}`,
-                unknown.lines.map((message) => ({ path: '', message }))
-            );
-        }
-
-        return { status: 'imported', warnings, meta };
+        return { status: 'imported', summary, meta };
     });
     handle(
         IpcEventName.DeleteKanbanItems,
@@ -661,21 +657,4 @@ export function initialize() {
         const filePath = result.filePaths[0];
         return filePath;
     });
-}
-
-/**
- * The merger collects its warnings into one newline separated string
- * (`dataHandlers.ts` concatenates what `DataMerger` reports). They are split
- * back into one entry per line here so the renderer can list them, and the
- * trailing empty line of a report ending in '\n' is dropped.
- */
-function splitWarnings(warning?: string): string[] {
-    if (!warning) {
-        return [];
-    }
-
-    return warning
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0);
 }

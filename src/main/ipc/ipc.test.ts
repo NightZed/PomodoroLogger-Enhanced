@@ -31,6 +31,9 @@ jest.mock('../log', () => ({
     configureLogging: jest.fn(),
     getLogDir: () => '/tmp/logs',
     getSessionId: () => 'sid123',
+    // Import detail lines carry local wall-clock times; the format itself is
+    // covered by `log.test.ts`, so a stable ISO string is enough here.
+    formatTimestamp: (date: Date) => date.toISOString(),
 }));
 
 jest.mock('../db/ipc', () => ({ initializeDbIpc: jest.fn() }));
@@ -434,7 +437,7 @@ describe('main/ipc', () => {
             expect(call?.[3]).toContain('records');
         });
 
-        it('merges a valid import and returns the merge warnings per line', async () => {
+        it('merges a valid import and returns the summary counts', async () => {
             const file = tempFile('valid', JSON.stringify(emptyData));
             (dialog.showOpenDialog as jest.Mock).mockResolvedValue({
                 canceled: false,
@@ -442,33 +445,39 @@ describe('main/ipc', () => {
             });
             (readAllData as jest.Mock).mockResolvedValue(emptyData);
             (sendWorkerMessage as jest.Mock).mockResolvedValue({
-                payload: { merged: emptyData, warning: 'lost a card\n\nlost a list\n' },
+                payload: { merged: emptyData, rehomed: [] },
             });
 
             const result = await handlers['importData'](trustedEvent);
 
             expect(result).toEqual({
                 status: 'imported',
-                warnings: [
-                    { path: 'merge', message: 'lost a card' },
-                    { path: 'merge', message: 'lost a list' },
-                ],
+                summary: {
+                    counts: {
+                        cardsOutsideLists: 0,
+                        deadMoves: 0,
+                        danglingSessions: 0,
+                        unknownBoard: 0,
+                        noBoard: 0,
+                        rehomed: 0,
+                    },
+                },
                 meta: {},
             });
             expect(sendWorkerMessage).toHaveBeenCalledWith({
                 type: expect.any(String),
-                payload: { external: emptyData, source: emptyData, language: 'en' },
+                payload: { external: emptyData, source: emptyData },
             });
             expect(writeAllFile).toHaveBeenCalledWith(emptyData);
 
             const call = (log as jest.Mock).mock.calls.find(([scope]) => scope === 'data');
-            expect(call?.[1]).toBe('warn');
+            expect(call?.[1]).toBe('info');
             expect(call?.[2]).toContain('import completed');
-            expect(call?.[2]).toContain('warnings=2');
-            expect(call?.[3]).toContain('lost a card');
+            expect(call?.[2]).toContain('orphanCards=0');
+            expect(call?.[2]).toContain('rehomed=0');
         });
 
-        it('writes the sessions that will render as Unknown to data.log', async () => {
+        it('writes the unknown-project groups to data.log', async () => {
             const file = tempFile('unknown', JSON.stringify(emptyData));
             (dialog.showOpenDialog as jest.Mock).mockResolvedValue({
                 canceled: false,
@@ -497,30 +506,38 @@ describe('main/ipc', () => {
                             },
                         ],
                     },
+                    rehomed: [],
                 },
             });
 
             const result = await handlers['importData'](trustedEvent);
 
             expect(result.status).toBe('imported');
-            // Nothing new in the dialog: this is a log-only report, so the
-            // result keeps its usual shape.
-            expect(result.warnings).toEqual([]);
+            if (result.status !== 'imported') {
+                return;
+            }
+            expect(result.summary.counts.noBoard).toBe(1);
+            expect(result.summary.counts.unknownBoard).toBe(1);
 
             const calls = (log as jest.Mock).mock.calls.filter(([scope]) => scope === 'data');
             const headline = calls.find(([, , message]) =>
                 String(message).includes('import completed')
             );
-            expect(headline?.[2]).toContain('unknown=2');
+            expect(headline?.[2]).toContain('noBoard=1');
+            expect(headline?.[2]).toContain('unknownBoard=1');
 
-            const detail = calls.find(([, , message]) =>
-                String(message).includes('import unknown-projects')
+            const noProject = calls.find(([, , message]) =>
+                String(message).includes('unknown projects - no project')
             );
-            expect(detail?.[1]).toBe('warn');
-            expect(detail?.[2]).toContain('noBoardId=1');
-            expect(detail?.[2]).toContain('dangling=1');
-            expect(detail?.[3]).toContain('records["r1"] boardId missing');
-            expect(detail?.[3]).toContain('records["r2"] boardId="gone" not in boards');
+            expect(noProject?.[2]).toContain('(1)');
+            expect(noProject?.[3]).toContain('session=r1');
+
+            const deletedBoard = calls.find(([, , message]) =>
+                String(message).includes('unknown projects - deleted board')
+            );
+            expect(deletedBoard?.[2]).toContain('(1)');
+            expect(deletedBoard?.[3]).toContain('session=r2');
+            expect(deletedBoard?.[3]).toContain('board=gone');
         });
 
         it('returns the selected wallpaper path or nothing when cancelled', async () => {

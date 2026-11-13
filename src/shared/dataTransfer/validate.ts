@@ -17,14 +17,8 @@ export interface ValidationIssue {
     message: string;
 }
 
-/** A finding that does not block the import, but the user should know about. */
-export interface ValidationWarning {
-    path: string;
-    message: string;
-}
-
 export type ValidationResult =
-    | { ok: true; data: SourceData; warnings: ValidationWarning[] }
+    | { ok: true; data: SourceData }
     | {
           ok: false;
           /** At most 20 findings plus the trailing "and N more" line. */
@@ -349,12 +343,13 @@ function checkSpentTime(value: unknown, path: string, issues: IssueCollector) {
  * `writeAllFile` has already emptied every database, so the crash would leave
  * the user with the data gone and nothing imported.
  *
- * The same kind of dangling id on a `move` row or a card's `sessionIds` is
- * only orphaned bookkeeping: the merger tolerates it (a missing record
- * contributes 0 hours) and drops the row, so it is reported as a warning that
- * does not block the import.
+ * The same kind of dangling id on a `move` row or a card's `sessionIds` does
+ * not block the import either. It is not reported here at all: import keeps
+ * those rows unchanged, and the import report counts them on the merged data
+ * (see `importSummary.ts`), where the numbers match what the data check will
+ * find afterwards.
  */
-function checkReferences(data: SourceData, issues: IssueCollector, warnings: ValidationWarning[]) {
+function checkReferences(data: SourceData, issues: IssueCollector) {
     for (const list of Object.values(data.lists)) {
         for (const cardId of list.cards) {
             if (!data.cards[cardId]) {
@@ -373,26 +368,6 @@ function checkReferences(data: SourceData, issues: IssueCollector, warnings: Val
                     `boards[${JSON.stringify(board._id)}].lists`,
                     issues.t('guard.import.refersToList', JSON.stringify(listId))
                 );
-            }
-        }
-    }
-
-    for (const row of data.move) {
-        if (!data.cards[row.cardId]) {
-            warnings.push({
-                path: 'move',
-                message: issues.t('guard.import.moveDropped', JSON.stringify(row.cardId)),
-            });
-        }
-    }
-
-    for (const card of Object.values(data.cards)) {
-        for (const sessionId of card.sessionIds) {
-            if (!data.records.some((record) => record._id === sessionId)) {
-                warnings.push({
-                    path: `cards[${JSON.stringify(card._id)}].sessionIds`,
-                    message: issues.t('guard.import.sessionNotCounted', JSON.stringify(sessionId)),
-                });
             }
         }
     }
@@ -444,7 +419,6 @@ export function validateSourceData(raw: unknown, language: Language = 'en'): Val
         checkBoard(board, `boards[${JSON.stringify(id)}]`, issues);
     }
 
-    const warnings: ValidationWarning[] = [];
     if (!issues.failed && records && cards && lists && boards) {
         // Reference checks read the entries unguarded, so they only run once
         // the shape of every container is known to be good.
@@ -456,8 +430,7 @@ export function validateSourceData(raw: unknown, language: Language = 'en'): Val
                 boards,
                 move: move ?? [],
             } as unknown as SourceData,
-            issues,
-            warnings
+            issues
         );
     }
 
@@ -465,5 +438,5 @@ export function validateSourceData(raw: unknown, language: Language = 'en'): Val
         return failure(issues);
     }
 
-    return { ok: true, data: raw as unknown as SourceData, warnings };
+    return { ok: true, data: raw as unknown as SourceData };
 }

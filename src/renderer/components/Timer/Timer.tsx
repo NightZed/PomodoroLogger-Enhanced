@@ -322,6 +322,19 @@ class Timer extends Component<Props, State> {
             pause: this.onPause,
             start: this.startFocusing,
         });
+        this.reloadTodaySessions();
+
+        this.addMenuItems();
+    }
+
+    /**
+     * Reads today's sessions from the database.
+     *
+     * Called on mount and whenever `sessionReloadToken` changes, which is how an
+     * import or a full delete refreshes this page: it stays mounted across tab
+     * switches, so waiting for a mount would leave the old list on screen.
+     */
+    private reloadTodaySessions(): void {
         getTodaySessions()
             .then((finishedSessions) => {
                 // 组件可能已在查询完成前卸载，此时不再更新状态
@@ -340,8 +353,6 @@ class Timer extends Component<Props, State> {
                 // is logged instead of surfacing as an unhandled rejection.
                 console.error('[Timer] failed to load today sessions', err);
             });
-
-        this.addMenuItems();
     }
 
     /**
@@ -480,6 +491,11 @@ class Timer extends Component<Props, State> {
         const focusedBoard = boardId === undefined ? undefined : this.props.kanban.boards[boardId];
         if (boardId !== undefined && (focusedBoard === undefined || focusedBoard.hidden)) {
             this.props.setBoardId(undefined);
+        }
+
+        // An import or a full delete changed the sessions underneath the page.
+        if (prevProps.timer.sessionReloadToken !== this.props.timer.sessionReloadToken) {
+            this.reloadTodaySessions();
         }
     }
 

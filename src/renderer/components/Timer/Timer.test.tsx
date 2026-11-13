@@ -435,6 +435,21 @@ describe('Timer page', () => {
         expect(actions.setSessionEnding).toHaveBeenCalledWith(false);
     });
 
+    it('re-reads today sessions when the data reload token changes', async () => {
+        const view = await renderTimer();
+        expect(getTodaySessions).toHaveBeenCalledTimes(1);
+
+        // Import and "delete all" bump the token instead of restarting; the
+        // page is permanently mounted, so this is the only signal it gets.
+        const next = {
+            ...view.props,
+            timer: { ...view.props.timer, sessionReloadToken: 1 },
+        };
+        await rerenderTimer(view, next);
+
+        expect(getTodaySessions).toHaveBeenCalledTimes(2);
+    });
+
     it('shows today sessions and opens the more panel', async () => {
         (getTodaySessions as jest.Mock).mockResolvedValue([
             { _id: 's1', startTime: 1, boardId: 'b1' },

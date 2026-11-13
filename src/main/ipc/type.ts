@@ -1,7 +1,8 @@
 import type { BaseResult } from 'get-windows';
 import { SourceData } from '../../shared/dataMerger/dataMerger';
 import type { ExportMeta } from '../../shared/dataTransfer/payload';
-import type { ValidationIssue, ValidationWarning } from '../../shared/dataTransfer/validate';
+import type { ValidationIssue } from '../../shared/dataTransfer/validate';
+import type { ImportSummary } from '../../shared/dataTransfer/importSummary';
 import type { DbName, HistoryData } from '../db/types';
 import type { AggPomodoroInfo } from '../../renderer/components/History/op';
 import type { Language, LanguagePreference } from '../../shared/i18n';
@@ -263,7 +264,7 @@ export interface LogInfo {
 export type ImportResult =
     | { status: 'cancelled' }
     | { status: 'invalid'; issues: ValidationIssue[] }
-    | { status: 'imported'; warnings: ValidationWarning[]; meta: ExportMeta };
+    | { status: 'imported'; summary: ImportSummary; meta: ExportMeta };
 
 /**
  * The complete surface exposed to the renderer by `src/main/preload.ts`.
@@ -405,8 +406,6 @@ export type WorkerMessagePayload = {
     [WorkerMessageType.MergeData]: {
         source: 'local' | SourceData;
         external: SourceData;
-        /** Language of the merger's own warnings (dropped cards, ...). */
-        language?: Language;
     };
     [WorkerMessageType.AggregateHistory]: HistoryData;
 };
@@ -416,8 +415,6 @@ export type WorkerResponsePayload = {
         merged: SourceData;
         /** Cards the merge put back into a list a move record pointed at. */
         rehomed: { cardId: string; listId: string }[];
-        /** Kept for the warn callback until the import report replaces it. */
-        warning?: string;
     };
     [WorkerMessageType.AggregateHistory]: AggPomodoroInfo;
 };

@@ -38,6 +38,8 @@
 
 `resetDanglingCard` 把「按 move 记录能推断出列表」的卡片放回列表，这是归属推断，不是清理，保留，并在报告里计数。
 
+**计数口径**：只有 `cardLastMove[card]` 存在——即这张卡片的位置确实由一条 move 记录决定——并且最终被放回候选列表时才计入 `rehomed`。没有 move 的卡片也走同一条放回路径，但那只是保持原列表，把它算进来会把一次普通合并描述成修复。
+
 ## 数据流
 
 1. `DataMerger.merge()` 保持返回 `SourceData`，同时通过 `getStats()` 给出 `rehomed: { cardId, listId }[]`。
@@ -90,7 +92,7 @@ export interface ImportSummary {
     card=a1B2c3D4e title="调研竞品" from=g5H6i7J8k to=z9Y8x7W6v time=2026-10-31T09:12:00.000+08:00
     ...
 2026-11-13T14:05:22.048+08:00 [k3J9x] INFO  data: dangling session references (64, showing 20)
-    card=a1B2c3D4e title="调研竞品" session=s9T8u7V6w start=2026-11-01T10:00:00.000+08:00 spent=0.25h apps=4
+    card=a1B2c3D4e title="调研竞品" session=s9T8u7V6w
     ...
     44 more not shown
 2026-11-13T14:05:22.050+08:00 [k3J9x] INFO  data: unknown projects - deleted board (41, showing 20)
@@ -110,7 +112,7 @@ export interface ImportSummary {
 
 - 卡片：`card`、`title`、`spent`、`sessions`、`state=orphan|detached`（detached 追加 `list`）。
 - move：`card`、`title`（卡片还在时）、`from`、`to`、`time`。
-- 悬空会话：`card`、`title`、`session`、`start`、`spent`、`apps`（数量）。
+- 悬空会话：`card`、`title`、`session`。会话行已经不存在，所以没有开始时间、时长或应用数可写。
 - 未知项目：`session`、`board`（deleted board 组才有）、`start`、`spent`、`apps`。
 - 自动放回：`card`、`title`、`list`、`by=move`。
 

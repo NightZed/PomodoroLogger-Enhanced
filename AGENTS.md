@@ -133,11 +133,13 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
 - 级别是 `debug < info < warn < error`（`src/shared/log.ts`）；生产默认 `info`，开发和测试默认 `debug`，`--log-level` / `POMODORO_LOG_LEVEL` 能覆盖已存的设置。
   `crash` 和 `data` 完全忽略级别（见 `LEVEL_EXEMPT_SCOPES`）。
   写入是同步的（崩溃报告必须能活过 `app.exit`），并受这些限制：单文件 1 MiB 轮转、相同消息 5 秒窗口、每秒最多 20 行。
-- `ImportData` 在每条退出路径上都把结果写进 `data.log`：JSON 解析器的报错信息；文件被拒时写校验器最多 500 条发现（`ValidationResult.recordedIssues`，按 8 KiB 以下分块）；文件被接受时写结果计数和合并警告。
-  接受时还会把合并结果里会被历史页渲染成 `Unknown` 的会话（没有 `boardId`，或 `boardId` 指向不存在的看板）逐条写进同一文件（同样最多 500 条），标题行带 `unknown=N`。
-  这份报告只进日志，不进对话框，因为「会话没有项目」是正常状态而不是导入失败（`src/shared/dataTransfer/unknownProjects.ts`）。
-  对话框只展示前 20 条（`ValidationResult.issues`），并提供一个 **Open Log Folder** 按钮。
-  `ClearUserFiles` 会记录「删除全部」的完成。
+- `ImportData` 在每条退出路径上都把结果写进 `data.log`：JSON 解析器的报错信息；文件被拒时写校验器最多 500 条发现（`ValidationResult.recordedIssues`，按 8 KiB 以下分块）。
+  文件被接受后，`importSummary.ts` 在合并结果上统计卡片不在任何列表、死 move、悬空会话引用、项目已删除、无项目与自动放回，写一行 `import issues ...`，然后每类一个分组块（标题 + 4 空格缩进明细，每类上限 500 条，超出写 `N more not shown`）。
+  时间字段用 `formatTimestamp`（本地墙钟 + 显式 UTC 偏移）。明细按 8 KiB 分块，**不要一行一条**：logger 每秒最多 20 行，逐行会被丢弃。
+  导入不清理任何数据——无效引用原样入库，清理统一交给「检查并修复数据」，所以日志只描述「导入后它在哪里、怎么处理」，不再说「将被丢弃」。
+  拒绝路径的对话框只展示前 20 条（`ValidationResult.issues`），并提供一个 **Open Log Folder** 按钮。
+  导入成功后重载 store（`src/renderer/dataReload.ts`）而不是重启；有需要处理的项时打开 `ImportReportDialog`（只显示数量，按钮可打开日志或直接进入数据检查），没有则只 toast。
+  删除全部数据同样不再重启：删库后调用 `reloadDataStore()`；`ClearUserFiles` 仍记录「删除全部」的完成。
 - 渲染层崩溃经 `IpcEventName.ReportError`（`send`）上报，写进 `crash.log`，然后显示在整窗的 `src/renderer/components/ErrorScreen.tsx` 上。
   **应用不再自己重启**；重启是那个页面上的一个按钮。
   `AppErrorBoundary` 必须留在 `app.tsx` 里 `Application` 的*外面*——放在里面的话，它会和它本该替换的那棵树一起卸载。

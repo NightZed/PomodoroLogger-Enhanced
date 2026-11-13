@@ -12,7 +12,7 @@ import * as React from 'react';
 import { Provider } from 'react-redux';
 import { applyMiddleware, createStore } from 'redux';
 import { thunk } from 'redux-thunk';
-import { act, cleanup, fireEvent, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 
 import { rootReducer } from '../../../reducers';
 import { POPUP_CONTAINER_ID } from '../../popupLayer';
@@ -159,13 +159,10 @@ describe('CardEditor delete', () => {
             await new Promise((resolve) => setTimeout(resolve, 0));
         });
 
-        const deleteButton = Array.from(document.querySelectorAll('.ant-modal button')).find(
-            (button) => button.textContent?.trim() === 'Delete'
-        );
-        expect(deleteButton).toBeDefined();
+        const deleteButton = screen.getByRole('button', { name: /Delete/ });
 
         await act(async () => {
-            fireEvent.click(deleteButton!);
+            fireEvent.click(deleteButton);
         });
 
         expect(feedback.confirm).toHaveBeenCalledTimes(1);

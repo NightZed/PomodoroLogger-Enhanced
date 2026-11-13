@@ -252,6 +252,7 @@ export const en = {
         list: {
             focused: 'Focused List',
             done: 'Done List',
+            menu: 'List actions',
             cardCount: (count: number): string => `${count} ${plural(count, 'Card', 'Cards')}`,
         },
         dragFailed: 'Could not move the card. The board was reloaded.',

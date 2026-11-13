@@ -553,7 +553,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
                                             </Tooltip>
                                         ) : undefined}
                                         <Dropdown menu={menu} trigger={['click']}>
-                                            <Icon type="menu" />
+                                            <Icon type="menu" aria-label={t('kanban.list.menu')} />
                                         </Dropdown>
                                     </div>
                                 </>

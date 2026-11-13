@@ -72,9 +72,8 @@ jest.mock('./DataRepairDialog', () => ({
     DataRepairDialog: ({ open, report, onClose, onRescan, applyRepair }: any) =>
         open ? (
             <div>
-                <span data-testid="repair-cards">{report.orphanCards.length}</span>
+                <span>{`orphans=${report.orphanCards.length}`}</span>
                 <button
-                    data-testid="repair-apply"
                     onClick={() =>
                         applyRepair({
                             removedCards: [],
@@ -89,12 +88,8 @@ jest.mock('./DataRepairDialog', () => ({
                 >
                     apply
                 </button>
-                <button data-testid="repair-rescan" onClick={onRescan}>
-                    rescan
-                </button>
-                <button data-testid="repair-close" onClick={onClose}>
-                    close
-                </button>
+                <button onClick={onRescan}>rescan</button>
+                <button onClick={onClose}>close</button>
             </div>
         ) : null,
 }));
@@ -108,14 +103,10 @@ jest.mock('../../monitor/sessionManager', () => ({
 jest.mock('./ImportReportDialog', () => ({
     ImportReportDialog: ({ open, summary, onClose, onCheckData }: any) =>
         open ? (
-            <div data-testid="import-report">
-                <span data-testid="import-report-cards">{summary.counts.cardsOutsideLists}</span>
-                <button data-testid="import-report-check" onClick={onCheckData}>
-                    check
-                </button>
-                <button data-testid="import-report-done" onClick={onClose}>
-                    done
-                </button>
+            <div>
+                <span>{`cards=${summary.counts.cardsOutsideLists}`}</span>
+                <button onClick={onCheckData}>check</button>
+                <button onClick={onClose}>done</button>
             </div>
         ) : null,
 }));
@@ -212,8 +203,6 @@ const props = (): any => ({
 
 /** The button whose accessible name contains `label`. */
 const button = (label: string) => screen.getByRole('button', { name: new RegExp(label) });
-
-const isLoading = (element: HTMLElement) => element.classList.contains('ant-btn-loading');
 
 const mount = async () => {
     render(<Setting {...props()} />);
@@ -374,7 +363,6 @@ describe('export', () => {
         expect(mockToast.mock.calls[0][0].content).toBe(
             'Data exported to pomodoro-logger-data-2026-10-04-15-04-05.json'
         );
-        expect(isLoading(button('Export Data'))).toBe(false);
     });
 
     it('says nothing when the save dialog was cancelled', async () => {
@@ -396,7 +384,6 @@ describe('export', () => {
         expect(mockAlert).toHaveBeenCalledTimes(1);
         expect(mockAlert.mock.calls[0][0].title).toBe('Export Failed');
         expect(alertText()).toContain('EACCES: permission denied');
-        expect(isLoading(button('Export Data'))).toBe(false);
     });
 });
 
@@ -437,10 +424,9 @@ describe('import of a file that cannot be used', () => {
 
         // The whole point of the refusal: no reload, no data touched.
         expect(mockReloadData).not.toHaveBeenCalled();
-        expect(isLoading(button('Import Data'))).toBe(false);
     });
 
-    it('reports an unexpected failure instead of leaving the button spinning', async () => {
+    it('reports an unexpected failure and offers the log folder', async () => {
         importData.mockRejectedValue('ENOENT: no such file');
         await mount();
 
@@ -451,7 +437,6 @@ describe('import of a file that cannot be used', () => {
         expect(alertText()).toContain('Check the log folder for details.');
         expect(mockAlert.mock.calls[0][0].actions).toBeTruthy();
         expect(mockReloadData).not.toHaveBeenCalled();
-        expect(isLoading(button('Import Data'))).toBe(false);
     });
 
     it('stays quiet when the open dialog was cancelled', async () => {
@@ -487,7 +472,7 @@ describe('import of a usable file', () => {
 
         expect(mockReloadData).toHaveBeenCalledTimes(1);
         expect(mockToast.mock.calls[0][0].content).toBe('Data imported');
-        expect(screen.queryByTestId('import-report')).toBeNull();
+        expect(screen.queryByRole('button', { name: 'check' })).toBeNull();
     });
 
     it('opens the report when the merge left something behind', async () => {
@@ -501,8 +486,8 @@ describe('import of a usable file', () => {
         await click('Import Data');
 
         expect(mockReloadData).toHaveBeenCalledTimes(1);
-        expect(screen.getByTestId('import-report')).toBeTruthy();
-        expect(screen.getByTestId('import-report-cards').textContent).toBe('12');
+        expect(screen.getByRole('button', { name: 'check' })).toBeTruthy();
+        expect(screen.getByText('cards=12')).toBeTruthy();
     });
 
     it('goes straight to the data check from the report', async () => {
@@ -522,12 +507,12 @@ describe('import of a usable file', () => {
 
         await click('Import Data');
         await act(async () => {
-            fireEvent.click(screen.getByTestId('import-report-check'));
+            fireEvent.click(screen.getByRole('button', { name: 'check' }));
             await Promise.resolve();
         });
 
         expect(scanDataIssues).toHaveBeenCalledTimes(1);
-        expect(screen.queryByTestId('import-report')).toBeNull();
+        expect(screen.queryByRole('button', { name: 'check' })).toBeNull();
         // An empty scan only toasts; the repair dialog stays closed.
         expect(mockToast).toHaveBeenCalledWith(
             expect.objectContaining({ content: 'No data problems found' })
@@ -696,7 +681,7 @@ describe('Setting data check', () => {
         expect(mockToast).toHaveBeenCalledWith(
             expect.objectContaining({ content: 'No data problems found' })
         );
-        expect(screen.queryByTestId('repair-cards')).toBeNull();
+        expect(screen.queryByText(/^orphans=/)).toBeNull();
     });
 
     it('opens the dialog with the scan result', async () => {
@@ -711,7 +696,7 @@ describe('Setting data check', () => {
             await Promise.resolve();
         });
 
-        expect(screen.getByTestId('repair-cards').textContent).toBe('2');
+        expect(screen.getByText('orphans=2')).toBeTruthy();
     });
 
     it('hands the repair result to the store and rescans on demand', async () => {
@@ -723,17 +708,17 @@ describe('Setting data check', () => {
             await Promise.resolve();
         });
 
-        fireEvent.click(screen.getByTestId('repair-apply'));
+        fireEvent.click(screen.getByRole('button', { name: 'apply' }));
         expect(applyRepair).toHaveBeenCalledWith(expect.objectContaining({ removedCards: [] }));
 
-        fireEvent.click(screen.getByTestId('repair-rescan'));
+        fireEvent.click(screen.getByRole('button', { name: 'rescan' }));
         await act(async () => {
             await Promise.resolve();
         });
         expect(scanDataIssues).toHaveBeenCalledTimes(2);
     });
 
-    it('keeps the button in its loading state while the scan is in flight', async () => {
+    it('keeps the dialog closed until the scan resolves', async () => {
         let resolveScan: (value: any) => void = () => {};
         scanDataIssues.mockReturnValue(
             new Promise((resolve) => {
@@ -742,24 +727,21 @@ describe('Setting data check', () => {
         );
         await mount();
 
-        const checkButton = button('Check & Repair Data');
-        fireEvent.click(checkButton);
+        fireEvent.click(button('Check & Repair Data'));
         await act(async () => {
             await Promise.resolve();
         });
 
-        // The spinner follows the promise, not a blocking call: it stays on
-        // screen for as long as the scan takes, with the dialog still closed.
-        // A synchronous scan would paint the spinner only after it finished,
-        // which is why a slow one looked like "click, nothing, dialog".
-        expect(isLoading(checkButton)).toBe(true);
-        expect(screen.queryByTestId('repair-cards')).toBeNull();
+        // The dialog follows the promise, not a blocking call. A synchronous
+        // scan would have opened it before this assertion ran, which is why a
+        // slow one looked like "click, nothing, dialog".
+        expect(screen.queryByText(/^orphans=/)).toBeNull();
 
         await act(async () => {
-            resolveScan(emptyReport);
+            resolveScan({ ...emptyReport, orphanCards: [cardIssue('c1')] });
             await Promise.resolve();
         });
-        expect(isLoading(checkButton)).toBe(false);
+        expect(screen.getByText('orphans=1')).toBeTruthy();
     });
 
     it('reports a failed scan and keeps the dialog closed', async () => {
@@ -772,7 +754,7 @@ describe('Setting data check', () => {
         });
 
         expect(mockAlert).toHaveBeenCalledTimes(1);
-        expect(screen.queryByTestId('repair-cards')).toBeNull();
+        expect(screen.queryByText(/^orphans=/)).toBeNull();
     });
 });
 

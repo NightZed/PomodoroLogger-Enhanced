@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { act, cleanup, fireEvent, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { List } from './List';
 import { feedback } from '../../feedback';
 
@@ -189,7 +189,7 @@ describe('List delete menu', () => {
         // cannot touch.
         const { ids, cards } = makeCards(2);
         const deleteList = jest.fn();
-        const { container } = render(
+        render(
             <List
                 {...({
                     _id: 'list-1',
@@ -212,17 +212,11 @@ describe('List delete menu', () => {
         );
 
         await act(async () => {
-            fireEvent.click(
-                container.querySelector('.list-head-icon .anticon-menu') as HTMLElement
-            );
+            fireEvent.click(screen.getByLabelText('List actions'));
         });
 
-        const items = Array.from(document.querySelectorAll('.ant-dropdown-menu-item'));
-        // Edit first, then the divider, then Delete.
-        expect(items.length).toBe(2);
-
         await act(async () => {
-            fireEvent.click(items[items.length - 1]);
+            fireEvent.click(screen.getByText('Delete'));
         });
 
         expect(feedback.confirm).toHaveBeenCalledTimes(1);

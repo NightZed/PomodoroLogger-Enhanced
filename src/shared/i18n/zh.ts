@@ -232,6 +232,7 @@ export const zh: CatalogShape<typeof en> = {
         list: {
             focused: '专注列表',
             done: '完成列表',
+            menu: '列表操作',
             cardCount: (count: number): string => `${count} 张卡片`,
         },
         dragFailed: '无法移动卡片，看板已重新加载。',

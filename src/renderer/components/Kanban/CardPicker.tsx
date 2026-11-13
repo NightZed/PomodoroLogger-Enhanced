@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { connect } from 'react-redux';
 import { AppModal } from '../AppModal';
 import { useI18n } from '../../i18n';
+import { DAY_EDITOR_WIDTH, PICKER_BODY_HEIGHT } from '../dialogLayout';
 import type { RootState } from '../../reducers';
 
 export interface CardPickerProps {
@@ -27,39 +28,48 @@ interface Props extends CardPickerProps {
     cards: RootState['kanban']['cards'];
 }
 
+/**
+ * Fixed height, and the only axis that may scroll here is horizontal (many
+ * lists). Each column owns its own vertical scrollbar: the frame itself must
+ * never scroll, or the dialog shows a second scrollbar on the right that looks
+ * like the whole panel is too short.
+ */
 const Columns = styled.div`
     display: flex;
-    align-items: flex-start;
+    align-items: stretch;
     gap: 12px;
-    max-height: 380px;
+    height: ${PICKER_BODY_HEIGHT}px;
     overflow-x: auto;
-    padding-bottom: 4px;
+    overflow-y: hidden;
 `;
 
 const Column = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 6px;
     flex: 1 0 150px;
     min-width: 150px;
-    max-height: 380px;
-    overflow-y: auto;
-    padding-right: 4px;
+    min-height: 0;
+    overflow: hidden;
 `;
 
 const ColumnTitle = styled.div`
-    position: sticky;
-    top: 0;
-    /* Opaque and stacked: without both, cards scrolling underneath show
-       through the sticky heading and the two read as one blur. */
-    z-index: 1;
+    flex: none;
     padding: 6px 0;
     margin-bottom: 2px;
     font-size: 12px;
     font-weight: 600;
     color: var(--pl-text-secondary);
-    background-color: var(--pl-bg-elevated);
     border-bottom: 1px solid var(--pl-border);
+`;
+
+const ColumnBody = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 4px;
 `;
 
 const CardOption = styled.button<{ $selected: boolean }>`
@@ -85,9 +95,11 @@ const CardOption = styled.button<{ $selected: boolean }>`
     }
 `;
 
-const Empty = styled.div`
-    padding: 24px;
-    text-align: center;
+const EmptyBody = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: ${PICKER_BODY_HEIGHT}px;
     font-size: 13px;
     color: var(--pl-text-secondary);
 `;
@@ -130,9 +142,9 @@ const CardPickerInner = (props: Props) => {
             title={t('kanban.cardPicker.title', board?.name ?? '')}
             onCancel={props.onClose}
             zIndex={props.zIndex ?? 1100}
-            /* Wide enough for three columns without a horizontal scrollbar;
-               antd still clamps it to the viewport on narrow windows. */
-            width={760}
+            /* Same frame as the project picker: the two are one click apart in
+               the History day editor. */
+            width={DAY_EDITOR_WIDTH}
             footer={
                 <FooterRow>
                     <Button onClick={() => props.onPick(undefined)}>
@@ -143,23 +155,25 @@ const CardPickerInner = (props: Props) => {
             }
         >
             {isEmpty ? (
-                <Empty>{t('kanban.cardPicker.empty')}</Empty>
+                <EmptyBody>{t('kanban.cardPicker.empty')}</EmptyBody>
             ) : (
                 <Columns>
                     {columns.map((column) => (
                         <Column key={column.list._id}>
                             <ColumnTitle>{column.list.title}</ColumnTitle>
-                            {column.cards.map((card) => (
-                                <CardOption
-                                    key={card._id}
-                                    type="button"
-                                    $selected={card._id === props.value}
-                                    title={card.title}
-                                    onClick={() => props.onPick(card._id)}
-                                >
-                                    {card.title || t('kanban.cardPicker.untitled')}
-                                </CardOption>
-                            ))}
+                            <ColumnBody>
+                                {column.cards.map((card) => (
+                                    <CardOption
+                                        key={card._id}
+                                        type="button"
+                                        $selected={card._id === props.value}
+                                        title={card.title}
+                                        onClick={() => props.onPick(card._id)}
+                                    >
+                                        {card.title || t('kanban.cardPicker.untitled')}
+                                    </CardOption>
+                                ))}
+                            </ColumnBody>
                         </Column>
                     ))}
                 </Columns>

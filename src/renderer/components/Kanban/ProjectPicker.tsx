@@ -1,9 +1,10 @@
 import * as React from 'react';
-import { Input, Select } from 'antd';
+import { Button, Input, Select } from 'antd';
 import styled from 'styled-components';
 import { connect } from 'react-redux';
 import { AppModal } from '../AppModal';
 import { useI18n } from '../../i18n';
+import { DAY_EDITOR_WIDTH, PICKER_BODY_HEIGHT } from '../dialogLayout';
 import type { RootState } from '../../reducers';
 import type { KanbanBoard } from './type';
 
@@ -30,8 +31,20 @@ interface Props extends ProjectPickerProps {
     boards: { [id: string]: KanbanBoard };
 }
 
+/**
+ * Fixed height so the dialog is the same size as the card picker. The grid
+ * takes whatever is left and scrolls on its own; the search bar and the "no
+ * project" button stay put.
+ */
+const Body = styled.div`
+    display: flex;
+    flex-direction: column;
+    height: ${PICKER_BODY_HEIGHT}px;
+`;
+
 const Toolbar = styled.div`
     display: flex;
+    flex: none;
     gap: 8px;
     margin-bottom: 12px;
 `;
@@ -39,8 +52,10 @@ const Toolbar = styled.div`
 const Grid = styled.div`
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    align-content: start;
     gap: 8px;
-    max-height: 320px;
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     padding: 2px;
 `;
@@ -80,6 +95,10 @@ const HiddenTag = styled.span`
 `;
 
 const Empty = styled.div`
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
     padding: 24px;
     text-align: center;
     font-size: 13px;
@@ -87,6 +106,8 @@ const Empty = styled.div`
 `;
 
 const NoProject = styled.button`
+    flex: none;
+    align-self: flex-start;
     margin-top: 12px;
     padding: 6px 12px;
     border-radius: 4px;
@@ -139,52 +160,57 @@ const ProjectPickerInner = (props: Props) => {
             title={t('kanban.projectPicker.title')}
             onCancel={props.onClose}
             zIndex={props.zIndex ?? 1100}
-            footer={null}
+            width={DAY_EDITOR_WIDTH}
+            /* Same footer as the card picker, so the two dialogs are the same
+               total height and not just the same body height. */
+            footer={<Button onClick={props.onClose}>{t('common.cancel')}</Button>}
         >
-            <Toolbar>
-                <Input
-                    allowClear
-                    autoFocus
-                    placeholder={t('kanban.projectPicker.search')}
-                    value={keyword}
-                    onChange={(event) => setKeyword(event.target.value)}
-                />
-                <Select<SortBy>
-                    value={sortBy}
-                    style={{ width: 150, flex: 'none' }}
-                    onChange={setSortBy}
-                >
-                    <Option value="created">{t('kanban.projectPicker.sortCreated')}</Option>
-                    <Option value="visited">{t('kanban.projectPicker.sortVisited')}</Option>
-                    <Option value="name">{t('kanban.projectPicker.sortName')}</Option>
-                </Select>
-            </Toolbar>
-            {boards.length === 0 ? (
-                <Empty>{t('kanban.projectPicker.empty')}</Empty>
-            ) : (
-                <Grid>
-                    {boards.map((board) => (
-                        <BoardOption
-                            key={board._id}
-                            type="button"
-                            $selected={board._id === props.value}
-                            $hidden={!!board.hidden}
-                            title={board.name}
-                            onClick={() => props.onPick(board._id)}
-                        >
-                            <BoardName>{board.name}</BoardName>
-                            {board.hidden ? (
-                                <HiddenTag>{t('kanban.projectPicker.hidden')}</HiddenTag>
-                            ) : undefined}
-                        </BoardOption>
-                    ))}
-                </Grid>
-            )}
-            {props.allowNone === false ? undefined : (
-                <NoProject type="button" onClick={() => props.onPick(undefined)}>
-                    {t('kanban.projectPicker.none')}
-                </NoProject>
-            )}
+            <Body>
+                <Toolbar>
+                    <Input
+                        allowClear
+                        autoFocus
+                        placeholder={t('kanban.projectPicker.search')}
+                        value={keyword}
+                        onChange={(event) => setKeyword(event.target.value)}
+                    />
+                    <Select<SortBy>
+                        value={sortBy}
+                        style={{ width: 150, flex: 'none' }}
+                        onChange={setSortBy}
+                    >
+                        <Option value="created">{t('kanban.projectPicker.sortCreated')}</Option>
+                        <Option value="visited">{t('kanban.projectPicker.sortVisited')}</Option>
+                        <Option value="name">{t('kanban.projectPicker.sortName')}</Option>
+                    </Select>
+                </Toolbar>
+                {boards.length === 0 ? (
+                    <Empty>{t('kanban.projectPicker.empty')}</Empty>
+                ) : (
+                    <Grid>
+                        {boards.map((board) => (
+                            <BoardOption
+                                key={board._id}
+                                type="button"
+                                $selected={board._id === props.value}
+                                $hidden={!!board.hidden}
+                                title={board.name}
+                                onClick={() => props.onPick(board._id)}
+                            >
+                                <BoardName>{board.name}</BoardName>
+                                {board.hidden ? (
+                                    <HiddenTag>{t('kanban.projectPicker.hidden')}</HiddenTag>
+                                ) : undefined}
+                            </BoardOption>
+                        ))}
+                    </Grid>
+                )}
+                {props.allowNone === false ? undefined : (
+                    <NoProject type="button" onClick={() => props.onPick(undefined)}>
+                        {t('kanban.projectPicker.none')}
+                    </NoProject>
+                )}
+            </Body>
         </AppModal>
     );
 };

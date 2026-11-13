@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { connect } from 'react-redux';
 import { AppModal } from '../AppModal';
 import { useI18n } from '../../i18n';
+import { DAY_EDITOR_WIDTH } from '../dialogLayout';
 import type { RootState } from '../../reducers';
 
 export interface ListPickerProps {
@@ -144,7 +145,10 @@ const ListPickerInner = (props: Props) => {
             title={t('kanban.cardMove.listTitle', board?.name ?? '')}
             onCancel={props.onCancel}
             zIndex={1100}
-            width={560}
+            /* Second step of the two-step move flow; it follows a
+               ProjectPicker, so it keeps the same width instead of shrinking
+               in the middle of the flow. */
+            width={DAY_EDITOR_WIDTH}
             footer={
                 <FooterRow>
                     <Button onClick={props.onCancel}>{t('kanban.cardMove.cancel')}</Button>

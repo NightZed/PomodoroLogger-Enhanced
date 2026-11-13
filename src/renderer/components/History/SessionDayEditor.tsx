@@ -3,6 +3,7 @@ import { Button, Checkbox, Segmented } from 'antd';
 import styled from 'styled-components';
 import { connect } from 'react-redux';
 import { AppModal } from '../AppModal';
+import { DAY_EDITOR_WIDTH } from '../dialogLayout';
 import { feedback } from '../feedback';
 import { CardPicker } from '../Kanban/CardPicker';
 import { ProjectPicker } from '../Kanban/ProjectPicker';
@@ -371,7 +372,7 @@ const SessionDayEditorInner = (props: Props) => {
         <>
             <AppModal
                 open={props.open}
-                width={860}
+                width={DAY_EDITOR_WIDTH}
                 title={t('history.sessionEditor.title', day)}
                 onCancel={requestClose}
                 footer={

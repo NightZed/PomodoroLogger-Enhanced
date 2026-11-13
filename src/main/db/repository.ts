@@ -710,6 +710,42 @@ export class SqliteRepository<T = any> implements DbRepository<T> {
         return result;
     }
 
+    /**
+     * Every `_id` that matches, without building documents.
+     *
+     * `findSync` parses the whole `doc` JSON of every row, which on the
+     * sessions table means each session's per-app and per-title breakdown.
+     * Callers that only need the set of existing ids (the data check does) pay
+     * roughly a second per 20k sessions for that, all of it on the main
+     * process's single thread.
+     */
+    idsSync(query: any = {}): string[] {
+        if (!this.spec.hasId) {
+            return [];
+        }
+        return this.rawRows(query, ['_id']).map((row) => row._id as string);
+    }
+
+    /**
+     * Synchronous read of only the named fields (`title`, `sessionIds`, ...).
+     *
+     * The same reasoning as `idsSync`: the scan needs a card's title and time,
+     * not its content, labels or screenshots. Columns that were not asked for
+     * are absent from the row, and `docFromColumns` skips them, so only the
+     * selected JSON columns are parsed.
+     */
+    findFieldsSync<R = any>(query: any, fields: string[]): R[] {
+        const wanted = fields.map((path) => {
+            const field = this.spec.fields.find((candidate) => candidate.path === path);
+            if (field === undefined) {
+                throw new Error(`Unknown field ${path} on ${this.spec.table}`);
+            }
+            return field;
+        });
+        const columns = [...(this.spec.hasId ? ['_id'] : []), ...wanted.map((f) => f.column)];
+        return this.rawRows(query, columns).map((row) => this.docFromColumns(row) as R);
+    }
+
     /** Synchronous counterpart of `remove`; the caller owns the transaction. */
     removeSync(query: any = {}, options: RemoveOptions = {}): number {
         const matches = this.selectRows(query).filter(({ doc }) => matchesQuery(doc, query));

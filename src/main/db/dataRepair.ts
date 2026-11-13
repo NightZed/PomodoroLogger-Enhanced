@@ -1,7 +1,6 @@
 import { DBs, loadDBs, runInTransaction } from './index';
 import type { SqliteRepository } from './repository';
 import type { Card, KanbanBoard, List, MoveInfo } from '../../renderer/components/Kanban/type';
-import type { PomodoroRecord } from '../../renderer/monitor/type';
 import type {
     CardIssue,
     DanglingRefIssue,
@@ -21,7 +20,21 @@ const loadRepos = async () => {
     };
 };
 
-const toIssue = (card: Card): CardIssue => ({
+/**
+ * The scan reads a projection, not the full rows: a card's content, labels and
+ * timestamps never reach the report, and every session's per-app breakdown is
+ * several kilobytes. Parsing all of that blocked the main process for about a
+ * second per 20k sessions, which is long enough that the window stopped
+ * repainting before the spinner appeared.
+ */
+type CardRow = Pick<Card, '_id' | 'title' | 'sessionIds'> & {
+    spentTimeInHour?: { estimated?: number; actual?: number };
+};
+type ListRow = Pick<List, '_id' | 'title' | 'cards'>;
+type BoardRow = Pick<KanbanBoard, '_id' | 'name' | 'lists'>;
+type MoveRefs = Pick<MoveInfo, 'cardId' | 'fromListId' | 'toListId'>;
+
+const toIssue = (card: CardRow): CardIssue => ({
     _id: card._id,
     title: card.title,
     spentHours: card.spentTimeInHour?.actual ?? 0,
@@ -60,11 +73,17 @@ const byHoursThenTitle = (a: CardIssue, b: CardIssue): number =>
  */
 export async function scanDataIssues(): Promise<DataIssuesReport> {
     const repos = await loadRepos();
-    const cards = repos.cards.findSync<Card>();
-    const lists = repos.lists.findSync<List>();
-    const boards = repos.boards.findSync<KanbanBoard>();
-    const moves = repos.moves.findSync<MoveInfo>();
-    const sessions = repos.sessions.findSync<PomodoroRecord>();
+    const cards = repos.cards.findFieldsSync<CardRow>({}, [
+        'title',
+        'sessionIds',
+        'spentTimeInHour.actual',
+    ]);
+    const lists = repos.lists.findFieldsSync<ListRow>({}, ['title', 'cards']);
+    const boards = repos.boards.findFieldsSync<BoardRow>({}, ['name', 'lists']);
+    const moves = repos.moves.findFieldsSync<MoveRefs>({}, ['cardId', 'fromListId', 'toListId']);
+    // The scan only needs to know which sessions exist. Reading the rows would
+    // parse every app/title breakdown in the history to build one id set.
+    const sessionIds = new Set(repos.sessions.idsSync());
 
     const referencedLists = new Set<string>();
     for (const board of boards) {
@@ -114,7 +133,6 @@ export async function scanDataIssues(): Promise<DataIssuesReport> {
 
     const cardById = new Set(cards.map((card) => card._id));
     const listById = new Set(lists.map((list) => list._id));
-    const sessionIds = new Set(sessions.map((session) => session._id));
 
     const deadMoves = moves.filter(
         (move) =>
@@ -186,14 +204,14 @@ export async function scanDataIssues(): Promise<DataIssuesReport> {
  */
 export async function repairData(payload: DataRepairPayload): Promise<DataRepairResult> {
     const repos = await loadRepos();
-    const cards = repos.cards.findSync<Card>();
     const lists = repos.lists.findSync<List>();
     const boards = repos.boards.findSync<KanbanBoard>();
-    const sessions = repos.sessions.findSync<PomodoroRecord>();
+    // Only the ids matter here; the rows themselves are never rewritten.
+    const sessionIds = new Set(repos.sessions.idsSync());
+    const allCardIds = repos.cards.idsSync();
 
-    const cardById = new Set(cards.map((card) => card._id));
+    const cardById = new Set(allCardIds);
     const listById = new Set(lists.map((list) => list._id));
-    const sessionIds = new Set(sessions.map((session) => session._id));
 
     // Ids that vanished between the scan and the confirmation are ignored: the
     // user asked for a repair, not for an error about a row they cannot see.
@@ -202,6 +220,17 @@ export async function repairData(payload: DataRepairPayload): Promise<DataRepair
     const listRefIds = new Set(payload.listCardRefIds);
     const boardRefIds = new Set(payload.boardListRefIds);
     const cardRefIds = new Set(payload.cardSessionRefIds);
+
+    // Only the cards whose `sessionIds` are being repaired need their full row
+    // (the renderer replaces them wholesale). Reading every card would parse
+    // each card body for a repair that may touch a handful of them.
+    const repairedCardIds = Array.from(cardRefIds).filter(
+        (id) => cardById.has(id) && !cardIds.has(id)
+    );
+    const cards =
+        repairedCardIds.length === 0
+            ? []
+            : repos.cards.findSync<Card>({ _id: { $in: repairedCardIds } });
 
     let repairedRefs = 0;
 
@@ -261,9 +290,6 @@ export async function repairData(payload: DataRepairPayload): Promise<DataRepair
 
     const updatedCards: { [id: string]: Card } = {};
     for (const card of cards) {
-        if (cardIds.has(card._id) || !cardRefIds.has(card._id)) {
-            continue;
-        }
         const next: string[] = [];
         const seen = new Set<string>();
         let changed = false;
@@ -286,7 +312,7 @@ export async function repairData(payload: DataRepairPayload): Promise<DataRepair
     // `moves` has no `_id` column, so it can only be addressed by what the rows
     // point at. The surviving sets are computed AFTER the deletions above, so a
     // move that referenced a card removed in this same call is included.
-    const survivingCardIds = cards.filter((card) => !cardIds.has(card._id)).map((card) => card._id);
+    const survivingCardIds = allCardIds.filter((id) => !cardIds.has(id));
     const survivingListIds = lists.filter((list) => !listIds.has(list._id)).map((list) => list._id);
 
     let removedMoves = 0;

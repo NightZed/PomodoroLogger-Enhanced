@@ -314,3 +314,70 @@ describe('SQLite repository query/update mapping', () => {
         }
     });
 });
+
+describe('column-only reads', () => {
+    it('returns ids and selected fields without parsing the doc column', async () => {
+        const { connection, cards } = setup();
+        try {
+            await cards.insert([
+                {
+                    _id: 'a',
+                    title: 'Alpha',
+                    content: 'long body nobody needs',
+                    sessionIds: ['s1', 's2'],
+                    spentTimeInHour: { estimated: 1, actual: 2 },
+                },
+                {
+                    _id: 'b',
+                    title: 'Beta',
+                    sessionIds: [],
+                    spentTimeInHour: { estimated: 0, actual: 0 },
+                },
+            ]);
+
+            // A truncated `doc` is what a crash leaves behind. Full reads fail
+            // on it; the column-only paths must not even look at it.
+            connection.prepare('UPDATE cards SET doc = ? WHERE _id = ?').run('{broken', 'a');
+
+            expect(cards.idsSync().sort()).toEqual(['a', 'b']);
+            expect(cards.idsSync({ title: 'Beta' })).toEqual(['b']);
+
+            const rows = cards.findFieldsSync<any>({}, [
+                'title',
+                'sessionIds',
+                'spentTimeInHour.actual',
+            ]);
+            expect(rows).toHaveLength(2);
+            expect(rows[0]).toEqual({
+                _id: 'a',
+                title: 'Alpha',
+                sessionIds: ['s1', 's2'],
+                spentTimeInHour: { actual: 2 },
+            });
+            // Fields that were not requested are absent, not `undefined`.
+            expect('content' in rows[0]).toBe(false);
+            expect(rows[0].spentTimeInHour.estimated).toBeUndefined();
+        } finally {
+            connection.close();
+        }
+    });
+
+    it('has no ids to offer for a table without an _id column', () => {
+        const { connection, moves } = setup();
+        try {
+            expect(moves.idsSync()).toEqual([]);
+            expect(connection).toBeDefined();
+        } finally {
+            connection.close();
+        }
+    });
+
+    it('rejects a field the table does not have', () => {
+        const { connection, cards } = setup();
+        try {
+            expect(() => cards.findFieldsSync({}, ['nope'])).toThrow(/Unknown field/);
+        } finally {
+            connection.close();
+        }
+    });
+});

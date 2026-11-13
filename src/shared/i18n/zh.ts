@@ -714,7 +714,7 @@ export const zh: CatalogShape<typeof en> = {
             importDone: '数据已导入',
             importReport: {
                 title: '导入完成',
-                intro: '数据已合并。下面这些条目没有自动处理，完整清单在日志文件夹里。',
+                intro: '数据已合并。下面这些条目没有自动处理。',
                 needsAttention: '需要处理',
                 hint: '提示',
                 rehomed: '已自动放回',

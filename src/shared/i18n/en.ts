@@ -818,9 +818,7 @@ export const en = {
             importDone: 'Data imported',
             importReport: {
                 title: 'Import complete',
-                intro:
-                    'The data was merged. The entries below were left as they are; ' +
-                    'the full list is in the log folder.',
+                intro: 'The data was merged. The entries below were left as they are.',
                 needsAttention: 'Needs attention',
                 hint: 'For your information',
                 rehomed: 'Rehomed automatically',

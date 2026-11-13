@@ -695,6 +695,35 @@ describe('Setting data check', () => {
         expect(scanDataIssues).toHaveBeenCalledTimes(2);
     });
 
+    it('keeps the button in its loading state while the scan is in flight', async () => {
+        let resolveScan: (value: any) => void = () => {};
+        scanDataIssues.mockReturnValue(
+            new Promise((resolve) => {
+                resolveScan = resolve;
+            })
+        );
+        await mount();
+
+        const checkButton = button('Check & Repair Data');
+        fireEvent.click(checkButton);
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        // The spinner follows the promise, not a blocking call: it stays on
+        // screen for as long as the scan takes, with the dialog still closed.
+        // A synchronous scan would paint the spinner only after it finished,
+        // which is why a slow one looked like "click, nothing, dialog".
+        expect(isLoading(checkButton)).toBe(true);
+        expect(screen.queryByTestId('repair-cards')).toBeNull();
+
+        await act(async () => {
+            resolveScan(emptyReport);
+            await Promise.resolve();
+        });
+        expect(isLoading(checkButton)).toBe(false);
+    });
+
     it('reports a failed scan and keeps the dialog closed', async () => {
         scanDataIssues.mockRejectedValue(new Error('disk gone'));
         await mount();

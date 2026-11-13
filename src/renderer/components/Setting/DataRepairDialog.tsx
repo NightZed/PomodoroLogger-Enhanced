@@ -16,6 +16,8 @@ import type { TranslateFn } from '../../../shared/i18n';
 
 /** Rows rendered per group until "show all" is clicked. */
 const MAX_ROWS = 50;
+/** Ids shown under one dangling row before "show more" is clicked. */
+const MAX_IDS = 5;
 
 export interface DataRepairDialogProps {
     open: boolean;
@@ -81,6 +83,45 @@ const RowMeta = styled.div`
     white-space: nowrap;
 `;
 
+/** A dangling row's heading: long enough that it wraps instead of truncating. */
+const RefTitle = styled.div`
+    font-size: 13px;
+    line-height: 1.5;
+    word-break: break-word;
+`;
+
+const OwnerId = styled.span`
+    margin-left: 6px;
+    font-family: monospace;
+    font-size: 11px;
+    color: var(--pl-text-secondary);
+`;
+
+/** One id per line: the only handle a dead reference still has. */
+const IdList = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin: 2px 0 0 24px;
+`;
+
+const IdLine = styled.code`
+    font-family: monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--pl-text-secondary);
+    user-select: text;
+`;
+
+const MoreIds = styled(Button)`
+    && {
+        height: auto;
+        margin-left: 20px;
+        padding: 0 4px;
+        font-size: 11px;
+    }
+`;
+
 const Scroller = styled.div`
     max-height: 52vh;
     overflow-y: auto;
@@ -128,6 +169,14 @@ const reportKeys = (report: DataIssuesReport): string[] => {
     return keys;
 };
 
+/** The one-line sentence that names the owner and how many entries go. */
+const refText = (issue: DanglingRefIssue, t: TranslateFn): string =>
+    issue.kind === 'boardLists'
+        ? t('dataRepair.danglingBoardLists', issue.ownerTitle, issue.count)
+        : issue.kind === 'listCards'
+          ? t('dataRepair.danglingListCards', issue.ownerTitle, issue.count)
+          : t('dataRepair.danglingCardSessions', issue.ownerTitle, issue.count);
+
 const cardMeta = (issue: CardIssue, t: TranslateFn): string => {
     const parts: string[] = [];
     if (issue.spentHours > 0) {
@@ -172,6 +221,10 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
 
     const [selected, setSelected] = React.useState<Set<string>>(() => defaultSelection(report));
     const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
+    // Which rows have revealed all of their dangling ids. Kept apart from
+    // `expanded` (which reveals more rows), because a row can be shown while
+    // its id list is still folded.
+    const [expandedIds, setExpandedIds] = React.useState<Set<string>>(new Set());
     const [busy, setBusy] = React.useState(false);
     const [restoreIds, setRestoreIds] = React.useState<string[] | undefined>();
     const initialized = React.useRef(false);
@@ -188,6 +241,7 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
             initialized.current = true;
             setSelected(defaultSelection(report));
             setExpanded(new Set());
+            setExpandedIds(new Set());
             return;
         }
         const valid = new Set(reportKeys(report));
@@ -252,6 +306,40 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
                 {t('dataRepair.showAll', total - MAX_ROWS)}
             </Button>
         );
+
+    /**
+     * The dead ids under one dangling row. A single broken import can leave a
+     * card naming hundreds of sessions, so the list starts folded; the owner
+     * row stays the unit that is repaired.
+     */
+    const refIdRows = (issue: DanglingRefIssue): React.ReactNode => {
+        const key = refKey(issue);
+        const allVisible = expandedIds.has(key);
+        const shown = allVisible ? issue.ids : issue.ids.slice(0, MAX_IDS);
+        const hidden = issue.ids.length - shown.length;
+
+        return (
+            <>
+                <IdList>
+                    {shown.map((entry) => (
+                        <IdLine key={entry.id}>
+                            {entry.id}
+                            {entry.times > 1 ? ` ×${entry.times}` : ''}
+                        </IdLine>
+                    ))}
+                </IdList>
+                {hidden > 0 ? (
+                    <MoreIds
+                        type="link"
+                        size="small"
+                        onClick={() => setExpandedIds((current) => new Set(current).add(key))}
+                    >
+                        {t('dataRepair.moreIds', hidden)}
+                    </MoreIds>
+                ) : undefined}
+            </>
+        );
+    };
 
     const cardRows = (group: string, cards: CardIssue[]): React.ReactNode => (
         <>
@@ -510,25 +598,11 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
                                         onChange={() => toggle(refKey(issue))}
                                     />
                                     <RowBody>
-                                        <RowTitle>
-                                            {issue.kind === 'boardLists'
-                                                ? t(
-                                                      'dataRepair.danglingBoardLists',
-                                                      issue.ownerTitle,
-                                                      issue.count
-                                                  )
-                                                : issue.kind === 'listCards'
-                                                  ? t(
-                                                        'dataRepair.danglingListCards',
-                                                        issue.ownerTitle,
-                                                        issue.count
-                                                    )
-                                                  : t(
-                                                        'dataRepair.danglingCardSessions',
-                                                        issue.ownerTitle,
-                                                        issue.count
-                                                    )}
-                                        </RowTitle>
+                                        <RefTitle>
+                                            {refText(issue, t)}
+                                            <OwnerId>{issue.ownerId}</OwnerId>
+                                        </RefTitle>
+                                        {refIdRows(issue)}
                                     </RowBody>
                                 </Row>
                             ))}

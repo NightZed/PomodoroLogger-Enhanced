@@ -481,6 +481,7 @@ export const zh: CatalogShape<typeof en> = {
         noRecord: '未记录时长',
         untitled: '（无标题）',
         showAll: (count: number): string => `显示全部（还有 ${count} 条）`,
+        moreIds: (count: number): string => `显示更多（还有 ${count} 个）`,
         confirmTitle: '处理这些数据问题？',
         confirmDelete: '会删除：',
         confirmRepair: '会修复：',

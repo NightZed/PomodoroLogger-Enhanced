@@ -92,11 +92,29 @@ describe('data check', () => {
 
         const byKind = new Map(report.dangling.map((issue) => [issue.kind, issue]));
         // b1 names `goneList`.
-        expect(byKind.get('boardLists')).toMatchObject({ ownerId: 'b1', count: 1 });
-        // l1 names `goneCard` and c1 twice.
-        expect(byKind.get('listCards')).toMatchObject({ ownerId: 'l1', count: 2 });
+        expect(byKind.get('boardLists')).toMatchObject({
+            ownerId: 'b1',
+            count: 1,
+            ids: [{ id: 'goneList', times: 1 }],
+        });
+        // l1 names `goneCard` and c1 twice; ids come in first-seen order.
+        expect(byKind.get('listCards')).toMatchObject({
+            ownerId: 'l1',
+            count: 2,
+            ids: [
+                { id: 'c1', times: 2 },
+                { id: 'goneCard', times: 1 },
+            ],
+        });
         // c1 names `goneSession` and s1 twice.
-        expect(byKind.get('cardSessions')).toMatchObject({ ownerId: 'c1', count: 2 });
+        expect(byKind.get('cardSessions')).toMatchObject({
+            ownerId: 'c1',
+            count: 2,
+            ids: [
+                { id: 's1', times: 2 },
+                { id: 'goneSession', times: 1 },
+            ],
+        });
     });
 
     it('deletes the chosen rows and repairs the chosen arrays', async () => {

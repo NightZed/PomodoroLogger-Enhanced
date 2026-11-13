@@ -3,6 +3,7 @@ import type { SqliteRepository } from './repository';
 import type { Card, KanbanBoard, List, MoveInfo } from '../../renderer/components/Kanban/type';
 import type {
     CardIssue,
+    DanglingRefId,
     DanglingRefIssue,
     DataIssuesReport,
     DataRepairPayload,
@@ -41,17 +42,48 @@ const toIssue = (card: CardRow): CardIssue => ({
     sessionCount: new Set(card.sessionIds ?? []).size,
 });
 
-/** Entries a repair would drop: ids that do not exist, and repeated ids. */
-const countInvalid = (ids: string[] | undefined, exists: (id: string) => boolean): number => {
+interface InvalidEntries {
+    /** Entries that would be dropped. */
+    count: number;
+    /** Distinct ids that lose at least one entry, in first-seen order. */
+    ids: DanglingRefId[];
+}
+
+/**
+ * Entries a repair would drop: ids that do not exist, and repeated ids.
+ *
+ * A dead id is listed once with its total occurrence count, so `id ×3` means
+ * the array names it three times while `count` counts all three entries. A
+ * live id that appears twice is listed too (the second copy is what gets
+ * dropped) with `times: 2`.
+ */
+const collectInvalid = (
+    ids: string[] | undefined,
+    exists: (id: string) => boolean
+): InvalidEntries => {
+    const occurrences = new Map<string, number>();
+    const broken = new Set<string>();
     const seen = new Set<string>();
     let count = 0;
+
     for (const id of ids ?? []) {
-        if (!exists(id) || seen.has(id)) {
+        occurrences.set(id, (occurrences.get(id) ?? 0) + 1);
+        if (!exists(id)) {
             count += 1;
+            broken.add(id);
+        } else if (seen.has(id)) {
+            count += 1;
+            broken.add(id);
         }
         seen.add(id);
     }
-    return count;
+
+    return {
+        count,
+        ids: [...occurrences]
+            .filter(([id]) => broken.has(id))
+            .map(([id, times]) => ({ id, times })),
+    };
 };
 
 const byHoursThenTitle = (a: CardIssue, b: CardIssue): number =>
@@ -143,26 +175,28 @@ export async function scanDataIssues(): Promise<DataIssuesReport> {
 
     const dangling: DanglingRefIssue[] = [];
     for (const board of boards) {
-        const count = countInvalid(board.lists, (id) => listById.has(id));
-        if (count > 0) {
+        const invalid = collectInvalid(board.lists, (id) => listById.has(id));
+        if (invalid.count > 0) {
             dangling.push({
                 kind: 'boardLists',
                 ownerId: board._id,
                 ownerTitle: board.name,
-                count,
+                count: invalid.count,
+                ids: invalid.ids,
             });
         }
     }
     // Orphan lists are left out: they are either deleted as a whole or never
     // rendered, so repairing their arrays would be work nobody sees.
     for (const list of liveLists) {
-        const count = countInvalid(list.cards, (id) => cardById.has(id));
-        if (count > 0) {
+        const invalid = collectInvalid(list.cards, (id) => cardById.has(id));
+        if (invalid.count > 0) {
             dangling.push({
                 kind: 'listCards',
                 ownerId: list._id,
                 ownerTitle: list.title,
-                count,
+                count: invalid.count,
+                ids: invalid.ids,
             });
         }
     }
@@ -170,13 +204,14 @@ export async function scanDataIssues(): Promise<DataIssuesReport> {
         if (!liveCardIds.has(card._id)) {
             continue;
         }
-        const count = countInvalid(card.sessionIds, (id) => sessionIds.has(id));
-        if (count > 0) {
+        const invalid = collectInvalid(card.sessionIds, (id) => sessionIds.has(id));
+        if (invalid.count > 0) {
             dangling.push({
                 kind: 'cardSessions',
                 ownerId: card._id,
                 ownerTitle: card.title,
-                count,
+                count: invalid.count,
+                ids: invalid.ids,
             });
         }
     }

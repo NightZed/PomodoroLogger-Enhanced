@@ -31,6 +31,18 @@ export interface MoveIssue {
 }
 
 /**
+ * One id an array still names but should not.
+ *
+ * Dead ids and duplicates have no row left to read a title from, so the id is
+ * all the dialog can show. `times` is how often the array names it; 2+ means
+ * the entry is repeated rather than merely dead.
+ */
+export interface DanglingRefId {
+    id: string;
+    times: number;
+}
+
+/**
  * An array that names rows which no longer exist, or names one twice.
  * `kind` decides which owner carries it.
  */
@@ -40,6 +52,12 @@ export interface DanglingRefIssue {
     ownerTitle: string;
     /** Entries that would be dropped: dead ids plus duplicates. */
     count: number;
+    /**
+     * The distinct ids behind `count`, in first-seen order. `count` can be
+     * larger than `ids.length` when an id is repeated or appears several
+     * times after being deleted.
+     */
+    ids: DanglingRefId[];
 }
 
 export interface DataIssuesReport {

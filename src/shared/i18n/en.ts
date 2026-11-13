@@ -518,6 +518,7 @@ export const en = {
         noRecord: 'No time recorded',
         untitled: '(Untitled)',
         showAll: (count: number): string => `Show all (${count} more)`,
+        moreIds: (count: number): string => `Show more (${count} more)`,
         confirmTitle: 'Apply these fixes?',
         confirmDelete: 'Will be deleted:',
         confirmRepair: 'Will be repaired:',

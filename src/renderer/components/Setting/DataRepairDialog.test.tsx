@@ -30,8 +30,20 @@ const report: DataIssuesReport = {
     lists: [{ _id: 'l1', title: '待办' }],
     moves: { total: 3, cardCount: 1 },
     dangling: [
-        { kind: 'listCards', ownerId: 'l2', ownerTitle: '进行中', count: 1 },
-        { kind: 'cardSessions', ownerId: 'c1', ownerTitle: '调研', count: 1 },
+        {
+            kind: 'listCards',
+            ownerId: 'l2',
+            ownerTitle: '进行中',
+            count: 1,
+            ids: [{ id: 'goneCard', times: 1 }],
+        },
+        {
+            kind: 'cardSessions',
+            ownerId: 'c1',
+            ownerTitle: '调研',
+            count: 1,
+            ids: [{ id: 'goneSession', times: 1 }],
+        },
     ],
 };
 
@@ -141,7 +153,15 @@ describe('DataRepairDialog', () => {
             orphanCards: [],
             lists: [],
             moves: { total: 0, cardCount: 0 },
-            dangling: [{ kind: 'listCards', ownerId: 'l2', ownerTitle: '进行中', count: 1 }],
+            dangling: [
+                {
+                    kind: 'listCards',
+                    ownerId: 'l2',
+                    ownerTitle: '进行中',
+                    count: 1,
+                    ids: [{ id: 'goneCard', times: 1 }],
+                },
+            ],
         });
 
         fireEvent.click(applyButton());
@@ -149,6 +169,58 @@ describe('DataRepairDialog', () => {
         expect(mockConfirm).toHaveBeenCalledTimes(1);
         expect(repairData).not.toHaveBeenCalled();
         expect(confirmText()).toContain('1 reference');
+    });
+
+    it('lists the dead ids under a row and folds them after five', () => {
+        renderDialog({
+            detachedCards: [],
+            orphanCards: [],
+            lists: [],
+            moves: { total: 0, cardCount: 0 },
+            dangling: [
+                {
+                    kind: 'cardSessions',
+                    ownerId: 'c1',
+                    ownerTitle: '调研',
+                    count: 7,
+                    ids: Array.from({ length: 7 }, (_, index) => ({
+                        id: `dead-${index}`,
+                        times: 1,
+                    })),
+                },
+            ],
+        });
+
+        // The owner id is the only stable handle: the title can be edited.
+        expect(screen.getByText('c1')).toBeTruthy();
+        expect(screen.getByText('dead-0')).toBeTruthy();
+        expect(screen.getByText('dead-4')).toBeTruthy();
+        expect(screen.queryByText('dead-5')).toBeNull();
+
+        fireEvent.click(screen.getByRole('button', { name: /Show more/ }));
+
+        expect(screen.getByText('dead-6')).toBeTruthy();
+        expect(screen.queryByRole('button', { name: /Show more/ })).toBeNull();
+    });
+
+    it('notes how often a repeated id is named', () => {
+        renderDialog({
+            detachedCards: [],
+            orphanCards: [],
+            lists: [],
+            moves: { total: 0, cardCount: 0 },
+            dangling: [
+                {
+                    kind: 'cardSessions',
+                    ownerId: 'c1',
+                    ownerTitle: '调研',
+                    count: 3,
+                    ids: [{ id: 'goneSession', times: 3 }],
+                },
+            ],
+        });
+
+        expect(screen.getByText('goneSession ×3')).toBeTruthy();
     });
 
     it('restores a single card from its row without deleting anything', () => {

@@ -4,6 +4,7 @@ import { actions as cardAction } from '../Card/action';
 import { applyKanbanDeletion, deleteKanbanItems } from '../deletion';
 import { applyCardMove } from '../cardMove';
 import { applyDataRepair } from '../dataRepair';
+import { applyKanbanSnapshot } from '../snapshot';
 import { uid } from '../../../../utils/uid';
 import { workers } from '../../../workers';
 import { feedback } from '../../feedback';
@@ -95,6 +96,7 @@ export const listReducer = createReducer<ListsState>({}, (builder) => {
             },
         }))
         .addCase(setLists, (state, { payload }) => payload)
+        .addCase(applyKanbanSnapshot, (_state, { payload }) => payload.lists)
         .addCase(moveCard, (state, { payload: { fromListId, toListId, fromIndex, toIndex } }) => {
             const resolved = resolveDragIndexes(state, fromListId, toListId, fromIndex, toIndex);
             if (resolved === null) {

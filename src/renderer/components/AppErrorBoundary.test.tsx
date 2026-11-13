@@ -81,6 +81,17 @@ describe('AppErrorBoundary', () => {
         expect(openLogDir).toHaveBeenCalledTimes(1);
     });
 
+    it('prints the crash time in local wall-clock time with its UTC offset', () => {
+        const { container } = mount();
+
+        const text = container.querySelector('pre')?.textContent ?? '';
+        // `new Date().toISOString()` showed UTC with a trailing Z, which forced
+        // the reader to convert time zones before correlating the crash with
+        // what they were doing.
+        expect(text).toMatch(/Time: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}[+-]\d{2}:\d{2}/);
+        expect(text).not.toMatch(/Time: .*Z/);
+    });
+
     it('still renders when the preload bridge is unavailable', () => {
         (window as any).api = undefined;
 

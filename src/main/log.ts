@@ -3,6 +3,9 @@ import { join } from 'path';
 import { logDir } from './config';
 import { shouldLog } from '../shared/log';
 import type { LogLevel } from '../shared/log';
+import { formatTimestamp } from '../shared/formatTimestamp';
+
+export { formatTimestamp };
 
 /**
  * The only place this app writes log files.
@@ -70,32 +73,6 @@ export interface Logger {
     getLevel(): LogLevel;
     getDir(): string;
     getSessionId(): string;
-}
-
-function pad(value: number, width = 2): string {
-    return String(Math.abs(value)).padStart(width, '0');
-}
-
-/**
- * `2026-11-05T19:12:33.451+08:00` -- local wall clock with an explicit UTC
- * offset.
- *
- * A log is read by the person who hit the problem, so the line should show the
- * time their clock showed, not UTC. Keeping the offset makes the instant
- * unambiguous for anyone correlating the file with another machine (and keeps
- * consecutive lines explainable across a daylight-saving switch).
- */
-export function formatTimestamp(date: Date): string {
-    const offsetMinutes = -date.getTimezoneOffset();
-    const sign = offsetMinutes < 0 ? '-' : '+';
-    const offsetHours = Math.floor(Math.abs(offsetMinutes) / 60);
-    const offsetRest = Math.abs(offsetMinutes) % 60;
-
-    return (
-        `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
-        `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.` +
-        `${pad(date.getMilliseconds(), 3)}${sign}${pad(offsetHours)}:${pad(offsetRest)}`
-    );
 }
 
 function clip(text: string, max: number): string {

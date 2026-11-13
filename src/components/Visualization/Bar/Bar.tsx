@@ -115,19 +115,30 @@ export const Bar: React.FC<BarProps> = (props: BarProps) => {
         if (element == null) return;
         const lis = () => {
             const h = element.clientHeight;
-            // h is 0 before layout (and always under jsdom): keep the aspect
-            // ratio at its initial 1 instead of poisoning the `text` y with
-            // NaN, and clamp the column count to >= 1 so the layer maths
-            // below can never divide by zero.
+            // A chart that mounts while its tab is hidden, or before the grid
+            // has laid the card out, reports 0. Turning that into "one layer"
+            // collapses every column into a single block, and since an <svg>
+            // never fires a native `resize` event that wrong count stayed
+            // until the app was restarted. Keep the last good values and wait
+            // for a real size. (h is also 0 under jsdom; the count derived
+            // from the `height` prop is the right answer there anyway.)
+            if (h <= 0) return;
             setMaxItemInCol(Math.max(1, Math.floor(h / minHeightInPixel)));
-            setW2H(h > 0 ? element.clientWidth / h : 1);
+            setW2H(element.clientWidth > 0 ? element.clientWidth / h : 1);
         };
-        element.addEventListener('resize', lis);
         lis();
-        return () => {
-            element.removeEventListener('resize', lis);
-        };
-    }, [minHeightInPixel]);
+        // ResizeObserver, not the `resize` event: an <svg> has no native
+        // resize event, so the old listener never fired and a chart measured
+        // at 0 could not recover. The observer also catches the card's own
+        // layout changes (content, fonts, window resize).
+        if (typeof ResizeObserver === 'undefined') {
+            window.addEventListener('resize', lis);
+            return () => window.removeEventListener('resize', lis);
+        }
+        const observer = new ResizeObserver(lis);
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, [minHeightInPixel, height]);
     const { names, values } = props;
     if (names.length !== values.length) {
         throw new Error();

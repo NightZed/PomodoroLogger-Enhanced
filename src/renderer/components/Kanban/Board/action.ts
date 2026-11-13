@@ -6,6 +6,8 @@ import { applySessionEditsResult } from '../sessionEdits';
 import { applyFinishedSession } from '../finishedSession';
 import { applyCardMove } from '../cardMove';
 import { applyDataRepair } from '../dataRepair';
+import { applyKanbanSnapshot } from '../snapshot';
+import type { KanbanSnapshot } from '../snapshot';
 import { actions as cardActions } from '../Card/action';
 import { actions as kanbanActions } from '../action';
 import { uid } from '../../../../utils/uid';
@@ -15,6 +17,8 @@ import { RootState } from '../../../reducers';
 import { workers } from '../../../workers';
 import { PomodoroRecord } from '../../../monitor/type';
 import { AggInfo, Card, CardView, KanbanBoard, List, MoveInfo } from '../type';
+import type { ListsState } from '../type';
+import type { CardsState } from '../Card/action';
 
 const db = workers.dbWorkers.kanbanDB;
 const listsDB = workers.dbWorkers.listsDB;
@@ -57,10 +61,6 @@ const addBoard = createAction(
         createdTime: number
     ) => ({ payload: { _id, name, description, lists, focusedList, doneList, createdTime } })
 );
-
-const setBoardMap = createAction('[Board]SET_BOARD_MAP', (boards: KanbanBoardState) => ({
-    payload: boards,
-}));
 
 const moveList = createAction(
     '[Board]MOVE_LIST',
@@ -126,7 +126,7 @@ export const boardReducer = createReducer<KanbanBoardState>({}, (builder) => {
                 },
             })
         )
-        .addCase(setBoardMap, (state, { payload }) => payload)
+        .addCase(applyKanbanSnapshot, (_state, { payload }) => payload.boards)
         .addCase(setPin, (state, { payload: { _id, pin } }) => ({
             ...state,
             [_id]: {
@@ -413,20 +413,43 @@ async function removeLegacyCollapsedFlag() {
     }
 }
 
+/**
+ * Reads boards, lists and cards in one go.
+ *
+ * Every consumer that replaces the tree (first paint, import, delete all) has
+ * to replace all three together: they reference each other by id, and a store
+ * where only one of them is new has rows pointing at nothing.
+ */
+export const readKanbanSnapshot = async (): Promise<KanbanSnapshot> => {
+    await removeLegacyCollapsedFlag();
+    const boards: KanbanBoard[] = await db.find({}, {});
+    const boardMap: KanbanBoardState = {};
+    for (const board of boards) {
+        boardMap[board._id] = board;
+    }
+
+    await backfillCreatedTimes(boardMap);
+    await backfillCompletedTimes(boardMap);
+
+    const lists: List[] = await listsDB.find({}, {});
+    const listMap: ListsState = {};
+    for (const list of lists) {
+        listMap[list._id] = list;
+    }
+
+    const cards: Card[] = await cardsDB.find({}, {});
+    const cardMap: CardsState = {};
+    for (const card of cards) {
+        cardMap[card._id] = card;
+    }
+
+    return { boards: boardMap, lists: listMap, cards: cardMap };
+};
+
 export const actions = {
     fetchBoards: () => async (dispatch: Dispatch) => {
-        await removeLegacyCollapsedFlag();
-        const boards: KanbanBoard[] = await db.find({}, {});
-        const boardMap: KanbanBoardState = {};
-        for (const board of boards) {
-            boardMap[board._id] = board;
-        }
-
-        await backfillCreatedTimes(boardMap);
-        await backfillCompletedTimes(boardMap);
-        await listActions.fetchLists()(dispatch);
-        await cardActions.fetchCards()(dispatch);
-        dispatch(setBoardMap(boardMap));
+        const snapshot = await readKanbanSnapshot();
+        dispatch(applyKanbanSnapshot(snapshot));
         await kanbanActions.fetchSortState()(dispatch);
     },
     moveList: (_id: string, fromIndex: number, toIndex: number) => async (dispatch: Dispatch) => {

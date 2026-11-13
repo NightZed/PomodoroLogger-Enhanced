@@ -4,6 +4,7 @@ import WindowControls from './WindowControls';
 import { t } from '../i18n';
 import { TITLE_BAR_HEIGHT } from './AppTitleBar/tokens';
 import { APP_FONT_FAMILY } from '../theme/tokens';
+import { formatTimestamp } from '../../shared/formatTimestamp';
 import type { LogInfo } from '../../main/ipc/type';
 
 interface Props {
@@ -140,7 +141,10 @@ function detailsText(
         componentStack ? `\nComponent stack:${componentStack}` : '',
         info ? `\nLog folder: ${info.dir}` : '',
         info ? `Session: ${info.sessionId}` : '',
-        `Time: ${new Date().toISOString()}`,
+        // Local wall clock plus its UTC offset, the same format the log files
+        // use: a bare Z timestamp makes the reader convert time zones by hand
+        // to correlate the crash with what they were doing.
+        `Time: ${formatTimestamp(new Date())}`,
         `User agent: ${typeof navigator === 'undefined' ? '' : navigator.userAgent}`,
     ]
         .filter((line) => line !== '')

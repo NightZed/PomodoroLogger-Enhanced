@@ -5,6 +5,7 @@ import { applySessionEditsResult } from '../sessionEdits';
 import { applyFinishedSession } from '../finishedSession';
 import { applyCardMove } from '../cardMove';
 import { applyDataRepair } from '../dataRepair';
+import { applyKanbanSnapshot } from '../snapshot';
 import { actions as listActions } from '../List/action';
 import { workers } from '../../../workers';
 import { Card, CardLabel } from '../type';
@@ -225,6 +226,7 @@ export const cardReducer = createReducer<CardsState>({}, (builder) => {
             return next;
         })
         .addCase(setCards, (state, { payload }) => payload)
+        .addCase(applyKanbanSnapshot, (_state, { payload }) => payload.cards)
         .addCase(applySessionEditsResult, (state, { payload }) => {
             const updated = payload.updatedCards;
             if (Object.keys(updated).length === 0) {

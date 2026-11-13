@@ -1,6 +1,7 @@
 import { connect } from 'react-redux';
 import { RootState } from '../../reducers';
 import { Bar } from '../../../components/Visualization/Bar';
+import type { List } from '../Kanban/type';
 
 interface ListCountBarProps {
     boardId: string;
@@ -30,7 +31,16 @@ export const ListsCountBar = connect(
         if (board === undefined) {
             return { values: [], names: [] };
         }
-        const lists = board.lists.map((_id) => state.kanban.lists[_id]);
+        // A list can be missing too, while the store is between two updates of
+        // the kanban tree. Reading `.cards` off it used to throw inside
+        // `mapStateToProps`, which took the whole crash screen route.
+        const lists: List[] = [];
+        for (const _id of board.lists) {
+            const list = state.kanban.lists[_id];
+            if (list !== undefined) {
+                lists.push(list);
+            }
+        }
         return {
             values: lists.map((v) => v.cards.length),
             names: lists.map((v) => v.title),

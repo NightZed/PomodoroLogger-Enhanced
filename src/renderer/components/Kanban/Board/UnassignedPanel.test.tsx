@@ -80,8 +80,8 @@ describe('UnassignedPanel', () => {
     it('lists the unassigned sessions with their time and app count', () => {
         const view = renderPanel();
 
-        expect(view.getByTestId('unassigned-meta-s1').textContent).toBe('0.50h · 3 apps');
-        expect(view.getByTestId('unassigned-meta-s2').textContent).toBe('0.50h · 1 app');
+        expect(view.getByText(/0\.50h\s*·\s*3 apps/)).toBeTruthy();
+        expect(view.getByText(/0\.50h\s*·\s*1 app$/)).toBeTruthy();
     });
 
     it('assigns the selected sessions to one card on save', async () => {
@@ -106,7 +106,7 @@ describe('UnassignedPanel', () => {
     it('lets a single row be assigned without selecting it', async () => {
         const view = renderPanel();
 
-        fireEvent.click(view.getByTestId('unassigned-card-s1'));
+        fireEvent.click(view.getAllByRole('button', { name: 'No card' })[0]);
         fireEvent.click(view.getByTestId('pick-c1'));
 
         expect(view.getByText('Card One')).toBeTruthy();

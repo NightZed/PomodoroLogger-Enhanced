@@ -235,14 +235,13 @@ export const UnassignedPanel = (props: UnassignedPanelProps) => {
                                     />
                                     <RowText>
                                         <RowTime>{formatTimeYmdHm(row.startTime)}</RowTime>
-                                        <RowMeta data-testid={`unassigned-meta-${row._id}`}>
+                                        <RowMeta>
                                             {row.spentTimeInHour.toFixed(2)}h ·{' '}
                                             {t('kanban.unassigned.appCount', row.appCount)}
                                         </RowMeta>
                                     </RowText>
                                     <LinkButton
                                         type="button"
-                                        data-testid={`unassigned-card-${row._id}`}
                                         onClick={() => setPickerFor([row._id])}
                                     >
                                         {picked.has(row._id)

@@ -115,18 +115,19 @@ describe('SessionDayEditor', () => {
 
         expect(view.getByText('09:00')).toBeTruthy();
         expect(view.getByText('10:00')).toBeTruthy();
-        expect(view.getByTestId('session-card-s1').textContent).toBe('Card One');
-        expect(view.getByTestId('session-project-s1').textContent).toBe('Project A');
-        expect(view.getByTestId('session-card-s2').textContent).toBe('No card');
+        expect(view.getByRole('button', { name: 'Card One' })).toBeTruthy();
+        // Both records belong to the same project, so both rows name it.
+        expect(view.getAllByRole('button', { name: 'Project A' })).toHaveLength(2);
+        expect(view.getByRole('button', { name: 'No card' })).toBeTruthy();
     });
 
     it('saves a card change alone', async () => {
         const view = renderEditor([record('s1', 9, 'b1'), record('s2', 10, 'b1')]);
 
-        fireEvent.click(view.getByTestId('session-card-s1'));
+        fireEvent.click(view.getByRole('button', { name: 'Card One' }));
         fireEvent.click(view.getByText('Card Two'));
 
-        expect(view.getByTestId('session-card-s1').textContent).toBe('Card Two');
+        expect(view.getByRole('button', { name: 'Card Two' })).toBeTruthy();
 
         fireEvent.click(view.getByRole('button', { name: 'Save' }));
         await acceptConfirm();
@@ -151,7 +152,7 @@ describe('SessionDayEditor', () => {
     it('clears the card when a record moves to another project', async () => {
         const view = renderEditor([record('s1', 9, 'b1')]);
 
-        fireEvent.click(view.getByTestId('session-project-s1'));
+        fireEvent.click(view.getByRole('button', { name: 'Project A' }));
         fireEvent.click(view.getByText('Project B'));
 
         fireEvent.click(view.getByRole('button', { name: 'Save' }));
@@ -209,7 +210,7 @@ describe('SessionDayEditor', () => {
         });
 
         const view = renderEditor([record('s1', 9, 'b1')]);
-        fireEvent.click(view.getByTestId('session-card-s1'));
+        fireEvent.click(view.getByRole('button', { name: 'Card One' }));
         fireEvent.click(view.getByText('Card Two'));
         fireEvent.click(view.getByRole('button', { name: 'Save' }));
         await acceptConfirm();

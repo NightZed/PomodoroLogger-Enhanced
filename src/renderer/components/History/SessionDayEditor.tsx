@@ -437,7 +437,6 @@ const SessionDayEditorInner = (props: Props) => {
                                 <Cell>
                                     <LinkButton
                                         type="button"
-                                        data-testid={`session-project-${row._id}`}
                                         title={boardTitle(row.boardId)}
                                         onClick={() =>
                                             setPicker({ kind: 'project', rowIds: [row._id] })
@@ -449,7 +448,6 @@ const SessionDayEditorInner = (props: Props) => {
                                 <Cell>
                                     <LinkButton
                                         type="button"
-                                        data-testid={`session-card-${row._id}`}
                                         title={cardTitle(row.cardId)}
                                         onClick={() => {
                                             // A card belongs to a board: without a

@@ -136,3 +136,58 @@ describe('Data Merger', () => {
         expect(output.boards.board.cardView).toBe('title');
     });
 });
+
+describe('Data Merger placement stats', () => {
+    const card = (id: string): Card => ({
+        _id: id,
+        title: id,
+        content: '',
+        sessionIds: [],
+        spentTimeInHour: { estimated: 0, actual: 0 },
+    });
+
+    const baseWith = (move: SourceData['move']): SourceData => ({
+        boards: {
+            board: { ...legacyBoard(), lists: ['l1'] },
+        },
+        cards: { c: card('c') },
+        lists: { l1: { _id: 'l1', title: 'Todo', cards: ['c'] } },
+        move,
+        records: [],
+    });
+
+    const otherWithList = (): SourceData => ({
+        ...emptyData(),
+        lists: { l1: { _id: 'l1', title: 'Todo', cards: [] } },
+    });
+
+    it('counts a card a move row put back into its list', () => {
+        const merger = new DataMerger(() => undefined);
+        // The move points at a list the merged data does not have, so the
+        // merger falls back to the list the card came from.
+        merger.merge(
+            baseWith([{ cardId: 'c', fromListId: 'l1', toListId: 'gone', time: 1 }]),
+            otherWithList()
+        );
+
+        expect(merger.getStats().rehomed).toEqual([{ cardId: 'c', listId: 'l1' }]);
+    });
+
+    it('does not count a card that simply stayed in its list', () => {
+        const merger = new DataMerger(() => undefined);
+        merger.merge(baseWith([]), otherWithList());
+
+        expect(merger.getStats().rehomed).toEqual([]);
+    });
+
+    it('resets the stats between merges', () => {
+        const merger = new DataMerger(() => undefined);
+        merger.merge(
+            baseWith([{ cardId: 'c', fromListId: 'l1', toListId: 'gone', time: 1 }]),
+            otherWithList()
+        );
+        merger.merge(emptyData(), emptyData());
+
+        expect(merger.getStats().rehomed).toEqual([]);
+    });
+});

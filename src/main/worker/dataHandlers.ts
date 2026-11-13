@@ -22,6 +22,7 @@ export async function handleMergeData({
     const merged = merge.merge(localSource as any, external);
     const ans: Response = {
         merged,
+        rehomed: merge.getStats().rehomed,
     };
     if (warning) {
         ans.warning = warning;

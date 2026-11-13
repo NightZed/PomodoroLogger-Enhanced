@@ -20,11 +20,24 @@ export interface SourceData {
     move: MoveInfo[];
 }
 
+/**
+ * What the merge actually changed about card placement.
+ *
+ * Import no longer reports "this will be dropped" for rows it leaves alone;
+ * the only placement change it makes is putting a card back into the list a
+ * move record points at. Those cards are counted here so the import report can
+ * say how many were rehomed instead of implying they were removed.
+ */
+export interface MergeStats {
+    rehomed: { cardId: string; listId: string }[];
+}
+
 export class DataMerger {
     private recordMap: { [id: string]: PomodoroRecord | undefined } = {};
     private seenCards: Set<string> = new Set();
     private cardLastMove: { [cardId: string]: MoveInfo } = {};
     private maybeBelongTo: { [cardId: string]: string[] } = {};
+    private stats: MergeStats = { rehomed: [] };
     private readonly t: TranslateFn;
     constructor(
         private warn: (s: string) => void = (s) => {
@@ -35,6 +48,7 @@ export class DataMerger {
         this.t = createTranslator(language);
     }
     merge(a: SourceData, b: SourceData): SourceData {
+        this.stats = { rehomed: [] };
         const ans = cloneDeep(a);
         this.mergeRecords(ans, b.records);
         this.setRecordMap(ans);
@@ -59,13 +73,26 @@ export class DataMerger {
 
         for (const card of danglingCards) {
             if (this.maybeBelongTo[card]?.length) {
-                ans.lists[this.maybeBelongTo[card][0]].cards.push(card);
+                const listId = this.maybeBelongTo[card][0];
+                ans.lists[listId].cards.push(card);
+                // Only a card whose placement was actually driven by a move row
+                // counts. Every imported card goes through the same path when
+                // its list has no move row at all, and reporting those as
+                // "rehomed" would describe a normal merge as a repair.
+                if (this.cardLastMove[card] !== undefined) {
+                    this.stats.rehomed.push({ cardId: card, listId });
+                }
             } else {
                 this.warn(this.t('guard.merge.cardRemoved', card));
             }
         }
 
         // TODO: store removed card somewhere
+    }
+
+    /** Placement changes the merge made; read after `merge()` returns. */
+    getStats(): MergeStats {
+        return { rehomed: [...this.stats.rehomed] };
     }
 
     private mergeMove(ans: SourceData, move: MoveInfo[]) {

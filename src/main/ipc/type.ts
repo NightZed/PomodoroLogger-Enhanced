@@ -414,6 +414,9 @@ export type WorkerMessagePayload = {
 export type WorkerResponsePayload = {
     [WorkerMessageType.MergeData]: {
         merged: SourceData;
+        /** Cards the merge put back into a list a move record pointed at. */
+        rehomed: { cardId: string; listId: string }[];
+        /** Kept for the warn callback until the import report replaces it. */
         warning?: string;
     };
     [WorkerMessageType.AggregateHistory]: AggPomodoroInfo;

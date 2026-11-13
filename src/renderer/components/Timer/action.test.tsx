@@ -34,6 +34,11 @@ jest.mock('../feedback', () => ({
     },
 }));
 
+/** A test that switches to fake timers must not leak them into the next one. */
+afterEach(() => {
+    jest.useRealTimers();
+});
+
 describe('Reducer', () => {
     it('starts from the default timer state', () => {
         const state = reducer(undefined, pauseTimer());
@@ -149,6 +154,9 @@ describe('Reducer', () => {
     });
 
     it('applies navigation and setting actions to the timer state', async () => {
+        // The four duration setters persist on a debounce. Keep the clock real
+        // (the timer maths reads it) but let the test drive that one timer.
+        jest.useFakeTimers({ doNotFake: ['Date', 'nextTick', 'queueMicrotask'] });
         let state: TimerState = Object.assign(defaultState, {});
         // @ts-ignore
         const dispatch: Dispatch = (action: any) => {
@@ -185,7 +193,8 @@ describe('Reducer', () => {
         const leftTime = state.targetTime! - new Date().getTime();
         await dispatch(actions.pauseTimer());
         expect(state.isRunning).toBeFalsy();
-        await new Promise((r) => setTimeout(r, 1000));
+        // `continueTimer` restarts from the remainder captured at pause time,
+        // so proving it needs no wall-clock wait.
         const targetTime = new Date().getTime() + leftTime;
         await dispatch(actions.continueTimer());
         expect(state.isRunning).toBeTruthy();
@@ -196,10 +205,8 @@ describe('Reducer', () => {
 
         const oldState = Object.assign(state, {});
         state = defaultState;
-        // The four durations persist on a debounce (see
-        // `persistSettingWithDebounce`), so the tail of the drag above is still
-        // pending here: wait it out before reading the settings back.
-        await new Promise((resolve) => setTimeout(resolve, 400));
+        // Let the debounced settings writes land before reading them back.
+        await jest.advanceTimersByTimeAsync(400);
         await actions.fetchSettings()(dispatch);
         const settings = [
             'focusDuration',
@@ -218,6 +225,7 @@ describe('Reducer', () => {
     });
 
     it('writes a dragged duration slider once, after the drag has settled', async () => {
+        jest.useFakeTimers({ doNotFake: ['Date', 'nextTick', 'queueMicrotask'] });
         let state: TimerState = { ...defaultState };
         const dispatch = ((action: any) => {
             state = reducer(state, action);
@@ -240,7 +248,7 @@ describe('Reducer', () => {
         expect(await stored()).toBe(before);
 
         // ...and is written once the thumb has come to rest.
-        await new Promise((resolve) => setTimeout(resolve, 400));
+        await jest.advanceTimersByTimeAsync(400);
         expect(await stored()).toBe(40 * 60);
     });
 

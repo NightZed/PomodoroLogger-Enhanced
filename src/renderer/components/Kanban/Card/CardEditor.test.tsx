@@ -12,7 +12,7 @@ import * as React from 'react';
 import { Provider } from 'react-redux';
 import { applyMiddleware, createStore } from 'redux';
 import { thunk } from 'redux-thunk';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { rootReducer } from '../../../reducers';
 import { POPUP_CONTAINER_ID } from '../../popupLayer';
@@ -84,20 +84,14 @@ describe('CardEditor close', () => {
         (console.warn as jest.Mock).mockRestore();
     });
 
-    const modalText = () => document.querySelector('.ant-modal')?.textContent ?? '';
-
     it('keeps the card rendered while the dialog closes', async () => {
         await act(async () => {
             store.dispatch(actions.setEditCard(true, 'list-1', 'card-1') as any);
-            await new Promise((resolve) => setTimeout(resolve, 0));
         });
-        expect(modalText()).toContain('Created:');
+        await waitFor(() => expect(screen.getByText(/Created:/)).toBeTruthy());
 
-        const close = document.querySelector('.ant-modal-close') as HTMLElement;
-        expect(close).not.toBeNull();
         await act(async () => {
-            fireEvent.click(close);
-            await new Promise((resolve) => setTimeout(resolve, 0));
+            fireEvent.click(screen.getByRole('button', { name: 'Close' }));
         });
 
         // Closed, but the id is still there for the closing frames...
@@ -108,9 +102,9 @@ describe('CardEditor close', () => {
         });
         // ...so the still-mounted dialog keeps showing the edited card instead
         // of collapsing into the create layout.
-        expect(modalText()).toContain('Created:');
-        expect(modalText()).toContain('Actual Spent Time');
-        expect(modalText()).not.toContain('Create a new card');
+        expect(screen.getByText(/Created:/)).toBeTruthy();
+        expect(screen.getByText(/Actual Spent Time/)).toBeTruthy();
+        expect(screen.queryByText(/Create a new card/)).toBeNull();
     });
 });
 
@@ -156,10 +150,9 @@ describe('CardEditor delete', () => {
         });
         await act(async () => {
             store.dispatch(actions.setEditCard(true, 'list-1', 'card-1') as any);
-            await new Promise((resolve) => setTimeout(resolve, 0));
         });
 
-        const deleteButton = screen.getByRole('button', { name: /Delete/ });
+        const deleteButton = await screen.findByRole('button', { name: /Delete/ });
 
         await act(async () => {
             fireEvent.click(deleteButton);
@@ -173,8 +166,7 @@ describe('CardEditor delete', () => {
 
         const { onOk } = (feedback.confirm as jest.Mock).mock.calls[0][0];
         await act(async () => {
-            onOk();
-            await new Promise((resolve) => setTimeout(resolve, 0));
+            await onOk();
         });
         expect(store.getState().kanban.cards['card-1']).toBeUndefined();
     });

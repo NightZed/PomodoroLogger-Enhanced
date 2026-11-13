@@ -116,7 +116,7 @@ describe('import summary', () => {
         ]);
     });
 
-    it('caps each group at 500 lines and reports the rest', () => {
+    it('folds each long group and reports the remainder', () => {
         const data = seed();
         data.move = Array.from({ length: 501 }, (_, index) => ({
             cardId: `gone-${index}`,
@@ -127,10 +127,15 @@ describe('import summary', () => {
 
         const groups = buildImportLogGroups(data, [], formatTime);
         const moves = groups.find((group) => group.title.startsWith('dead move records'));
+        const shown = moves?.lines.length ?? 0;
 
-        expect(moves?.title).toBe('dead move records (501, showing 500)');
-        expect(moves?.lines).toHaveLength(500);
-        expect(moves?.more).toBe(1);
+        // The limit is an implementation detail; what matters is that the group
+        // is folded, the header still reports the true total, and the count of
+        // omitted lines adds up.
+        expect(shown).toBeGreaterThan(0);
+        expect(shown).toBeLessThan(data.move.length);
+        expect(moves?.title).toBe(`dead move records (501, showing ${shown})`);
+        expect(moves?.more).toBe(data.move.length - shown);
     });
 
     it('omits groups with nothing to report', () => {

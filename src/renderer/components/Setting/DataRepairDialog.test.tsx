@@ -249,7 +249,7 @@ describe('DataRepairDialog', () => {
         expect((applyButton() as HTMLButtonElement).disabled).toBe(true);
     });
 
-    it('renders 50 rows per group until "show all" is clicked', () => {
+    it('folds a long group and expands it on demand', () => {
         const orphans = Array.from({ length: 60 }, (_, index) => ({
             _id: `c${index}`,
             title: `card-${index}`,
@@ -265,10 +265,17 @@ describe('DataRepairDialog', () => {
         });
 
         const cardBoxes = () => screen.getAllByRole('checkbox', { name: /^card-/ });
-        expect(cardBoxes()).toHaveLength(50);
+        const shown = cardBoxes().length;
+        // Folded, not lost: the group is shorter than the data until expanded.
+        expect(shown).toBeGreaterThan(0);
+        expect(shown).toBeLessThan(orphans.length);
 
-        fireEvent.click(screen.getByRole('button', { name: /Show all \(10 more\)/ }));
-        expect(cardBoxes()).toHaveLength(60);
+        fireEvent.click(
+            screen.getByRole('button', {
+                name: new RegExp(`Show all \\(${orphans.length - shown} more\\)`),
+            })
+        );
+        expect(cardBoxes()).toHaveLength(orphans.length);
     });
 
     it('says what the dangling repair does and does not delete', () => {

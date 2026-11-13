@@ -470,6 +470,8 @@ UI：
 - 删除不动 `sessions` 和看板汇总：看板按会话统计，删卡只让这些会话变成「未挂卡」。
 - 设置页只负责「扫描 → 打开弹窗」，弹窗自己调用 `repairData` 并通过 `applyRepair` 把结果写回 store（`applyDataRepair` 在 cards / lists / boards 三个 reducer 里整体替换 `removedCards` / `removedLists` / `updatedCards` / `updatedLists` / `updatedBoards`）。
 - 删除一张卡片时，同时从所有列表的 `cards` 里移除它；删除一个列表时，同时从所有看板的 `lists` 里移除它。否则「删卡」会当场制造一条悬空引用，和这次修复的目标相反。
+- 扫描与修复只读需要的列。`findSync` 会把每行的 `doc` 列整段 `JSON.parse`，而 sessions 的 `doc` 带着每个应用/标题的明细：2 万条会话实测一次扫描 **1033 ms**，主进程的单线程被占满约一秒，窗口连重绘都停下，用户看到的就是「点击后卡住 → 才出现转圈 → 再出现面板」。改用 `idsSync()`（只 `SELECT _id`）与 `findFieldsSync()`（只 `SELECT` 需要的列，只解析选中的 JSON 列）后，同一数据量 **13 ms**，点击立刻得到转圈。
+  `repairData` 同样处理：会话只取 id；卡片只有被勾选修复 `sessionIds` 的那几张取完整行（要整体写回 store），其余只取 id。`findSync` 保留给事务里确实需要整行的调用。
 
 ## 边界与风险
 

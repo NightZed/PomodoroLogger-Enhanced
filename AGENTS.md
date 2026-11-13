@@ -117,6 +117,8 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
 
 - 主进程独占唯一的 SQLite 连接（`src/main/db/index.ts`、`connection.ts`、`schema.ts`、`repository.ts`）。
   repository 沿用旧的 NeDB API（`find`/`findOne`/`insert`/`update`/`remove`/`count`），这样 action 代码不用重写。
+- 只读扫描不要用 `findSync`：它会把每行的 `doc` 列整段 `JSON.parse`，而 sessions 的 `doc` 含每个应用/标题的明细。只要 id 时用 `idsSync()`，只要部分字段时用 `findFieldsSync(query, fields)`——两者都只 `SELECT` 需要的列，不碰 `doc`。
+  2 万条会话上全量读一次约 1 秒，主进程单线程被占满，窗口会停止重绘（表现是点击按钮后先卡住、转圈和弹窗一起迟到）。
 - 渲染层从不直接碰 SQLite。
   `src/renderer/dbs.ts` 构造名为 `sessionDB`、`settingDB`、`kanbanDB`、`cardsDB`、`listsDB`、`moveDB` 的 IPC 代理；`src/main/db/ipc.ts` 白名单化数据库名和七个允许的操作。
   测试则通过 `test/dbBridge.ts` 安装一个真实的内存桥接。

@@ -152,12 +152,22 @@ export interface ImportSummary {
 
 新增 `src/renderer/dataReload.ts` 的 thunk：
 
-1. 依次 `await` `fetchBoards()`、`fetchLists()`、`fetchCards()`。
+1. `readKanbanSnapshot()` 一次读回 boards / lists / cards（`components/Kanban/Board/action.ts`，与 `fetchBoards` 共用），再用 `applyKanbanSnapshot` 一条 action 替换三份状态。
 2. `chosenBoardId` 指向不存在的看板时清空。
 3. dispatch `bumpSessionReloadToken()`：Timer 在 `componentDidUpdate` 里检测 token 变化，重新 `getTodaySessions()` 并重设 `pomodorosToday` / `pomodoroNum`。
 4. dispatch `historyActions.setExpiringKey(new Date().toString())`，让已挂载的历史页重新聚合。
 
+**必须是原子替换**：三份数据互相用 id 引用，分三次 dispatch 会留下「新 lists + 旧 boards」的中间态。删除全部数据时 lists 先清空、boards 后清空，任何沿 `board.lists → lists[id].cards` 取值的组件都会在那一帧读到 `undefined`（`ListsCountBar` 因此把整个窗口换成崩溃页）。`applyKanbanSnapshot` 让三个 reducer 响应同一个 action，订阅者只被通知一次。
+
 `timer.boardId` 不再单独处理：Timer 现有的 `componentDidUpdate` 会在 boards 刷新后自动清掉指向已删/隐藏看板的选中项。
+
+### 重载后的图表与错误页
+
+导入后不重启，暴露了两处只在「重新挂载」时才会出现的问题：
+
+- `ListsCountBar` 只统计 store 里仍存在的 list。原子替换后不再有中间态，但 store 也可能被别的路径短暂置为不一致，`mapStateToProps` 里的异常会直接走到整窗崩溃页。
+- `Bar` 的层数由自身高度决定，必须用 `ResizeObserver` 测量，并且**忽略 0 高度**。页签隐藏或布局未完成时挂载会读到 0，`maxItemInCol` 变成 1，每个列表只剩一块 60% 高的红色矩形；`<svg>` 没有原生 `resize` 事件，旧实现无法自愈，只能重启应用。
+- 错误页的 `Time:` 改用 `formatTimestamp`（本地墙钟 + 显式 UTC 偏移），与日志行一致；`toISOString()` 的 `Z` 需要读者自己换算时区。
 
 ### 导入
 

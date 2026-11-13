@@ -156,6 +156,9 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
 
 - `src/renderer/store/index.ts` 是朴素 Redux + thunk；`src/renderer/reducers/index.ts` 合并 `timer`、`history`、`kanban`、`story`。
   每个功能目录（`components/Timer`、`History`、`Kanban`、`UserGuide`）自己持有 `action.ts` + reducer + 测试——按这个模式来，不要加横切的 slice。
+- `kanban.boards` / `lists` / `cards` 互相用 id 引用，所以整棵树重读时必须一次替换。
+  `applyKanbanSnapshot`（`components/Kanban/snapshot.ts`）让三个 reducer 响应同一个 action，`readKanbanSnapshot` 负责读库；导入、「删除所有数据」和看板首次加载都走它。
+  分成三次 dispatch 会留下「新 lists + 旧 boards」（删库时 lists 先空、boards 后空）这类中间态，任何沿 `board.lists → lists[id].cards` 走的组件都会在那一帧读到 `undefined`。
 - `src/renderer/components/appTabs.ts` 是页面的唯一事实来源；标签栏、Ctrl+Tab 处理和紧凑模式切换全部从 `APP_TABS` / `planTabChange` 推导。
   不要加一份并行的标签列表。
 - 非活动页面不会永远保留：`DestroyOnTimeoutWrapper` 在每页各自的宽限期后丢弃该页子树（`Application.tsx` 里的 `TAB_UNLOAD_DELAY`）。

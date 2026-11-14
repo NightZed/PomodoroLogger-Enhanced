@@ -9,6 +9,8 @@ import { CardPicker } from '../Kanban/CardPicker';
 import { ProjectPicker } from '../Kanban/ProjectPicker';
 import { useI18n } from '../../i18n';
 import { formatTimeYMD } from '../Visualization/Timeline';
+import { PomodoroNumView } from '../Timer/PomodoroNumView';
+import { actions as timerActions } from '../Timer/action';
 import type { RootState } from '../../reducers';
 import type { PomodoroRecord } from '../../monitor/type';
 import type { CardsState } from '../Kanban/Card/action';
@@ -49,6 +51,8 @@ interface Props extends SessionDayEditorProps {
     cards: CardsState;
     /** Copies the transaction's card/board state into the store. */
     applyEdits: (result: SessionEditsResult) => void;
+    /** Opens the fullscreen Sankey overlay for one session. */
+    chooseRecord: (record: PomodoroRecord) => void;
 }
 
 type PickerState =
@@ -74,7 +78,7 @@ const List = styled.div`
 
 const Row = styled.div<{ $deleted: boolean }>`
     display: grid;
-    grid-template-columns: 28px 56px 64px minmax(110px, 1fr) minmax(110px, 1fr) 72px;
+    grid-template-columns: 28px 24px 56px 64px minmax(110px, 1fr) minmax(110px, 1fr) 72px;
     align-items: center;
     gap: 8px;
     padding: 6px 4px;
@@ -82,6 +86,12 @@ const Row = styled.div<{ $deleted: boolean }>`
     font-size: 13px;
     opacity: ${({ $deleted }) => ($deleted ? 0.45 : 1)};
     text-decoration: ${({ $deleted }) => ($deleted ? 'line-through' : 'none')};
+`;
+
+const DotCell = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
 `;
 
 const Cell = styled.div`
@@ -223,6 +233,16 @@ const SessionDayEditorInner = (props: Props) => {
                 return rows;
         }
     }, [rows, filter]);
+
+    // The draft rows only carry the fields the editor writes; the dot needs the
+    // full record (its app/title detail) to open the Sankey overlay.
+    const recordById = React.useMemo(() => {
+        const map = new Map<string, PomodoroRecord>();
+        for (const record of props.records) {
+            map.set(record._id, record);
+        }
+        return map;
+    }, [props.records]);
 
     const targets = React.useMemo(
         () => rows.filter((row) => selected.has(row._id) && !row.deleted).map((row) => row._id),
@@ -432,6 +452,16 @@ const SessionDayEditorInner = (props: Props) => {
                                     disabled={row.deleted}
                                     onChange={() => toggleSelected(row._id)}
                                 />
+                                <DotCell>
+                                    {recordById.has(row._id) ? (
+                                        <PomodoroNumView
+                                            pomodoros={[recordById.get(row._id)!]}
+                                            showNum={false}
+                                            inline
+                                            chooseRecord={props.chooseRecord}
+                                        />
+                                    ) : undefined}
+                                </DotCell>
                                 <Cell>{timeLabel(row.startTime)}</Cell>
                                 <Cell>{row.spentTimeInHour.toFixed(2)}h</Cell>
                                 <Cell>
@@ -534,5 +564,5 @@ export const SessionDayEditor = connect(
         boards: state.kanban.boards,
         cards: state.kanban.cards,
     }),
-    { applyEdits: applySessionEditsResult }
+    { applyEdits: applySessionEditsResult, chooseRecord: timerActions.setChosenRecord }
 )(SessionDayEditorInner);

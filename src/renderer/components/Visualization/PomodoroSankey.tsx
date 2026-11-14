@@ -13,7 +13,6 @@ import styled from 'styled-components';
 import { t, useI18n } from '../../i18n';
 import type { TranslateFn } from '../../../shared/i18n';
 import { fatScrollBar } from '../../style/scrollbar';
-import Hotkeys from '../Hotkeys';
 import { formatTimeYmdHms } from './Timeline';
 import { EChartsOption } from 'echarts';
 import { ThemeTokens } from '../../theme/tokens';
@@ -22,7 +21,10 @@ import { useThemeTokens } from '../../theme/useThemeTokens';
 const FullscreenStyled = styled.div`
     padding: 20px;
     position: fixed;
-    z-index: 500;
+    /* Above every dialog (antd Modal wraps sit at 1000) and below the pickers
+       (1100): the chart is opened from inside the History day editor and the
+       board's unassigned panel, and those stay mounted underneath it. */
+    z-index: 1050;
     left: 0;
     top: 0;
     overflow: auto;
@@ -369,6 +371,35 @@ export const PomodoroSankey = (props: Props) => {
                 : getOption(record, efficiencyAnalyser, showSwitch, tokens, translate),
         [efficiencyAnalyser, record, showSwitch, tokens, translate]
     );
+    /**
+     * Esc closes the overlay.
+     *
+     * Not `Hotkeys`: that component stands down whenever an antd dialog is
+     * open, and this overlay can be opened from two dialogs (the History day
+     * editor and the board's unassigned panel). Listening in the capture phase
+     * also keeps rc-dialog from treating the same press as "close the dialog
+     * underneath", which would ask the user to discard unsaved edits on their
+     * way out of the chart.
+     *
+     * There is deliberately no Enter binding: Enter is not a dismissal key,
+     * and a global one would close the overlay from behind any confirmation
+     * the user answers with the keyboard. (Click-to-close lives on the
+     * background, see the render below.)
+     */
+    React.useEffect(() => {
+        if (record == null || cancel === undefined) {
+            return undefined;
+        }
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') {
+                return;
+            }
+            event.stopPropagation();
+            cancel();
+        };
+        document.addEventListener('keydown', onKeyDown, true);
+        return () => document.removeEventListener('keydown', onKeyDown, true);
+    }, [record, cancel]);
     if (record == null) {
         return <></>;
     }
@@ -390,24 +421,10 @@ export const PomodoroSankey = (props: Props) => {
         // as a record is present; it just keeps the type narrow for ReactEcharts.
         return <></>;
     }
-    // Esc closes the overlay. There is deliberately no Enter binding: Enter is
-    // not a dismissal key, and a global one would close the overlay from
-    // behind any confirmation the user answers with the keyboard.
-    // (Click-to-close lives on the background, see the render below.)
-    const onKeyDown = (keyname: string) => {
-        switch (keyname) {
-            case 'esc':
-                if (cancel) {
-                    cancel();
-                }
-                break;
-        }
-    };
     // The background (and the header above the chart) closes the overlay; the
     // chart itself keeps its clicks, see `ChartArea`.
     return (
         <FullscreenStyled onClick={cancel}>
-            <Hotkeys keyName={'esc'} onKeyDown={onKeyDown} />
             <InnerContainer>
                 <Header>
                     <h1>{t('chart.sankey.title')}</h1>

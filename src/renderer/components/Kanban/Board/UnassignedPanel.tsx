@@ -2,10 +2,12 @@ import * as React from 'react';
 import { Button, Checkbox } from 'antd';
 import styled from 'styled-components';
 import { AppModal } from '../../AppModal';
+import { DAY_EDITOR_WIDTH } from '../../dialogLayout';
 import { CardPicker } from '../CardPicker';
 import { feedback } from '../../feedback';
 import { useI18n } from '../../../i18n';
-import { formatTimeYmdHm } from '../../Visualization/Timeline';
+import { PomodoroNumView } from '../../Timer/PomodoroNumView';
+import type { PomodoroRecord } from '../../../monitor/type';
 import type { CardsState } from '../Card/action';
 import type { SessionEdit, SessionEditsResult } from '../../../../shared/sessionEdits';
 import type { UnassignedSessionSummary } from '../../../../shared/sessionEdits';
@@ -23,6 +25,16 @@ export interface UnassignedPanelProps {
     /** Copies the transaction's card state back into the store. */
     applyEdits?: (result: SessionEditsResult) => void;
     cards: CardsState;
+    /** Reads one session with its app detail; the list rows are summaries. */
+    loadRecord: (id: string) => Promise<PomodoroRecord | undefined>;
+    /** Opens the fullscreen Sankey overlay for that session. */
+    chooseRecord: (record: PomodoroRecord) => void;
+}
+
+/** What the dialog shows for one row until Save; absent means "unchanged". */
+interface DraftRow {
+    cardId?: string;
+    deleted: boolean;
 }
 
 const Hint = styled.p`
@@ -31,44 +43,60 @@ const Hint = styled.p`
     color: var(--pl-text-secondary);
 `;
 
-const List = styled.div`
-    max-height: 400px;
-    overflow-y: auto;
-`;
-
-const Row = styled.div`
-    display: grid;
-    grid-template-columns: 28px minmax(0, 1fr) auto;
+const Toolbar = styled.div`
+    display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 2px;
+    margin-bottom: 10px;
+`;
+
+const Spacer = styled.div`
+    flex: 1;
+`;
+
+const List = styled.div`
+    max-height: 380px;
+    overflow-y: auto;
+    border-top: 1px solid var(--pl-border);
+`;
+
+/**
+ * Same skeleton as the History day editor (the two are one click apart in the
+ * user's head), minus the project column: every row here already has a board.
+ */
+const Row = styled.div<{ $deleted: boolean }>`
+    display: grid;
+    grid-template-columns: 28px 24px 92px 64px minmax(0, 1fr) 72px;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 4px;
     border-bottom: 1px solid var(--pl-border);
     font-size: 13px;
+    opacity: ${({ $deleted }) => ($deleted ? 0.45 : 1)};
+    text-decoration: ${({ $deleted }) => ($deleted ? 'line-through' : 'none')};
 `;
 
-const RowText = styled.div`
-    min-width: 0;
-`;
-
-const RowTime = styled.div`
+const Cell = styled.div`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 `;
 
-const RowMeta = styled.div`
-    font-size: 12px;
-    color: var(--pl-text-secondary);
+const DotCell = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
 `;
 
 const LinkButton = styled.button`
-    max-width: 140px;
+    max-width: 100%;
     padding: 2px 4px;
     border: none;
     border-bottom: 1px dashed var(--pl-border);
     background: transparent;
     color: var(--pl-text);
     font-size: 13px;
+    text-align: left;
     cursor: pointer;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -88,43 +116,45 @@ const Empty = styled.div`
 
 const Footer = styled.div`
     display: flex;
-    align-items: center;
     justify-content: flex-end;
     gap: 8px;
 `;
 
-const SelectedCount = styled.span`
-    margin-right: auto;
-    font-size: 12px;
-    color: var(--pl-text-secondary);
-`;
+const pad = (value: number): string => (value < 10 ? `0${value}` : String(value));
 
-const Body = styled.div`
-    display: flex;
-    flex-direction: column;
-`;
+/** Day and time: the list spans several days, unlike the History day editor. */
+const dayTimeLabel = (timestamp: number): string => {
+    const date = new Date(timestamp);
+    return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(
+        date.getHours()
+    )}:${pad(date.getMinutes())}`;
+};
 
 /**
- * The board's "unassigned pomodoros" drawer: sessions that no card counts.
+ * The board's "unassigned pomodoros" dialog.
  *
- * It shares `CardPicker` and `applySessionEdits` with the History editor, but
- * deliberately offers no project change or deletion -- those belong to the
- * per-day dialog, so a record never has two different edit entry points.
+ * It shares `PomodoroNumView`, `CardPicker` and `applySessionEdits` with the
+ * History day editor, so both entry points behave the same: card picks and
+ * deletion marks are drafts until Save, and closing with unsaved changes asks
+ * first. The pomodoro dot opens the same Sankey overlay the History dot does.
  */
 export const UnassignedPanel = (props: UnassignedPanelProps) => {
     const { t } = useI18n();
     const [selected, setSelected] = React.useState<Set<string>>(new Set());
-    /** Card picks made in the drawer, applied only on Save. */
-    const [picked, setPicked] = React.useState<Map<string, string>>(new Map());
+    /** Card picks and deletion marks, applied only on Save. */
+    const [draft, setDraft] = React.useState<Map<string, DraftRow>>(new Map());
     const [pickerFor, setPickerFor] = React.useState<string[] | undefined>(undefined);
     const [saving, setSaving] = React.useState(false);
 
     React.useEffect(() => {
         if (!props.open) {
             setSelected(new Set());
-            setPicked(new Map());
+            setDraft(new Map());
         }
     }, [props.open]);
+
+    const isDeleted = (id: string): boolean => draft.get(id)?.deleted === true;
+    const cardIdOf = (id: string): string | undefined => draft.get(id)?.cardId;
 
     const cardTitle = (cardId: string): string =>
         props.cards[cardId]?.title ?? t('kanban.unassigned.noCard');
@@ -141,47 +171,111 @@ export const UnassignedPanel = (props: UnassignedPanelProps) => {
         });
     };
 
-    const pickCard = (cardId?: string): void => {
+    const selectable = props.rows.filter((row) => !isDeleted(row._id));
+    const allSelected = selectable.length > 0 && selectable.every((row) => selected.has(row._id));
+    const toggleSelectAll = (): void => {
+        setSelected(allSelected ? new Set() : new Set(selectable.map((row) => row._id)));
+    };
+
+    const toggleDelete = (id: string): void => {
+        setDraft((current) => {
+            const next = new Map(current);
+            const previous = next.get(id) ?? { deleted: false };
+            if (previous.deleted) {
+                // Back to the stored state: a row that never had a pick needs
+                // no draft entry at all.
+                if (previous.cardId === undefined) {
+                    next.delete(id);
+                } else {
+                    next.set(id, { ...previous, deleted: false });
+                }
+            } else {
+                next.set(id, { ...previous, deleted: true });
+            }
+            return next;
+        });
+        setSelected((current) => {
+            if (!current.has(id)) {
+                return current;
+            }
+            const next = new Set(current);
+            next.delete(id);
+            return next;
+        });
+    };
+
+    const applyCard = (cardId?: string): void => {
         if (pickerFor === undefined) {
             return;
         }
-        if (cardId === undefined) {
-            setPicked((current) => {
-                const next = new Map(current);
-                for (const id of pickerFor) {
-                    next.delete(id);
+        setDraft((current) => {
+            const next = new Map(current);
+            for (const id of pickerFor) {
+                const previous = next.get(id) ?? { deleted: false };
+                if (cardId === undefined) {
+                    // "No card" is this list's normal state, so it clears the
+                    // draft instead of storing an explicit null.
+                    if (previous.deleted) {
+                        next.set(id, { ...previous, cardId: undefined });
+                    } else {
+                        next.delete(id);
+                    }
+                } else {
+                    next.set(id, { ...previous, cardId });
                 }
-                return next;
-            });
-        } else {
-            setPicked((current) => {
-                const next = new Map(current);
-                for (const id of pickerFor) {
-                    next.set(id, cardId);
-                }
-                return next;
-            });
-        }
+            }
+            return next;
+        });
         setPickerFor(undefined);
     };
 
+    const openSankey = async (id: string): Promise<void> => {
+        const record = await props.loadRecord(id);
+        if (record === undefined) {
+            feedback.toast({ kind: 'error', content: t('kanban.unassigned.recordMissing') });
+            return;
+        }
+        props.chooseRecord(record);
+    };
+
+    const requestClose = (): void => {
+        if (draft.size === 0) {
+            props.onClose();
+            return;
+        }
+        feedback.confirm({
+            title: t('kanban.unassigned.discardTitle'),
+            content: t('kanban.unassigned.discardBody'),
+            onOk: props.onClose,
+        });
+    };
+
     const save = (): void => {
-        const edits: SessionEdit[] = Array.from(picked, ([_id, cardId]) => ({ _id, cardId }));
+        const edits: SessionEdit[] = [];
+        let deletedCount = 0;
+        for (const [id, row] of draft) {
+            if (row.deleted) {
+                edits.push({ _id: id, delete: true });
+                deletedCount += 1;
+            } else if (row.cardId !== undefined) {
+                edits.push({ _id: id, cardId: row.cardId });
+            }
+        }
         if (edits.length === 0) {
-            feedback.toast({ kind: 'info', content: t('kanban.unassigned.nothingPicked') });
+            feedback.toast({ kind: 'info', content: t('kanban.unassigned.nothingToSave') });
             return;
         }
 
         feedback.confirm({
             title: t('kanban.unassigned.confirmTitle'),
-            content: t('kanban.unassigned.confirmBody', edits.length),
+            content: t('kanban.unassigned.confirmBody', edits.length - deletedCount, deletedCount),
             onOk: async () => {
                 setSaving(true);
                 try {
                     const result = await window.api.applySessionEdits(edits);
                     props.applyEdits?.(result);
                     feedback.toast({ kind: 'success', content: t('kanban.unassigned.saved') });
-                    setPicked(new Map());
+                    setDraft(new Map());
                     setSelected(new Set());
                     props.onSaved();
                 } catch (error) {
@@ -201,73 +295,109 @@ export const UnassignedPanel = (props: UnassignedPanelProps) => {
         <>
             <AppModal
                 title={t('kanban.unassigned.title', props.boardName)}
-                width={620}
+                width={DAY_EDITOR_WIDTH}
                 open={props.open}
-                onCancel={props.onClose}
+                onCancel={requestClose}
                 footer={
                     <Footer>
-                        <SelectedCount>
-                            {t('kanban.unassigned.selected', selected.size)}
-                        </SelectedCount>
-                        <Button
-                            onClick={() => setPickerFor(Array.from(selected))}
-                            disabled={selected.size === 0}
-                        >
-                            {t('kanban.unassigned.assignTo')}
-                        </Button>
+                        <Button onClick={requestClose}>{t('kanban.unassigned.cancel')}</Button>
                         <Button type="primary" loading={saving} onClick={save}>
                             {t('kanban.unassigned.save')}
                         </Button>
                     </Footer>
                 }
             >
-                <Body>
-                    <Hint>{t('kanban.unassigned.hint')}</Hint>
-                    {props.rows.length === 0 ? (
-                        <Empty>{t('kanban.unassigned.empty')}</Empty>
-                    ) : (
+                <Hint>{t('kanban.unassigned.hint')}</Hint>
+                {props.rows.length === 0 ? (
+                    <Empty>{t('kanban.unassigned.empty')}</Empty>
+                ) : (
+                    <>
+                        <Toolbar>
+                            <Button size="small" onClick={toggleSelectAll}>
+                                {t('kanban.unassigned.selectAll')}
+                            </Button>
+                            <span style={{ fontSize: 12, color: 'var(--pl-text-secondary)' }}>
+                                {t('kanban.unassigned.selected', selected.size)}
+                            </span>
+                            <Spacer />
+                            <Button
+                                size="small"
+                                disabled={selected.size === 0}
+                                onClick={() => setPickerFor(Array.from(selected))}
+                            >
+                                {t('kanban.unassigned.assignTo')}
+                            </Button>
+                        </Toolbar>
                         <List>
                             {props.rows.map((row) => (
-                                <Row key={row._id}>
+                                <Row key={row._id} $deleted={isDeleted(row._id)}>
                                     <Checkbox
                                         checked={selected.has(row._id)}
+                                        disabled={isDeleted(row._id)}
                                         onChange={() => toggle(row._id)}
                                     />
-                                    <RowText>
-                                        <RowTime>{formatTimeYmdHm(row.startTime)}</RowTime>
-                                        <RowMeta>
-                                            {row.spentTimeInHour.toFixed(2)}h ·{' '}
-                                            {t('kanban.unassigned.appCount', row.appCount)}
-                                        </RowMeta>
-                                    </RowText>
-                                    <LinkButton
-                                        type="button"
-                                        onClick={() => setPickerFor([row._id])}
+                                    <DotCell>
+                                        <PomodoroNumView
+                                            pomodoros={[
+                                                {
+                                                    _id: row._id,
+                                                    startTime: row.startTime,
+                                                } as PomodoroRecord,
+                                            ]}
+                                            showNum={false}
+                                            inline
+                                            chooseRecord={() => {
+                                                void openSankey(row._id);
+                                            }}
+                                        />
+                                    </DotCell>
+                                    <Cell>{dayTimeLabel(row.startTime)}</Cell>
+                                    <Cell>{row.spentTimeInHour.toFixed(2)}h</Cell>
+                                    <Cell>
+                                        <LinkButton
+                                            type="button"
+                                            title={
+                                                cardIdOf(row._id) === undefined
+                                                    ? t('kanban.unassigned.noCard')
+                                                    : cardTitle(cardIdOf(row._id)!)
+                                            }
+                                            disabled={isDeleted(row._id)}
+                                            onClick={() => setPickerFor([row._id])}
+                                        >
+                                            {cardIdOf(row._id) === undefined
+                                                ? t('kanban.unassigned.noCard')
+                                                : cardTitle(cardIdOf(row._id)!)}
+                                        </LinkButton>
+                                    </Cell>
+                                    <Button
+                                        size="small"
+                                        type="text"
+                                        onClick={() => toggleDelete(row._id)}
                                     >
-                                        {picked.has(row._id)
-                                            ? cardTitle(picked.get(row._id)!)
-                                            : t('kanban.unassigned.noCard')}
-                                    </LinkButton>
+                                        {isDeleted(row._id)
+                                            ? t('kanban.unassigned.undoDelete')
+                                            : t('kanban.unassigned.delete')}
+                                    </Button>
                                 </Row>
                             ))}
                         </List>
-                    )}
-                    {props.total > props.rows.length ? (
-                        <RowMeta>
-                            {t('kanban.unassigned.more', props.total - props.rows.length)}
-                        </RowMeta>
-                    ) : undefined}
-                </Body>
+                        {props.total > props.rows.length ? (
+                            <Hint>
+                                {t('kanban.unassigned.more', props.total - props.rows.length)}
+                            </Hint>
+                        ) : undefined}
+                    </>
+                )}
             </AppModal>
             <CardPicker
                 open={pickerFor !== undefined}
                 boardId={props.boardId}
                 value={
                     pickerFor !== undefined && pickerFor.length === 1
-                        ? picked.get(pickerFor[0])
+                        ? cardIdOf(pickerFor[0])
                         : undefined
                 }
-                onPick={pickCard}
+                onPick={applyCard}
                 onClose={() => setPickerFor(undefined)}
             />
         </>

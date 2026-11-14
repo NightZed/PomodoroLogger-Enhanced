@@ -12,6 +12,14 @@ jest.mock('../feedback', () => ({
     feedback: { confirm: jest.fn(), toast: jest.fn(), alert: jest.fn() },
 }));
 
+// The dot is an SVG whose <title> repeats the row's time, which makes text
+// queries ambiguous; the editor only has to hand it the full record.
+jest.mock('../Timer/PomodoroNumView', () => ({
+    PomodoroNumView: ({ pomodoros, chooseRecord }: any) => (
+        <button onClick={() => chooseRecord(pomodoros[0])}>Sankey {pomodoros[0]._id}</button>
+    ),
+}));
+
 const board = (id: string, name: string, lists: string[]) => ({
     _id: id,
     name,
@@ -69,6 +77,12 @@ const renderEditor = (records: PomodoroRecord[]) => {
     const store = createStore(
         (value: any, action: any) => ({
             ...value,
+            // The overlay is app-level: the editor's output is the action that
+            // picks a record for it.
+            chosenRecord:
+                action.type === '[Timer]SET_CHOSEN_RECORD'
+                    ? action.payload.record
+                    : value.chosenRecord,
             kanban: {
                 ...value.kanban,
                 cards: cardReducer(value.kanban.cards, action),
@@ -119,6 +133,15 @@ describe('SessionDayEditor', () => {
         // Both records belong to the same project, so both rows name it.
         expect(view.getAllByRole('button', { name: 'Project A' })).toHaveLength(2);
         expect(view.getByRole('button', { name: 'No card' })).toBeTruthy();
+    });
+
+    it('opens the Sankey overlay with the full record behind a row', () => {
+        const records = [record('s1', 9, 'b1')];
+        const view = renderEditor(records);
+
+        fireEvent.click(view.getByRole('button', { name: 'Sankey s1' }));
+
+        expect(view.store.getState().chosenRecord).toBe(records[0]);
     });
 
     it('saves a card change alone', async () => {

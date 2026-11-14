@@ -1,10 +1,18 @@
 import * as React from 'react';
+import { dbs } from '../../../dbs';
+import type { PomodoroRecord } from '../../../monitor/type';
 import type { UnassignedSessionSummary } from '../../../../shared/sessionEdits';
 
 export interface UnassignedSessionsState {
     rows: UnassignedSessionSummary[];
     total: number;
     reload: () => Promise<void>;
+    /**
+     * One session with its app/title detail, for the Sankey chart. The list
+     * only carries a summary (that is what keeps 200 rows cheap), so the chart
+     * reads the row back by id when the user asks for it.
+     */
+    loadRecord: (id: string) => Promise<PomodoroRecord | undefined>;
 }
 
 /**
@@ -34,9 +42,15 @@ export const useUnassignedSessions = (boardId?: string): UnassignedSessionsState
         }
     }, [boardId]);
 
+    const loadRecord = React.useCallback(
+        async (id: string): Promise<PomodoroRecord | undefined> =>
+            ((await dbs.sessionDB.findOne({ _id: id })) as PomodoroRecord | null) ?? undefined,
+        []
+    );
+
     React.useEffect(() => {
         void reload();
     }, [reload]);
 
-    return { rows, total, reload };
+    return { rows, total, reload, loadRecord };
 };

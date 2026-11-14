@@ -211,6 +211,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
             rows: unassignedRows,
             total: unassignedTotal,
             reload: reloadUnassigned,
+            loadRecord: loadUnassignedRecord,
         } = useUnassignedSessions(props.kanban.chosenBoardId);
         React.useEffect(() => {
             if (unassignedOpen) {
@@ -615,6 +616,8 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                         onSaved={reloadUnassigned}
                         applyEdits={props.applyEdits}
                         cards={props.cards}
+                        loadRecord={loadUnassignedRecord}
+                        chooseRecord={props.setChosenRecord}
                     />
                 )}
             </Layout>

@@ -17,6 +17,7 @@ import SettingNav from './SettingNav';
 import PreviewSlider from './PreviewSlider';
 import { DEFAULT_SECTION, SectionId, SHORTCUTS } from './sections';
 import { DataRepairDialog } from './DataRepairDialog';
+import { AppHoursCalibrationDialog } from './AppHoursCalibrationDialog';
 import { ImportReportDialog } from './ImportReportDialog';
 import { useSliderChange } from './useSliderChange';
 import { isScreenshotAvailable } from '../../screenshotSupport';
@@ -453,6 +454,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
         const [checking, setChecking] = useState(false);
         const [report, setReport] = useState<DataIssuesReport | undefined>();
         const [repairOpen, setRepairOpen] = useState(false);
+        const [hoursOpen, setHoursOpen] = useState(false);
         const [importSummary, setImportSummary] = useState<ImportSummary | undefined>();
         const [importReportOpen, setImportReportOpen] = useState(false);
         const onChangeFocus = React.useCallback(
@@ -1334,6 +1336,11 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                     </Button>
                                 </ButtonWrapper>
                                 <ButtonWrapper>
+                                    <Button onClick={() => setHoursOpen(true)}>
+                                        {t('appHours.button')}
+                                    </Button>
+                                </ButtonWrapper>
+                                <ButtonWrapper>
                                     <Button danger={true} onClick={onDeleteConfirm}>
                                         {t('settings.system.deleteAllData')}
                                     </Button>
@@ -1369,6 +1376,13 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                     onClose={() => setRepairOpen(false)}
                     onRescan={rescanData}
                     applyRepair={applyRepair}
+                />
+                <AppHoursCalibrationDialog
+                    open={hoursOpen}
+                    onClose={() => setHoursOpen(false)}
+                    onRepaired={() => {
+                        void reloadDataStore();
+                    }}
                 />
                 <ImportReportDialog
                     open={importReportOpen}

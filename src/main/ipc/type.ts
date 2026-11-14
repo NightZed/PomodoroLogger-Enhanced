@@ -16,6 +16,11 @@ import type {
     DataRepairPayload,
     DataRepairResult,
 } from '../../shared/dataRepair';
+import type {
+    RecalibrateSessionHoursOptions,
+    RecalibrateSessionHoursResult,
+    SessionHoursReport,
+} from '../../shared/sessionHours';
 
 import type {
     SessionEdit,
@@ -52,6 +57,10 @@ export enum IpcEventName {
     ScanDataIssues = 'scanDataIssues',
     /** Deletes or repairs the rows the data check reported. */
     RepairData = 'repairData',
+    /** Previews sessions whose app hours disagree with their own total. */
+    ScanSessionHours = 'scanSessionHours',
+    /** Rewrites the selected groups so the app hours add up to the total. */
+    RecalibrateSessionHours = 'recalibrateSessionHours',
     /** Writes a finished pomodoro and credits it to its board/card, atomically. */
     RecordFinishedSession = 'recordFinishedSession',
     SelectWallpaper = 'selectWallpaper',
@@ -313,6 +322,10 @@ export type ExposedAPI = {
     [IpcEventName.MoveCardInBoard](payload: MoveCardInBoardPayload): Promise<CardMoveResult>;
     [IpcEventName.ScanDataIssues](): Promise<DataIssuesReport>;
     [IpcEventName.RepairData](payload: DataRepairPayload): Promise<DataRepairResult>;
+    [IpcEventName.ScanSessionHours](): Promise<SessionHoursReport>;
+    [IpcEventName.RecalibrateSessionHours](
+        options: RecalibrateSessionHoursOptions
+    ): Promise<RecalibrateSessionHoursResult>;
     [IpcEventName.RecordFinishedSession](
         payload: FinishedSessionPayload
     ): Promise<FinishedSessionResult>;

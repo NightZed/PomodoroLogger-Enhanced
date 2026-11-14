@@ -54,6 +54,28 @@ export interface SessionRepository extends DbRepository {
      * full object graph twice.
      */
     readHistory(arg: HistoryArg, parseApps?: boolean): Promise<HistoryData>;
+    /**
+     * One row per session with the app breakdown summed inside SQLite.
+     *
+     * `json_each` keeps the per-app JSON in the engine; reading the same rows
+     * through `findFieldsSync` would parse every app/title breakdown on the
+     * main thread, which is the cost the History projections exist to avoid.
+     */
+    appHoursSync(): AppHoursRow[];
+    /**
+     * Rewrites `apps` / `stayTimeInSecond` for the given documents, in the
+     * caller's transaction. The documents must be complete (read with
+     * `findSync`), because the authoritative `doc` column is replaced too.
+     */
+    applyAppHoursSync(records: any[]): number;
+}
+
+/** A session total and the sum of its per-app hours, both in hours. */
+export interface AppHoursRow {
+    _id: string;
+    startTime: number;
+    spentTimeInHour: number;
+    appHours: number;
 }
 
 export interface DbRepositories {

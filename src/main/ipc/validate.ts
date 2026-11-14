@@ -4,6 +4,7 @@ import type { MoveCardPayload } from '../../shared/cardMove';
 import type { MoveCardInBoardPayload } from '../../shared/cardDrag';
 import type { FinishedSessionPayload } from '../../shared/finishedSession';
 import type { DataRepairPayload } from '../../shared/dataRepair';
+import type { RecalibrateSessionHoursOptions } from '../../shared/sessionHours';
 import type { SessionEdit, UnassignedSessionsQuery } from '../../shared/sessionEdits';
 
 /**
@@ -175,6 +176,21 @@ export function assertDataRepairPayload(value: unknown): DataRepairPayload {
         boardListRefIds: readIdList(payload.boardListRefIds, 'repairData.boardListRefIds'),
         cardSessionRefIds: readIdList(payload.cardSessionRefIds, 'repairData.cardSessionRefIds'),
     };
+}
+
+/**
+ * The calibration never receives session ids: it takes the two group switches
+ * and rescans in the main process, so a stale dialog cannot name rows that are
+ * gone or that the user never saw.
+ */
+export function assertRecalibrateSessionHours(value: unknown): RecalibrateSessionHoursOptions {
+    const payload = assertPlainObject(value, 'recalibrateSessionHours payload');
+    const over = assertBoolean(payload.over, 'recalibrateSessionHours.over');
+    const under = assertBoolean(payload.under, 'recalibrateSessionHours.under');
+    if (!over && !under) {
+        throw new TypeError('recalibrateSessionHours needs at least one group');
+    }
+    return { over, under };
 }
 
 export function assertUnassignedSessionsQuery(value: unknown): UnassignedSessionsQuery {

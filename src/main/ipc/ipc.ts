@@ -66,6 +66,7 @@ import {
     assertMoveCardPayload,
     assertMoveCardInBoardPayload,
     assertDataRepairPayload,
+    assertRecalibrateSessionHours,
     assertFinishedSessionPayload,
     assertString,
     assertTrayMenuItems,
@@ -77,12 +78,14 @@ import { deleteKanbanItems } from '../db/kanbanDeletion';
 import { moveCardToBoard } from '../db/cardMove';
 import { moveCardInBoard } from '../db/cardDrag';
 import { repairData, scanDataIssues } from '../db/dataRepair';
+import { recalibrateSessionHours, scanSessionHours } from '../db/sessionHours';
 import { recordFinishedSession } from '../db/finishedSession';
 import { applySessionEdits, listUnassignedSessions } from '../db/sessionEdits';
 import type { DeleteKanbanItemsPayload } from '../../shared/kanbanDeletion';
 import type { MoveCardPayload } from '../../shared/cardMove';
 import type { MoveCardInBoardPayload } from '../../shared/cardDrag';
 import type { DataRepairPayload } from '../../shared/dataRepair';
+import type { RecalibrateSessionHoursOptions } from '../../shared/sessionHours';
 import type { FinishedSessionPayload } from '../../shared/finishedSession';
 import type { SessionEdit, UnassignedSessionsQuery } from '../../shared/sessionEdits';
 
@@ -641,6 +644,12 @@ export function initialize() {
     handle(IpcEventName.RepairData, (payload: DataRepairPayload) => repairData(payload), [
         assertDataRepairPayload,
     ]);
+    handle(IpcEventName.ScanSessionHours, () => scanSessionHours());
+    handle(
+        IpcEventName.RecalibrateSessionHours,
+        (options: RecalibrateSessionHoursOptions) => recalibrateSessionHours(options),
+        [assertRecalibrateSessionHours]
+    );
     handle(
         IpcEventName.RecordFinishedSession,
         (payload: FinishedSessionPayload) => recordFinishedSession(payload),

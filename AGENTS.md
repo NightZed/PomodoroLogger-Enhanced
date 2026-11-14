@@ -210,6 +210,8 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
 会话确认时 `normalizeAppHours`（`src/shared/normalizeAppHours.ts`）把 `apps` 和 `stayTimeInSecond` 按最终 `spentTimeInHour`（含延长）等比缩放，`Σapps === spentTimeInHour` 是一条不变量——不要退回「应用记墙钟、总时长写名义值」，那样每结束一个番茄都会让 History 的树图比总时长徽章多 0.5–1 s，一万个番茄就是一小时以上。
 效率打分在 `src/shared/efficiency/efficiency.ts`；历史聚合在 `src/utils/aggPomodoro.ts` 和 `src/shared/dataMerger`。
 
+存量数据的应用时长校准在 `src/main/db/sessionHours.ts`：扫描用 `json_each` 在 SQLite 里求每条会话的 `apps` 合计，主线程只拿到 `{_id, startTime, spentTimeInHour, appHours}` 四个标量（用 `findFieldsSync` 读 `apps` 会把全库的标题明细都解析一遍）。修复时主进程重新扫描并单事务写回，不接受渲染层传来的 id 列表——那边拿到的只是快照。三组默认策略：`over`（应用多于总时长）默认勾选，`under`（少于）默认不勾（可能是手工补录），`missing`（没有应用明细）只展示不可修。写回只改 `apps` / `stay_time_in_second` / `doc` 三列，所以会话总时长、日历和项目统计不受影响。
+
 番茄的卡片归属是**一番茄一卡**：结束遮罩（`SessionEndingMask`）在 `focusedList` 只有一张卡时自动选它，多张时让用户选一张或选「不挂卡」，然后 `Timer.onSessionConfirmed` 把单个 `cardId` 交给 `timerFinished` → `recordFinishedSession`，只有那张卡的 `actual` 增加。
 不要退回「挂到 `focusedList` 的每一张卡」：那会让卡片时长按列表卡片数放大，而 `dataMerger` 的 `setBoardInfo` 按卡片重算看板时长，导出再导入后 `spentHours` 会变成实际的 N 倍。
 事后改归属（改项目 / 挂卡 / 删除）统一走主进程的 `applySessionEdits` 单事务：卡片按 `board.lists → list.cards` 反查归属，跨看板挂卡整批拒绝，换卡先解绑再挂一次，改项目同时把看板 `spentHours` / `relatedSessions` 转到新板。

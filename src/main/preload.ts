@@ -31,6 +31,11 @@ import type { MoveCardInBoardPayload } from '../shared/cardDrag';
 import type { FinishedSessionPayload, FinishedSessionResult } from '../shared/finishedSession';
 import type { DataIssuesReport, DataRepairPayload, DataRepairResult } from '../shared/dataRepair';
 import type {
+    RecalibrateSessionHoursOptions,
+    RecalibrateSessionHoursResult,
+    SessionHoursReport,
+} from '../shared/sessionHours';
+import type {
     SessionEdit,
     SessionEditsResult,
     UnassignedSessionsQuery,
@@ -112,6 +117,10 @@ const api: ExposedAPI = {
     [IpcEventName.ScanDataIssues]: () => invoke<DataIssuesReport>(IpcEventName.ScanDataIssues),
     [IpcEventName.RepairData]: (payload: DataRepairPayload) =>
         invoke<DataRepairResult>(IpcEventName.RepairData, payload),
+    [IpcEventName.ScanSessionHours]: () =>
+        invoke<SessionHoursReport>(IpcEventName.ScanSessionHours),
+    [IpcEventName.RecalibrateSessionHours]: (options: RecalibrateSessionHoursOptions) =>
+        invoke<RecalibrateSessionHoursResult>(IpcEventName.RecalibrateSessionHours, options),
     [IpcEventName.RecordFinishedSession]: (payload: FinishedSessionPayload) =>
         invoke<FinishedSessionResult>(IpcEventName.RecordFinishedSession, payload),
     [IpcEventName.SelectWallpaper]: () => invoke<string | undefined>(IpcEventName.SelectWallpaper),

@@ -507,6 +507,50 @@ export const zh: CatalogShape<typeof en> = {
         failedDetail: (detail: string): string => `数据未能修复：${detail}`,
     },
 
+    appHours: {
+        title: '校准应用时长',
+        button: '校准应用时长',
+        intro:
+            '每条会话都存着一个总时长和一份应用明细，两者会慢慢对不上：' +
+            '应用明细按墙钟累加，总时长则是会话的名义长度。' +
+            '校准会按比例缩放应用明细，让它重新加得回总时长。' +
+            '会话总时长、日历和项目统计都不会改变。',
+        empty: '所有会话的应用时长都已经对得上',
+        loading: '正在读取会话…',
+        over: (count: number): string => `应用时长多于总时长（${count}）`,
+        overNote: (duration: string): string =>
+            `这些会话的应用明细合计比它们自己的总时长多出 ${duration}。`,
+        under: (count: number): string => `应用时长少于总时长（${count}）`,
+        underNote: (duration: string): string =>
+            `这些会话的应用明细合计比总时长少 ${duration}。可能是手工补录过的记录，所以默认不勾选。`,
+        missing: (count: number): string => `没有应用明细（${count}）`,
+        missingNote: (duration: string): string =>
+            `有 ${duration} 的会话时长无法归到任何应用。这些会话不会被改动。`,
+        sessionTotal: '总时长',
+        appTotal: '应用',
+        deltaMore: '多出',
+        deltaLess: '缺少',
+        deltaUnattributed: '未归属',
+        seconds: (value: string): string => `${value} 秒`,
+        minutes: (value: number): string => `${value} 分`,
+        minutesSeconds: (minutes: number, seconds: number): string => `${minutes} 分 ${seconds} 秒`,
+        hours: (value: number): string => `${value} 小时`,
+        hoursMinutes: (hours: number, minutes: number): string => `${hours} 小时 ${minutes} 分`,
+        selectGroup: '选择',
+        selected: (count: number): string => `已选 ${count} 条会话`,
+        apply: (count: number): string => `校准 ${count} 条`,
+        confirmTitle: '要校准这些会话吗？',
+        confirmOver: (count: number): string => `${count} 条会话的应用时长会被按比例缩小。`,
+        confirmUnder: (count: number): string => `${count} 条会话的应用时长会被按比例放大。`,
+        confirmNote: '会话总时长、日历和项目统计都不会改变。',
+        confirmOk: '校准',
+        done: (repaired: number, skipped: number): string =>
+            `已校准 ${repaired} 条会话` + (skipped > 0 ? `，跳过 ${skipped} 条` : ''),
+        failed: '应用时长校准失败',
+        failedDetail: (detail: string): string => `没有改动任何数据：${detail}`,
+        scanFailed: '无法读取会话数据',
+    },
+
     settings: {
         sectionsLabel: '设置分区',
         sections: {

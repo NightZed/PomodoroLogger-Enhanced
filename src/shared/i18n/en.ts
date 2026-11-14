@@ -550,6 +550,55 @@ export const en = {
         failedDetail: (detail: string): string => `The data could not be repaired: ${detail}`,
     },
 
+    appHours: {
+        title: 'Calibrate App Hours',
+        button: 'Calibrate app hours',
+        intro:
+            'A session stores a total and a per-app breakdown, and the two can drift apart: ' +
+            'the breakdown measures wall time while the total is the session length. ' +
+            'Calibrating rescales the breakdown proportionally so it adds up again. ' +
+            'Session totals, the calendar and project statistics are not changed.',
+        empty: 'Every session already adds up',
+        loading: 'Reading sessions…',
+        over: (count: number): string => `App time exceeds the total (${count})`,
+        overNote: (duration: string): string =>
+            `Together they add ${duration} more than the sessions themselves.`,
+        under: (count: number): string => `App time falls short of the total (${count})`,
+        underNote: (duration: string): string =>
+            `Together they add ${duration} less. This can be a hand-edited record, ` +
+            'so the group starts unchecked.',
+        missing: (count: number): string => `No app breakdown (${count})`,
+        missingNote: (duration: string): string =>
+            `${duration} of session time cannot be attributed to any app. These are left untouched.`,
+        sessionTotal: 'Total',
+        appTotal: 'Apps',
+        deltaMore: 'more',
+        deltaLess: 'less',
+        deltaUnattributed: 'unattributed',
+        seconds: (value: string): string => `${value}s`,
+        minutes: (value: number): string => `${value}m`,
+        minutesSeconds: (minutes: number, seconds: number): string => `${minutes}m ${seconds}s`,
+        hours: (value: number): string => `${value}h`,
+        hoursMinutes: (hours: number, minutes: number): string => `${hours}h ${minutes}m`,
+        selectGroup: 'Select',
+        selected: (count: number): string =>
+            `${count} ${plural(count, 'session', 'sessions')} selected`,
+        apply: (count: number): string => `Calibrate ${count}`,
+        confirmTitle: 'Calibrate these sessions?',
+        confirmOver: (count: number): string =>
+            `${count} ${plural(count, 'session', 'sessions')} will have their app time scaled down.`,
+        confirmUnder: (count: number): string =>
+            `${count} ${plural(count, 'session', 'sessions')} will have their app time scaled up.`,
+        confirmNote: 'Session totals, the calendar and project statistics stay unchanged.',
+        confirmOk: 'Calibrate',
+        done: (repaired: number, skipped: number): string =>
+            `Calibrated ${repaired} ${plural(repaired, 'session', 'sessions')}` +
+            (skipped > 0 ? `, skipped ${skipped}` : ''),
+        failed: 'Could Not Calibrate App Hours',
+        failedDetail: (detail: string): string => `Nothing was changed: ${detail}`,
+        scanFailed: 'Could Not Read Sessions',
+    },
+
     settings: {
         /** Accessible name of the section list in `SettingNav`. */
         sectionsLabel: 'Settings sections',

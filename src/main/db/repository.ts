@@ -1,6 +1,7 @@
 import type { Database } from 'better-sqlite3';
 import { uid } from '../../utils/uid';
 import type {
+    AppHoursRow,
     DbRepository,
     HistoryArg,
     HistoryData,
@@ -1000,6 +1001,49 @@ export function createSessionRepository(
     };
 
     return Object.assign(base, {
+        /**
+         * Sums each session's per-app hours inside SQLite.
+         *
+         * The calibration only needs four scalars per session; the app
+         * breakdown stays in the engine, so ten thousand sessions cost one
+         * query instead of ten thousand JSON parses on the main thread. An
+         * empty `apps` object yields no rows for `json_each`, and `COALESCE`
+         * turns that NULL into 0.
+         */
+        appHoursSync(): AppHoursRow[] {
+            return db
+                .prepare(
+                    `SELECT _id,
+                            start_time            AS startTime,
+                            spent_time_in_hour    AS spentTimeInHour,
+                            COALESCE((SELECT SUM(json_extract(value, '$.spentTimeInHour'))
+                                        FROM json_each(sessions.apps)), 0) AS appHours
+                       FROM sessions`
+                )
+                .all() as AppHoursRow[];
+        },
+        /**
+         * Writes the two columns a calibration changes, plus the authoritative
+         * `doc` copy. `updateSync` would re-select and re-parse every row
+         * before writing it, which for a full-history pass doubles the work;
+         * the caller already holds the parsed document.
+         */
+        applyAppHoursSync(records: any[]): number {
+            const statement = db.prepare(
+                'UPDATE sessions SET apps = ?, stay_time_in_second = ?, doc = ? WHERE _id = ?'
+            );
+            for (const record of records) {
+                statement.run(
+                    JSON.stringify(record.apps ?? {}),
+                    record.stayTimeInSecond == null
+                        ? null
+                        : JSON.stringify(record.stayTimeInSecond),
+                    JSON.stringify(record),
+                    record._id
+                );
+            }
+            return records.length;
+        },
         readHistory,
         async aggHistory(arg: HistoryArg) {
             const data = await readHistory(arg);

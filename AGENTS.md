@@ -231,6 +231,7 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
 ## 约定
 
 - 提交信息必须符合 Conventional Commits（commitlint）；类型决定 semantic-release 的版本号。
+- **提交信息一律用简体中文**：`type` 和 `scope` 保持英文小写（`fix(timer): 应用时长与会话总时长保持一致`），subject 与 body 都用中文，不要写英文句子再翻译。commit 历史与 changelog 是给中文使用者读的，混入英文正文会让检索和复盘都变差。
   Husky + lint-staged 会对暂存文件跑 prettier 和 `eslint --fix`。
 - 撤销未推送的提交要重写，而不是 revert：`git reset --soft <base>`（工作可丢弃时用 `git reset --hard`），然后重新提交想要的改动。
   `revert:` 不是 semantic-release 认识的类型，所以 revert 提交会往 changelog 里加一条发版根本不需要的记录，而被它抵消的那条又会留下来，描述一个已经不再发布的功能。

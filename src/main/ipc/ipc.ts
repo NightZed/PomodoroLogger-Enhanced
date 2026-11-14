@@ -499,7 +499,10 @@ export function initialize() {
 
         const data = await readAllData();
         const payload = buildExportPayload(data, now);
-        await promisify(writeFile)(path.filePath, JSON.stringify(payload, null, 2), {
+        // No pretty-printing: this stringify runs on the main process's single
+        // thread, and the two-space layout inflates the JSON ~30% -- seconds of
+        // block on a large library for indentation nobody parses.
+        await promisify(writeFile)(path.filePath, JSON.stringify(payload), {
             encoding: 'utf-8',
         });
         return {

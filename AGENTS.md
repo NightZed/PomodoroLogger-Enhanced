@@ -150,6 +150,9 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
   界面可用的错误（`window 'error'`、`unhandledrejection`、Timer 页内层边界的 `component`）额外弹**一次** `feedback.notice`
   （`ReportExtra.notify`）：同一指纹每次启动只弹一次、带「打开日志文件夹」、没有遮罩所以点空白关不掉。
   整窗的渲染错误已经换成 `ErrorScreen`，不再弹提示。`FeedbackContextBridge` 尚未挂载时（启动早期）视为未提示，下一次仍会弹。
+- 番茄钟页的内层边界就长在 `Timer` 自己身上（`getDerivedStateFromError` + `hasError` + `renderFallback`），**不要**改成包住 `<Timer />` 的包装组件：
+  `Timer.componentWillUnmount` 会 `monitor.discard()`，卸载实例等于丢掉正在跑的番茄和它的截图。
+  只有渲染阶段抛出的后代错误会进 fallback；`Timer.render()` 自身抛出的错误仍走整窗错误页。
 - 开发版的运行时错误有两个遮罩：`ReactRefreshWebpackPlugin` 的和 webpack-dev-server 自带的（`client.overlay` 默认开启，深色面板）。
   后者已在 `webpack.renderer.dev.config.js` 里关掉，否则关掉第一个之后会露出第二个，看着像同一个错误报了两次。
 - 主进程故障由 `src/main/crashHandlers.ts`（`uncaughtException` / `unhandledRejection`）和 `init.ts` 里的 `installWindowDiagnostics()`（`did-fail-load`、`preload-error`、`unresponsive`、`render-process-gone`、`child-process-gone`）记录。

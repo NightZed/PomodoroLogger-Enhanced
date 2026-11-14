@@ -70,9 +70,16 @@ jest.mock('./PomodoroNumView', () => ({
         <div data-testid="pomodoro-num">{pomodoros.length}</div>
     ),
 }));
+/** Set by the boundary test: makes one of the page's children throw. */
+let mockProgressThrows = false;
 jest.mock('./Progress', () => ({
     __esModule: true,
-    default: ({ children }: any) => <div data-testid="progress">{children}</div>,
+    default: ({ children }: any) => {
+        if (mockProgressThrows) {
+            throw new Error('progress exploded');
+        }
+        return <div data-testid="progress">{children}</div>;
+    },
 }));
 jest.mock('./WorkRestIcon', () => ({
     WorkRestIcon: () => <button data-testid="work-rest" />,
@@ -197,6 +204,7 @@ describe('Timer page', () => {
     beforeEach(() => {
         jest.useFakeTimers({ now: new Date('2026-01-01T00:00:00Z') });
         mockMonitorInstances.length = 0;
+        mockProgressThrows = false;
         (getTodaySessions as jest.Mock).mockResolvedValue([]);
         (setTrayImageWithMadeIcon as jest.Mock).mockClear();
         api.onTrayAction.mockReturnValue(jest.fn());
@@ -367,6 +375,32 @@ describe('Timer page', () => {
 
         expect(view.getByTestId('timer-mask').getAttribute('data-show')).toBe('true');
         expect(view.getByTestId('timer-mask').getAttribute('data-count')).toBe('0');
+    });
+
+    // Regression: this boundary used to implement only `componentDidCatch`, so
+    // React re-rendered the same failing child, the second throw escaped to
+    // AppErrorBoundary, and unmounting Timer discarded the running session
+    // (`monitor.discard()`). The fallback keeps the instance -- and with it the
+    // monitor, the countdown interval and the tray entries -- alive.
+    it('replaces the page with a retry fallback and keeps the instance alive', async () => {
+        // React reports the caught error on the console; that output is the
+        // subject of this test, so it is claimed here.
+        const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+        try {
+            mockProgressThrows = true;
+            const view = await renderTimer();
+            expect(view.container.textContent).toContain('The timer page could not be drawn');
+
+            const instance = view.ref.current;
+            mockProgressThrows = false;
+            fireEvent.click(view.getByRole('button', { name: 'Retry' }));
+
+            expect(view.ref.current).toBe(instance);
+            expect(view.container.textContent).toContain('25:00');
+        } finally {
+            mockProgressThrows = false;
+            consoleError.mockRestore();
+        }
     });
 
     it('stops the session when the tray stop entry is used', async () => {

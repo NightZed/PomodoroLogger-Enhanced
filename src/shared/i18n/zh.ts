@@ -154,6 +154,12 @@ export const zh: CatalogShape<typeof en> = {
             pomodorosToday: '今日番茄',
         },
         saveFailed: '本次番茄未能保存，历史中不会出现这条记录，项目和卡片也没有计入时长。',
+        error: {
+            title: '番茄钟页面渲染失败',
+            body: '计时仍在后台继续。点击「重试」重新绘制页面，详细信息已写入日志文件。',
+            retry: '重试',
+            remaining: '剩余',
+        },
         session: {
             projectName: '项目名称',
             confirm: '确定',

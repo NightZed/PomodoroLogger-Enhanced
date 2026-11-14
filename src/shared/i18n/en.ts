@@ -173,6 +173,16 @@ export const en = {
         },
         saveFailed:
             'This pomodoro could not be saved. It will not appear in your history and no project or card was credited.',
+        /**
+         * Replaces the timer page when one of its children throws while
+         * rendering. The session keeps running: the page is only redrawn.
+         */
+        error: {
+            title: 'The timer page could not be drawn',
+            body: 'The countdown keeps running in the background. Retrying redraws the page; the details are in the log file.',
+            retry: 'Retry',
+            remaining: 'Remaining',
+        },
         session: {
             projectName: 'Project Name',
             confirm: 'Confirm',

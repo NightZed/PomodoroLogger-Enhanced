@@ -136,6 +136,48 @@ const Layout = styled.div`
     flex-direction: row;
 `;
 
+/**
+ * Stand-in for the page when one of its descendants threw while rendering.
+ * Kept deliberately small: it must not be able to fail the same way.
+ */
+const ErrorFallback = styled.div`
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 24px;
+    text-align: center;
+    color: var(--pl-text);
+`;
+
+const ErrorFallbackTitle = styled.h2`
+    margin: 0;
+    font-size: 1.15em;
+    font-weight: 600;
+`;
+
+const ErrorFallbackBody = styled.p`
+    margin: 0;
+    max-width: 420px;
+    line-height: 1.6;
+    color: var(--pl-text-secondary);
+`;
+
+const ErrorFallbackTime = styled.div`
+    font-size: 1.6em;
+    font-variant-numeric: tabular-nums;
+`;
+
+const ErrorFallbackActions = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 4px;
+`;
+
 const MySider = styled.aside`
     position: relative;
     flex: 0 0 300px;
@@ -255,6 +297,11 @@ interface State {
     focusStartWarningBoardId?: string;
     /** Reflects the "Don't remind me again" check box of the warning dialog. */
     focusStartWarningDontRemind: boolean;
+    /**
+     * A descendant threw while rendering and the page is replaced by
+     * `renderFallback`. Never cleared by anything but the Retry button.
+     */
+    hasError: boolean;
 }
 
 class Timer extends Component<Props, State> {
@@ -292,6 +339,7 @@ class Timer extends Component<Props, State> {
             pomodoroNum: 0,
             showSider: true,
             focusStartWarningDontRemind: false,
+            hasError: false,
         };
         this.mainDiv = React.createRef<HTMLDivElement>();
         this.sound = React.createRef<HTMLAudioElement>();
@@ -1376,6 +1424,23 @@ class Timer extends Component<Props, State> {
         return;
     };
 
+    /**
+     * Turns a child's render failure into the fallback below.
+     *
+     * Without this hook React re-renders this boundary with unchanged state
+     * after `componentDidCatch`, which recreates the failing child and throws
+     * again -- the error then escapes to `AppErrorBoundary`, the whole window
+     * becomes the error page, and unmounting `Timer` discards the running
+     * session. Rendering the fallback instead makes the recovery render safe.
+     */
+    static getDerivedStateFromError(): Partial<State> {
+        return { hasError: true };
+    }
+
+    retry = () => {
+        this.setState({ hasError: false });
+    };
+
     componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
         // A failure inside the timer page is contained here (the rest of the
         // app keeps working), but it still has to reach crash.log -- otherwise
@@ -1403,7 +1468,52 @@ class Timer extends Component<Props, State> {
         }
     };
 
+    /**
+     * Replaces the page after a child failed to render, without unmounting
+     * `Timer` itself.
+     *
+     * The instance has to survive: `componentWillUnmount` calls
+     * `monitor.discard()`, which drops the running session and deletes its
+     * screenshots. A boundary *around* this component would therefore lose the
+     * pomodoro it is meant to protect. Rendering from here keeps the monitor,
+     * the countdown interval and the tray entries alive; only the failed
+     * subtree is gone, and Retry rebuilds it.
+     *
+     * The ending mask lives in that subtree, so a session that finishes while
+     * the fallback is up can still be confirmed from the tray menu (its
+     * "Start Focusing" / "Start Break" entries confirm the staged session
+     * first, see `onTrayAction`).
+     */
+    private renderFallback() {
+        const { leftTime } = this.state;
+        return (
+            <Layout style={{ backgroundColor: 'transparent' }} ref={this.selfRef}>
+                <ErrorFallback>
+                    <ErrorFallbackTitle>{t('timer.error.title')}</ErrorFallbackTitle>
+                    <ErrorFallbackBody>{t('timer.error.body')}</ErrorFallbackBody>
+                    {leftTime ? (
+                        <ErrorFallbackTime>
+                            {t('timer.error.remaining')} {leftTime}
+                        </ErrorFallbackTime>
+                    ) : undefined}
+                    <ErrorFallbackActions>
+                        <Button type="primary" onClick={this.retry}>
+                            {t('timer.error.retry')}
+                        </Button>
+                        <Button onClick={() => window.api?.openLogDir?.()}>
+                            {t('crash.logFolder')}
+                        </Button>
+                    </ErrorFallbackActions>
+                </ErrorFallback>
+            </Layout>
+        );
+    }
+
     render() {
+        if (this.state.hasError) {
+            return this.renderFallback();
+        }
+
         const { leftTime, percent, secondsLeft, more, pomodorosToday } = this.state;
         const { isRunning, minimize, compact, isFocusing, sessionEnding } = this.props.timer;
         // One predicate for "a session exists" (running, or paused with time

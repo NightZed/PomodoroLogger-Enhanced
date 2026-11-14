@@ -2,13 +2,12 @@ import * as React from 'react';
 import { Button } from 'antd';
 import styled from 'styled-components';
 import { connect } from 'react-redux';
-import { AppModal } from '../AppModal';
 import { useI18n } from '../../i18n';
-import { DAY_EDITOR_WIDTH } from '../dialogLayout';
+import { PICKER_BODY_HEIGHT } from '../dialogLayout';
+import { PickerFooter } from './PickerFooter';
 import type { RootState } from '../../reducers';
 
-export interface ListPickerProps {
-    open: boolean;
+export interface ListPickerBodyProps {
     /** Board whose lists are offered. */
     boardId?: string;
     /** The card being moved; used for the "shared sessions" hint. */
@@ -16,25 +15,41 @@ export interface ListPickerProps {
     /** The card's current list, which cannot be its destination. */
     sourceListId?: string;
     /** Called with the destination list; the dialog stays open while saving. */
-    onMove: (listId: string) => void;
+    onConfirm: (listId: string) => void;
+    /** Back to the project step; the move flow is two steps, not one dialog. */
     onCancel: () => void;
     busy?: boolean;
     /** Confirm button text; the data check reuses the picker to restore cards. */
     actionLabel?: string;
 }
 
-interface Props extends ListPickerProps {
+interface Props extends ListPickerBodyProps {
     boards: RootState['kanban']['boards'];
     lists: RootState['kanban']['lists'];
     cards: RootState['kanban']['cards'];
 }
 
+/**
+ * Same frame as the project and card pickers. The columns take whatever is
+ * left and scroll on their own, so the hints and the footer stay put and the
+ * dialog does not change height between the two steps.
+ */
+const Body = styled.div`
+    display: flex;
+    flex-direction: column;
+    height: ${PICKER_BODY_HEIGHT}px;
+`;
+
 const Columns = styled.div`
     display: flex;
     align-items: stretch;
+    align-content: flex-start;
     flex-wrap: wrap;
     gap: 8px;
-    margin-bottom: 12px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 2px;
 `;
 
 const ListOption = styled.button<{ $selected: boolean; $disabled: boolean }>`
@@ -72,19 +87,18 @@ const ListMeta = styled.span<{ $selected: boolean }>`
     opacity: ${({ $selected }) => ($selected ? 0.85 : 0.7)};
 `;
 
+const Hints = styled.div`
+    flex: none;
+    padding-top: 8px;
+`;
+
 const Hint = styled.div`
     font-size: 12px;
     line-height: 1.6;
     color: var(--pl-text-secondary);
 `;
 
-const FooterRow = styled.div`
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-`;
-
-const ListPickerInner = (props: Props) => {
+const ListPickerBodyInner = (props: Props) => {
     const { t } = useI18n();
     const board = props.boardId === undefined ? undefined : props.boards[props.boardId];
 
@@ -118,11 +132,6 @@ const ListPickerInner = (props: Props) => {
             ? preferred
             : firstEnabled;
     const [picked, setPicked] = React.useState<string | undefined>();
-    React.useEffect(() => {
-        if (props.open) {
-            setPicked(undefined);
-        }
-    }, [props.open]);
     const selected = picked ?? defaultListId;
 
     const card = props.cardId === undefined ? undefined : props.cards[props.cardId];
@@ -140,78 +149,76 @@ const ListPickerInner = (props: Props) => {
               ).length;
 
     return (
-        <AppModal
-            open={props.open}
-            title={t('kanban.cardMove.listTitle', board?.name ?? '')}
-            onCancel={props.onCancel}
-            zIndex={1100}
-            /* Second step of the two-step move flow; it follows a
-               ProjectPicker, so it keeps the same width instead of shrinking
-               in the middle of the flow. */
-            width={DAY_EDITOR_WIDTH}
-            footer={
-                <FooterRow>
-                    <Button onClick={props.onCancel}>{t('kanban.cardMove.cancel')}</Button>
-                    <Button
-                        type="primary"
-                        disabled={selected === undefined || props.busy}
-                        loading={props.busy}
-                        onClick={() => {
-                            if (selected !== undefined) {
-                                props.onMove(selected);
-                            }
-                        }}
-                    >
-                        {props.actionLabel ?? t('kanban.cardMove.confirm')}
-                    </Button>
-                </FooterRow>
-            }
-        >
-            <Columns role="listbox" aria-label={t('kanban.cardMove.listTitle', board?.name ?? '')}>
-                {options.map((option) => (
-                    <ListOption
-                        key={option.list._id}
-                        type="button"
-                        role="option"
-                        aria-selected={option.list._id === selected}
-                        $selected={option.list._id === selected}
-                        $disabled={option.disabled}
-                        disabled={option.disabled}
-                        title={option.list.title}
-                        onClick={() => setPicked(option.list._id)}
-                    >
-                        <ListTitle>
-                            {option.list.title}
-                            {option.focused ? ' ★' : ''}
-                            {option.done ? ' ✓' : ''}
-                        </ListTitle>
-                        <ListMeta $selected={option.list._id === selected}>
-                            {t('kanban.list.cardCount', option.count)}
-                        </ListMeta>
-                    </ListOption>
-                ))}
-            </Columns>
-            {card !== undefined ? (
-                <>
-                    <Hint>{t('kanban.cardMove.sessions', sessionCount)}</Hint>
-                    {sharedCount > 0 ? (
-                        <Hint>{t('kanban.cardMove.shared', sharedCount)}</Hint>
-                    ) : undefined}
-                </>
-            ) : undefined}
-            <Hint>{t('kanban.cardMove.irreversible')}</Hint>
-        </AppModal>
+        <>
+            <Body>
+                <Columns
+                    role="listbox"
+                    aria-label={t('kanban.cardMove.listTitle', board?.name ?? '')}
+                >
+                    {options.map((option) => (
+                        <ListOption
+                            key={option.list._id}
+                            type="button"
+                            role="option"
+                            aria-selected={option.list._id === selected}
+                            $selected={option.list._id === selected}
+                            $disabled={option.disabled}
+                            disabled={option.disabled}
+                            title={option.list.title}
+                            onClick={() => setPicked(option.list._id)}
+                        >
+                            <ListTitle>
+                                {option.list.title}
+                                {option.focused ? ' ★' : ''}
+                                {option.done ? ' ✓' : ''}
+                            </ListTitle>
+                            <ListMeta $selected={option.list._id === selected}>
+                                {t('kanban.list.cardCount', option.count)}
+                            </ListMeta>
+                        </ListOption>
+                    ))}
+                </Columns>
+                {card !== undefined ? (
+                    <Hints>
+                        <Hint>{t('kanban.cardMove.sessions', sessionCount)}</Hint>
+                        {sharedCount > 0 ? (
+                            <Hint>{t('kanban.cardMove.shared', sharedCount)}</Hint>
+                        ) : undefined}
+                        <Hint>{t('kanban.cardMove.irreversible')}</Hint>
+                    </Hints>
+                ) : (
+                    <Hints>
+                        <Hint>{t('kanban.cardMove.irreversible')}</Hint>
+                    </Hints>
+                )}
+            </Body>
+            <PickerFooter>
+                <Button onClick={props.onCancel}>{t('kanban.cardMove.cancel')}</Button>
+                <Button
+                    type="primary"
+                    disabled={selected === undefined || props.busy}
+                    loading={props.busy}
+                    onClick={() => {
+                        if (selected !== undefined) {
+                            props.onConfirm(selected);
+                        }
+                    }}
+                >
+                    {props.actionLabel ?? t('kanban.cardMove.confirm')}
+                </Button>
+            </PickerFooter>
+        </>
     );
 };
 
 /**
  * Second step of "move card to…": pick the destination list inside the board
- * chosen in `ProjectPicker`. It is a separate dialog because the board has to
- * be decided first — the list set only exists once the board does — and the
- * same dialog serves the same-board case (the source list is just disabled).
+ * chosen in the {@link ProjectPickerBody}. It is a body rather than a dialog so
+ * both steps can live in one `AppModal`; two dialogs taking turns stack their
+ * masks for a frame and the background flashes darker at every step.
  */
-export const ListPicker = connect((state: RootState) => ({
+export const ListPickerBody = connect((state: RootState) => ({
     boards: state.kanban.boards,
     lists: state.kanban.lists,
     cards: state.kanban.cards,
-}))(ListPickerInner);
+}))(ListPickerBodyInner);

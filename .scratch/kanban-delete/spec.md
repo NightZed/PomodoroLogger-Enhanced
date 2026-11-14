@@ -262,7 +262,7 @@ WIP 限制（进行中列表最多几张卡）作为**独立的看板功能**后
 - **点击即选中并关闭**，与卡片选择器一致，不再设「确认」按钮——多一次点击没有收益，选错了可以再点一次。
 - 隐藏看板灰显 + 「已隐藏」角标，仍可选。
 - 「无项目」清空 `boardId` 并解除卡片关联。
-- 两个弹窗与按天管理弹窗同宽（860），内容区同高（380）：它们在按天弹窗里只隔一次点击，宽度或高度变化会被读成窗口在跳。项目弹窗为此带一个只有「取消」的 footer，与卡片弹窗的 footer 对齐。宽度与内容高度是 `components/dialogLayout.ts` 里的共享常量，按天弹窗与三个 picker 都引用同一份，同宽同高由结构保证——jsdom 没有布局，用 `860px` / `getComputedStyle` 写断言只会钉住今天的数字，改设计就红。
+- 两个弹窗与按天管理弹窗同宽（860），内容区同高（380）：它们在按天弹窗里只隔一次点击，宽度或高度变化会被读成窗口在跳。项目弹窗为此带一个只有「取消」的底栏，与卡片弹窗的底栏对齐。宽度与内容高度是 `components/dialogLayout.ts` 里的共享常量，按天弹窗与三个选择器（项目 / 卡片 / 列表）都引用同一份，同宽同高由结构保证——jsdom 没有布局，用 `860px` / `getComputedStyle` 写断言只会钉住今天的数字，改设计就红。底栏由内容组件自己渲染（`AppModal` 的 `footer={null}`），不是 Modal 的 footer：列表选择器的「移动」要读它自己的选中项。
 - 卡片弹窗的列容器只允许横向滚动（列表多时），纵向滚动留给每列自己的 `ColumnBody`。两层都纵向滚动时，外层会在弹窗右边缘多出一条滚动条，看起来像「内容区高度算错了」。
 
 ```
@@ -375,8 +375,9 @@ applySessionEdits([
 UI：
 
 - 入口：卡片编辑弹窗底部「移动到…」，与「删除」并列。
-- 第一步复用「选择项目」弹窗（含搜索、排序、隐藏标记）。
-- 第二步新增「选择目标列表」弹窗：把该项目的列表横向排列，标出 `focused` 与 `done`，默认选中目标看板的 `focusedList`；没有 focusedList 时选第一个列表。
+- 两步共用一个弹窗，只换内容区，不「关一个开一个」——理由见下。
+- 第一步是「选择项目」内容（含搜索、排序、隐藏标记）。
+- 第二步是「选择目标列表」内容：把该项目的列表横向排列，标出 `focused` 与 `done`，默认选中目标看板的 `focusedList`；没有 focusedList 时选第一个列表。
 
 ```
 ┌──────────────────────────────────────────────────────┐
@@ -395,6 +396,19 @@ UI：
 - 批量移动暂不做，命令按单卡设计；后续接多选时扩展入参即可。
 - 移动不可撤销，确认框要写明会话会跟随迁移。
 
+#### 两步为什么共用一个弹窗
+
+两个独立弹窗接力时，切换会闪一下：背景暗一下，不是内容跳。
+
+原因是 `open` 的两次变化落在同一次 commit 里：旧弹窗 `open=false`、新弹窗 `open=true`。rc-motion 的 leave 分 prepare 与 active 两阶段，`-leave-active` 要等下一帧才加上，`animationend` 后再一帧才把 portal 设成 `display: none`。于是**新弹窗的遮罩已经完全不透明时，旧遮罩还在**，0.45 叠 0.45 约等于 0.70，背景先变深再落回来。底下 `CardEditor` 自己那层 1000 的遮罩也开着，实际是三片变两片。前进和取消各触发一次，不是首次才有的问题。
+
+所以两步共用**一个** `AppModal`：标题、按钮随 `step` 变，内容区在 `ProjectPickerBody` 与 `ListPickerBody` 之间切换。遮罩只挂一次、卸载也一次；body 换掉时它的内部状态（搜索词、排序、选中列表）跟着卸载自然重置，不需要再写 `useEffect` 清空。
+
+两个推论：
+
+- 两个 body 必须同高（`PICKER_BODY_HEIGHT` = 380）。否则合并后 Modal 在两步之间改高度，底部塌一下，还是「窗口在跳」。现在 `ListPicker` 按内容撑高，实际只有 140 左右，是唯一没接这个常量的选择器，合并时一并补上。
+- 底部按钮放进 body 自己的一行，`AppModal` 传 `footer={null}`。第二步的确认按钮要读 body 内的选中列表；footer 若由 Modal 渲染，就得把选中态提升到容器，父子两边各推一次默认列表，两处逻辑迟早会分叉。代价是 `ProjectPicker` 的「取消」从 Modal footer 挪进 body，视觉上要自己补上 `margin-top` 与右对齐。
+
 实现细节（第 7 步定稿）：
 
 - 主进程命令在 `src/main/db/cardMove.ts`，返回 `updatedCards` / `updatedLists` / `updatedBoards`（`src/shared/cardMove.ts`）；渲染层 `applyCardMove`（`Kanban/cardMove.ts`）在 cards / lists / boards 三个 reducer 里整体替换，和删除、会话编辑同一套「事务返回终态」的写法。
@@ -402,7 +416,8 @@ UI：
 - 卡片同时出现在多个列表（旧数据）时，从所有源列表移除，`move` 记录的 `fromListId` 取第一个；不在任何列表的孤儿卡不写 `move` 记录（没有旧位置需要压住），仍然可以移动。
 - `completedTime` 只在目标列表是该看板的 `doneList` 时写 `Date.now()`；离开 done 列表保留原值，与拖拽一致。
 - 会话解绑其他卡片时按出现次数扣减，和 `applySessionEdits` 一样，存量重复引用不会留下虚高。
-- UI 是两步弹窗：`ProjectPicker`（`allowNone={false}`，移动必须有目标板）+ `ListPicker`（`Kanban/ListPicker.tsx`，标出 `focused` / `done`，默认选 `focusedList`，源列表禁用）。`ListPicker` 的「取消」回到选项目那一步，不是关闭整个流程。
+- UI 是两步：`BoardListPicker`（`Kanban/BoardListPicker.tsx`）包一个 `AppModal`，`step === 'project'` 时渲染 `ProjectPickerBody`（`allowNone={false}`，移动必须有目标板），否则渲染 `ListPickerBody`（标出 `focused` / `done`，默认选 `focusedList`，源列表禁用）。第二步的「取消」回到项目步，不是关闭整个流程。`RestoreCardsDialog` 用同一个 `BoardListPicker`，只换确认文案与回调。
+- `ProjectPicker` / `ListPicker` 的内容拆成具名导出 `ProjectPickerBody` / `ListPickerBody`，两者都用 `PICKER_BODY_HEIGHT` 固定内容高度，并自带一行底部按钮。`ProjectPicker` 仍是 `AppModal + ProjectPickerBody`（按天弹窗在用）；`ListPicker` 组件随两个调用点改用 `BoardListPicker` 而删除。
 - 入口在 `CardEditor` 底部与「删除」并列，仅编辑态显示；`CardMoveDialog`（`Kanban/CardMoveDialog.tsx`）自己 connect，避免把整张 `cards` / `lists` 表塞进重量级的卡片编辑弹窗。
 - 卡片编辑弹窗的 document 级 Esc/Ctrl+Enter 监听要把 `moveOpen` 一起排除，否则在移动弹窗里按 Esc 会关掉背后的编辑器并丢掉未保存内容（与插入链接弹窗同一处理）。
 
@@ -456,7 +471,7 @@ UI：
 - 一个主按钮「处理选中项 (N)」：点它先弹出**确认窗口**，只显示选中项的分类计数（卡片 N 张、列表 N 个、移动记录 N 条、引用 N 处），标题写明「处理这些数据问题？」。
   确认后才执行，一次事务同时删除勾选行并修复勾选的引用。**一律弹确认**，即使只勾选了引用修复——「处理」这个词覆盖太广，确认窗口负责说清这次到底做什么。
 - 「恢复选中 (N)」放在卡片组的标题行，而不是弹窗底部：底部按钮容易被读成「恢复所有问题」，而它只作用于卡片；一次把选中的卡片放进同一个列表（先选看板，再选列表）。
-- 恢复走 `moveCardToBoard`，不是往 `list.cards` 里塞 id：卡片里的会话有自己的 `boardId`，只改引用会出现「卡片在新看板、番茄算旧项目」，恢复后历史里的 `Unknown` 也不会消失。
+- 恢复走 `moveCardToBoard`，不是往 `list.cards` 里塞 id：卡片里的会话有自己的 `boardId`，只改引用会出现「卡片在新看板、番茄算旧项目」，恢复后历史里的 `Unknown` 也不会消失。两步选择用和「移动到…」同一个 `BoardListPicker`，只换确认按钮文案。
 - 处理或恢复后重新扫描，弹窗保持打开；全部清空后显示空状态。
 - 卡片和列表的每一行显示短 id（放在标题后的信息行里），便于排查；确认窗口只给计数，不再列 id。
 - 每组最多渲染 50 条，末尾一个「显示全部（还有 N 条）」按钮，点一次展开该组全部条目；全选与处理始终作用于全部，不受渲染上限影响。这是 owner 行数的上限，与每条悬空引用自己的 id 折叠（5 条）相互独立。
@@ -529,6 +544,8 @@ UI：
 - `ProjectPicker`：默认创建时间新到旧、搜索忽略大小写、隐藏板有标记且仍可选、`allowNone={false}` 时没有「无项目」。
 - `CardPicker`：按看板列表分栏、空列表不占一栏、无标题卡显示占位、底栏「不挂卡」。
 - `CardMoveDialog` / `RestoreCardsDialog`：两步流程、成功后关闭并回调、失败时停留在弹窗；恢复批量在部分失败时只把真正恢复成功的卡片交回调用方。
+- 两步共用一个弹窗：在项目步与列表步之间来回切换时，页面上的 `role="dialog"` 始终只有一个。两个弹窗接力会让两片遮罩重叠一帧，背景暗一下；这条断言就是压住那个回归的手段，注释里写清原因，不是单纯数 DOM。
+- 从列表步回到项目步再选另一个看板时，列表选中重置为新看板的默认项（`focusedList`，否则第一个可用列表）；body 卸载重挂就该是这个结果，不需要手动清空。
 - i18n：新增文案在 `en.ts` / `zh.ts` 成对存在（类型强制）；历史页的项目名在项目被删后显示本地化的「未知项目」，且该字符串不进缓存，切换语言后不会残留旧语言。
 
 ## Open questions

@@ -2,7 +2,7 @@ import * as React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { createStore } from 'redux';
-import { ListPicker } from './ListPicker';
+import { ListPickerBody } from './ListPickerBody';
 import type { Card, KanbanBoard, List } from './type';
 
 const list = (id: string, title: string, cards: string[] = []): List => ({
@@ -42,39 +42,38 @@ const makeStore = () =>
     } as any);
 
 const renderPicker = (over: { sourceListId?: string } = {}) => {
-    const onMove = jest.fn();
+    const onConfirm = jest.fn();
     render(
         <Provider store={makeStore()}>
-            <ListPicker
-                open
+            <ListPickerBody
                 boardId="b1"
                 cardId="c1"
                 sourceListId={over.sourceListId}
-                onMove={onMove}
+                onConfirm={onConfirm}
                 onCancel={jest.fn()}
             />
         </Provider>
     );
-    return onMove;
+    return onConfirm;
 };
 
 const confirmButton = () => screen.getByRole('button', { name: /Move|移动/ });
 
-describe('ListPicker', () => {
+describe('ListPickerBody', () => {
     it('defaults to the focused list and moves there', () => {
-        const onMove = renderPicker();
+        const onConfirm = renderPicker();
         fireEvent.click(confirmButton());
-        expect(onMove).toHaveBeenCalledWith('l2');
+        expect(onConfirm).toHaveBeenCalledWith('l2');
     });
 
     it('disables the list the card is already in', () => {
-        const onMove = renderPicker({ sourceListId: 'l2' });
+        const onConfirm = renderPicker({ sourceListId: 'l2' });
 
         expect((screen.getByRole('option', { name: /Doing/ }) as HTMLButtonElement).disabled).toBe(
             true
         );
         // With the focused list unavailable the first usable one is selected.
         fireEvent.click(confirmButton());
-        expect(onMove).toHaveBeenCalledWith('l1');
+        expect(onConfirm).toHaveBeenCalledWith('l1');
     });
 });

@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { connect } from 'react-redux';
-import { ProjectPicker } from './ProjectPicker';
-import { ListPicker } from './ListPicker';
+import { BoardListPicker } from './BoardListPicker';
 import { moveCardToBoard } from './cardMove';
 import { feedback } from '../feedback';
 import { useI18n } from '../../i18n';
@@ -34,17 +33,7 @@ interface Props extends RestoreCardsDialogProps {
  */
 const RestoreCardsDialogInner = (props: Props) => {
     const { t } = useI18n();
-    const [step, setStep] = React.useState<'project' | 'list'>('project');
-    const [targetBoardId, setTargetBoardId] = React.useState<string | undefined>();
     const [busy, setBusy] = React.useState(false);
-
-    React.useEffect(() => {
-        if (props.open) {
-            setStep('project');
-            setTargetBoardId(undefined);
-            setBusy(false);
-        }
-    }, [props.open]);
 
     const restore = async (listId: string): Promise<void> => {
         if (props.cardIds.length === 0) {
@@ -80,29 +69,15 @@ const RestoreCardsDialogInner = (props: Props) => {
     };
 
     return (
-        <>
-            <ProjectPicker
-                open={props.open && step === 'project'}
-                value={targetBoardId}
-                allowNone={false}
-                onPick={(boardId) => {
-                    if (boardId === undefined) {
-                        return;
-                    }
-                    setTargetBoardId(boardId);
-                    setStep('list');
-                }}
-                onClose={props.onClose}
-            />
-            <ListPicker
-                open={props.open && step === 'list'}
-                boardId={targetBoardId}
-                busy={busy}
-                actionLabel={t('dataRepair.restore')}
-                onMove={restore}
-                onCancel={() => setStep('project')}
-            />
-        </>
+        <BoardListPicker
+            open={props.open}
+            busy={busy}
+            actionLabel={t('dataRepair.restore')}
+            onConfirm={(_boardId, listId) => {
+                void restore(listId);
+            }}
+            onClose={props.onClose}
+        />
     );
 };
 

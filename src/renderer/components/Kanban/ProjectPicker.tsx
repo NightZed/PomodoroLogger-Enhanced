@@ -5,6 +5,7 @@ import { connect } from 'react-redux';
 import { AppModal } from '../AppModal';
 import { useI18n } from '../../i18n';
 import { DAY_EDITOR_WIDTH, PICKER_BODY_HEIGHT } from '../dialogLayout';
+import { PickerFooter } from './PickerFooter';
 import type { RootState } from '../../reducers';
 import type { KanbanBoard } from './type';
 
@@ -27,7 +28,14 @@ export interface ProjectPickerProps {
     allowNone?: boolean;
 }
 
-interface Props extends ProjectPickerProps {
+export interface ProjectPickerBodyProps {
+    value?: string;
+    onPick: (boardId?: string) => void;
+    onCancel: () => void;
+    allowNone?: boolean;
+}
+
+interface BodyProps extends ProjectPickerBodyProps {
     boards: { [id: string]: KanbanBoard };
 }
 
@@ -122,19 +130,17 @@ const NoProject = styled.button`
     }
 `;
 
-const ProjectPickerInner = (props: Props) => {
+/**
+ * The footer lives in the content instead of `AppModal`'s `footer` prop: the
+ * two-step dialogs swap this body for the list body, and a footer owned by the
+ * dialog would have to reach into it for the current list selection.
+ */
+const ProjectPickerBodyInner = (props: BodyProps) => {
     const { t } = useI18n();
     const [keyword, setKeyword] = React.useState('');
     // Default is creation time, newest first; the choice is intentionally not
     // persisted -- it is a per-dialog convenience, not a setting.
     const [sortBy, setSortBy] = React.useState<SortBy>('created');
-
-    React.useEffect(() => {
-        if (props.open) {
-            setKeyword('');
-            setSortBy('created');
-        }
-    }, [props.open]);
 
     const boards = React.useMemo(() => {
         const term = keyword.trim().toLowerCase();
@@ -155,16 +161,7 @@ const ProjectPickerInner = (props: Props) => {
     }, [props.boards, keyword, sortBy]);
 
     return (
-        <AppModal
-            open={props.open}
-            title={t('kanban.projectPicker.title')}
-            onCancel={props.onClose}
-            zIndex={props.zIndex ?? 1100}
-            width={DAY_EDITOR_WIDTH}
-            /* Same footer as the card picker, so the two dialogs are the same
-               total height and not just the same body height. */
-            footer={<Button onClick={props.onClose}>{t('common.cancel')}</Button>}
-        >
+        <>
             <Body>
                 <Toolbar>
                     <Input
@@ -213,6 +210,43 @@ const ProjectPickerInner = (props: Props) => {
                     </NoProject>
                 )}
             </Body>
+            <PickerFooter>
+                <Button onClick={props.onCancel}>{t('common.cancel')}</Button>
+            </PickerFooter>
+        </>
+    );
+};
+
+/**
+ * The grid on its own, so a dialog that only swaps its content can reuse it.
+ * Mounted fresh on every open (`destroyOnHidden`), which is what resets the
+ * search term and the sort order.
+ */
+export const ProjectPickerBody = connect((state: RootState) => ({
+    boards: state.kanban.boards,
+}))(ProjectPickerBodyInner);
+
+const ProjectPickerInner = (props: ProjectPickerProps) => {
+    const { t } = useI18n();
+
+    return (
+        <AppModal
+            open={props.open}
+            title={t('kanban.projectPicker.title')}
+            onCancel={props.onClose}
+            zIndex={props.zIndex ?? 1100}
+            width={DAY_EDITOR_WIDTH}
+            footer={null}
+            /* Starting clean is the point: a stale search term from last time
+               would hide most of the grid on open. */
+            destroyOnHidden
+        >
+            <ProjectPickerBody
+                value={props.value}
+                allowNone={props.allowNone}
+                onPick={props.onPick}
+                onCancel={props.onClose}
+            />
         </AppModal>
     );
 };
@@ -222,6 +256,4 @@ const ProjectPickerInner = (props: Props) => {
  * the list grows without bound, needs a search box, and has to carry the
  * "hidden" marker -- none of which fit in a `Select`.
  */
-export const ProjectPicker = connect((state: RootState) => ({
-    boards: state.kanban.boards,
-}))(ProjectPickerInner);
+export const ProjectPicker = ProjectPickerInner;

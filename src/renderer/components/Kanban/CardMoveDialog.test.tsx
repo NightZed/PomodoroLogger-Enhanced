@@ -19,7 +19,7 @@ jest.mock('../feedback', () => ({
 
 const moveCard = jest.fn();
 
-const list = (id: string, title: string, cards: string[]): List => ({ _id: id, title, cards });
+const list = (id: string, title: string, cards: string[] = []): List => ({ _id: id, title, cards });
 
 const card: Card = {
     _id: 'c1',
@@ -40,6 +40,16 @@ const boards: { [id: string]: KanbanBoard } = {
         relatedSessions: [],
         spentHours: 0,
     },
+    b2: {
+        _id: 'b2',
+        name: 'Beta',
+        description: '',
+        lists: ['l3', 'l4'],
+        focusedList: 'l4',
+        doneList: '',
+        relatedSessions: [],
+        spentHours: 0,
+    },
 };
 
 const makeStore = () =>
@@ -48,7 +58,12 @@ const makeStore = () =>
         {
             kanban: {
                 boards,
-                lists: { l1: list('l1', 'Todo', ['c1']), l2: list('l2', 'Doing', []) },
+                lists: {
+                    l1: list('l1', 'Todo', ['c1']),
+                    l2: list('l2', 'Doing'),
+                    l3: list('l3', 'Archive'),
+                    l4: list('l4', 'Review'),
+                },
                 cards: { c1: card },
             },
         } as any,
@@ -72,7 +87,8 @@ const renderDialog = () => {
     return { onClose, onMoved };
 };
 
-const pickProject = () => fireEvent.click(screen.getByRole('option', { name: 'Alpha' }));
+const pickProject = (name = 'Alpha') => fireEvent.click(screen.getByRole('option', { name }));
+const cancelButton = () => screen.getByRole('button', { name: /^Cancel$|^取消$/ });
 
 beforeEach(() => {
     moveCard.mockReset();
@@ -122,10 +138,42 @@ describe('CardMoveDialog', () => {
         const { onClose } = renderDialog();
 
         pickProject();
-        fireEvent.click(screen.getByRole('button', { name: /Cancel|取消/ }));
+        fireEvent.click(cancelButton());
 
         expect(onClose).not.toHaveBeenCalled();
         // The project grid is reachable again.
         expect(screen.getByRole('option', { name: 'Alpha' })).toBeTruthy();
+    });
+
+    // Regression: the two steps used to be two dialogs closed and opened in the
+    // same commit. rc-motion keeps the closing mask mounted until its leave
+    // animation ends, so for a frame the old and the new 45%-black masks were
+    // both there -- the background flashed darker at every step change. One
+    // dialog means one mask; the node must survive the switch.
+    it('keeps a single dialog when moving to the list step', () => {
+        renderDialog();
+        const dialog = screen.getByRole('dialog');
+
+        pickProject();
+
+        expect(screen.getByRole('dialog')).toBe(dialog);
+    });
+
+    it('resets the list choice when another project is picked', () => {
+        renderDialog();
+
+        pickProject('Alpha');
+        // Alpha focuses "Doing", so that is preselected.
+        expect(
+            screen.getByRole('option', { name: /Doing/ }).getAttribute('aria-selected')
+        ).toBe('true');
+
+        fireEvent.click(cancelButton());
+        pickProject('Beta');
+
+        // Beta focuses "Review"; nothing carries over from Alpha.
+        expect(
+            screen.getByRole('option', { name: /Review/ }).getAttribute('aria-selected')
+        ).toBe('true');
     });
 });

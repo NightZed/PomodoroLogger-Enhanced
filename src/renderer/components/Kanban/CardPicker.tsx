@@ -161,11 +161,13 @@ const CardPickerInner = (props: Props) => {
                     {columns.map((column) => (
                         <Column key={column.list._id}>
                             <ColumnTitle>{column.list.title}</ColumnTitle>
-                            <ColumnBody>
+                            <ColumnBody role="listbox" aria-label={column.list.title}>
                                 {column.cards.map((card) => (
                                     <CardOption
                                         key={card._id}
                                         type="button"
+                                        role="option"
+                                        aria-selected={card._id === props.value}
                                         $selected={card._id === props.value}
                                         title={card.title}
                                         onClick={() => props.onPick(card._id)}

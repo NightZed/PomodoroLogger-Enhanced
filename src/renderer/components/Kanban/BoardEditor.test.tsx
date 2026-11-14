@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { act, cleanup, fireEvent, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Form, FormInstance } from 'antd';
 import { EditKanbanForm } from './BoardEditor';
 import { feedback } from '../feedback';
@@ -112,17 +112,13 @@ describe('EditKanbanForm board name validation', () => {
             act(() => {
                 form.setFieldsValue({ name });
             });
-            const createButton = Array.from(document.body.querySelectorAll('button')).find(
-                (button) => button.textContent?.trim() === 'Create'
-            );
-            expect(createButton).toBeDefined();
+            const createButton = screen.getByRole('button', { name: /Create/ });
             await act(async () => {
-                fireEvent.click(createButton!);
-                await new Promise((resolve) => setTimeout(resolve, 0));
+                fireEvent.click(createButton);
             });
 
             expect(onSave).not.toHaveBeenCalled();
-            expect(document.body.textContent).toContain(errorMessage);
+            await waitFor(() => expect(document.body.textContent).toContain(errorMessage));
             expect(warn.mock.calls.flat().join(' ')).not.toContain('`callback` is deprecated');
         }
     );
@@ -159,13 +155,10 @@ describe('EditKanbanForm delete', () => {
 
         render(<Harness />);
 
-        const deleteButton = Array.from(document.body.querySelectorAll('button')).find(
-            (button) => button.textContent?.trim() === 'Delete'
-        );
-        expect(deleteButton).toBeDefined();
+        const deleteButton = screen.getByRole('button', { name: /Delete/ });
 
         await act(async () => {
-            fireEvent.click(deleteButton!);
+            fireEvent.click(deleteButton);
         });
 
         expect(feedback.confirm).toHaveBeenCalledTimes(1);

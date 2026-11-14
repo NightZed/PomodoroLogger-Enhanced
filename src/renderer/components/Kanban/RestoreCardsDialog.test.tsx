@@ -59,7 +59,7 @@ const renderDialog = (cardIds: string[]) => {
 };
 
 const pickProjectAndRestore = async () => {
-    fireEvent.click(screen.getByTitle('Alpha'));
+    fireEvent.click(screen.getByRole('option', { name: 'Alpha' }));
     await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: /^Restore$|^恢复$/ }));
     });

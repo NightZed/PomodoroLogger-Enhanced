@@ -70,7 +70,9 @@ describe('ListPicker', () => {
     it('disables the list the card is already in', () => {
         const onMove = renderPicker({ sourceListId: 'l2' });
 
-        expect((screen.getByTitle('Doing') as HTMLButtonElement).disabled).toBe(true);
+        expect((screen.getByRole('option', { name: /Doing/ }) as HTMLButtonElement).disabled).toBe(
+            true
+        );
         // With the focused list unavailable the first usable one is selected.
         fireEvent.click(confirmButton());
         expect(onMove).toHaveBeenCalledWith('l1');

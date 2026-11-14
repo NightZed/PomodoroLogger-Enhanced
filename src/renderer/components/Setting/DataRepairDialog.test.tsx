@@ -19,7 +19,7 @@ jest.mock('../feedback', () => ({
 // list, then call moveCardToBoard per card) is not what this file pins down.
 jest.mock('../Kanban/RestoreCardsDialog', () => ({
     RestoreCardsDialog: ({ open, cardIds }: any) =>
-        open ? <div data-testid="restore-dialog">{cardIds.join(',')}</div> : null,
+        open ? <div>{`restoring=${cardIds.join(',')}`}</div> : null,
 }));
 
 const report: DataIssuesReport = {
@@ -231,7 +231,7 @@ describe('DataRepairDialog', () => {
         const restoreButtons = screen.getAllByRole('button', { name: 'Restore' });
         fireEvent.click(restoreButtons[0]);
 
-        expect(screen.getByTestId('restore-dialog').textContent).toBe('c1');
+        expect(screen.getByText('restoring=c1')).toBeTruthy();
     });
 
     it('disables applying when nothing is selected', () => {

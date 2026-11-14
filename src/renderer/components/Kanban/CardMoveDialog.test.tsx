@@ -72,7 +72,7 @@ const renderDialog = () => {
     return { onClose, onMoved };
 };
 
-const pickProject = () => fireEvent.click(screen.getByTitle('Alpha'));
+const pickProject = () => fireEvent.click(screen.getByRole('option', { name: 'Alpha' }));
 
 beforeEach(() => {
     moveCard.mockReset();
@@ -126,6 +126,6 @@ describe('CardMoveDialog', () => {
 
         expect(onClose).not.toHaveBeenCalled();
         // The project grid is reachable again.
-        expect(screen.getByTitle('Alpha')).toBeTruthy();
+        expect(screen.getByRole('option', { name: 'Alpha' })).toBeTruthy();
     });
 });

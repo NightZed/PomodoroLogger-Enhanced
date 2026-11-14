@@ -65,7 +65,7 @@ describe('CardPicker', () => {
         expect(screen.getByText('Done')).toBeTruthy();
         expect(screen.queryByText('Empty')).toBeNull();
 
-        fireEvent.click(screen.getByTitle('First'));
+        fireEvent.click(screen.getByRole('option', { name: 'First' }));
         expect(onPick).toHaveBeenCalledWith('c1');
     });
 
@@ -73,8 +73,7 @@ describe('CardPicker', () => {
         const onPick = renderPicker();
         // `c2` has an empty title; the row still has to be clickable and
         // readable.
-        const blank = document.querySelector('button[title=""]') as HTMLButtonElement;
-        expect(blank.textContent).toMatch(/Untitled|无标题/);
+        const blank = screen.getByRole('option', { name: /Untitled|无标题/ });
 
         fireEvent.click(blank);
         expect(onPick).toHaveBeenCalledWith('c2');

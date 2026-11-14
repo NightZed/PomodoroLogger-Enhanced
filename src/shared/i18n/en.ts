@@ -145,6 +145,8 @@ export const en = {
                 'The focus session cannot be linked to any card. Click OK to start anyway.',
             dontRemindAgain: "Don't remind me again",
         },
+        /** Names the ending mask; a background click on it dismisses the mask. */
+        maskLabel: 'Session ending',
         notify: {
             restEndedTitle: 'Resting session ended',
             focusEndedTitle: 'Focusing finished. Start resting.',

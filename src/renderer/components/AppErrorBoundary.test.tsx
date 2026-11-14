@@ -84,7 +84,7 @@ describe('AppErrorBoundary', () => {
     it('prints the crash time in local wall-clock time with its UTC offset', () => {
         const { container } = mount();
 
-        const text = container.querySelector('pre')?.textContent ?? '';
+        const text = container.textContent ?? '';
         // `new Date().toISOString()` showed UTC with a trailing Z, which forced
         // the reader to convert time zones before correlating the crash with
         // what they were doing.

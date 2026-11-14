@@ -366,7 +366,6 @@ describe('column-only reads', () => {
         const { connection, moves } = setup();
         try {
             expect(moves.idsSync()).toEqual([]);
-            expect(connection).toBeDefined();
         } finally {
             connection.close();
         }

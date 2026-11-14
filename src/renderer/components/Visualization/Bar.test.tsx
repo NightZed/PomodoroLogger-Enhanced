@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { applyMiddleware, createStore } from 'redux';
 import { thunk } from 'redux-thunk';
@@ -33,9 +33,9 @@ const mount = () => {
 
 describe('ListsCountBar', () => {
     it('charts the lists the store still has', () => {
-        const { container } = mount();
+        mount();
 
-        expect(container.querySelectorAll('title')[0].textContent).toContain('2 cards');
+        expect(screen.getByText(/2 cards/)).toBeTruthy();
     });
 
     it('skips a list the store does not have instead of crashing', () => {

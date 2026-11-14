@@ -167,11 +167,13 @@ const ListPickerInner = (props: Props) => {
                 </FooterRow>
             }
         >
-            <Columns>
+            <Columns role="listbox" aria-label={t('kanban.cardMove.listTitle', board?.name ?? '')}>
                 {options.map((option) => (
                     <ListOption
                         key={option.list._id}
                         type="button"
+                        role="option"
+                        aria-selected={option.list._id === selected}
                         $selected={option.list._id === selected}
                         $disabled={option.disabled}
                         disabled={option.disabled}

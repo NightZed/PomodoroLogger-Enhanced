@@ -40,9 +40,8 @@ const renderPicker = (
     return { onPick, onClose };
 };
 
-/** The options in render order; the dialog's own buttons have no `title`. */
-const options = () =>
-    Array.from(document.querySelectorAll('button[title]')).map((node) => node.textContent ?? '');
+/** The options in render order; the dialog's own buttons have no `option` role. */
+const options = () => screen.queryAllByRole('option').map((node) => node.textContent ?? '');
 
 describe('ProjectPicker', () => {
     it('lists projects newest first by default', () => {
@@ -77,7 +76,7 @@ describe('ProjectPicker', () => {
         const { onPick } = renderPicker([board({ _id: 'h', name: 'Archived', hidden: true })]);
 
         expect(screen.getByText(/^(Hidden|已隐藏)$/)).toBeTruthy();
-        fireEvent.click(screen.getByTitle('Archived'));
+        fireEvent.click(screen.getByRole('option', { name: /Archived/ }));
         expect(onPick).toHaveBeenCalledWith('h');
     });
 

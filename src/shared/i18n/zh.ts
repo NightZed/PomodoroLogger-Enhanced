@@ -128,6 +128,8 @@ export const zh: CatalogShape<typeof en> = {
                 '点击「确定」仍然开始。',
             dontRemindAgain: '不再提醒',
         },
+        /** 结束遮罩的可访问名称：点击遮罩空白处会关闭它。 */
+        maskLabel: '番茄结束',
         notify: {
             restEndedTitle: '休息结束',
             focusEndedTitle: '专注结束，开始休息吧',

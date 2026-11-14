@@ -187,11 +187,13 @@ const ProjectPickerInner = (props: Props) => {
                 {boards.length === 0 ? (
                     <Empty>{t('kanban.projectPicker.empty')}</Empty>
                 ) : (
-                    <Grid>
+                    <Grid role="listbox" aria-label={t('kanban.projectPicker.title')}>
                         {boards.map((board) => (
                             <BoardOption
                                 key={board._id}
                                 type="button"
+                                role="option"
+                                aria-selected={board._id === props.value}
                                 $selected={board._id === props.value}
                                 $hidden={!!board.hidden}
                                 title={board.name}

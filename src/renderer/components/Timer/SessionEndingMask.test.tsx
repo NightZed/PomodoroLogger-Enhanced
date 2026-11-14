@@ -13,7 +13,7 @@ jest.mock('./action', () => ({
 }));
 
 jest.mock('./PomodoroNumView', () => ({
-    PomodoroNumView: () => <div data-testid="pomodoro-num-view" />,
+    PomodoroNumView: () => <div>pomodoro-num</div>,
 }));
 
 const boards = {
@@ -75,6 +75,10 @@ const renderMask = (
     return { ...view, store };
 };
 
+/** The mask itself; a click on it is a click on the empty background. */
+const clickBackground = (view: ReturnType<typeof renderMask>) =>
+    fireEvent.click(view.getByRole('group', { name: 'Session ending' }));
+
 describe('TimerMask', () => {
     afterEach(cleanup);
 
@@ -84,7 +88,7 @@ describe('TimerMask', () => {
 
         expect(view.getByText('Project One')).toBeTruthy();
         expect(view.getByText('Session Finished')).toBeTruthy();
-        expect(view.getByTestId('pomodoro-num-view')).toBeTruthy();
+        expect(view.getByText('pomodoro-num')).toBeTruthy();
         expect(view.queryByRole('button', { name: 'Confirm' })).toBeNull();
         expect(view.queryByText('Choose Your Focus')).toBeNull();
 
@@ -100,7 +104,7 @@ describe('TimerMask', () => {
         // The empty heading has no line box, so the trigger needs its own copy.
         expect(view.getByText('Choose Your Focus')).toBeTruthy();
 
-        fireEvent.click(view.container.firstElementChild!);
+        clickBackground(view);
 
         expect(onCancel).not.toHaveBeenCalled();
     });
@@ -128,7 +132,7 @@ describe('TimerMask', () => {
         expect(view.queryByRole('button', { name: 'Confirm' })).toBeNull();
 
         // Unlocked, the background click saves and closes as it used to.
-        fireEvent.click(view.container.firstElementChild!);
+        clickBackground(view);
         expect(onCancel).toHaveBeenCalledTimes(1);
     });
 
@@ -143,10 +147,10 @@ describe('TimerMask', () => {
         // A chosen project replaces the selector with the big name, and the
         // background is dismissible again without a separate acknowledgement.
         expect(view.queryByRole('combobox')).toBeNull();
-        expect(view.container.querySelector('h1')?.textContent).toBe('Project Two');
+        expect(view.getByRole('heading', { name: 'Project Two' })).toBeTruthy();
         expect(view.queryByRole('button', { name: 'Confirm' })).toBeNull();
 
-        fireEvent.click(view.container.firstElementChild!);
+        clickBackground(view);
         expect(onCancel).toHaveBeenCalledTimes(1);
     });
 
@@ -167,7 +171,7 @@ describe('TimerMask', () => {
         fireEvent.click(view.getByText('Project One'));
         expect(view.queryByRole('combobox')).not.toBeNull();
 
-        fireEvent.click(view.container.firstElementChild!);
+        clickBackground(view);
 
         // The first click only leaves edit mode; the mask stays open.
         expect(onCancel).not.toHaveBeenCalled();
@@ -181,7 +185,7 @@ describe('TimerMask', () => {
 
         expect(view.queryByRole('button', { name: 'Confirm' })).toBeNull();
 
-        fireEvent.click(view.container.firstElementChild!);
+        clickBackground(view);
         expect(onCancel).toHaveBeenCalledTimes(1);
     });
 
@@ -222,7 +226,7 @@ describe('TimerMask card attribution', () => {
         // One card needs no choice, so the mask stays uncluttered.
         expect(view.queryByText(/^Card:/)).toBeNull();
 
-        fireEvent.click(view.container.firstElementChild!);
+        clickBackground(view);
         expect(onCancel).toHaveBeenCalledWith('c1');
     });
 
@@ -232,7 +236,7 @@ describe('TimerMask card attribution', () => {
 
         fireEvent.click(view.getByText('Card: Card One (of 2)'));
         fireEvent.click(view.getByRole('button', { name: 'Card: Card One' }));
-        fireEvent.click(view.getByRole('button', { name: 'Card Two' }));
+        fireEvent.click(view.getByRole('option', { name: 'Card Two' }));
 
         fireEvent.click(view.getByRole('button', { name: /Start Short Break/ }));
         expect(onStart).toHaveBeenCalledWith('c2');
@@ -267,7 +271,7 @@ describe('TimerMask card attribution', () => {
 
         expect(view.queryByText(/^Card:/)).toBeNull();
 
-        fireEvent.click(view.container.firstElementChild!);
+        clickBackground(view);
         // Nothing to credit: the session stays unattributed.
         expect(onCancel).toHaveBeenCalledWith(null);
     });

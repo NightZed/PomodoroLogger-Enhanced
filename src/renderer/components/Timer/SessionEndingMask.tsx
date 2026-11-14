@@ -253,6 +253,8 @@ const TimerMaskInner = (props: MaskProps) => {
         <>
             <Mask
                 $nightTheme={props.nightTheme}
+                role="group"
+                aria-label={t('timer.maskLabel')}
                 style={{ display: props.showMask ? 'flex' : 'none' }}
                 onClick={locked ? undefined : onBackgroundClick}
             >

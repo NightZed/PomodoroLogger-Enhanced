@@ -94,9 +94,17 @@ describe('main io import/export', () => {
         expect(backup).toEqual(data);
     });
 
-    it('backs up from the passed-in snapshot without re-reading the database', async () => {
+    it('backs up the snapshot the import handler read, not the current database state', async () => {
         await writeAllFile(data);
 
+        // The database now holds `data`. The snapshot differs from it -- in
+        // the real flow another write (e.g. a session finishing) may have
+        // landed between the merge read and this call -- and the backup must
+        // capture the snapshot, or a re-read implementation would go unnoticed.
+        const snapshot: SourceData = {
+            ...data,
+            records: [{ ...data.records[0], _id: 'session-raced', spentTimeInHour: 2 }],
+        };
         const replacement: SourceData = {
             boards: {},
             lists: {},
@@ -104,11 +112,9 @@ describe('main io import/export', () => {
             move: [],
             records: [],
         };
-        // The import handler passes the snapshot it read for the merge, so the
-        // backup must reflect that even though the database still holds `data`.
-        await writeAllFile(replacement, data);
+        await writeAllFile(replacement, snapshot);
 
         const backup = JSON.parse(readFileSync(backupPath, 'utf8'));
-        expect(backup).toEqual(data);
+        expect(backup).toEqual(snapshot);
     });
 });

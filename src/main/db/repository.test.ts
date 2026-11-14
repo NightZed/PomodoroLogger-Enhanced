@@ -162,7 +162,7 @@ describe('SQLite repository query/update mapping', () => {
         }
     });
 
-    it('clears a table without an _id column in one statement', async () => {
+    it('clears a table without an _id column and reports the deleted count', async () => {
         const { connection, moves } = setup();
         try {
             await moves.insert([

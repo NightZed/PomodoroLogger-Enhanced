@@ -9,6 +9,7 @@ import {
     MoveInfo,
 } from '../../renderer/components/Kanban/type';
 import { PomodoroRecord } from '../../renderer/monitor/type';
+import { roundHours } from '../hours';
 
 export interface SourceData {
     records: PomodoroRecord[];
@@ -168,21 +169,41 @@ export class DataMerger {
         return aBoard;
     }
 
+    /**
+     * Rebuild the per-board totals from the sessions themselves.
+     *
+     * `spentHours` and `relatedSessions` describe the project's focus time, not
+     * its cards: a pomodoro that was never assigned to a card still belongs to
+     * the board. Summing card `actual` here (which this used to do) silently
+     * dropped those hours on every import, and rebuilding `relatedSessions`
+     * from card `sessionIds` dropped the same sessions from the pomodoro count.
+     */
     private setBoardInfo(ans: SourceData) {
+        const totals: { [boardId: string]: { hours: number; sessions: Set<string> } } = {};
+        for (const boardId in ans.boards) {
+            totals[boardId] = { hours: 0, sessions: new Set() };
+        }
+
+        for (const record of ans.records) {
+            const boardId = record.boardId;
+            if (boardId === undefined) {
+                continue;
+            }
+            const total = totals[boardId];
+            // A session pointing at a board the file does not contain keeps
+            // its dangling `boardId`: History renders it as `Unknown`.
+            if (total === undefined) {
+                continue;
+            }
+
+            total.hours += record.spentTimeInHour ?? 0;
+            total.sessions.add(record._id);
+        }
+
         for (const boardId in ans.boards) {
             const board = ans.boards[boardId];
-            board.relatedSessions = [];
-            board.spentHours = 0;
-            const sess = new Set<string>();
-            travelCards(boardId, ans, (card) => {
-                for (const cardSess of card.sessionIds) {
-                    sess.add(cardSess);
-                }
-
-                board.spentHours += card.spentTimeInHour.actual;
-            });
-
-            board.relatedSessions = Array.from(sess);
+            board.spentHours = roundHours(totals[boardId].hours);
+            board.relatedSessions = Array.from(totals[boardId].sessions);
         }
     }
 

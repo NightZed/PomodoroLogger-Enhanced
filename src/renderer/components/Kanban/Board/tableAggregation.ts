@@ -21,7 +21,7 @@ export const aggregateBoardRows = (
     cardsById: CardsState
 ): AggBoardInfo[] =>
     Object.values(boards).map((board) => {
-        const { name, lists, relatedSessions, _id } = board;
+        const { name, lists, relatedSessions, spentHours, _id } = board;
         const cards: { card: Card; isDone: boolean }[] = [];
         for (const listId of lists) {
             const list = listsById[listId];
@@ -42,7 +42,7 @@ export const aggregateBoardRows = (
             }
         }
 
-        const [estimatedLeftTimeSum, actualTimeSum, errorSum, n] = cards.reduce(
+        const [estimatedLeftTimeSum, errorSum, n] = cards.reduce(
             (l: number[], { card, isDone }) => {
                 let err = 0;
                 const { actual, estimated } = card.spentTimeInHour;
@@ -52,19 +52,20 @@ export const aggregateBoardRows = (
 
                 return [
                     l[0] + (isDone ? 0 : Math.max(0, estimated - actual)),
-                    l[1] + actual,
-                    l[2] + err,
-                    l[3] + (isDone ? 1 : 0),
+                    l[1] + err,
+                    l[2] + (isDone ? 1 : 0),
                 ];
             },
-            [0, 0, 0, 0]
+            [0, 0, 0]
         );
 
         return {
             _id,
             name,
             estimatedLeftTimeSum,
-            actualTimeSum,
+            // Session-level, like the grid card: an unassigned pomodoro counts
+            // toward the board even though no card carries its hours.
+            actualTimeSum: spentHours ?? 0,
             meanPercentageError: n ? errorSum / n : undefined,
             pomodoroCount: (relatedSessions ?? []).length,
         };

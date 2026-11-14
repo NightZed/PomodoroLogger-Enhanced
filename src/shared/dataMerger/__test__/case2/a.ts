@@ -55,6 +55,7 @@ export const data: SourceData = {
     records: [
         {
             _id: 'sess0',
+            boardId: 'a',
             apps: {},
             spentTimeInHour: 10,
             startTime: 123000,

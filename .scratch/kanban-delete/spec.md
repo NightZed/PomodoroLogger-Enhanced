@@ -67,10 +67,9 @@ Status: draft（设计已定，实现未开始）
    - `lists` → 每个 list 的 `cards`
 2. 删除 `cards`、`lists`、`boards`，以及相关 `moves`（`cardId` 命中，或 `fromListId` / `toListId` 命中）。
 3. 更新仍存在的列表：从 `cards` 数组移除被删卡片。
-4. 更新仍存在的看板：
-   - `lists` 去掉被删除的列表；
-   - `spentHours` 扣减被删卡片的 `actual`（下限 0），而不是按剩余卡片重算——按卡片求和会抹掉从未挂卡的会话时长；
-   - `relatedSessions` 只去掉「仅被被删卡片引用」的会话；未被任何卡片引用的会话保持不变。
+4. 更新仍存在的看板：只把被删除的列表从 `lists` 里去掉。
+   `spentHours` / `relatedSessions` 是**会话级**汇总（这个项目的番茄），删卡只是让那些会话变成「未挂卡」，项目的总时长与番茄数不变。
+   早期实现会扣减被删卡片的 `actual` 并从 `relatedSessions` 里摘掉「仅被该卡引用」的会话，结果删卡一次，看板总时长和番茄数一起变少，而历史页仍把这些记录算在这个项目上。
 5. 返回实际删除的 id 与受影响列表/看板的最终状态，渲染层一次 `applyKanbanDeletion` 覆盖三个 slice。
 
 ### 级联表
@@ -137,11 +136,20 @@ Status: draft（设计已定，实现未开始）
 | 删看板                                | 失去（变 `Unknown`） | 失去     |
 | 项目聚焦但没有卡 / `focusedList` 为空 | 保留                 | 从未获得 |
 
+### 看板总览的口径
+
+总览卡片与表格里的「已花时间」读 `board.spentHours`，不是卡片 `actual` 之和：未挂卡的番茄（以及卡片被删后留下的番茄）仍然属于这个项目，只是在卡片上找不到。番茄数一直读 `relatedSessions.length`，所以它从来是对的——两者口径不一致时，表现就是「番茄数对、时长少」。
+
+- 剩余估算（`estimatedLeftTimeSum`）仍按卡片求和：估算写在卡片上，未挂卡的会话没有估算。
+- 排序里的「已花时间」本来就读 `spentHours`，因此修完之后显示与排序才是同一个数。
+- 删除卡片只改归属，不减看板的总时长与番茄数（见「删除」一节）。
+- 导入时 `setBoardInfo` 按 `sessions.boardId` 重算这两个字段，不再按卡片求和。
+
 ### 现状问题：一次专注被多张卡重复计入
 
 番茄结束时 `Board/action.ts:511-525` 会把会话挂到 `focusedList` 里的**每一张**卡片，并给每张卡的 `spentTimeInHour.actual` 各加一次全额时长。`sessions` 仍只有一条，所以历史统计正确；但卡片时长失去「这张卡实际花了多少时间」的含义。
 
-更严重的是导入：`setBoardInfo`（`dataMerger.ts:165`）会用卡片重算看板时长，`board.spentHours = Σ card.actual`。进行中有 N 张卡时，导出再导入会让看板总时长变成实际的 N 倍。
+导入曾把这个问题放大：`setBoardInfo` 按卡片重算看板时长（`board.spentHours = Σ card.actual`），进行中有 N 张卡时，导出再导入会让看板总时长变成实际的 N 倍；未挂卡的会话则在每次导入时被直接抹掉。两端现在都改成按 `sessions.boardId` 重算。
 
 ### 一番茄一卡
 
@@ -359,7 +367,7 @@ applySessionEdits([
 
 ### 卡片跨看板移动
 
-卡片没有 `boardId`，归属来自 `list.cards` → `board.lists`；而卡片里的每条会话有独立的 `boardId`。只改列表引用会让卡片在新看板、番茄仍归旧项目，并且导入重算 `board.spentHours` 时按卡片求和会把不属于该板的时间也算进去。因此**卡片移动时，它的番茄记录一起迁移项目**。
+卡片没有 `boardId`，归属来自 `list.cards` → `board.lists`；而卡片里的每条会话有独立的 `boardId`。只改列表引用会让卡片在新看板、番茄仍归旧项目——历史页与看板的会话统计（`relatedSessions` / `spentHours`）都会把它们算在旧板上。因此**卡片移动时，它的番茄记录一起迁移项目**。
 
 事务命令 `moveCardToBoard(cardId, targetListId)`：
 
@@ -497,7 +505,8 @@ UI：
 - 删除不可恢复，没有回收站。
 - 删看板后 `sessions.boardId` 悬空，导入日志的 `unknown=N` 会增加；这是预期结果。
 - 隐藏板仍在 `boards` 表，不算 `Unknown`。
-- 番茄会话可能被多张卡引用，卡片时长因此可能重复计算（现状，本设计对**新数据**改为一番茄一卡；存量数据不会自动收敛，导入后 `board.spentHours` 仍可能大于实际）。
+- 番茄会话可能被多张卡引用，卡片时长因此可能重复计算（现状，本设计对**新数据**改为一番茄一卡；存量数据不会自动收敛）。
+  这只影响卡片自己的时长和剩余估算；`board.spentHours` 按会话统计，不受多卡引用影响。
   存量处理需要单独决定「同一会话被多卡引用时保留哪一张」，暂不纳入本设计。
 - 项目聚焦但没有卡片时产生的会话，属于正常状态而非错误，UI 不要用警告色。
 - **旧版本的导入不是事务**（v0.7.1 的 `writeAllFile` 先清空五张表，再 `Promise.all` 并发插入）。中途失败或崩溃会留下「卡片有 `sessionIds`、会话表却是空的」这种半套数据，也就是「有 sessionId 没有记录」。当前导入已改成单事务（`src/main/io/write.ts`），这类数据只能靠检查弹窗发现。
@@ -520,11 +529,12 @@ UI：
 ## 测试
 
 - 事务级联：删卡片/列表/看板后，`cards`、`lists`、`boards`、`moves` 无残留，`sessions` 不变。
-- `spentHours` 按被删卡片的 `actual` 扣减（下限 0）；`relatedSessions` 只移除仅被被删卡片引用的会话，未挂卡的会话不会被删除操作抹掉。
+- 删卡片/删列表不改变 `spentHours` / `relatedSessions`：会话仍属于这个项目，只是没有卡片了。
+- 总览卡片与表格的「已花时间」等于 `board.spentHours`，未挂卡会话的时长也计入；剩余估算仍按卡片求和。
 - `hidden`：筛选、聚焦下拉过滤、导出导入携带、合并时保留本地值。
 - 改项目 / 删记录的自动解绑与看板汇总重算。
 - 一番茄一卡：单卡时自动挂、多卡时选卡、选「不挂卡」时不写 `sessionIds`；任何情况下只改一张卡的 `actual`。
-- 导入重算后 `board.spentHours` 等于各卡 `actual` 之和，与运行时一致（不再出现 N 倍）。
+- 导入重算后 `board.spentHours` 等于该板各会话 `spentTimeInHour` 之和、`relatedSessions` 等于这些会话的 id，未挂卡的会话同样计入（不再按卡片求和，也不再出现 N 倍或被抹掉）。
 - 未挂卡判定：被多张卡引用的会话不算未挂卡；从所有卡解绑后立刻算未挂卡。
 - `listUnassignedSessions`：总数与分页数一致，隐藏看板不影响该查询。
 - `applySessionEdits`：移动语义下旧卡 `actual` 扣减、新卡累加、旧卡 `sessionIds` 移除；重复调用幂等；禁止跨看板挂卡。

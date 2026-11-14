@@ -1,6 +1,6 @@
 import { DBs, loadDBs, runInTransaction } from './index';
 import type { SqliteRepository } from './repository';
-import { roundHours } from './kanbanDeletion';
+import { roundHours } from '../../shared/hours';
 import type { Card, KanbanBoard, List } from '../../renderer/components/Kanban/type';
 import type { PomodoroRecord } from '../../renderer/monitor/type';
 import type {

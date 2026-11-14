@@ -9,7 +9,7 @@ export const data: SourceData = {
             focusedList: 'focused',
             lists: ['done', 'focused', 'todo'],
             name: 'new a',
-            relatedSessions: ['sess0', 'sess1', 'sess2'],
+            relatedSessions: ['sess0', 'sess2', 'sess1'],
             spentHours: 30,
             pin: true,
             lastVisitTime: 9999,
@@ -107,6 +107,7 @@ export const data: SourceData = {
     records: [
         {
             _id: 'sess0',
+            boardId: 'a',
             apps: {},
             spentTimeInHour: 10,
             startTime: 123000,
@@ -114,6 +115,7 @@ export const data: SourceData = {
         },
         {
             _id: 'sess2',
+            boardId: 'a',
             apps: {},
             spentTimeInHour: 10,
             startTime: 124000,
@@ -121,6 +123,7 @@ export const data: SourceData = {
         },
         {
             _id: 'sess1',
+            boardId: 'a',
             apps: {},
             spentTimeInHour: 10,
             startTime: 125000,

@@ -79,7 +79,7 @@ describe('deleteKanbanItems', () => {
         clearAll();
     });
 
-    it('deletes a card, its move rows and its time from the board', async () => {
+    it('deletes a card and its move rows without shrinking the board totals', async () => {
         await seed();
 
         const result = await deleteKanbanItems({ cards: ['c1'] });
@@ -89,11 +89,12 @@ describe('deleteKanbanItems', () => {
         expect(await moveCardIds()).toEqual(['c2', 'c3']);
         expect(result.updatedLists.l1.cards).toEqual(['c2']);
 
-        const updated = result.updatedBoards.b1;
-        // c1 accounted for 1h of the board's 3h.
-        expect(updated.spentHours).toBe(2);
-        // s1 only belonged to the deleted card; the unassigned session stays.
-        expect(updated.relatedSessions).toEqual(['s2', 's3', 'unassigned']);
+        // The board's totals count its sessions, not its cards: s1 is still a
+        // pomodoro of this project, it just has no card any more.
+        expect(result.updatedBoards.b1).toBeUndefined();
+        const stored = (await repo('kanbanDB').find())[0];
+        expect(stored.spentHours).toBe(3);
+        expect(stored.relatedSessions).toEqual(['s1', 's2', 's3', 'unassigned']);
 
         // Sessions are history, not card data.
         expect(ids(await repo('sessionDB').find())).toEqual(['s1', 's2', 's3']);
@@ -113,8 +114,9 @@ describe('deleteKanbanItems', () => {
 
         const updated = result.updatedBoards.b1;
         expect(updated.lists).toEqual(['l1']);
-        expect(updated.spentHours).toBe(2);
-        expect(updated.relatedSessions).toEqual(['s1', 's2', 'unassigned']);
+        // Deleting cards never touches the board's session totals.
+        expect(updated.spentHours).toBe(3);
+        expect(updated.relatedSessions).toEqual(['s1', 's2', 's3', 'unassigned']);
     });
 
     it('deletes a board with its whole list/card subtree', async () => {
@@ -133,14 +135,18 @@ describe('deleteKanbanItems', () => {
         expect(ids(await repo('sessionDB').find())).toEqual(['s1', 's2', 's3']);
     });
 
-    it('keeps a session that a surviving card still references', async () => {
+    // Regression: this used to drop `s1` from `relatedSessions` because its
+    // only card was deleted, so the project's pomodoro count fell even though
+    // the session (and its time) was still in History under the same board.
+    it('keeps a session whose only card was deleted', async () => {
         await seed();
-        // c3 also carries s2, which c2 owns; deleting c2 must not drop it.
-        await repo('cardsDB').update({ _id: 'c3' }, { $set: { sessionIds: ['s3', 's2'] } });
 
-        const result = await deleteKanbanItems({ cards: ['c2'] });
+        await deleteKanbanItems({ cards: ['c1'] });
 
-        expect(result.updatedBoards.b1.relatedSessions).toEqual(['s1', 's2', 's3', 'unassigned']);
+        const stored = (await repo('kanbanDB').find())[0];
+        expect(stored.relatedSessions).toContain('s1');
+        expect(stored.spentHours).toBe(3);
+        expect(ids(await repo('sessionDB').find())).toEqual(['s1', 's2', 's3']);
     });
 
     it('ignores ids that no longer exist', async () => {

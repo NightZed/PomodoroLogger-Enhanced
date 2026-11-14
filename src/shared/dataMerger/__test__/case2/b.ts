@@ -107,6 +107,7 @@ export const data: SourceData = {
     records: [
         {
             _id: 'sess0',
+            boardId: 'a',
             apps: {},
             spentTimeInHour: 10,
             startTime: 123000,
@@ -114,6 +115,7 @@ export const data: SourceData = {
         },
         {
             _id: 'sess1',
+            boardId: 'a',
             apps: {},
             spentTimeInHour: 10,
             startTime: 125000,
@@ -121,6 +123,7 @@ export const data: SourceData = {
         },
         {
             _id: 'sess2',
+            boardId: 'a',
             apps: {},
             spentTimeInHour: 10,
             startTime: 124000,

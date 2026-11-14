@@ -9,8 +9,11 @@ export const data: SourceData = {
             focusedList: 'focused',
             lists: ['done', 'focused'],
             name: 'a',
-            relatedSessions: ['sess0', 'sess1', 'sess2'],
-            spentHours: 40,
+            relatedSessions: ['sess0', 'sess2', 'sess1'],
+            // Three sessions at 10h each. The merged cards add up to 40h
+            // because `sess0` is counted by two of them; the board total has
+            // to come from the sessions, not from the cards.
+            spentHours: 30,
         },
     },
     cards: {
@@ -68,6 +71,7 @@ export const data: SourceData = {
     records: [
         {
             _id: 'sess0',
+            boardId: 'a',
             apps: {},
             spentTimeInHour: 10,
             startTime: 123000,
@@ -75,6 +79,7 @@ export const data: SourceData = {
         },
         {
             _id: 'sess2',
+            boardId: 'a',
             apps: {},
             spentTimeInHour: 10,
             startTime: 124000,
@@ -82,6 +87,7 @@ export const data: SourceData = {
         },
         {
             _id: 'sess1',
+            boardId: 'a',
             apps: {},
             spentTimeInHour: 10,
             startTime: 125000,

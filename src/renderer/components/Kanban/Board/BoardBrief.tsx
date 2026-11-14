@@ -291,9 +291,8 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
     // Aggregating every card of this board ran on each render (including the
     // hover state updates below). It only depends on the board's own lists and
     // cards, so memoize it and avoid mutating the store's card objects.
-    const { estimatedLeftTimeSum, actualTimeSum, errorSum, n, showErr } = React.useMemo(() => {
+    const { estimatedLeftTimeSum, errorSum, n, showErr } = React.useMemo(() => {
         let estimatedLeft = 0;
-        let actualSum = 0;
         let errorSum_ = 0;
         let doneCount = 0;
         let showErr_ = false;
@@ -322,7 +321,6 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
                 }
 
                 estimatedLeft += isDone ? 0 : Math.max(0, estimated - actual);
-                actualSum += actual;
                 errorSum_ += err;
                 if (isDone) {
                     doneCount += 1;
@@ -332,12 +330,16 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
 
         return {
             estimatedLeftTimeSum: estimatedLeft,
-            actualTimeSum: actualSum,
             errorSum: errorSum_,
             n: doneCount,
             showErr: showErr_,
         };
     }, [props.lists, props.listsById, props.cardsById, doneList]);
+
+    // Spent time is the board's, not the sum of its cards: a pomodoro that was
+    // never assigned to a card (or whose card was deleted) still happened on
+    // this project. The card totals below only answer "how much is left".
+    const actualTimeSum = props.spentHours ?? 0;
 
     const descriptionHtml = React.useMemo(
         () => (props.description ? formatMarkdown(props.description) : undefined),

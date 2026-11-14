@@ -1,6 +1,6 @@
 import { DBs, loadDBs, runInTransaction } from './index';
 import type { SqliteRepository } from './repository';
-import { roundHours } from './kanbanDeletion';
+import { roundHours } from '../../shared/hours';
 import { logError } from '../log';
 import type { Card, KanbanBoard } from '../../renderer/components/Kanban/type';
 import type { FinishedSessionPayload, FinishedSessionResult } from '../../shared/finishedSession';

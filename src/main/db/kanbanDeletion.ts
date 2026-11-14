@@ -4,15 +4,6 @@ import type { Card, KanbanBoard, List } from '../../renderer/components/Kanban/t
 import type { DeleteKanbanItemsPayload, KanbanDeletionResult } from '../../shared/kanbanDeletion';
 
 /**
- * Hours are stored as floats derived from milliseconds. Rounding the sum back
- * to the same precision keeps repeated deletes from drifting (0.1 + 0.2 style
- * noise would otherwise accumulate in `spentHours`).
- */
-const HOUR_PRECISION = 1e6;
-export const roundHours = (value: number): number =>
-    Math.round(value * HOUR_PRECISION) / HOUR_PRECISION;
-
-/**
  * Cascade delete for the kanban tree, in one SQLite transaction.
  *
  * Expanding the request is the whole point: a board owns lists, a list owns
@@ -20,9 +11,16 @@ export const roundHours = (value: number): number =>
  * used to leave orphan cards and permanently dangle `move` rows that replayed
  * an import warning on every export.
  *
- * `sessions` is never touched. Deleting a board makes its sessions' `boardId`
- * dangle, which History renders as `Unknown`; that is the documented trade-off
- * (hide the board instead when the history matters).
+ * `sessions` is never touched, and neither are the board totals: `spentHours`
+ * and `relatedSessions` count sessions of the project, not cards. A session
+ * whose card was deleted is still on the board -- it just stops being
+ * attributed to a card -- so the project's total time and pomodoro count do
+ * not shrink. Subtracting the deleted cards' `actual` here (which this used to
+ * do) made the overview disagree with History for every unassigned session.
+ *
+ * Deleting a board makes its sessions' `boardId` dangle, which History renders
+ * as `Unknown`; that is the documented trade-off (hide the board instead when
+ * the history matters).
  */
 export async function deleteKanbanItems(
     payload: DeleteKanbanItemsPayload
@@ -37,9 +35,6 @@ export async function deleteKanbanItems(
     const cards = cardsRepo.findSync<Card>();
     const lists = listsRepo.findSync<List>();
     const boards = boardsRepo.findSync<KanbanBoard>();
-
-    const cardById = new Map(cards.map((card) => [card._id, card]));
-    const listById = new Map(lists.map((list) => [list._id, list]));
 
     const boardIds = new Set(payload.boards ?? []);
     const listIds = new Set(payload.lists ?? []);
@@ -82,95 +77,12 @@ export async function deleteKanbanItems(
             continue;
         }
 
+        // Only the reference list changes. The board's totals count sessions of
+        // the project, so a card going away does not take its focus time with
+        // it: those sessions are still on the board, just unassigned now.
         const nextListIds = (board.lists ?? []).filter((listId) => !listIds.has(listId));
-        // Cards that leave this board: every card of a deleted list, plus the
-        // deleted cards still referenced by the surviving lists.
-        const removedCards: Card[] = [];
-        const keptCards: Card[] = [];
-        for (const listId of board.lists ?? []) {
-            const list = listById.get(listId);
-            if (!list) {
-                continue;
-            }
-            if (listIds.has(listId)) {
-                for (const cardId of list.cards ?? []) {
-                    const card = cardById.get(cardId);
-                    if (card) {
-                        removedCards.push(card);
-                    }
-                }
-                continue;
-            }
-            for (const cardId of list.cards ?? []) {
-                const card = cardById.get(cardId);
-                if (!card) {
-                    continue;
-                }
-                if (cardIds.has(cardId)) {
-                    removedCards.push(card);
-                } else {
-                    keptCards.push(card);
-                }
-            }
-        }
-
-        const removedSessions = new Set<string>();
-        for (const card of removedCards) {
-            for (const sessionId of card.sessionIds ?? []) {
-                removedSessions.add(sessionId);
-            }
-        }
-        const keptSessions = new Set<string>();
-        for (const card of keptCards) {
-            for (const sessionId of card.sessionIds ?? []) {
-                keptSessions.add(sessionId);
-            }
-        }
-
-        // Keep sessions that are still referenced by a surviving card, plus
-        // sessions that no card ever referenced (an unassigned pomodoro is a
-        // normal state, not something a card deletion should erase).
-        const nextRelatedSessions: string[] = [];
-        const seen = new Set<string>();
-        for (const sessionId of board.relatedSessions ?? []) {
-            if (removedSessions.has(sessionId) && !keptSessions.has(sessionId)) {
-                continue;
-            }
-            if (seen.has(sessionId)) {
-                continue;
-            }
-            seen.add(sessionId);
-            nextRelatedSessions.push(sessionId);
-        }
-        for (const sessionId of keptSessions) {
-            if (seen.has(sessionId)) {
-                continue;
-            }
-            seen.add(sessionId);
-            nextRelatedSessions.push(sessionId);
-        }
-
-        let spentHours = board.spentHours ?? 0;
-        for (const card of removedCards) {
-            spentHours -= card.spentTimeInHour?.actual ?? 0;
-        }
-        spentHours = Math.max(0, roundHours(spentHours));
-
-        const listsChanged = nextListIds.length !== (board.lists ?? []).length;
-        const hoursChanged = spentHours !== roundHours(board.spentHours ?? 0);
-        const relatedChanged =
-            nextRelatedSessions.length !== (board.relatedSessions ?? []).length ||
-            nextRelatedSessions.some(
-                (sessionId) => !(board.relatedSessions ?? []).includes(sessionId)
-            );
-
-        if (listsChanged || hoursChanged || relatedChanged) {
-            updatedBoards[board._id] = {
-                ...board,
-                lists: nextListIds,
-                spentHours,
-                relatedSessions: nextRelatedSessions,
-            };
+        if (nextListIds.length !== (board.lists ?? []).length) {
+            updatedBoards[board._id] = { ...board, lists: nextListIds };
         }
     }
 
@@ -208,16 +120,7 @@ export async function deleteKanbanItems(
             listsRepo.updateSync({ _id: list._id }, { $set: { cards: list.cards } });
         }
         for (const board of Object.values(updatedBoards)) {
-            boardsRepo.updateSync(
-                { _id: board._id },
-                {
-                    $set: {
-                        lists: board.lists,
-                        spentHours: board.spentHours,
-                        relatedSessions: board.relatedSessions,
-                    },
-                }
-            );
+            boardsRepo.updateSync({ _id: board._id }, { $set: { lists: board.lists } });
         }
     });
 

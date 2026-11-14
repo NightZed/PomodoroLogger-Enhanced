@@ -6,7 +6,7 @@ import { aggregateBoardRows } from './tableAggregation';
  * table re-walk all cards. Keep the pure function covered.
  */
 describe('aggregateBoardRows', () => {
-    it('sums open/done cards without mutating the store objects', () => {
+    it('reports the board total, not the sum of its cards', () => {
         const openCard = {
             _id: 'open-card',
             content: 'open',
@@ -26,6 +26,10 @@ describe('aggregateBoardRows', () => {
                 lists: ['open-list', 'done-list'],
                 doneList: 'done-list',
                 relatedSessions: [{}, {}],
+                // Three hours of sessions on this board: the two cards carry
+                // one each, and the third pomodoro was never assigned to a
+                // card. The cards alone would report 2h.
+                spentHours: 3,
             },
         };
         const lists = {
@@ -44,7 +48,7 @@ describe('aggregateBoardRows', () => {
                 _id: 'board',
                 name: 'Board',
                 estimatedLeftTimeSum: 1,
-                actualTimeSum: 2,
+                actualTimeSum: 3,
                 meanPercentageError: 100,
                 pomodoroCount: 2,
             },
@@ -61,6 +65,7 @@ describe('aggregateBoardRows', () => {
                 lists: ['missing-list', 'list'],
                 doneList: 'list',
                 relatedSessions: [],
+                spentHours: 0,
             },
         };
         const lists = {

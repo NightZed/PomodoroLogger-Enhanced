@@ -45,7 +45,8 @@ const board = () => ({
     lists: ['todo', 'done'],
     focusedList: 'todo',
     doneList: 'done',
-    spentHours: 0,
+    // The two cards below carry 1h and 2h; the board total is session-level.
+    spentHours: 3,
     relatedSessions: [{ _id: 'session' }],
     pin: false,
 });
@@ -55,10 +56,10 @@ const lists = {
     done: { _id: 'done', title: 'Done', cards: ['done-card'] },
 };
 
-const renderBrief = (overrides: any = {}, timerOverrides: any = {}) => {
+const renderBrief = (overrides: any = {}, timerOverrides: any = {}, boardOverrides: any = {}) => {
     const state = {
         kanban: {
-            boards: { b1: board() },
+            boards: { b1: { ...board(), ...boardOverrides } },
             lists,
             cards: {
                 'todo-card': {
@@ -106,12 +107,21 @@ describe('BoardBrief', () => {
 
     afterEach(cleanup);
 
-    it('sums spent and remaining time and rates the estimate', () => {
+    it('shows the board total and its remaining estimate', () => {
         const { getByTestId, container } = renderBrief();
 
         expect(getByTestId('time-badge').textContent).toBe('spent-3-left-1');
         expect(getByTestId('accuracy-badge').textContent).toBe('Bad-#ff350e');
         expect(container.querySelector('strong')?.textContent).toBe('bold');
+    });
+
+    // Regression: the spent badge used to add up the cards' `actual`, so a
+    // pomodoro that was never assigned to a card -- or whose card was deleted
+    // -- was missing here while the pomodoro count still included it.
+    it('counts unassigned pomodoros in the spent time', () => {
+        const { getByTestId } = renderBrief({}, {}, { spentHours: 5 });
+
+        expect(getByTestId('time-badge').textContent).toBe('spent-5-left-1');
     });
 
     it.each([
@@ -132,7 +142,7 @@ describe('BoardBrief', () => {
         });
 
         expect(queryByTestId('accuracy-badge')).toBeNull();
-        expect(getByTestId('time-badge').textContent).toBe('spent-1-left-1');
+        expect(getByTestId('time-badge').textContent).toBe('spent-3-left-1');
     });
 
     it('mounts the trend chart after the pointer dwells and keeps it for later hovers', () => {

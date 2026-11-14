@@ -78,6 +78,7 @@ const mockWin = {
     getBounds: jest.fn(() => ({ x: 0, y: 0, width: 100, height: 100 })),
     setAlwaysOnTop: jest.fn(),
     setContentSize: jest.fn(),
+    setPosition: jest.fn(),
     minimize: jest.fn(),
     maximize: jest.fn(),
     unmaximize: jest.fn(),
@@ -104,6 +105,12 @@ describe('main/ipc', () => {
         mockWin.webContents = webContents;
         mockWin.isDestroyed.mockReturnValue(false);
         mockWin.isMaximized.mockReturnValue(false);
+        // Display-mode handlers run the on-screen clamp; this default work
+        // area keeps the stock bounds ({0,0,100,100}) in range so the clamp
+        // stays a no-op unless a test pins its own display geometry.
+        (screen.getDisplayMatching as jest.Mock).mockReturnValue({
+            workArea: { x: 0, y: 0, width: 1920, height: 1040 },
+        });
         (app.setLoginItemSettings as jest.Mock).mockClear();
         setup();
     });
@@ -181,6 +188,56 @@ describe('main/ipc', () => {
 
         await handlers['minimizeWindow'](trustedEvent, false);
         expect(mockWin.setContentSize).toHaveBeenLastCalledWith(1440, 960);
+    });
+
+    describe('keeps the switched window inside the display work area', () => {
+        // Regression: GitHub issue #71 -- a mini bar parked near the
+        // bottom-right corner expanded the restored full-size window mostly
+        // off-screen, because setContentSize keeps the top-left corner fixed.
+        // Each case pins its own display geometry and window bounds; the
+        // outer beforeEach restores an in-range default for other describes.
+        function onDisplay(workArea: { x: number; y: number; width: number; height: number }) {
+            (screen.getDisplayMatching as jest.Mock).mockReturnValue({ workArea });
+        }
+
+        it('picks the full-size window back into the work area after mini mode', async () => {
+            // Mini bar parked in the bottom-right corner: expanding in place
+            // would hang most of the 1440x960 window off the screen.
+            onDisplay({ x: 0, y: 0, width: 1920, height: 1040 });
+            mockWin.getBounds.mockReturnValue({ x: 1720, y: 902, width: 1440, height: 960 });
+
+            await handlers['minimizeWindow'](trustedEvent, false);
+
+            expect(mockWin.setPosition).toHaveBeenCalledWith(480, 80);
+        });
+
+        it('leaves a window that already fits the work area where it is', async () => {
+            onDisplay({ x: 0, y: 0, width: 1920, height: 1040 });
+            mockWin.getBounds.mockReturnValue({ x: 240, y: 40, width: 1440, height: 960 });
+
+            await handlers['compactWindow'](trustedEvent, false);
+
+            expect(mockWin.setPosition).not.toHaveBeenCalled();
+        });
+
+        it('aligns a window that cannot fit the work area to its top-left corner', async () => {
+            // The 1440x960 full size does not fit a small laptop panel at all.
+            onDisplay({ x: 0, y: 0, width: 1366, height: 768 });
+            mockWin.getBounds.mockReturnValue({ x: 300, y: 200, width: 1440, height: 960 });
+
+            await handlers['minimizeWindow'](trustedEvent, false);
+
+            expect(mockWin.setPosition).toHaveBeenCalledWith(0, 0);
+        });
+
+        it('clamps against a second monitor whose work area is offset', async () => {
+            onDisplay({ x: 1920, y: 0, width: 1920, height: 1040 });
+            mockWin.getBounds.mockReturnValue({ x: 3550, y: 100, width: 370, height: 490 });
+
+            await handlers['compactWindow'](trustedEvent, false);
+
+            expect(mockWin.setPosition).toHaveBeenCalledWith(3470, 100);
+        });
     });
 
     it('handles the caption window actions', async () => {

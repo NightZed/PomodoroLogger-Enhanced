@@ -111,6 +111,29 @@ function runValidators(validators: Validator[], args: unknown[]): void {
     }
 }
 
+/**
+ * Makes sure the window is still fully visible after a display-mode size
+ * change. The mode handlers only call `setContentSize`, which keeps the
+ * top-left corner fixed, so a mini bar parked near the bottom-right corner
+ * expands the restored full-size window mostly off-screen (GitHub issue #71).
+ * A window that cannot fit the work area at all (e.g. the 1440x960 full size
+ * on a small display) is aligned to the work area's top-left corner instead.
+ */
+function keepWindowOnScreen(): void {
+    if (!win || win.isDestroyed()) {
+        return;
+    }
+    const bounds = win.getBounds();
+    const { workArea } = screen.getDisplayMatching(bounds);
+    const width = Math.min(bounds.width, workArea.width);
+    const height = Math.min(bounds.height, workArea.height);
+    const x = Math.max(workArea.x, Math.min(bounds.x, workArea.x + workArea.width - width));
+    const y = Math.max(workArea.y, Math.min(bounds.y, workArea.y + workArea.height - height));
+    if (x !== bounds.x || y !== bounds.y) {
+        win.setPosition(x, y);
+    }
+}
+
 /** Longest block handed to the logger in one line; its detail cap is 8 KiB. */
 const LOG_CHUNK_CHARS = 6000;
 
@@ -394,6 +417,7 @@ export function initialize() {
             } else {
                 win.setContentSize(1440, 960);
             }
+            keepWindowOnScreen();
         },
         [(value) => assertBoolean(value, 'minimized')]
     );
@@ -407,6 +431,7 @@ export function initialize() {
             } else {
                 win.setContentSize(1440, 960);
             }
+            keepWindowOnScreen();
         },
         [
             (value) => assertBoolean(value, 'compact'),

@@ -20,7 +20,13 @@ let releaseWhenIdle = false;
 // 避免应用启动阶段就无条件多驻留一个完整的 Node 进程。
 function ensureWorker() {
     if (!workerProcess) {
-        workerProcess = fork(path.join(__dirname, 'worker.js'));
+        // `advanced` switches channel serialization from JSON to V8's
+        // structured clone: ImportData ships the whole database through here,
+        // and JSON.stringify of that payload held the main process's single
+        // thread for seconds before the merge even started.
+        workerProcess = fork(path.join(__dirname, 'worker.js'), {
+            serialization: 'advanced',
+        });
         workerProcess.on('message', (msg: WorkerResponse) => {
             if (!msg.id) {
                 return;

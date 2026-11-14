@@ -32,6 +32,11 @@ describe('main/worker/fork', () => {
         const request = sendWorkerMessage({ type: 'aggregate' } as any);
 
         expect(forkMock).toHaveBeenCalledTimes(1);
+        // The merge payload is the whole database; JSON serialization of it
+        // blocked the main process, so the fork must ask for V8's clone.
+        expect(forkMock).toHaveBeenCalledWith(expect.any(String), {
+            serialization: 'advanced',
+        });
         const sent = worker.send.mock.calls[0][0];
         expect(sent.id).toBeDefined();
 

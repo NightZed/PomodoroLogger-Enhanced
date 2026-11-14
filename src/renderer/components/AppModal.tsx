@@ -36,6 +36,23 @@ export const dialogMotionProps = {
     maskTransitionName: DIALOG_MASK_TRANSITION,
 } as const;
 
+/**
+ * Unmount the panel and its mask in the same commit as the `open` change.
+ *
+ * `antd` builds `transitionName` with a `undefined` check, so an empty string
+ * survives and `CSSMotion.isSupportTransition` (`!!(motionName && …)`) skips
+ * the motion path entirely. That is what a dialog handing over to another one
+ * needs: two masks overlap otherwise, the page darkens to ~0.70 and lightens
+ * back to 0.45 as the leaving mask unmounts a frame or two later.
+ *
+ * Do not use it for ordinary closes -- the 1ms fade-out is what keeps the
+ * panel from showing for a frame before `display: none`.
+ */
+const INSTANT_MOTION = {
+    transitionName: '',
+    maskTransitionName: '',
+} as const;
+
 export const DialogMotion = createGlobalStyle`
     /* Constant state: no visual change, just an animationend for rc-motion. */
     @keyframes plDialogHold {
@@ -86,7 +103,13 @@ export const DialogMotion = createGlobalStyle`
  * Use this instead of antd's `Modal` so new dialogs get the shared motion
  * automatically. `forceRender` is intentionally not a default: only heavy
  * editors should keep their contents mounted while closed.
+ *
+ * `instant` skips the enter/leave motion, which is what a dialog that closes
+ * while another one opens in the same commit needs (see `INSTANT_MOTION`).
  */
-export const AppModal: React.FC<ModalProps> = (props: ModalProps) => (
-    <Modal {...dialogMotionProps} {...props} />
+export const AppModal: React.FC<ModalProps & { instant?: boolean }> = ({
+    instant = false,
+    ...props
+}: ModalProps & { instant?: boolean }) => (
+    <Modal {...(instant ? INSTANT_MOTION : dialogMotionProps)} {...props} />
 );

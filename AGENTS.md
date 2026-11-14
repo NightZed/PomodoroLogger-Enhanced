@@ -111,6 +111,10 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
 - 应用内所有提示都走 feedback 层（`src/renderer/components/feedback`）：`feedback.toast` / `notice` / `confirm` / `alert`。
   直接 import antd 的 `message` / `notification` 会被 `no-restricted-imports` 拦下。
   内容型对话框必须用 `AppModal`（`src/renderer/components/AppModal.tsx`），它套了统一的「立即弹出」动效；直接 import antd 的 `Modal` 同样被拦。
+  一个对话框在同一个 commit 里关闭、另一个打开时（例如「检查并修复数据」跳转到「校准应用时长」），必须给关闭的那个传 `instant`：
+  antd 每个 Modal 自带一层 `rgba(0,0,0,0.45)` 的 mask，两层重叠一帧会把画面压到约 0.70 再回弹，看起来就是闪一下。
+  `instant` 用空 `transitionName` 让 rc-motion 跳过状态机、同帧卸载 mask；普通关闭仍要走那 1ms 淡出，否则面板会在 `display: none` 之前露一帧。
+  同理，任何先 loading 再出内容的对话框都要给两态同一个固定高度，否则打开后会被内容撑大。
   antd 的点击波纹在 `Application` 里被全局关掉，因为软件渲染（默认）会把那个 2 秒动画变成整窗 60fps 重绘。
 
 ### 数据层（单写入者）

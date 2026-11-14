@@ -78,15 +78,25 @@ const RowMeta = styled.div`
     white-space: nowrap;
 `;
 
+/**
+ * One fixed body height for every state (loading, empty, report).
+ *
+ * The scan is quick but not instant, and the dialog has no fixed height of its
+ * own: a 70px "loading" placeholder followed by a 52vh report reads as the
+ * window growing after it opened. Giving the placeholder the same box means
+ * the dialog is already at its final size on the first paint.
+ */
 const Scroller = styled.div`
-    max-height: 52vh;
+    height: 52vh;
     overflow-y: auto;
     padding-right: 4px;
 `;
 
 const Empty = styled.div`
-    padding: 32px;
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 52vh;
     font-size: 13px;
     color: var(--pl-text-secondary);
 `;

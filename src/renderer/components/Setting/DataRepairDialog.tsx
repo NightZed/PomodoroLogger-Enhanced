@@ -28,6 +28,11 @@ export interface DataRepairDialogProps {
     applyRepair: (result: DataRepairResult) => void;
     /** Opens the app-hours calibration, which is a separate sweep. */
     onOpenAppHours?: () => void;
+    /**
+     * Close without motion. Set only while handing over to the calibration
+     * dialog, so the two masks never overlap and no empty frame is painted.
+     */
+    instant?: boolean;
 }
 
 const GroupHeader = styled.div`
@@ -488,6 +493,7 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
     return (
         <AppModal
             open={props.open}
+            instant={props.instant}
             title={t('dataRepair.title')}
             width={680}
             onCancel={props.onClose}

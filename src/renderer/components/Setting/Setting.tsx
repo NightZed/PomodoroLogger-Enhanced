@@ -457,6 +457,11 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
         const [checking, setChecking] = useState(false);
         const [report, setReport] = useState<DataIssuesReport | undefined>();
         const [repairOpen, setRepairOpen] = useState(false);
+        /**
+         * True only for the close that hands over to the calibration dialog:
+         * two antd masks overlapping for a frame reads as a flicker.
+         */
+        const [repairInstantClose, setRepairInstantClose] = useState(false);
         const [hoursOpen, setHoursOpen] = useState(false);
         const [importSummary, setImportSummary] = useState<ImportSummary | undefined>();
         const [importReportOpen, setImportReportOpen] = useState(false);
@@ -751,6 +756,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                     });
                     return;
                 }
+                setRepairInstantClose(false);
                 setRepairOpen(true);
             } catch (e) {
                 feedback.alert({
@@ -1379,7 +1385,9 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                     onClose={() => setRepairOpen(false)}
                     onRescan={rescanData}
                     applyRepair={applyRepair}
+                    instant={repairInstantClose}
                     onOpenAppHours={() => {
+                        setRepairInstantClose(true);
                         setRepairOpen(false);
                         setHoursOpen(true);
                     }}

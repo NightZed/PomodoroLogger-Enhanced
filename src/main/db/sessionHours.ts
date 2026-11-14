@@ -15,10 +15,15 @@ import { log } from '../log';
 const PREVIEW_LIMIT = 10;
 
 /**
- * Reading a session and writing it back re-rounds through `roundHours`
- * (1e-6 h = 3.6 ms), so a difference below that is noise, not drift.
+ * The smallest difference worth reporting, in hours.
+ *
+ * This has to be at least one `roundHours` grid step (1e-6 h = 3.6 ms),
+ * because the calibration writes every value back through `roundHours`:
+ * after a rewrite each session can still be off by half a step, and a
+ * tighter threshold would count all of them again -- the "calibrate, reopen,
+ * still 3,313 sessions and four seconds" loop.
  */
-const EPSILON_HOURS = 1e-9;
+const EPSILON_HOURS = 1e-6;
 
 /** How many full documents are read at once while rewriting. */
 const WRITE_BATCH = 500;

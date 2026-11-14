@@ -45,6 +45,7 @@ const report: DataIssuesReport = {
             ids: [{ id: 'goneSession', times: 1 }],
         },
     ],
+    appHours: { over: 0, under: 0 },
 };
 
 const repairData = jest.fn();
@@ -109,6 +110,33 @@ describe('DataRepairDialog', () => {
         // are selected; the card no list names is left alone.
         expect(screen.getByText('5 selected')).toBeTruthy();
         expect(screen.getByRole('button', { name: 'Restore selected (1)' })).toBeTruthy();
+    });
+
+    it('points at the app-hours calibration when only that is wrong', () => {
+        const onOpenAppHours = jest.fn();
+        const onlyHours: DataIssuesReport = {
+            detachedCards: [],
+            orphanCards: [],
+            lists: [],
+            moves: { total: 0, cardCount: 0 },
+            dangling: [],
+            appHours: { over: 12, under: 3 },
+        };
+
+        render(
+            <DataRepairDialog
+                open
+                report={onlyHours}
+                onClose={onClose}
+                onRescan={onRescan}
+                applyRepair={applyRepair}
+                onOpenAppHours={onOpenAppHours}
+            />
+        );
+
+        expect(screen.getByText(/15 more sessions have app hours/)).toBeTruthy();
+        fireEvent.click(screen.getByRole('button', { name: 'Calibrate app hours' }));
+        expect(onOpenAppHours).toHaveBeenCalledTimes(1);
     });
 
     it('shows the counts before touching anything', async () => {

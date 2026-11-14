@@ -69,6 +69,14 @@ export interface DataIssuesReport {
     lists: ListIssue[];
     moves: MoveIssue;
     dangling: DanglingRefIssue[];
+    /**
+     * Sessions whose app breakdown disagrees with their own total, by
+     * direction. Counts only: the calibration dialog scans for itself, so the
+     * check never needs to carry the per-session preview. Optional so older
+     * reports (and test fixtures written before it existed) stay valid; the
+     * scan always fills it.
+     */
+    appHours?: { over: number; under: number };
 }
 
 /**

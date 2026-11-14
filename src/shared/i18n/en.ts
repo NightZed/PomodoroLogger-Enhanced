@@ -541,6 +541,10 @@ export const en = {
             `${count} ${plural(count, 'reference', 'references')}`,
         confirmNote: 'Deleting cannot be undone. Focus sessions are not deleted.',
         confirmOk: 'Apply',
+        appHoursNote: (count: number): string =>
+            `${count} more ${plural(count, 'session', 'sessions')} have app hours that ` +
+            'do not add up to their total.',
+        appHoursOpen: 'Calibrate app hours',
         done: (cards: number, lists: number, moves: number, refs: number): string =>
             `Removed ${cards} ${plural(cards, 'card', 'cards')} and ` +
             `${lists} ${plural(lists, 'list', 'lists')}, dropped ` +
@@ -554,10 +558,9 @@ export const en = {
         title: 'Calibrate App Hours',
         button: 'Calibrate app hours',
         intro:
-            'A session stores a total and a per-app breakdown, and the two can drift apart: ' +
-            'the breakdown measures wall time while the total is the session length. ' +
-            'Calibrating rescales the breakdown proportionally so it adds up again. ' +
-            'Session totals, the calendar and project statistics are not changed.',
+            'Sessions whose app breakdown no longer adds up to their own total. ' +
+            'Calibrating rescales the breakdown proportionally; session totals and ' +
+            'every other statistic stay unchanged.',
         empty: 'Every session already adds up',
         loading: 'Reading sessions…',
         over: (count: number): string => `App time exceeds the total (${count})`,

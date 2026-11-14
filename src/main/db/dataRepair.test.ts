@@ -157,6 +157,8 @@ describe('data check', () => {
             lists: [],
             moves: { total: 0, cardCount: 0 },
             dangling: [],
+            // `s1` has no app breakdown, which is reported separately.
+            appHours: { over: 0, under: 0 },
         });
     });
 

@@ -1,5 +1,6 @@
 import { DBs, loadDBs, runInTransaction } from './index';
 import type { SqliteRepository } from './repository';
+import { scanSessionHours } from './sessionHours';
 import type { Card, KanbanBoard, List, MoveInfo } from '../../renderer/components/Kanban/type';
 import type {
     CardIssue,
@@ -216,6 +217,10 @@ export async function scanDataIssues(): Promise<DataIssuesReport> {
         }
     }
 
+    // The calibration is a second, cheaper sweep (one json_each query). It is
+    // folded in here so the dialog can point at it without a second click.
+    const hours = await scanSessionHours();
+
     return {
         detachedCards,
         orphanCards,
@@ -225,6 +230,7 @@ export async function scanDataIssues(): Promise<DataIssuesReport> {
             cardCount: new Set(deadMoves.map((move) => move.cardId)).size,
         },
         dangling,
+        appHours: { over: hours.over.total, under: hours.under.total },
     };
 }
 

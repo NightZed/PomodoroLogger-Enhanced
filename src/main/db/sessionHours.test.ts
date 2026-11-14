@@ -158,6 +158,21 @@ describe('session hours calibration', () => {
         expect(after.missing.total).toBe(2);
     });
 
+    it('leaves nothing behind after a full calibration', async () => {
+        await sessionRepo().insert([
+            // 1.8s over and 1.8s under: real drift, but the rewrite can only
+            // land on the 1e-6-hour grid.
+            createSession('over', 1000, 1, { A: 1.0005 }),
+            createSession('under', 2000, 1, { A: 0.9995 }),
+        ]);
+
+        await recalibrateSessionHours({ over: true, under: true });
+
+        const after = await scanSessionHours();
+        expect(after.over.total).toBe(0);
+        expect(after.under.total).toBe(0);
+    });
+
     it('does nothing on an empty database', async () => {
         await expect(recalibrateSessionHours({ over: true, under: true })).resolves.toStrictEqual({
             repaired: 0,

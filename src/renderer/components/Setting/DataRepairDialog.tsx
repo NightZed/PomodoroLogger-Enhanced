@@ -26,6 +26,8 @@ export interface DataRepairDialogProps {
     /** Re-runs the scan after a restore or a repair. */
     onRescan: () => void;
     applyRepair: (result: DataRepairResult) => void;
+    /** Opens the app-hours calibration, which is a separate sweep. */
+    onOpenAppHours?: () => void;
 }
 
 const GroupHeader = styled.div`
@@ -385,12 +387,15 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
     const deleteCount =
         selectedCardCount + selectedListIds.length + (selected.has(MOVES_KEY) ? 1 : 0);
 
+    const appHoursCount = (report.appHours?.over ?? 0) + (report.appHours?.under ?? 0);
+
     const hasAnyIssue =
         report.detachedCards.length > 0 ||
         report.orphanCards.length > 0 ||
         report.lists.length > 0 ||
         report.moves.total > 0 ||
-        report.dangling.length > 0;
+        report.dangling.length > 0 ||
+        appHoursCount > 0;
 
     const runRepair = async (payload: DataRepairPayload): Promise<DataRepairResult | undefined> => {
         setBusy(true);
@@ -509,6 +514,19 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
             ) : (
                 <Scroller>
                     <Note>{t('dataRepair.intro')}</Note>
+
+                    {appHoursCount > 0 ? (
+                        <>
+                            <Note style={{ marginTop: 8 }}>
+                                {t('dataRepair.appHoursNote', appHoursCount)}
+                            </Note>
+                            {props.onOpenAppHours ? (
+                                <Button size="small" onClick={props.onOpenAppHours}>
+                                    {t('dataRepair.appHoursOpen')}
+                                </Button>
+                            ) : undefined}
+                        </>
+                    ) : undefined}
 
                     {report.detachedCards.length > 0 || report.orphanCards.length > 0 ? (
                         <>

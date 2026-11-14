@@ -402,6 +402,7 @@ const EMPTY_DATA_REPORT: DataIssuesReport = {
     lists: [],
     moves: { total: 0, cardCount: 0 },
     dangling: [],
+    appHours: { over: 0, under: 0 },
 };
 
 const isEmptyDataReport = (report: DataIssuesReport): boolean =>
@@ -409,7 +410,9 @@ const isEmptyDataReport = (report: DataIssuesReport): boolean =>
     report.orphanCards.length === 0 &&
     report.lists.length === 0 &&
     report.moves.total === 0 &&
-    report.dangling.length === 0;
+    report.dangling.length === 0 &&
+    (report.appHours?.over ?? 0) === 0 &&
+    (report.appHours?.under ?? 0) === 0;
 
 interface Props extends TimerState, TimerActionTypes {
     /** Applies the data check's result to `kanban.cards` / `lists` / `boards`. */
@@ -1376,6 +1379,10 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                     onClose={() => setRepairOpen(false)}
                     onRescan={rescanData}
                     applyRepair={applyRepair}
+                    onOpenAppHours={() => {
+                        setRepairOpen(false);
+                        setHoursOpen(true);
+                    }}
                 />
                 <AppHoursCalibrationDialog
                     open={hoursOpen}

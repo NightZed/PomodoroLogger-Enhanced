@@ -501,6 +501,8 @@ export const zh: CatalogShape<typeof en> = {
         confirmRefs: (count: number): string => `引用 ${count} 处`,
         confirmNote: '删除不可撤销；番茄记录不受影响。',
         confirmOk: '确认处理',
+        appHoursNote: (count: number): string => `另有 ${count} 条会话的应用时长与总时长不一致。`,
+        appHoursOpen: '去校准',
         done: (cards: number, lists: number, moves: number, refs: number): string =>
             `已删除 ${cards} 张卡片、${lists} 个列表、${moves} 条移动记录，修复 ${refs} 处引用`,
         failed: '数据修复失败',
@@ -510,11 +512,7 @@ export const zh: CatalogShape<typeof en> = {
     appHours: {
         title: '校准应用时长',
         button: '校准应用时长',
-        intro:
-            '每条会话都存着一个总时长和一份应用明细，两者会慢慢对不上：' +
-            '应用明细按墙钟累加，总时长则是会话的名义长度。' +
-            '校准会按比例缩放应用明细，让它重新加得回总时长。' +
-            '会话总时长、日历和项目统计都不会改变。',
+        intro: '这些会话的应用明细之和与自己的总时长对不上。校准会按比例缩放明细；会话总时长和其他统计都不会改变。',
         empty: '所有会话的应用时长都已经对得上',
         loading: '正在读取会话…',
         over: (count: number): string => `应用时长多于总时长（${count}）`,

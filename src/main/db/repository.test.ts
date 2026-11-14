@@ -162,6 +162,24 @@ describe('SQLite repository query/update mapping', () => {
         }
     });
 
+    it('clears a table without an _id column in one statement', async () => {
+        const { connection, moves } = setup();
+        try {
+            await moves.insert([
+                { fromListId: 'a', toListId: 'b', cardId: 'c', time: 1 },
+                { fromListId: 'b', toListId: 'a', cardId: 'c', time: 2 },
+            ]);
+
+            expect(await moves.remove({}, { multi: true })).toBe(2);
+            expect(await moves.count({})).toBe(0);
+
+            // Removing from an already empty table reports zero, not a failure.
+            expect(await moves.remove({}, { multi: true })).toBe(0);
+        } finally {
+            connection.close();
+        }
+    });
+
     it('stores settings as key-value rows and keeps unknown keys', async () => {
         const { connection, settings } = setup();
         try {

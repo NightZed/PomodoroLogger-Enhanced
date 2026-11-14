@@ -819,6 +819,17 @@ export class SqliteRepository<T = any> implements DbRepository<T> {
     }
 
     async remove(query: any = {}, options: RemoveOptions = {}): Promise<number> {
+        // An empty query with multi matches every row: "Delete All Data" pays
+        // this path five times (once per table), and going through selectRows
+        // would JSON-parse every doc -- roughly a second per 20k sessions --
+        // only to learn that everything matches. One DELETE statement does it
+        // without touching the doc column.
+        const isEmptyQuery =
+            query == null || (typeof query === 'object' && Object.keys(query).length === 0);
+        if (isEmptyQuery && options.multi) {
+            return this.db.prepare(`DELETE FROM ${this.spec.table}`).run().changes;
+        }
+
         const matches = this.selectRows(query).filter(({ doc }) => matchesQuery(doc, query));
         const targets = options.multi ? matches : matches.slice(0, 1);
         if (targets.length === 0) {

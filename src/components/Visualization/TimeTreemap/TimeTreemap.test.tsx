@@ -40,6 +40,36 @@ const PROJECT_TOTAL = 40;
 const APP_TOTAL = 40;
 
 describe('TimeTreemap option', () => {
+    it('prints the supplied totals instead of summing the rounded entries', () => {
+        const option = getOption(
+            props({
+                projectData: [{ name: 'Board A', value: 11.25 }],
+                // The rounded entries lost the short-lived apps.
+                appData: [{ name: 'Code', value: 11.19 }],
+                projectTotal: 11.25,
+                appTotal: 11.25,
+            }),
+            dayTokens
+        ) as any;
+
+        expect(option.title[0].subtext).toBe('11.3 h');
+        expect(option.title[1].subtext).toBe('11.3 h');
+
+        // Percentages use the real total too, so the dropped apps show up as
+        // a missing share instead of inflating every block to 100%.
+        const label = option.series[1].label.formatter({ name: 'Code', value: 11.19 });
+        expect(label).toBe('Code\n11.2 h (99.5%)');
+    });
+
+    it('falls back to the entry sum when no totals are supplied', () => {
+        const option = getOption(
+            props({ projectData: [{ name: 'A', value: 1.25 }], appData: [] }),
+            dayTokens
+        ) as any;
+
+        expect(option.title[0].subtext).toBe('1.3 h');
+    });
+
     it('lays the two treemap panels side by side filling the canvas', () => {
         const option = getOption(props(), dayTokens) as any;
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { render } from '@testing-library/react';
-import { GridCalendar, monthList } from './GridCalendar';
+import { getHoverInfo, GridCalendar, monthList } from './GridCalendar';
 
 // Window anchored to the end of 2020: the overlap-avoidance in getMonthText()
 // drops the "Dec" of 2019, so each month name appears exactly once and a bold
@@ -19,6 +19,20 @@ const monthLabels = (container: HTMLElement) =>
             label: n.textContent as string,
             bold: n.style.fontWeight === '700',
         }));
+
+describe('GridCalendar hover', () => {
+    it('rounds a boundary total before printing one decimal', () => {
+        // 27 × 25 minutes sums to 11.249999999999998; the treemap prints 11.3
+        // for the same day, so the calendar must not print 11.2.
+        expect(getHoverInfo({ count: 27, spentHours: 11.249999999999998 } as any)).toBe(
+            '27 pomodoros (11.3h) '
+        );
+    });
+
+    it('keeps a genuine half hour down', () => {
+        expect(getHoverInfo({ count: 1, spentHours: 1.24 } as any)).toBe('1 pomodoros (1.2h) ');
+    });
+});
 
 describe('GridCalendar month highlight', () => {
     it('bolds exactly the requested month', () => {

@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { useThemeTokens } from '../../../renderer/theme/useThemeTokens';
 import { useI18n } from '../../../renderer/i18n';
+import { roundHours } from '../../../shared/hours';
 import type { PlainMessageKey } from '../../../shared/i18n';
 
 const Container = styled.div`
@@ -178,12 +179,16 @@ function getGridData(data: Data, till: number, shownGrids: number): GridData[] {
     return grids;
 }
 
-function getHoverInfo(data: GridData) {
+/** Exported for tests; the hover label renders exactly this string. */
+export function getHoverInfo(data: GridData) {
     if (data.count === 0) {
         return `${data.count} pomodoros `;
     }
 
-    return `${data.count} pomodoros (${data.spentHours.toFixed(1)}h) `;
+    // `roundHours` first: 27 × 25 minutes sums to 11.249999999999998, and
+    // `toFixed(1)` would print 11.2 while the treemap prints 11.3 for the
+    // same day.
+    return `${data.count} pomodoros (${roundHours(data.spentHours).toFixed(1)}h) `;
 }
 
 export const GridCalendar = React.memo((props: Props) => {

@@ -1,10 +1,25 @@
 import { Counter } from './Counter';
 import { getWeightsFromPomodoros } from './tokenizer';
 import { PomodoroRecord } from '../renderer/monitor/type';
+import { roundHours } from '../shared/hours';
 
 export interface TimeSpentData {
     projectData: { name: string; value: number }[];
     appData: { name: string; value: number }[];
+    /**
+     * The two panels' real totals, taken BEFORE the per-entry `toFixed(2)`
+     * rounding and the `value > 0` filter that `getNameValuePairs` applies.
+     *
+     * The rounded entries are right for the blocks, but summing them makes the
+     * panel titles disagree: a day of 27 × 25 minutes is exactly 11.25 h, yet
+     * the entries can add up to 11.249999999999995, and `toFixed(1)` then
+     * prints 11.2 next to the calendar's 11.3. They can also lose a few
+     * minutes when short-lived apps round to 0 and are dropped. The titles and
+     * the percentage denominators use these values instead; the blocks keep
+     * the rounded ones.
+     */
+    projectTotal?: number;
+    appTotal?: number;
 }
 
 const DAY_MS = 24 * 3600 * 1000;
@@ -62,6 +77,15 @@ export function getBetterAppName(appName: string) {
 
 const UNK = 'UNK[qqwe]';
 
+/** Raw sum of a counter, before any per-entry rounding or filtering. */
+const counterTotal = (counter: Counter): number => {
+    let sum = 0;
+    for (const key in counter.dict) {
+        sum += counter.dict[key];
+    }
+    return sum;
+};
+
 /**
  * Aggregate time spent per project/app from records. Pure and synchronous so it
  * can run inside a web worker; project ids are resolved through the provided
@@ -106,6 +130,11 @@ export function getTimeSpentDataFromRecordsSync(
     return {
         projectData,
         appData,
+        // `roundHours` (1e-6 h) absorbs the float drift from summing
+        // 1500/3600-shaped values, so the pair of titles agrees with the
+        // calendar instead of straddling the .25 boundary.
+        projectTotal: roundHours(counterTotal(projectTimeCounter)),
+        appTotal: roundHours(counterTotal(appTimeCounter)),
     };
 }
 

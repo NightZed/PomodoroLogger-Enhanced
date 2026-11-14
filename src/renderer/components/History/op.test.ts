@@ -14,6 +14,8 @@ describe('History aggregating operations', () => {
             timeSpent: {
                 projectData: [],
                 appData: [],
+                projectTotal: 0,
+                appTotal: 0,
             },
             total: {
                 count: 0,

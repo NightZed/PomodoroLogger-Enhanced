@@ -38,6 +38,20 @@ describe('aggPomodoro shared core', () => {
         });
     });
 
+    it('reports totals before per-entry rounding', () => {
+        // 27 × 25 minutes is exactly 11.25 h, but the float sum of
+        // 1500/3600 lands on 11.249999999999998. `projectTotal` / `appTotal`
+        // are normalized so the panels and the calendar print the same value.
+        const records = Array.from({ length: 27 }, () =>
+            createRecord('b1', 1500 / 3600, [['code', 1500 / 3600]])
+        );
+
+        const timeSpent = getTimeSpentDataFromRecordsSync(records, { b1: 'Work' });
+
+        expect(timeSpent.projectTotal).toBe(11.25);
+        expect(timeSpent.appTotal).toBe(11.25);
+    });
+
     it('resolves project names through boardNames', async () => {
         const records = [
             createRecord('b1', 10, [['chrome', 10]]),

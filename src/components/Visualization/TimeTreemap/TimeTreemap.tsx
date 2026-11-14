@@ -9,6 +9,7 @@ import {
 import { useThemeTokens } from '../../../renderer/theme/useThemeTokens';
 import { useI18n } from '../../../renderer/i18n';
 import { createTranslator } from '../../../shared/i18n';
+import { roundHours } from '../../../shared/hours';
 import type { Language } from '../../../shared/i18n';
 
 export interface Props {
@@ -16,6 +17,14 @@ export interface Props {
     height?: number;
     projectData: { name: string; value: number }[];
     appData: { name: string; value: number }[];
+    /**
+     * The real totals, before the per-entry rounding that produced the data
+     * arrays. Supplying them keeps the two titles (and the percentages) on the
+     * same denominator; without them the titles fall back to summing the
+     * arrays, which can be off by the entries that rounded to zero.
+     */
+    projectTotal?: number;
+    appTotal?: number;
     onProjectClick?: (project: string) => void;
     showAllApplications?: boolean;
 }
@@ -147,6 +156,7 @@ function treemapSeries(
     tokens: ThemeTokens,
     width: number,
     height: number,
+    panelTotal: number,
     showAllApplications = false
 ): SeriesOption {
     const displayData =
@@ -181,7 +191,10 @@ function treemapSeries(
         ],
         label: {
             show: true,
-            formatter: labelFormatter(sumHours(displayData)),
+            // Percentages use the panel's real total, so blocks that rounded
+            // away are visible as the missing share instead of silently
+            // inflating every other block to 100%.
+            formatter: labelFormatter(panelTotal),
             color: tokens.text,
             fontSize: 12,
             lineHeight: 16,
@@ -213,8 +226,8 @@ export function getOption(
     const height = props.height ?? 400;
     const panelWidth = width * 0.49;
     const panelHeight = Math.max(0, height - PANEL_TOP);
-    const projectTotal = sumHours(props.projectData);
-    const appTotal = sumHours(props.appData);
+    const projectTotal = props.projectTotal ?? sumHours(props.projectData);
+    const appTotal = props.appTotal ?? sumHours(props.appData);
     const panelTitle = {
         textStyle: { color: tokens.text, fontSize: 14 },
         subtextStyle: { color: tokens.textSecondary, fontSize: 12 },
@@ -224,14 +237,16 @@ export function getOption(
         title: [
             {
                 text: t('chart.treemap.projects'),
-                subtext: `${projectTotal.toFixed(1)} h`,
+                // `roundHours` first: a panel total of 11.249999999999998
+                // must print 11.3, the same way the calendar widget does.
+                subtext: `${roundHours(projectTotal).toFixed(1)} h`,
                 left: 0,
                 top: 0,
                 ...panelTitle,
             },
             {
                 text: t('chart.treemap.applications'),
-                subtext: `${appTotal.toFixed(1)} h`,
+                subtext: `${roundHours(appTotal).toFixed(1)} h`,
                 left: PANEL_DIVIDE,
                 top: 0,
                 ...panelTitle,
@@ -256,7 +271,8 @@ export function getOption(
                 { left: 0, top: PANEL_TOP, right: PANEL_DIVIDE, bottom: 0 },
                 tokens,
                 panelWidth,
-                panelHeight
+                panelHeight,
+                projectTotal
             ),
             treemapSeries(
                 APP_SERIES_NAME,
@@ -265,6 +281,7 @@ export function getOption(
                 tokens,
                 panelWidth,
                 panelHeight,
+                appTotal,
                 props.showAllApplications
             ),
         ],
@@ -279,17 +296,35 @@ export function getOption(
 export const TimeTreemap: React.FC<Props> = (props: Props) => {
     const { tokens } = useThemeTokens();
     const { language } = useI18n();
-    const { projectData, appData, onProjectClick } = props;
+    const { projectData, appData, projectTotal, appTotal, onProjectClick } = props;
     const { width = 800, height = 400 } = props;
     const [showAllApplications, setShowAllApplications] = React.useState(false);
     const option = React.useMemo(
         () =>
             getOption(
-                { projectData, appData, width, height, showAllApplications },
+                {
+                    projectData,
+                    appData,
+                    projectTotal,
+                    appTotal,
+                    width,
+                    height,
+                    showAllApplications,
+                },
                 tokens,
                 language
             ),
-        [projectData, appData, width, height, showAllApplications, tokens, language]
+        [
+            projectData,
+            appData,
+            projectTotal,
+            appTotal,
+            width,
+            height,
+            showAllApplications,
+            tokens,
+            language,
+        ]
     );
 
     // Only the project panel filters the view; app blocks are informational.

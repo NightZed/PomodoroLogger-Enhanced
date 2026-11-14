@@ -6,7 +6,9 @@ import { actions as kanbanActions } from './components/Kanban/action';
 import { actions as historyActions } from './components/History/action';
 import { bumpSessionReloadToken } from './components/Timer/action';
 import { applySessionEditsResult } from './components/Kanban/sessionEdits';
+import { applyCardMove } from './components/Kanban/cardMove';
 import type { SessionEditsResult } from '../shared/sessionEdits';
+import type { CardMoveResult } from '../shared/cardMove';
 
 /**
  * Invalidates the views that read sessions straight from the database.
@@ -34,6 +36,28 @@ export const applySessionEditsAndRefresh =
     (dispatch) => {
         dispatch(applySessionEditsResult(result));
         dispatch(refreshSessionDerivedViews());
+    };
+
+/**
+ * Moves a card to another list and invalidates the same views.
+ *
+ * A cross-board move rewrites the `boardId` of every session the card counts,
+ * so History's calendar and Timer's today list go stale even though the card
+ * rows landed correctly. The main-process command and the store update live in
+ * `Kanban/cardMove`; this wrapper adds the invalidation, which cannot live
+ * there without importing this module back (the action files already depend
+ * on `applyCardMove`).
+ */
+export const moveCardToBoardAndRefresh =
+    (
+        cardId: string,
+        targetListId: string
+    ): ThunkAction<Promise<CardMoveResult>, RootState, unknown, any> =>
+    async (dispatch) => {
+        const result = await window.api.moveCardToBoard({ cardId, targetListId });
+        dispatch(applyCardMove(result));
+        dispatch(refreshSessionDerivedViews());
+        return result;
     };
 
 /**

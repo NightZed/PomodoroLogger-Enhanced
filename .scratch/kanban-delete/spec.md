@@ -436,6 +436,7 @@ UI：
 实现细节（第 7 步定稿）：
 
 - 主进程命令在 `src/main/db/cardMove.ts`，返回 `updatedCards` / `updatedLists` / `updatedBoards`（`src/shared/cardMove.ts`）；渲染层 `applyCardMove`（`Kanban/cardMove.ts`）在 cards / lists / boards 三个 reducer 里整体替换，和删除、会话编辑同一套「事务返回终态」的写法。
+- 跨板移动会重写卡片里每条会话的 `boardId`，所以它和会话编辑一样要失效 History 与 Timer 的派生视图：两个弹窗的 `move` 都走 `moveCardToBoardAndRefresh`（`src/renderer/dataReload.ts`），写回卡片后 bump `sessionReloadToken` 与 `expiringKey`。包装放在 `dataReload` 而不是 `cardMove.ts`：后者的 `applyCardMove` 已经被三个 reducer import，反过来 import `dataReload` 会成环。
 - 卡片没有 `boardId`，跨板判断按**每条会话自己的 `boardId`** 做，而不是看卡片原来的看板：存量脏数据里会话可能已经指向别处，按会话判断才能让源看板的扣减落在正确的板上。
 - 卡片同时出现在多个列表（旧数据）时，从所有源列表移除，`move` 记录的 `fromListId` 取第一个；不在任何列表的孤儿卡不写 `move` 记录（没有旧位置需要压住），仍然可以移动。
 - `completedTime` 只在目标列表是该看板的 `doneList` 时写 `Date.now()`；离开 done 列表保留原值，与拖拽一致。
@@ -562,6 +563,7 @@ UI：
 - 桑基图覆盖层：`z-index` 高于 `AppModal`（1050）；Esc 在捕获阶段处理并 `stopPropagation`，按一次只关图，不会顺带触发弹窗的未保存确认。
 - 改项目会清空该行卡片；跨项目的批量设置卡片被禁用；`cardId: null` 能退回未挂卡。
 - `moveCardToBoard`：源/目标列表引用正确、写了一条 move、会话 boardId 跟随、源/目标看板汇总重算、多卡共享时旧卡 `actual` 扣减、移入 done 列表设置 `completedTime`。
+- 移动卡片后同样失效派生视图：`sessionReloadToken` +1、`expiringKey` 变化（跨板移动会迁移会话的项目）。
 - 移动后导出再导入，卡片仍在目标列表（依赖 move 记录），会话仍归目标看板。
 - 导入日志：清理后的数据不再产生 `moveDropped` / `cardRemoved`。
 - `scanDataIssues`：被孤儿列表引用的卡片进 `detachedCards`、其余进 `orphanCards`；被有效列表引用的卡片两边都不进；move 计数与卡片数；三类悬空引用各自计数，重复 id 也算一处。

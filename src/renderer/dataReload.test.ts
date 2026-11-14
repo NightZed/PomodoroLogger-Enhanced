@@ -1,6 +1,10 @@
 import { applyMiddleware, createStore } from 'redux';
 import { thunk } from 'redux-thunk';
-import { applySessionEditsAndRefresh, reloadDataStore } from './dataReload';
+import {
+    applySessionEditsAndRefresh,
+    moveCardToBoardAndRefresh,
+    reloadDataStore,
+} from './dataReload';
 import { rootReducer } from './reducers';
 import { actions as kanbanActions } from './components/Kanban/action';
 import { DBs, runInTransaction } from '../main/db';
@@ -92,6 +96,35 @@ describe('applySessionEditsAndRefresh', () => {
             }) as any
         );
 
+        expect(store.getState().kanban.cards.c1.sessionIds).toEqual(['s1']);
+        expect(store.getState().timer.sessionReloadToken).toBe(before.timer.sessionReloadToken + 1);
+        expect(store.getState().history.expiringKey).not.toBe(before.history.expiringKey);
+    });
+});
+
+// Regression: a cross-board move rewrites the `boardId` of every session the
+// card counts, so History and the Timer kept showing those sessions on the old
+// project until a restart.
+describe('moveCardToBoardAndRefresh', () => {
+    const originalApi = (window as any).api;
+
+    afterEach(() => {
+        (window as any).api = originalApi;
+    });
+
+    it('moves the card and invalidates the session views', async () => {
+        const store = makeStore();
+        const before = store.getState();
+        const moveCardToBoard = jest.fn().mockResolvedValue({
+            updatedCards: { c1: { ...card, sessionIds: ['s1'] } },
+            updatedLists: {},
+            updatedBoards: {},
+        });
+        (window as any).api = { ...originalApi, moveCardToBoard };
+
+        await store.dispatch(moveCardToBoardAndRefresh('c1', 'l2') as any);
+
+        expect(moveCardToBoard).toHaveBeenCalledWith({ cardId: 'c1', targetListId: 'l2' });
         expect(store.getState().kanban.cards.c1.sessionIds).toEqual(['s1']);
         expect(store.getState().timer.sessionReloadToken).toBe(before.timer.sessionReloadToken + 1);
         expect(store.getState().history.expiringKey).not.toBe(before.history.expiringKey);

@@ -1,10 +1,10 @@
 import * as React from 'react';
 import { connect } from 'react-redux';
+import type { Dispatch } from 'redux';
 import { BoardListPicker } from './BoardListPicker';
-import { moveCardToBoard } from './cardMove';
+import { moveCardToBoardAndRefresh } from '../../dataReload';
 import { feedback } from '../feedback';
 import { useI18n } from '../../i18n';
-import { genMapDispatchToProp } from '../../utils';
 
 export interface CardMoveDialogProps {
     open: boolean;
@@ -65,7 +65,7 @@ const CardMoveDialogInner = (props: Props) => {
  * cannot be offered until the board is known -- and the main process owns the
  * actual move.
  */
-export const CardMoveDialog = connect(
-    null,
-    genMapDispatchToProp<Pick<Props, 'move'>>({ move: moveCardToBoard })
-)(CardMoveDialogInner);
+export const CardMoveDialog = connect(null, (dispatch: Dispatch) => ({
+    move: (cardId: string, targetListId: string) =>
+        dispatch(moveCardToBoardAndRefresh(cardId, targetListId) as any),
+}))(CardMoveDialogInner);

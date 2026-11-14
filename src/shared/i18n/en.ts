@@ -427,6 +427,7 @@ export const en = {
             title: 'Sankey Diagram',
             focused: 'Focused',
             distracted: 'Distracted',
+            untitled: '(Untitled)',
             exitHint: '(Click the background or press Esc to exit)',
         },
         treemap: {

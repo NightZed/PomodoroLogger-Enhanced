@@ -403,6 +403,7 @@ export const zh: CatalogShape<typeof en> = {
             title: '桑基图',
             focused: '专注',
             distracted: '分心',
+            untitled: '（无标题）',
             exitHint: '（点击背景或按 Esc 退出）',
         },
         treemap: {

@@ -156,7 +156,14 @@ const getLinkAndNode = (
         });
         for (const title in _app.titleSpentTime) {
             const new_title = title.replace(/-,-/g, '.');
-            let key = breakWord(new_title, '\n', 24);
+            // `get-windows` reports an empty title for some windows (hidden
+            // browser surfaces, games), and `titleSpentTime` keeps that key
+            // verbatim. Left alone it becomes a nameless node, and an empty
+            // name is also what the tooltip formatter below would read as
+            // "this is a link". Name it the way the kanban names an untitled
+            // card instead.
+            const titleLabel = new_title === '' ? translate('chart.sankey.untitled') : new_title;
+            let key = breakWord(titleLabel, '\n', 24);
             if (key.length > 48) {
                 key = key.slice(0, 45) + '...';
             }
@@ -177,24 +184,27 @@ const getLinkAndNode = (
                     fontSize: 12,
                 },
                 tooltip: {
+                    /**
+                     * A hovered node carries only its name, while a link
+                     * carries `source` / `target` plus a numeric `value`. Pick
+                     * the branch by shape, not by whether `name` is truthy:
+                     * this formatter runs inside ECharts' mousemove handler,
+                     * where a throw never reaches the error page -- it only
+                     * kills the tooltip and lands in `crash.log`.
+                     */
                     formatter: (params: any) => {
-                        // `source` and `target` are rewritten below, the rest is read-only
-                        let { source, target } = params.data;
-                        const { value: dataValue, name } = params.data;
-                        if (name) {
-                            return `${breakWord(new_title, '<br/>')}: ${value}`;
+                        const item: { source?: string; target?: string; value?: number } =
+                            (params && params.data) || {};
+                        if (typeof item.value === 'number') {
+                            const source = item.source === key ? titleLabel : item.source;
+                            const target = item.target === key ? titleLabel : item.target;
+                            return breakWord(
+                                `${source} --- ${target}: ${item.value.toFixed(1)}`,
+                                '<br/>'
+                            );
                         }
 
-                        if (source === key) {
-                            source = new_title;
-                        } else if (target === key) {
-                            target = new_title;
-                        }
-
-                        return breakWord(
-                            `${source} --- ${target}: ${dataValue.toFixed(1)}`,
-                            '<br/>'
-                        );
+                        return `${breakWord(titleLabel, '<br/>')}: ${value}`;
                     },
                 },
             });

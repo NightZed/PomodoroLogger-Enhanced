@@ -111,9 +111,8 @@ export const TREND_UNMOUNT_DELAY_MS = 30 * 1000;
  * The reveal now slides one solid cover with `transform` only. It plays once,
  * the first time this card's chart is shown: after that the cover is removed,
  * so sweeping the pointer across already visited cards starts no animation at
- * all and leaves the chart completely static. Combining the 0.2s animation
- * delay with the dwell above keeps the first visible frame at the same moment
- * as before (0.4s after the pointer enters).
+ * all and leaves the chart completely static. With the 200ms dwell the cover
+ * finishes sliding after ~0.45s, keeping the whole first reveal under 0.5s.
  */
 const trendReveal = keyframes`
     0% {
@@ -157,7 +156,7 @@ const TrendCover = styled.div`
     position: absolute;
     inset: 0;
     background-color: var(--pl-bg-elevated);
-    animation: ${trendReveal} 0.6s linear 0.2s 1 both;
+    animation: ${trendReveal} 0.2s linear 0.05s 1 both;
 `;
 
 const Content = styled.div`

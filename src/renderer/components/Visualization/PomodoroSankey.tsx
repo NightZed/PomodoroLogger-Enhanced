@@ -295,6 +295,13 @@ const getOption = (
         series: [
             {
                 type: 'sankey',
+                // ECharts' default entry animation is 1000ms, which reads as
+                // "the chart takes a second to appear". Keep the entrance
+                // short so the finished diagram shows within ~0.2s.
+                animationDuration: 200,
+                animationDurationUpdate: 150,
+                animationDelay: 0,
+                animationDelayUpdate: 0,
                 // ECharts defaults to left 5% / right 20% (the extra right
                 // room is reserved for right-hand labels). With nodeAlign
                 // 'justify' the graph then fills 5%..80% of the canvas, so

@@ -1379,12 +1379,14 @@ class Timer extends Component<Props, State> {
     componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
         // A failure inside the timer page is contained here (the rest of the
         // app keeps working), but it still has to reach crash.log -- otherwise
-        // the most frequent crash would be the one nobody can see.
+        // the most frequent crash would be the one nobody can see. The notice
+        // carries the copy and the "Open Log Folder" button the old toast had
+        // no room for; it is raised once per fingerprint, not once per render.
         reportRendererError('component', error, {
             scope: 'timer',
             componentStack: errorInfo.componentStack,
+            notify: true,
         });
-        feedback.toast({ kind: 'error', content: error.toString() });
     }
 
     minimize = () => {

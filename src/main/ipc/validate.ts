@@ -322,6 +322,13 @@ export function assertRendererErrorPayload(value: unknown): RendererErrorPayload
     if (payload.tab !== undefined) {
         result.tab = assertString(payload.tab, 'error report.tab', 64);
     }
+    if (payload.count !== undefined) {
+        const count = payload.count;
+        if (typeof count !== 'number' || !Number.isInteger(count) || count < 1) {
+            throw new TypeError('error report.count must be a positive integer');
+        }
+        result.count = count;
+    }
 
     return result;
 }

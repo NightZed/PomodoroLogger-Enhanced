@@ -281,12 +281,22 @@ describe('main/ipc', () => {
             expect(init.restoreWindowForError).toHaveBeenCalled();
         });
 
+        it('prints how many occurrences an aggregated report stands for', () => {
+            report({ ...payload, count: 7 });
+
+            const [, , message] = (log as jest.Mock).mock.calls[0];
+            // The renderer folds a repeating failure into one line per minute,
+            // so the line has to carry the number it hides.
+            expect(message).toContain('renderer react: boom (x7)');
+        });
+
         it('refuses an oversized or malformed report without writing anything', () => {
             const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
 
             report({ ...payload, message: 'x'.repeat(4097) });
             report({ ...payload, kind: 'not-a-kind' });
             report({ ...payload, stack: 42 });
+            report({ ...payload, count: 0 });
 
             expect(log).not.toHaveBeenCalled();
             expect(init.restoreWindowForError).not.toHaveBeenCalled();

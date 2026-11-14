@@ -140,10 +140,18 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
   拒绝路径的对话框只展示前 20 条（`ValidationResult.issues`），并提供一个 **Open Log Folder** 按钮。
   导入成功后重载 store（`src/renderer/dataReload.ts`）而不是重启；有需要处理的项时打开 `ImportReportDialog`（只显示数量，按钮可打开日志或直接进入数据检查），没有则只 toast。
   删除全部数据同样不再重启：删库后调用 `reloadDataStore()`；`ClearUserFiles` 仍记录「删除全部」的完成。
-- 渲染层崩溃经 `IpcEventName.ReportError`（`send`）上报，写进 `crash.log`，然后显示在整窗的 `src/renderer/components/ErrorScreen.tsx` 上。
-  **应用不再自己重启**；重启是那个页面上的一个按钮。
+- 渲染层崩溃经 `IpcEventName.ReportError`（`send`）上报，写进 `crash.log`。
+  React 渲染错误显示在整窗的 `src/renderer/components/ErrorScreen.tsx` 上；**应用不再自己重启**，重启是那个页面上的一个按钮。
   `AppErrorBoundary` 必须留在 `app.tsx` 里 `Application` 的*外面*——放在里面的话，它会和它本该替换的那棵树一起卸载。
   这个页面自己画拖拽条和窗口按钮，因为无边框窗口没有原生的。
+- `src/renderer/errorReporting.tsx` 是唯一的上报入口，按指纹（`kind|message`）累积：
+  首次立即写一行，此后同一指纹每 60 秒最多再写一行，行内带累计次数 `(x37)`（`RendererErrorPayload.count`）。
+  一个在指针事件里的重复异常（例如鼠标每移动一次抛一次）因此只留每分钟一行，而不是一行一次。
+  界面可用的错误（`window 'error'`、`unhandledrejection`、Timer 页内层边界的 `component`）额外弹**一次** `feedback.notice`
+  （`ReportExtra.notify`）：同一指纹每次启动只弹一次、带「打开日志文件夹」、没有遮罩所以点空白关不掉。
+  整窗的渲染错误已经换成 `ErrorScreen`，不再弹提示。`FeedbackContextBridge` 尚未挂载时（启动早期）视为未提示，下一次仍会弹。
+- 开发版的运行时错误有两个遮罩：`ReactRefreshWebpackPlugin` 的和 webpack-dev-server 自带的（`client.overlay` 默认开启，深色面板）。
+  后者已在 `webpack.renderer.dev.config.js` 里关掉，否则关掉第一个之后会露出第二个，看着像同一个错误报了两次。
 - 主进程故障由 `src/main/crashHandlers.ts`（`uncaughtException` / `unhandledRejection`）和 `init.ts` 里的 `installWindowDiagnostics()`（`did-fail-load`、`preload-error`、`unresponsive`、`render-process-gone`、`child-process-gone`）记录。
 
 ### CPU 密集任务

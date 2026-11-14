@@ -740,6 +740,8 @@ export const en = {
         logFolder: 'Open Log Folder',
         logLocation: (dir: string): string => `Logs: ${dir}`,
         session: (id: string): string => `Session: ${id}`,
+        noticeTitle: 'Something went wrong',
+        noticeHint: 'Details were written to the log file. This error is reported once per run.',
     },
 
     feedback: {

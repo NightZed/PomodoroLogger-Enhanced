@@ -108,6 +108,10 @@ export const notice = ({
 }: NoticeOptions): void => {
     getFeedbackAppApi().notification.open({
         key,
+        // `theme/globalStyle.ts` colors an error notice by this class. The
+        // notification has no mask, so it is the one channel that cannot be
+        // dismissed by a stray click -- which is why errors use it.
+        className: feedbackKindClass(kind),
         title,
         description:
             description === undefined ? undefined : (

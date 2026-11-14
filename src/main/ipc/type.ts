@@ -254,6 +254,12 @@ export interface RendererErrorPayload {
     href: string;
     /** Active tab, when the renderer could still read its own state. */
     tab?: string;
+    /**
+     * Occurrences of this fingerprint since the app started. The renderer only
+     * sends a report on the first occurrence and then once per aggregation
+     * window, so this is what tells a single failure from a burst.
+     */
+    count?: number;
 }
 
 export interface LogInfo {

@@ -670,6 +670,8 @@ export const zh: CatalogShape<typeof en> = {
         logFolder: '打开日志文件夹',
         logLocation: (dir: string): string => `日志：${dir}`,
         session: (id: string): string => `会话：${id}`,
+        noticeTitle: '应用出现错误',
+        noticeHint: '详细信息已写入日志文件，同一错误本次运行只提示一次。',
     },
 
     feedback: {

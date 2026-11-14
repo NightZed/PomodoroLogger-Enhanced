@@ -707,6 +707,20 @@ export const GlobalStyle = createGlobalStyle`
     html[data-theme] .ant-notification-notice-description {
         color: var(--pl-text-secondary);
     }
+    /* Error notices are not status updates: they report a failure whose details
+       live in the log file, so they carry the kind's accent -- a red edge, a
+       tinted surface and a bolder title. The tint is a gradient over the opaque
+       surface rather than a translucent background-color, so the desktop behind
+       the window never shows through. */
+    html[data-theme] .ant-notification-notice.pl-feedback-error {
+        border-color: rgba(255, 77, 79, 0.5);
+        border-left: 3px solid #ff4d4f;
+        background-image: linear-gradient(rgba(255, 77, 79, 0.12), rgba(255, 77, 79, 0.12));
+        box-shadow: 0 6px 20px var(--pl-shadow);
+    }
+    html[data-theme] .ant-notification-notice.pl-feedback-error .ant-notification-notice-message {
+        font-weight: 600;
+    }
 
     /* dialog (antd modal, including confirm / info) */
     html[data-theme] .ant-modal {

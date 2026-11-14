@@ -13,20 +13,21 @@ import store from './store';
 
 import './echartsSetup';
 
-// Both are reported to `crash.log` but do **not** replace the UI: unlike a
-// React render failure the tree is still mounted and usable. Nothing here may
-// restart the app -- that decision belongs to the user, on the error page.
+// Both are reported to `crash.log` and raise the one-time error notice, but do
+// **not** replace the UI: unlike a React render failure the tree is still
+// mounted and usable. Nothing here may restart the app -- that decision belongs
+// to the user, on the error page.
 window.addEventListener('error', (e) => {
     if (process.env.NODE_ENV === 'development') {
         console.error('[Renderer] uncaught error:', e.error || e.message);
     }
-    reportRendererError('window-error', e.error || new Error(e.message));
+    reportRendererError('window-error', e.error || new Error(e.message), { notify: true });
 });
 window.addEventListener('unhandledrejection', (e) => {
     if (process.env.NODE_ENV === 'development') {
         console.error('[Renderer] unhandled rejection:', e.reason);
     }
-    reportRendererError('unhandledrejection', e.reason);
+    reportRendererError('unhandledrejection', e.reason, { notify: true });
 });
 
 // Create main element

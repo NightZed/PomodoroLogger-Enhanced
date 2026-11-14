@@ -284,13 +284,18 @@ export function initialize() {
             const detail = [payload.stack, payload.componentStack]
                 .filter(Boolean)
                 .join('\n--- component stack ---\n');
+            // The renderer aggregates a repeating failure, so the line has to
+            // say how many occurrences it stands for -- otherwise a burst that
+            // was folded into one line looks like a single crash.
+            const occurrences =
+                payload.count !== undefined && payload.count > 1 ? ` (x${payload.count})` : '';
 
             log(
                 'crash',
                 'error',
                 `renderer ${payload.kind}${payload.scope ? ` (${payload.scope})` : ''}: ${
                     payload.message
-                } [${where}]`,
+                }${occurrences} [${where}]`,
                 detail || undefined
             );
 

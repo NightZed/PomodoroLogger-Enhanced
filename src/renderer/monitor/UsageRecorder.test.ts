@@ -1,7 +1,9 @@
-import { UsageRecorder } from './UsageRecorder';
+import { MAX_TICK_MS, UsageRecorder, tickDeltaMs } from './UsageRecorder';
 import { generateRandomName } from '../utils';
 
 const realDate = Date;
+let performanceNowSpy: jest.SpyInstance<number, []>;
+
 function mockDate(targetDate: string | number) {
     const DATE_TO_USE = new realDate(targetDate);
     // @ts-ignore
@@ -9,6 +11,9 @@ function mockDate(targetDate: string | number) {
     global.Date.UTC = realDate.UTC;
     global.Date.parse = realDate.parse;
     global.Date.now = realDate.now;
+    // The recorder differences samples on the monotonic clock; keep it on the
+    // same fake timeline as the wall clock so both move together.
+    performanceNowSpy.mockReturnValue(DATE_TO_USE.getTime());
 }
 
 function createResult(appName: string, title: string = appName) {
@@ -26,6 +31,14 @@ function createResult(appName: string, title: string = appName) {
 }
 
 describe('monitor/UsageRecorder', () => {
+    beforeEach(() => {
+        performanceNowSpy = jest.spyOn(performance, 'now').mockReturnValue(0);
+    });
+
+    afterEach(() => {
+        performanceNowSpy.mockRestore();
+    });
+
     afterAll(() => {
         global.Date = realDate;
     });
@@ -114,7 +127,9 @@ describe('monitor/UsageRecorder', () => {
         const recorder = new UsageRecorder(() => {});
         const stayDuration = [];
         for (let i = 0; i < 1000; i += 1) {
-            stayDuration.push(Math.ceil(Math.random() * 5000 + 100));
+            // One sampling gap is capped at MAX_TICK_MS; stay under it so the
+            // test measures the recorder, not the sanity clamp.
+            stayDuration.push(Math.round((Math.random() * 29 + 0.1) * 1000) / 1000);
         }
 
         let targetDate = 0;
@@ -285,5 +300,56 @@ describe('monitor/UsageRecorder', () => {
         // The first tick of the new session must not look like a switch away
         // from the previous session's app.
         expect(recorder.sessionData.switchTimes).toBe(0);
+    });
+
+    it('clamps one sampling gap to the sanity limit', () => {
+        expect(tickDeltaMs(1000, 0)).toBe(1000);
+        // A clock moved backwards is not a measurement at all.
+        expect(tickDeltaMs(0, 1000)).toBe(0);
+        expect(tickDeltaMs(Number.NaN, 0)).toBe(0);
+        expect(tickDeltaMs(MAX_TICK_MS * 2, 0)).toBe(MAX_TICK_MS);
+    });
+
+    it('ignores a backwards wall-clock jump', async () => {
+        const recorder = new UsageRecorder(() => {});
+        const a = () => createResult('a');
+
+        mockDate(100000);
+        recorder.start();
+        mockDate(110000);
+        await recorder.listener(a());
+
+        // The user (or NTP) moves the system clock an hour back. The
+        // monotonic clock keeps running, so the tick still credits 10s.
+        mockDate(-3600000);
+        performanceNowSpy.mockReturnValue(120000);
+        await recorder.listener(a());
+
+        mockDate(130000);
+        performanceNowSpy.mockReturnValue(130000);
+        recorder.stop();
+
+        expect(recorder.sessionData.apps.a.spentTimeInHour).toBeCloseTo(30 / 3600, 6);
+    });
+
+    it('caps a gap that looks like a suspended machine', async () => {
+        const recorder = new UsageRecorder(() => {});
+        const a = () => createResult('a');
+
+        mockDate(0);
+        recorder.start();
+        mockDate(1000);
+        await recorder.listener(a());
+
+        // Laptop closed for eight hours: one tick reports the whole gap.
+        mockDate(8 * 3600 * 1000);
+        await recorder.listener(a());
+        mockDate(8 * 3600 * 1000 + 1000);
+        recorder.stop();
+
+        expect(recorder.sessionData.apps.a.spentTimeInHour).toBeCloseTo(
+            (1000 + MAX_TICK_MS + 1000) / 1000 / 3600,
+            6
+        );
     });
 });

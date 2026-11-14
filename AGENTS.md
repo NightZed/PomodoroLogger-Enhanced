@@ -206,6 +206,8 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
 ### 活动追踪与统计
 
 `src/renderer/monitor` 采集活动窗口（`src/main/activeWin.ts` 包装 `get-windows`，懒加载并记录到 `logs/active-win.log`），按应用/按标题把时间聚合成 `PomodoroRecord`，可选截图；番茄结束时由主进程 `recordFinishedSession`（`src/main/db/finishedSession.ts`）在一条事务里写入会话行、看板汇总与卡片归属，失败整笔回滚、不挂卡，渲染层用 `applyFinishedSession` 替换事务返回的行。
+`UsageRecorder` 的采样差分用单调时钟（`performance.now()`），`record.startTime` 仍用墙钟（它决定会话归到哪一天）；单次采样间隔被 `MAX_TICK_MS`（30 s）截断，负差值按 0 处理，所以改系统时钟不会给某个应用凭空加减时间，休眠唤醒也不会把整段挂起记给前台应用。
+会话确认时 `normalizeAppHours`（`src/shared/normalizeAppHours.ts`）把 `apps` 和 `stayTimeInSecond` 按最终 `spentTimeInHour`（含延长）等比缩放，`Σapps === spentTimeInHour` 是一条不变量——不要退回「应用记墙钟、总时长写名义值」，那样每结束一个番茄都会让 History 的树图比总时长徽章多 0.5–1 s，一万个番茄就是一小时以上。
 效率打分在 `src/shared/efficiency/efficiency.ts`；历史聚合在 `src/utils/aggPomodoro.ts` 和 `src/shared/dataMerger`。
 
 番茄的卡片归属是**一番茄一卡**：结束遮罩（`SessionEndingMask`）在 `focusedList` 只有一张卡时自动选它，多张时让用户选一张或选「不挂卡」，然后 `Timer.onSessionConfirmed` 把单个 `cardId` 交给 `timerFinished` → `recordFinishedSession`，只有那张卡的 `actual` 增加。

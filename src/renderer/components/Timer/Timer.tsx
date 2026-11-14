@@ -9,6 +9,7 @@ import { MiniLogger } from '../../../components/common/Mini/MiniLogger';
 import { timeScale, __DEV__ } from '../../../config';
 import dingMp3 from '../../../res/ding.mp3';
 import { EfficiencyAnalyser } from '../../../shared/efficiency/efficiency';
+import { normalizeAppHours } from '../../../shared/normalizeAppHours';
 import { Monitor } from '../../monitor';
 import { getTodaySessions } from '../../monitor/sessionManager';
 import { PomodoroRecord } from '../../monitor/type';
@@ -1080,6 +1081,11 @@ class Timer extends Component<Props, State> {
                 this.setState({ pomodoroNum: this.state.pomodoroNum + 1 });
                 this.stagedSession.spentTimeInHour += this.extendedTimeInMinute / 60;
                 this.extendedTimeInMinute = 0;
+                // The recorder measures wall time; `spentTimeInHour` above is
+                // the nominal length. Rescale the breakdown onto the final
+                // total (extension included) so the treemap and the badge
+                // cannot disagree — see `normalizeAppHours`.
+                normalizeAppHours(this.stagedSession, this.stagedSession.spentTimeInHour);
                 const boardId = confirmedBoardId;
                 // `boardId` may point to a board that no longer exists (e.g.
                 // deleted right after a session, or a corrupted value persisted

@@ -8,6 +8,37 @@ function removeAppSuffix(name: string) {
     return name.replace(/\.exe$/g, '');
 }
 
+/**
+ * The longest gap a single sample may credit.
+ *
+ * Real gaps are one sampling interval (~1s). A machine resuming from sleep,
+ * or a system clock that was moved, shows up as one enormous gap and would
+ * otherwise be credited to whichever app happened to be in front. Anything
+ * past half a minute is the OS, not a measurement.
+ */
+export const MAX_TICK_MS = 30_000;
+
+/**
+ * Monotonic milliseconds for the sampling differences.
+ *
+ * `Date.now()` follows the system clock, so moving it either subtracts time
+ * from a session or dumps the whole jump onto one app. `performance.now()`
+ * only moves forward and its origin is fixed, which is what "how long since
+ * the last tick" actually means. `record.startTime` must keep using the wall
+ * clock, because it decides the day the session belongs to.
+ */
+const monotonicNow = (): number => performance.now();
+
+/** One sampling gap, clamped: a non-positive gap (clock moved back) counts as zero. */
+export function tickDeltaMs(now: number, last: number): number {
+    const delta = now - last;
+    if (!Number.isFinite(delta) || delta <= 0) {
+        return 0;
+    }
+
+    return Math.min(delta, MAX_TICK_MS);
+}
+
 export type Listener = (appName: string, data: PomodoroRecord, imgUrl?: string) => void;
 export class UsageRecorder {
     private record: PomodoroRecord;
@@ -73,8 +104,11 @@ export class UsageRecorder {
     };
 
     start = () => {
+        // Wall clock on purpose: `startTime` is what the History calendar and
+        // the daily counters bucket on. The sampling difference below uses
+        // the monotonic clock instead (see `monotonicNow`).
         this.record.startTime = new Date().getTime();
-        this.lastUpdateTime = this.record.startTime;
+        this.lastUpdateTime = monotonicNow();
         // Same defensive reset as `clear()`: no app observed yet, so the
         // first tick after a (re)start can never look like a switch.
         this.lastUsingApp = undefined;
@@ -82,7 +116,7 @@ export class UsageRecorder {
     };
 
     resume = () => {
-        this.lastUpdateTime = new Date().getTime();
+        this.lastUpdateTime = monotonicNow();
         this.isRunning = true;
     };
 
@@ -180,11 +214,18 @@ export class UsageRecorder {
     };
 
     updateThisAppUsageInfo = (appName: string, title: string = appName) => {
+        if (this.lastUpdateTime == null) {
+            throw new Error('You should start recorder before using it');
+        }
+
         const row = this.record.apps[appName];
-        const now = new Date().getTime();
+        const now = monotonicNow();
+        // One clamped gap feeds the app, the record total and the stay-time
+        // segment, so the three can never drift apart from each other.
+        const deltaMs = tickDeltaMs(now, this.lastUpdateTime);
+
         if (!row) {
-            const spentTimeInHour = (now - this.lastUpdateTime!) / 1000 / 3600;
-            this.record.spentTimeInHour += spentTimeInHour;
+            this.record.spentTimeInHour += deltaMs / 1000 / 3600;
             this.lastUpdateTime = now;
             return;
         }
@@ -203,22 +244,18 @@ export class UsageRecorder {
 
         row.titleSpentTime[title].occurrence += 1;
 
-        if (this.lastUpdateTime == null) {
-            throw new Error('You should start recorder before using it');
-        }
-
-        const spentTimeInHour = (now - this.lastUpdateTime!) / 1000 / 3600;
+        const spentTimeInHour = deltaMs / 1000 / 3600;
         row.spentTimeInHour += spentTimeInHour;
         this.record.spentTimeInHour += spentTimeInHour;
-        this.updateSwitchActivity(row.titleSpentTime[title].index, now);
+        this.updateSwitchActivity(row.titleSpentTime[title].index, deltaMs);
         this.lastUpdateTime = now;
     };
 
-    private updateSwitchActivity = (index: number, now: number) => {
+    private updateSwitchActivity = (index: number, deltaMs: number) => {
         const last = this.record.switchActivities!.length - 1;
         const stayTimeArr = this.record.stayTimeInSecond!;
         if (stayTimeArr.length !== 0) {
-            stayTimeArr[stayTimeArr.length - 1] += (now - this.lastUpdateTime!) / 1000;
+            stayTimeArr[stayTimeArr.length - 1] += deltaMs / 1000;
         }
 
         if (this.record.switchActivities![last] !== index) {

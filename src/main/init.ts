@@ -202,6 +202,27 @@ let resizeNotified = false;
 let resizeIdleTimer: NodeJS.Timeout | undefined;
 
 /**
+ * How long `notifyResizing` ignores `resize` events after the app resized the
+ * window itself. Comfortably longer than a one-shot `setContentSize` needs to
+ * reach the renderer, and short enough that a user drag starting right after a
+ * mode switch only loses the first frames of the square-corner optimization.
+ */
+const RESIZE_SUPPRESS_MS = 300;
+let resizeSuppressedUntil = 0;
+
+/**
+ * Marks the window resizes that the app itself performs next (display-mode
+ * switches, the maximize button) so they stay out of the square-corner
+ * optimization. A live drag hides the two-step border change inside the
+ * gesture, but a one-shot `setContentSize` makes both steps visible -- the
+ * corners square on the switch and pop back RESIZE_IDLE_MS later -- which
+ * reads as a jump (v1.4.0 did not have this and does not jump).
+ */
+export function suppressResizingNotification(): void {
+    resizeSuppressedUntil = Date.now() + RESIZE_SUPPRESS_MS;
+}
+
+/**
  * Tells the renderer to drop the window's rounded border while the user drags
  * an edge.
  *
@@ -216,14 +237,18 @@ let resizeIdleTimer: NodeJS.Timeout | undefined;
  * `resize` is the trigger, not `will-resize`: the latter only fires for a resize
  * the user performs, which would leave the flag depending on two event sources
  * staying in sync -- and cannot be exercised by a scripted `MoveWindow`, so the
- * whole path would be unverifiable. The cost of using `resize` is that switching
- * to mini/compact mode or maximizing also squares the corners for
- * RESIZE_IDLE_MS; in mini mode the window is a 200x90 strip whose own content is
- * rounded anyway, and the other two happen during a window animation, so none of
- * them is visible.
+ * whole path would be unverifiable. The cost of using `resize` is that
+ * programmatic resizes (mode switches, the maximize button) would square the
+ * corners too; a one-shot resize makes both border steps visible as a jump, so
+ * those handlers call `suppressResizingNotification` first and the events inside
+ * the suppression window are ignored here.
  */
 function notifyResizing(): void {
     if (!win || win.isDestroyed()) {
+        return;
+    }
+
+    if (Date.now() < resizeSuppressedUntil) {
         return;
     }
 

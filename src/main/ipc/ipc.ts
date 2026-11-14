@@ -32,6 +32,7 @@ import {
     restoreWindowForError,
     setMenuItems,
     setSkipTaskbar,
+    suppressResizingNotification,
     win,
 } from '../init';
 import { getMainLanguage, m, setMainLanguage } from '../i18n';
@@ -401,6 +402,10 @@ export function initialize() {
         IpcEventName.MinimizeWindow,
         (on) => {
             if (!win) return;
+            // The switch resizes the window programmatically; without this the
+            // corners would square on the switch and pop back 120 ms later --
+            // a visible jump (see `suppressResizingNotification`).
+            suppressResizingNotification();
             win.setAlwaysOnTop(on);
             // Through init.ts' wrapper so close-to-tray can restore the state
             // the window was closed with (see `forcedSkipTaskbar`).
@@ -425,6 +430,8 @@ export function initialize() {
         IpcEventName.CompactWindow,
         (on, alwaysOnTop = true) => {
             if (!win) return;
+            // Same programmatic-resize suppression as `MinimizeWindow`.
+            suppressResizingNotification();
             win.setAlwaysOnTop(on && alwaysOnTop);
             if (on) {
                 win.setContentSize(370, 490);
@@ -446,6 +453,9 @@ export function initialize() {
             if (action === 'minimize') {
                 win.minimize();
             } else if (action === 'maximize') {
+                // Either direction of the toggle is a one-shot programmatic
+                // resize; the same jump applies (see `MinimizeWindow`).
+                suppressResizingNotification();
                 if (win.isMaximized()) {
                     win.unmaximize();
                 } else {

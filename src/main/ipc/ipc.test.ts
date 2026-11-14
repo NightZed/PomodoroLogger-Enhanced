@@ -23,6 +23,7 @@ jest.mock('../init', () => ({
     restoreWindowForError: jest.fn(),
     setMenuItems: jest.fn(),
     setSkipTaskbar: jest.fn(),
+    suppressResizingNotification: jest.fn(),
 }));
 
 jest.mock('../log', () => ({
@@ -55,7 +56,7 @@ import { readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
 import { initialize, handleCommand, isTrustedSender } from './ipc';
-import { setMenuItems, setSkipTaskbar } from '../init';
+import { setMenuItems, setSkipTaskbar, suppressResizingNotification } from '../init';
 import { clearUserFiles, saveScreenshot } from '../userFiles';
 import { startWindowDrag, stopWindowDrag } from './windowDrag';
 import { readAllData } from '../io/read';
@@ -185,6 +186,9 @@ describe('main/ipc', () => {
         expect(mockWin.setAlwaysOnTop).toHaveBeenCalledWith(true);
         expect(setSkipTaskbar).toHaveBeenCalledWith(true);
         expect(mockWin.setContentSize).toHaveBeenCalledWith(200, 90);
+        // A programmatic resize would otherwise square the corners on the
+        // switch and pop them back 120 ms later -- a visible jump.
+        expect(suppressResizingNotification).toHaveBeenCalled();
 
         await handlers['minimizeWindow'](trustedEvent, false);
         expect(mockWin.setContentSize).toHaveBeenLastCalledWith(1440, 960);
@@ -243,9 +247,12 @@ describe('main/ipc', () => {
     it('handles the caption window actions', async () => {
         await handlers['windowAction'](trustedEvent, 'minimize');
         expect(mockWin.minimize).toHaveBeenCalled();
+        // Minimizing does not resize, so the corners must not be suppressed.
+        expect(suppressResizingNotification).not.toHaveBeenCalled();
 
         await handlers['windowAction'](trustedEvent, 'maximize');
         expect(mockWin.maximize).toHaveBeenCalled();
+        expect(suppressResizingNotification).toHaveBeenCalled();
 
         mockWin.isMaximized.mockReturnValue(true);
         await handlers['windowAction'](trustedEvent, 'maximize');

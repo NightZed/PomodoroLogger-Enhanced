@@ -501,6 +501,46 @@ describe('Timer page', () => {
         expect(queryByTestId('word-cloud')).toBeTruthy();
     });
 
+    it('closes the open stats panel when switching to compact mode', async () => {
+        (getTodaySessions as jest.Mock).mockResolvedValue([
+            { _id: 's1', startTime: 1, boardId: 'b1' },
+        ]);
+        const view = await renderTimer();
+
+        fireEvent.click(view.container.querySelector('#more-timer-button')!);
+        expect(view.queryByTestId('treemap')).toBeTruthy();
+
+        const compactProps = {
+            ...view.props,
+            timer: { ...view.props.timer, compact: true },
+        };
+        await rerenderTimer(view, compactProps);
+        // The charts cannot fit the compact window, so the panel closes
+        // instead of staying open-but-clipped.
+        expect(view.queryByTestId('treemap')).toBeNull();
+
+        // Expanding back leaves the panel closed: the button toggles on from
+        // a clean state instead of opening a panel that was never visible.
+        const expandedProps = {
+            ...compactProps,
+            timer: { ...compactProps.timer, compact: false },
+        };
+        await rerenderTimer(view, expandedProps);
+        expect(view.queryByTestId('treemap')).toBeNull();
+    });
+
+    it('expands the window and opens the stats panel when clicked in compact mode', async () => {
+        (getTodaySessions as jest.Mock).mockResolvedValue([
+            { _id: 's1', startTime: 1, boardId: 'b1' },
+        ]);
+        const { container, queryByTestId, actions } = await renderTimer({ compact: true });
+
+        fireEvent.click(container.querySelector('#more-timer-button')!);
+
+        expect(actions.setCompact).toHaveBeenCalledWith(false);
+        expect(queryByTestId('treemap')).toBeTruthy();
+    });
+
     it('marks the mini window as confirming while the ending mask is up', async () => {
         const view = await renderTimer({ minimize: true });
 

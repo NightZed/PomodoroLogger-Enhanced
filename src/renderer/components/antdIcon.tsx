@@ -1,6 +1,7 @@
 import * as React from 'react';
 import Icon, {
     AlignLeftOutlined,
+    BarChartOutlined,
     BellOutlined,
     BorderOutlined,
     BulbOutlined,
@@ -54,6 +55,7 @@ export { Icon as IconComponent };
 
 const MAP = {
     'align-left': AlignLeftOutlined,
+    'bar-chart': BarChartOutlined,
     bell: BellOutlined,
     border: BorderOutlined,
     bulb: BulbOutlined,

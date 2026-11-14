@@ -546,6 +546,14 @@ class Timer extends Component<Props, State> {
         if (prevProps.timer.sessionReloadToken !== this.props.timer.sessionReloadToken) {
             this.reloadTodaySessions();
         }
+
+        // Entering compact mode clips the stats charts: the window is 370px of
+        // content while the treemap and the word cloud are 800px wide. Close
+        // the panel instead of leaving it open-but-invisible, so the chart
+        // button toggles back on predictably after expanding again.
+        if (!prevProps.timer.compact && this.props.timer.compact && this.state.more) {
+            this.setState({ more: false });
+        }
     }
 
     componentWillUnmount(): void {
@@ -1132,11 +1140,12 @@ class Timer extends Component<Props, State> {
     }
 
     toggleMode = () => {
+        // In compact mode the charts (800px wide) cannot fit the window, so
+        // the button first expands back to the full size and then opens them.
         if (this.props.timer.compact) {
             this.props.setCompact(false);
         }
         this.setState((state) => {
-            // TODO: need better control
             const more = !state.more;
             return { more };
         });
@@ -1751,10 +1760,10 @@ class Timer extends Component<Props, State> {
                                 </Tooltip>
                             </div>
                             {this.state.pomodorosToday.length ? (
-                                <Tooltip title={t('timer.controls.showMore')}>
+                                <Tooltip title={t('timer.controls.todayStats')}>
                                     <Button
                                         id="more-timer-button"
-                                        icon={<Icon type="more" />}
+                                        icon={<Icon type="bar-chart" />}
                                         shape="circle"
                                         onClick={this.toggleMode}
                                     />

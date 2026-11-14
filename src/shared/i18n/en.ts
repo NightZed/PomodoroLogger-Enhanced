@@ -159,7 +159,7 @@ export const en = {
             finish: 'Finish',
             switchMode: 'Switch Mode (Tab)',
             stop: 'Stop',
-            showMore: 'Show More',
+            todayStats: "Today's Stats",
             switchTimerMode: 'Switch timer mode',
             switchTheme: 'Switch Theme',
             minimize: 'Minimize (F12)',

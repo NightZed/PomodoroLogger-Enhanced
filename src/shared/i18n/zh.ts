@@ -141,7 +141,7 @@ export const zh: CatalogShape<typeof en> = {
             finish: '结束',
             switchMode: '切换模式 (Tab)',
             stop: '停止',
-            showMore: '显示更多',
+            todayStats: '今日统计',
             switchTimerMode: '切换计时模式',
             switchTheme: '切换主题',
             minimize: '迷你模式 (F12)',

@@ -150,21 +150,14 @@ describe('recordFinishedSession', () => {
     });
 
     it('rolls the board and card back when the session cannot be written', async () => {
-        // Force the insert itself to fail. The order is what matters: the board
-        // and card are credited strictly after the session row exists, and the
-        // transaction rolls both back.
-        const sessions = DBs.sessionDB as any;
-        const insert = jest.spyOn(sessions, 'insertSync').mockImplementation(() => {
-            throw new Error('disk full');
-        });
+        // The session row is written first, and the board/card credits only
+        // happen after it exists. A value that cannot be serialized fails the
+        // insert for real, so the rollback is not simulated by a stub.
+        const circular: any = {};
+        circular.self = circular;
+        const broken = session({ apps: { Chrome: circular } as any });
 
-        try {
-            await expect(
-                recordFinishedSession({ session: session(), cardId: 'c1' })
-            ).rejects.toThrow(/disk full/);
-        } finally {
-            insert.mockRestore();
-        }
+        await expect(recordFinishedSession({ session: broken, cardId: 'c1' })).rejects.toThrow();
 
         expect(await repo('kanbanDB').findOne({ _id: 'b1' })).toEqual(board());
         expect(await repo('cardsDB').findOne({ _id: 'c1' })).toEqual(card());

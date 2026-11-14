@@ -4,11 +4,9 @@ import { Provider } from 'react-redux';
 import { applyMiddleware, createStore } from 'redux';
 import { thunk } from 'redux-thunk';
 import { CardMoveDialog } from './CardMoveDialog';
-import { moveCardToBoard } from './cardMove';
 import { feedback } from '../feedback';
 import type { Card, KanbanBoard, List } from './type';
 
-jest.mock('./cardMove', () => ({ moveCardToBoard: jest.fn() }));
 jest.mock('../feedback', () => ({
     feedback: {
         toast: jest.fn(),
@@ -19,7 +17,7 @@ jest.mock('../feedback', () => ({
     },
 }));
 
-const moveCard = moveCardToBoard as unknown as jest.Mock;
+const moveCard = jest.fn();
 
 const list = (id: string, title: string, cards: string[]): List => ({ _id: id, title, cards });
 
@@ -78,16 +76,16 @@ const pickProject = () => fireEvent.click(screen.getByTitle('Alpha'));
 
 beforeEach(() => {
     moveCard.mockReset();
+    moveCard.mockResolvedValue({ updatedCards: {}, updatedLists: {}, updatedBoards: {} });
+    // The main-process command is the boundary; the thunk that wraps it runs
+    // for real, so its dispatch (and the store update) is part of the test.
+    (window as any).api = { ...(window as any).api, moveCardToBoard: moveCard };
     (feedback.toast as jest.Mock).mockClear();
     (feedback.alert as jest.Mock).mockClear();
 });
 
 describe('CardMoveDialog', () => {
     it('asks for a project first, then a list, then moves', async () => {
-        moveCard.mockImplementation((cardId: string, listId: string) => async () => [
-            cardId,
-            listId,
-        ]);
         const { onClose, onMoved } = renderDialog();
 
         // The list step does not exist until a project is picked.
@@ -98,7 +96,7 @@ describe('CardMoveDialog', () => {
             fireEvent.click(screen.getByRole('button', { name: /^Move$|^移动$/ }));
         });
 
-        expect(moveCard).toHaveBeenCalledWith('c1', 'l2');
+        expect(moveCard).toHaveBeenCalledWith({ cardId: 'c1', targetListId: 'l2' });
         expect(feedback.toast).toHaveBeenCalledWith(expect.objectContaining({ kind: 'success' }));
         expect(onClose).toHaveBeenCalledTimes(1);
         // The card now lives elsewhere, so the editor that opened this has to
@@ -107,9 +105,7 @@ describe('CardMoveDialog', () => {
     });
 
     it('stays open and reports the failure when the move is rejected', async () => {
-        moveCard.mockImplementation(() => async () => {
-            throw new Error('same list');
-        });
+        moveCard.mockRejectedValue(new Error('same list'));
         const { onClose, onMoved } = renderDialog();
 
         pickProject();

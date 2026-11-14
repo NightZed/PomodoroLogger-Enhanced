@@ -334,7 +334,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         return () => {
             cancelled = true;
         };
-    }, [targetDate, props.chosenId, reloadToken]);
+    }, [targetDate, props.chosenId, reloadToken, props.expiringKey]);
 
     const onChange = (v: string) => {
         props.setChosenProjectId(v || undefined);

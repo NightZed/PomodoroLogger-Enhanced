@@ -369,7 +369,8 @@ applySessionEdits([
 4. 卡片 `actual` 不做前端加减：主进程返回受影响卡片的新 `sessionIds` 与新 `actual`，渲染层整体覆盖，避免浮点漂移。
 5. 看板级 `spentHours` / `relatedSessions` 按**会話**累加，与挂到哪张卡无关。因此：只换卡时看板汇总不动；改项目时旧看板要移除该会话并扣减时长、新看板加上；删除记录同理。
 6. 删除记录也要先从所有卡片解绑并扣减 `actual`，否则卡片会引用一条已不存在的会话。
-7. 保存成功后两处面板都要刷新：History 重新聚合（`reloadToken`），看板页重新拉 `listUnassignedSessions` 与「未分配 N」。
+7. 保存成功后要失效**所有**会话派生视图：History 的聚合与当天记录列表、Timer 的今日圆点与「更多」图表、看板页的 `listUnassignedSessions` 与「未分配 N」。三者都不是从 `kanban.cards` 推导出来的，只写回卡片时，删掉的记录仍会留在日历和今日圆点上，直到重启或一次无关的导入。
+   实现上走同一个 thunk `applySessionEditsAndRefresh`（`src/renderer/dataReload.ts`）：写回 `applySessionEditsResult` 后 `dispatch` 一个 `refreshSessionDerivedViews`，后者 `bumpSessionReloadToken()` 并 `setExpiringKey(new Date().toString())`。两处弹窗的 `applyEdits` 都由它注入，不在组件里各写一遍。
 
 实现细节（第 4 步定稿）：
 
@@ -553,6 +554,7 @@ UI：
 - 未挂卡判定：被多张卡引用的会话不算未挂卡；从所有卡解绑后立刻算未挂卡。
 - `listUnassignedSessions`：总数与分页数一致，隐藏看板不影响该查询。
 - `applySessionEdits`：移动语义下旧卡 `actual` 扣减、新卡累加、旧卡 `sessionIds` 移除；重复调用幂等；禁止跨看板挂卡。
+- 会话编辑结果落进 store 的同时 `sessionReloadToken` 递增、`expiringKey` 变化（History 日历与 Timer 今日列表一起重读）。
 - 改项目时看板汇总跟着走（旧板移除并扣减、新板加上）；只换卡时看板汇总不变；删除记录会先从卡片解绑并更新看板；同一张卡上的重复引用按次数扣减。
 - `listUnassignedSessions` 的 `boardId` 过滤有效（依赖把 `boardId` 选进 `findHistory` 的字段列表）。
 - 草稿语义：删除标记可撤销；未保存时关闭需确认；保存一次提交全部变更，任一校验失败整体回滚。

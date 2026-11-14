@@ -1,7 +1,8 @@
 import * as React from 'react';
 import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { createStore } from 'redux';
+import { applyMiddleware, createStore } from 'redux';
+import { thunk } from 'redux-thunk';
 import { SessionDayEditor } from './SessionDayEditor';
 import { feedback } from '../feedback';
 import { cardReducer } from '../Kanban/Card/action';
@@ -88,7 +89,10 @@ const renderEditor = (records: PomodoroRecord[]) => {
                 cards: cardReducer(value.kanban.cards, action),
             },
         }),
-        state
+        state,
+        // The editor's `applyEdits` is a thunk (it also invalidates History's
+        // aggregation and Timer's today list).
+        applyMiddleware(thunk)
     );
     const onSaved = jest.fn();
     const onClose = jest.fn();

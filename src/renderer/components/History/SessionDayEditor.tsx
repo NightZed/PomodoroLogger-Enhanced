@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Button, Checkbox, Segmented } from 'antd';
 import styled from 'styled-components';
 import { connect } from 'react-redux';
+import type { Dispatch } from 'redux';
 import { AppModal } from '../AppModal';
 import { DAY_EDITOR_WIDTH } from '../dialogLayout';
 import { feedback } from '../feedback';
@@ -11,12 +12,12 @@ import { useI18n } from '../../i18n';
 import { formatTimeYMD } from '../Visualization/Timeline';
 import { PomodoroNumView } from '../Timer/PomodoroNumView';
 import { actions as timerActions } from '../Timer/action';
+import { applySessionEditsAndRefresh } from '../../dataReload';
 import type { RootState } from '../../reducers';
 import type { PomodoroRecord } from '../../monitor/type';
 import type { CardsState } from '../Kanban/Card/action';
 import type { KanbanBoardState } from '../Kanban/Board/action';
 import type { SessionEdit, SessionEditsResult } from '../../../shared/sessionEdits';
-import { applySessionEditsResult } from '../Kanban/sessionEdits';
 
 type Filter = 'all' | 'unassigned' | 'noProject';
 
@@ -564,5 +565,9 @@ export const SessionDayEditor = connect(
         boards: state.kanban.boards,
         cards: state.kanban.cards,
     }),
-    { applyEdits: applySessionEditsResult, chooseRecord: timerActions.setChosenRecord }
+    (dispatch: Dispatch) => ({
+        applyEdits: (result: SessionEditsResult) =>
+            dispatch(applySessionEditsAndRefresh(result) as any),
+        chooseRecord: (record: PomodoroRecord) => dispatch(timerActions.setChosenRecord(record)),
+    })
 )(SessionDayEditorInner);

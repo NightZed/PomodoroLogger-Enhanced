@@ -1,6 +1,6 @@
 import { applyMiddleware, createStore } from 'redux';
 import { thunk } from 'redux-thunk';
-import { reloadDataStore } from './dataReload';
+import { applySessionEditsAndRefresh, reloadDataStore } from './dataReload';
 import { rootReducer } from './reducers';
 import { actions as kanbanActions } from './components/Kanban/action';
 import { DBs, runInTransaction } from '../main/db';
@@ -71,5 +71,29 @@ describe('reloadDataStore', () => {
         await store.dispatch(reloadDataStore() as any);
 
         expect(store.getState().kanban.kanban.chosenBoardId).toBeUndefined();
+    });
+});
+
+// Regression: deleting a session from either dialog only wrote the card rows
+// back. History's calendar and the Timer's "today" dots read sessions from the
+// database and watch these two tokens, so the deleted record stayed on screen
+// until an unrelated reload.
+describe('applySessionEditsAndRefresh', () => {
+    it('writes the edited rows back and invalidates the session views', () => {
+        const store = makeStore();
+        const before = store.getState();
+
+        store.dispatch(
+            applySessionEditsAndRefresh({
+                deleted: [],
+                sessions: [],
+                updatedCards: { c1: { ...card, sessionIds: ['s1'] } },
+                updatedBoards: {},
+            }) as any
+        );
+
+        expect(store.getState().kanban.cards.c1.sessionIds).toEqual(['s1']);
+        expect(store.getState().timer.sessionReloadToken).toBe(before.timer.sessionReloadToken + 1);
+        expect(store.getState().history.expiringKey).not.toBe(before.history.expiringKey);
     });
 });

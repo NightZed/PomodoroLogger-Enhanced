@@ -6,7 +6,7 @@ import { RootState } from '../../reducers';
 import { KanbanActionTypes, actions } from './action';
 import { TimerActionTypes, actions as timerActions } from '../Timer/action';
 import { actions as boardActions, BoardActionTypes } from './Board/action';
-import { applySessionEditsResult } from './sessionEdits';
+import { applySessionEditsAndRefresh } from '../../dataReload';
 import { genMapDispatchToProp } from '../../utils';
 import type { SessionEditsResult } from '../../../shared/sessionEdits';
 
@@ -30,8 +30,10 @@ const mapDispatchToProps = (dispatch: Dispatch) => ({
     /**
      * The unassigned drawer's assignment runs in the main process; its result
      * has to land in `kanban.cards` as well, or the board keeps showing the old
-     * card hours until a restart.
+     * card hours until a restart. It also invalidates History's calendar and
+     * Timer's "today" dots, which read sessions directly.
      */
-    applyEdits: (result: SessionEditsResult) => dispatch(applySessionEditsResult(result)),
+    applyEdits: (result: SessionEditsResult) =>
+        dispatch(applySessionEditsAndRefresh(result) as any),
 });
 export default connect(mapStateToProps, mapDispatchToProps)(Kanban);

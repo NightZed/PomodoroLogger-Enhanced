@@ -93,4 +93,22 @@ describe('main io import/export', () => {
         const backup = JSON.parse(readFileSync(backupPath, 'utf8'));
         expect(backup).toEqual(data);
     });
+
+    it('backs up from the passed-in snapshot without re-reading the database', async () => {
+        await writeAllFile(data);
+
+        const replacement: SourceData = {
+            boards: {},
+            lists: {},
+            cards: {},
+            move: [],
+            records: [],
+        };
+        // The import handler passes the snapshot it read for the merge, so the
+        // backup must reflect that even though the database still holds `data`.
+        await writeAllFile(replacement, data);
+
+        const backup = JSON.parse(readFileSync(backupPath, 'utf8'));
+        expect(backup).toEqual(data);
+    });
 });

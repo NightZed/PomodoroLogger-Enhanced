@@ -478,7 +478,8 @@ describe('main/ipc', () => {
                 type: expect.any(String),
                 payload: { external: emptyData, source: emptyData },
             });
-            expect(writeAllFile).toHaveBeenCalledWith(emptyData);
+            // The same snapshot feeds the merge and the pre-import backup.
+            expect(writeAllFile).toHaveBeenCalledWith(emptyData, emptyData);
 
             const call = (log as jest.Mock).mock.calls.find(([scope]) => scope === 'data');
             expect(call?.[1]).toBe('info');

@@ -573,15 +573,20 @@ export function initialize() {
             return { status: 'invalid', issues: validation.issues };
         }
 
+        // Read once: this snapshot feeds both the merge (as the current state)
+        // and the pre-import backup writeAllFile produces, so the sessions
+        // table is not parsed a second time just for the backup.
+        const source = await readAllData();
+
         const merged = await sendWorkerMessage({
             type: WorkerMessageType.MergeData,
             payload: {
                 external: validation.data,
-                source: await readAllData(),
+                source,
             },
         });
 
-        await writeAllFile(merged.payload.merged);
+        await writeAllFile(merged.payload.merged, source);
 
         // Import never repairs anything: a card no list names, a move whose
         // endpoint is gone and a card naming a dead session all land in the

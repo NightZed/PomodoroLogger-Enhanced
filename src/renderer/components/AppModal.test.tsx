@@ -12,7 +12,7 @@ jest.mock('antd', () => ({
 
 // The import sits after `jest.mock` on purpose: the factory has to be
 // registered before `AppModal` pulls in `antd`.
-import { AppModal, dialogMotionProps } from './AppModal';
+import { AppModal } from './AppModal';
 
 const lastProps = () => mockModalProps[mockModalProps.length - 1];
 
@@ -24,7 +24,14 @@ describe('AppModal', () => {
     it('opens and closes with the shared motion by default', () => {
         render(<AppModal open />);
 
-        expect(lastProps()).toMatchObject(dialogMotionProps);
+        // Assert the values, not the `dialogMotionProps` reference: inlining
+        // the same object is an equivalent rewrite and must not fail this test.
+        // The names also have to stay in sync with the `.pl-dialog-*` classes
+        // defined by `DialogMotion`.
+        expect(lastProps()).toMatchObject({
+            transitionName: 'pl-dialog-panel',
+            maskTransitionName: 'pl-dialog-mask',
+        });
     });
 
     it('empties both transition names when instant', () => {

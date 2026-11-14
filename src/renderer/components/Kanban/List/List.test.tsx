@@ -181,6 +181,9 @@ describe('List delete menu', () => {
         jest.clearAllMocks();
     });
 
+    // Regression: the delete item carried a Popconfirm as its label; the click
+    // that opened it also closed the Dropdown, so the confirmation only
+    // appeared intermittently.
     it('confirms through the shared modal, not a popover inside the closing menu', async () => {
         // The delete item used to carry a `Popconfirm` as its label. The click
         // that opened it also closed the Dropdown, so the popup (whose trigger

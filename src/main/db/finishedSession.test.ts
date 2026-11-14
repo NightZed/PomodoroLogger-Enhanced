@@ -70,6 +70,8 @@ beforeEach(async () => {
     await repo('cardsDB').insert(card());
 });
 
+// Regression: `addSession` swallowed the insert error and the board/card were
+// credited anyway, leaving a card that pointed at a session no row backed.
 describe('recordFinishedSession', () => {
     it('writes the session and credits the board and the card', async () => {
         const before = Date.now();

@@ -224,6 +224,8 @@ describe('Reducer', () => {
         }
     });
 
+    // Regression: every pointer event committed the whole settings table, one
+    // transaction plus fsync per event.
     it('writes a dragged duration slider once, after the drag has settled', async () => {
         jest.useFakeTimers({ doNotFake: ['Date', 'nextTick', 'queueMicrotask'] });
         let state: TimerState = { ...defaultState };
@@ -350,6 +352,8 @@ describe('On timerFinished', () => {
         expect(applied.payload.card.spentTimeInHour.actual).toBe(0.25);
     });
 
+    // Regression: the insert error was swallowed and the board/card were
+    // credited anyway, so the store showed hours the database never received.
     it('credits nothing and says so when the session cannot be saved', async () => {
         const record: PomodoroRecord = {
             _id: '_failed',

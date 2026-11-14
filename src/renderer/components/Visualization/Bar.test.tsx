@@ -38,6 +38,9 @@ describe('ListsCountBar', () => {
         expect(screen.getByText(/2 cards/)).toBeTruthy();
     });
 
+    // Regression: "delete all data" emptied `lists` before `boards`, so this
+    // chart read `.cards` off a missing list and replaced the window with the
+    // crash screen.
     it('skips a list the store does not have instead of crashing', () => {
         // Reading `.cards` off the missing list used to throw inside
         // `mapStateToProps`, which replaced the whole window with the crash

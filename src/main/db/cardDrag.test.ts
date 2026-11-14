@@ -54,6 +54,9 @@ const findList = async (id: string) => (await repo('listsDB').find({ _id: id }))
 const findCard = async (id: string) => (await repo('cardsDB').find({ _id: id }))[0];
 const allMoves = () => repo('moveDB').find({});
 
+// Regression: a cross-list drag was three separate writes (source list, target
+// list, move row); a crash in between left the card in neither list, which is
+// the "not in any list" row of the data check.
 describe('moveCardInBoard', () => {
     beforeEach(async () => {
         await loadDBs(['cardsDB', 'listsDB', 'kanbanDB', 'moveDB']);

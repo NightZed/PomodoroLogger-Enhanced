@@ -464,6 +464,9 @@ describe('import of a usable file', () => {
         },
     });
 
+    // Regression: the main process restarted the app from inside the import
+    // handler, so the report was never readable and the store was never
+    // refreshed in place.
     it('reloads the store and stops at a toast when nothing needs attention', async () => {
         importData.mockResolvedValue({ status: 'imported', summary: summary(), meta: {} });
         await mount();
@@ -475,6 +478,8 @@ describe('import of a usable file', () => {
         expect(screen.queryByRole('button', { name: 'check' })).toBeNull();
     });
 
+    // Regression: the merge warnings were dropped on the floor
+    // (`// TODO: Show Warning`), so a lossy import looked like a clean one.
     it('opens the report when the merge left something behind', async () => {
         importData.mockResolvedValue({
             status: 'imported',
@@ -718,6 +723,8 @@ describe('Setting data check', () => {
         expect(scanDataIssues).toHaveBeenCalledTimes(2);
     });
 
+    // Regression: the scan blocked the main thread, so the spinner and the
+    // dialog were both painted only after it finished.
     it('keeps the dialog closed until the scan resolves', async () => {
         let resolveScan: (value: any) => void = () => {};
         scanDataIssues.mockReturnValue(

@@ -25,6 +25,8 @@ const board = (id: string, lists: string[]): KanbanBoard => ({
     spentHours: 0,
 });
 
+// Regression: the transaction result was written to the database only, so a
+// re-assigned card kept showing its old owner until the app was restarted.
 /**
  * The transaction returns the final rows; the store must take them as-is.
  * Writing only the database was the bug that made a re-assigned card look

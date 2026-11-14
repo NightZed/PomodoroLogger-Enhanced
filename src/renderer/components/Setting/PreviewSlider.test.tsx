@@ -50,6 +50,8 @@ afterEach(() => {
     jest.useRealTimers();
 });
 
+// Regression: committing per pointer event re-rendered the whole timer page
+// (and, for the opacity sliders, repainted the window) on every event of a drag.
 it('keeps a dragged value local and commits it once, when the drag ends', () => {
     const onCommit = jest.fn();
     render(<PreviewSlider value={15} onCommit={onCommit} />);

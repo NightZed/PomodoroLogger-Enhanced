@@ -33,6 +33,8 @@ afterEach(() => {
     jest.useRealTimers();
 });
 
+// Regression: applying every pointer event cost one dispatch, one render and
+// (for opacity) one whole-window repaint per event, pinning a core during a drag.
 it('applies a single change, once the frame it was waiting for comes', () => {
     const apply = jest.fn();
     render(<Harness apply={apply} />);

@@ -406,6 +406,11 @@ describe('Application page switching', () => {
         expect(css).toContain('var(--pl-window-radius)');
     });
 
+    // Regression: `color-mix()` on a window-sized surface cost ~10 points of
+    // CPU on every frame of a live resize, which made the window trail the
+    // cursor with hardware acceleration off. jsdom cannot observe the
+    // compositor, so this asserts the CSS shape that keeps the fill on the
+    // solid-colour path.
     // A live window resize repaints the whole window once per frame, and
     // `color-mix()` on a window-sized surface costs ~10 points of CPU on every
     // one of those repaints (measured 45% -> 33% of four cores by replacing the
@@ -421,6 +426,10 @@ describe('Application page switching', () => {
         expect(css).toContain('opacity:var(--pl-theme-bg-opacity)');
     });
 
+    // Regression: the rounded 1px frame on the clipping container cost an extra
+    // full-window composite pass per frame, so a large window could not keep up
+    // with the cursor while an edge was dragged. The CSS shape is asserted
+    // because the compositor cost itself has no jsdom-observable output.
     // A rounded 1px frame on the clipping container costs an extra full-window
     // composite pass per frame, which is what makes a large window trail the
     // cursor during a drag with hardware acceleration off (9.2 ms vs 6.4 ms per

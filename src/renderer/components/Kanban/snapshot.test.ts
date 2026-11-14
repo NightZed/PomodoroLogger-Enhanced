@@ -27,6 +27,9 @@ const card = (id: string, title: string): Card => ({
 });
 
 describe('applyKanbanSnapshot', () => {
+    // Regression: the three kanban maps were dispatched one after another.
+    // Clearing them could leave `board.lists` pointing at lists that were
+    // already gone, and any subscriber walking that path read `undefined`.
     it('replaces all three slices from the same action', () => {
         const snapshot = {
             boards: { b1: board('b1', ['l1']) },

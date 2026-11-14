@@ -198,6 +198,8 @@ describe('SessionDayEditor', () => {
         expect(feedback.confirm).toHaveBeenCalledTimes(1);
     });
 
+    // Regression: saving wrote the database only; the card column kept showing
+    // the old owner until the app was restarted.
     it('writes the transaction result back into the store', async () => {
         applySessionEdits.mockResolvedValueOnce({
             deleted: [],

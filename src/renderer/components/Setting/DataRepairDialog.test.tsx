@@ -285,6 +285,9 @@ describe('DataRepairDialog', () => {
         expect(screen.getByText(/List "进行中" references 1 missing card/i)).toBeTruthy();
     });
 
+    // Regression: a rescan re-applied the default selection, so a row the user
+    // had deliberately unchecked became checked again -- and the next Apply
+    // deleted it.
     it('keeps an unchecked row unchecked across a rescan', () => {
         const { rerender } = renderDialog();
 

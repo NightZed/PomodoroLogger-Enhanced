@@ -219,6 +219,8 @@ describe('TimerMask card attribution', () => {
         },
     };
 
+    // Regression: a finished session used to be credited to every card in the
+    // focused list, multiplying the card totals by the number of cards.
     it('credits the only card of the focused list without asking', () => {
         const onCancel = jest.fn();
         const view = renderMask({ onCancel });

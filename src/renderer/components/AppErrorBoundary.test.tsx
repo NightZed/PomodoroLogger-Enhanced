@@ -81,6 +81,8 @@ describe('AppErrorBoundary', () => {
         expect(openLogDir).toHaveBeenCalledTimes(1);
     });
 
+    // Regression: the crash page printed `toISOString()`, so the reader had to
+    // convert UTC before correlating the crash with their own clock.
     it('prints the crash time in local wall-clock time with its UTC offset', () => {
         const { container } = mount();
 

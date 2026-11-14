@@ -90,6 +90,9 @@ describe('RestoreCardsDialog', () => {
         expect(onClose).toHaveBeenCalledTimes(1);
     });
 
+    // Regression: a batch that failed halfway still closed the dialog and told
+    // the caller everything worked, so the cards that did move were offered
+    // again as if they were still orphaned.
     it('reports what was restored when the batch fails halfway', async () => {
         moveCard
             .mockResolvedValueOnce({ updatedCards: {}, updatedLists: {}, updatedBoards: {} })

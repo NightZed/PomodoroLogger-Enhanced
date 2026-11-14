@@ -1010,7 +1010,7 @@ export function createSessionRepository(
          * empty `apps` object yields no rows for `json_each`, and `COALESCE`
          * turns that NULL into 0.
          */
-        appHoursSync(): AppHoursRow[] {
+        appHoursSync(limit: number, offset: number): AppHoursRow[] {
             return db
                 .prepare(
                     `SELECT _id,
@@ -1018,9 +1018,17 @@ export function createSessionRepository(
                             spent_time_in_hour    AS spentTimeInHour,
                             COALESCE((SELECT SUM(json_extract(value, '$.spentTimeInHour'))
                                         FROM json_each(sessions.apps)), 0) AS appHours
-                       FROM sessions`
+                       FROM sessions
+                      ORDER BY rowid
+                      LIMIT ? OFFSET ?`
                 )
-                .all() as AppHoursRow[];
+                .all(limit, offset) as AppHoursRow[];
+        },
+        sessionCountSync(): number {
+            const row = db.prepare('SELECT COUNT(*) AS count FROM sessions').get() as {
+                count: number;
+            };
+            return row.count;
         },
         /**
          * Writes the two columns a calibration changes, plus the authoritative

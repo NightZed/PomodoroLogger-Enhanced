@@ -55,13 +55,19 @@ export interface SessionRepository extends DbRepository {
      */
     readHistory(arg: HistoryArg, parseApps?: boolean): Promise<HistoryData>;
     /**
-     * One row per session with the app breakdown summed inside SQLite.
+     * One page of sessions with the app breakdown summed inside SQLite.
      *
      * `json_each` keeps the per-app JSON in the engine; reading the same rows
      * through `findFieldsSync` would parse every app/title breakdown on the
      * main thread, which is the cost the History projections exist to avoid.
+     *
+     * Paged on purpose: the whole table is one synchronous block that freezes
+     * the window (the renderer cannot composite while the main process is
+     * busy). A page of a few hundred rows stays around 15 ms.
      */
-    appHoursSync(): AppHoursRow[];
+    appHoursSync(limit: number, offset: number): AppHoursRow[];
+    /** Total session count, so the caller can page `appHoursSync`. */
+    sessionCountSync(): number;
     /**
      * Rewrites `apps` / `stayTimeInSecond` for the given documents, in the
      * caller's transaction. The documents must be complete (read with

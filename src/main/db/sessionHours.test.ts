@@ -173,6 +173,25 @@ describe('session hours calibration', () => {
         expect(after.under.total).toBe(0);
     });
 
+    it('pages through more sessions than one read batch', async () => {
+        const rows = [];
+        for (let i = 0; i < 600; i += 1) {
+            rows.push(createSession(`s${i}`, 1000 + i, 1, { A: 1.001 }));
+        }
+        await sessionRepo().insert(rows);
+
+        // Paging must neither drop nor repeat rows: 600 sessions is three read
+        // batches and three write batches.
+        const report = await scanSessionHours();
+        expect(report.over.total).toBe(600);
+
+        const result = await recalibrateSessionHours({ over: true, under: false });
+        expect(result.repaired).toBe(600);
+
+        const after = await scanSessionHours();
+        expect(after.over.total).toBe(0);
+    });
+
     it('does nothing on an empty database', async () => {
         await expect(recalibrateSessionHours({ over: true, under: true })).resolves.toStrictEqual({
             repaired: 0,

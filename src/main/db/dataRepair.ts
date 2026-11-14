@@ -217,8 +217,9 @@ export async function scanDataIssues(): Promise<DataIssuesReport> {
         }
     }
 
-    // The calibration is a second, cheaper sweep (one json_each query). It is
-    // folded in here so the dialog can point at it without a second click.
+    // The calibration is a second, cheaper sweep (paged json_each, a few
+    // hundred rows at a time). It is folded in here so the dialog can point at
+    // it without a second click.
     const hours = await scanSessionHours();
 
     return {

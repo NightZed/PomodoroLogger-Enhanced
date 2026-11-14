@@ -171,6 +171,25 @@ describe('Application page switching', () => {
             .join('\n');
     };
 
+    /**
+     * CSS rules of the window highlight ring layer (see WindowRing in
+     * Application). Splits the stylesheet into single rules first: all
+     * components share one <style> tag, so matching by tag would return every
+     * rule in the sheet -- including the $resizing variant, whose
+     * `display:none` must not leak into the at-rest assertion.
+     */
+    const ringCss = () => {
+        const ring = container.querySelector('[data-testid="window-ring"]') as HTMLElement | null;
+        expect(ring).not.toBeNull();
+
+        const classes = Array.from(ring!.classList);
+        return Array.from(document.querySelectorAll('style[data-styled]'))
+            .flatMap((style) => (style.textContent || '').split('}'))
+            .filter((rule) => classes.some((cls) => rule.includes(`.${cls}`)))
+            .map((rule) => `${rule}}`)
+            .join('\n');
+    };
+
     beforeEach(() => {
         jest.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
             if (typeof args[0] === 'string' && args[0].includes('not wrapped in act')) {
@@ -430,24 +449,25 @@ describe('Application page switching', () => {
     // full-window composite pass per frame, so a large window could not keep up
     // with the cursor while an edge was dragged. The CSS shape is asserted
     // because the compositor cost itself has no jsdom-observable output.
-    // A rounded 1px frame on the clipping container costs an extra full-window
-    // composite pass per frame, which is what makes a large window trail the
-    // cursor during a drag with hardware acceleration off (9.2 ms vs 6.4 ms per
-    // frame at 3.33 Mpx). The corners are therefore square while the user drags.
+    // The ring lives on a dedicated overlay above the content: an inset shadow
+    // on Main itself is covered by the ::before/::after background bands, and a
+    // real border was dropped because restoring it after a drag pushed the
+    // content inward. The drag still drops both the radius and the ring.
     it('squares off the window border while an edge is being dragged', () => {
         expect(mainCss()).toContain('border-radius:var(--pl-window-radius)');
-        expect(mainCss()).toContain('border:1px solid var(--pl-border)');
+        expect(ringCss()).toContain('box-shadow:inset 0 0 0 1px var(--pl-border)');
+        expect(ringCss()).not.toContain('display:none');
 
         act(() => {
             fireWindowResizing(true);
         });
-        const during = mainCss();
-        expect(during).toContain('border-radius:0');
-        expect(during).toContain('border:0');
+        expect(mainCss()).toContain('border-radius:0');
+        expect(ringCss()).toContain('display:none');
 
         act(() => {
             fireWindowResizing(false);
         });
         expect(mainCss()).toContain('border-radius:var(--pl-window-radius)');
+        expect(ringCss()).not.toContain('display:none');
     });
 });

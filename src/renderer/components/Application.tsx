@@ -112,10 +112,9 @@ const Main = styled.div<StyledProps>`
     --pl-window-radius: ${({ $minimize, $compact }) =>
         $minimize ? '10px' : $compact ? '16px' : '12px'};
     border-radius: var(--pl-window-radius);
-    border: 1px solid var(--pl-border);
     box-sizing: border-box;
 
-    /* While the user drags an edge, both the radius and the border are dropped.
+    /* While the user drags an edge, both the radius and the ring are dropped.
        The pair costs an extra full-window composite pass on EVERY frame of the
        resize: with software rendering (hardware acceleration off) at 3.33
        megapixels one presented frame measured 9.2 ms / 55 quads with them and
@@ -128,7 +127,6 @@ const Main = styled.div<StyledProps>`
         $resizing
             ? `
                 border-radius: 0;
-                border: 0;
             `
             : ''}
 
@@ -232,6 +230,25 @@ const Content = styled.div<{ $contentOpacity: number }>`
     z-index: 2;
     height: 100%;
     opacity: ${({ $contentOpacity }) => $contentOpacity};
+`;
+
+const WindowRing = styled.div<{ $resizing: boolean }>`
+    /* The window's highlight ring, on a dedicated layer above the content.
+       An inset shadow on Main itself sits under the ::before/::after
+       background bands (both cover the whole window at z-index 0), and the
+       original real border was dropped because it occupies layout space --
+       restoring it after a resize drag visibly pushed the content inward by
+       1px. The shadow paints the same ring (it follows the radius) without
+       being part of the layout, and pointer-events: none keeps it
+       click-through. Hidden while the user drags an edge, together with the
+       squared radius on Main (see the composite-pass note there). */
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    border-radius: var(--pl-window-radius);
+    box-shadow: inset 0 0 0 1px var(--pl-border);
+    pointer-events: none;
+    ${({ $resizing }) => ($resizing ? 'display: none;' : '')}
 `;
 
 interface Props extends TimerActionTypes, HistoryActionCreatorTypes {
@@ -516,6 +533,7 @@ class Application extends React.Component<Props, State> {
                         onKeyDown={this.onKeyDown}
                     />
                 </Content>
+                <WindowRing data-testid="window-ring" $resizing={this.state.resizing} />
             </Main>
         );
     }

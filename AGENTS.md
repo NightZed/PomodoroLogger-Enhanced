@@ -194,10 +194,11 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
   实时 resize 每帧都会重绘整个窗口，在那里用 `color-mix()`（把 `themeBackgroundOpacity` 折进颜色最直觉的写法）每次重绘要吃掉四个核里约 10 个点；纯色填充 + 元素自身的 `opacity` 是同样的算术。
   在 1440x960 窗口上实测 45% → 33%，开不开硬件加速都一样。
   见 `Application.tsx` 里的图层表。
-- 窗口裁剪容器（`Main`）上的圆角 1px 边框会让每帧多一次全窗口合成 pass，所以渲染层在窗口 resize 期间把两者都去掉（`WindowEventName.ResizingChanged`，由 `init.ts` 在 120 ms 空闲计时后发出）：软件渲染下，每个呈现帧 8.8 ms → 6.5 ms，3.33 Mpx 下 55 → 37 个 quad。
+- 窗口裁剪容器（`Main`）上的圆角 1px 高亮圈会让每帧多一次全窗口合成 pass，所以渲染层在窗口 resize 期间把圆角和高亮圈都去掉（`WindowEventName.ResizingChanged`，由 `init.ts` 在 120 ms 空闲计时后发出）：软件渲染下，每个呈现帧 8.8 ms → 6.5 ms，3.33 Mpx 下 55 → 37 个 quad。
+  高亮圈画在 Content 之上的专用覆盖层 `WindowRing`（inset box-shadow，z-index 3）而不是真实 border：border 占布局空间，拖拽松手恢复时会把内容整体往内挤 1px；而画在 Main 本体上的 inset shadow 会被 ::before/::after 背景色带盖住（Main 的这两个伪元素已被 3a4526c 的背景色带占用）。
   没有这个处理，大窗口做不到每个鼠标事件呈现一帧，会明显跟不上光标，也就是关掉硬件加速时那个「拉大卡顿」的报告。
   触发器是 `resize` 事件而不是 `will-resize`（后者只对用户手势触发，脚本无法验证），代价是程序性 resize 也会触发；一次性 resize 的两步边框变化没有人手拖动遮着，会被看成窗口跳一下（v1.4.0 没有这套机制、不跳）。所以模式切换（`MinimizeWindow` / `CompactWindow`）和最大化按钮在 resize 前先调 `init.ts` 的 `suppressResizingNotification()`（300 ms 抑制窗），这几条路径上圆角全程不动。
-  因此只有用户拖动期间圆角是方的；没在 trace 里量过 `Display::DrawAndSwap` 之前，不要给那个元素加回圆角或边框，也不要让新的程序性 resize 路径漏掉抑制调用。
+  因此只有用户拖动期间圆角是方的；没在 trace 里量过 `Display::DrawAndSwap` 之前，不要给那个元素加回真实圆角边框或换成占布局的画法，也不要让新的程序性 resize 路径漏掉抑制调用。
 
 ### 国际化
 

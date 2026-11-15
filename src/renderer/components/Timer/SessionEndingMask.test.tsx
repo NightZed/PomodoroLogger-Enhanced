@@ -79,6 +79,15 @@ const renderMask = (
 const clickBackground = (view: ReturnType<typeof renderMask>) =>
     fireEvent.click(view.getByRole('group', { name: 'Session ending' }));
 
+/**
+ * The card selector, found by its accessible name rather than by its position
+ * in the edit state. antd opens a Select on `mousedown` and the repo has no
+ * `@testing-library/user-event`, so the tests replay that event directly (same
+ * as `FocusSelector.test.tsx`).
+ */
+const cardSelector = (view: ReturnType<typeof renderMask>) =>
+    view.getByRole('combobox', { name: 'Choose a card' });
+
 describe('TimerMask', () => {
     afterEach(cleanup);
 
@@ -226,7 +235,7 @@ describe('TimerMask card attribution', () => {
         const view = renderMask({ onCancel });
 
         // One card needs no choice, so the mask stays uncluttered.
-        expect(view.queryByText(/^Card:/)).toBeNull();
+        expect(view.queryByRole('button', { name: 'Card One' })).toBeNull();
 
         clickBackground(view);
         expect(onCancel).toHaveBeenCalledWith('c1');
@@ -236,26 +245,71 @@ describe('TimerMask card attribution', () => {
         const onStart = jest.fn();
         const view = renderMask({ onStart }, {}, twoCards);
 
-        fireEvent.click(view.getByText('Card: Card One (of 2)'));
-        fireEvent.click(view.getByRole('button', { name: 'Card: Card One' }));
-        fireEvent.click(view.getByRole('option', { name: 'Card Two' }));
+        // The card name opens the same edit state as the project name.
+        fireEvent.click(view.getByRole('button', { name: 'Card One' }));
+        fireEvent.mouseDown(cardSelector(view));
+        fireEvent.click(view.getByText('Card Two'));
 
         fireEvent.click(view.getByRole('button', { name: /Start Short Break/ }));
         expect(onStart).toHaveBeenCalledWith('c2');
     });
 
-    it('sends an explicit "no card" when the picker says so', () => {
+    it('sends an explicit "no card" when the menu says so', () => {
         const onStart = jest.fn();
         const view = renderMask({ onStart }, {}, twoCards);
 
-        fireEvent.click(view.getByText('Card: Card One (of 2)'));
-        fireEvent.click(view.getByRole('button', { name: 'Card: Card One' }));
-        fireEvent.click(view.getByRole('button', { name: 'No card' }));
+        fireEvent.click(view.getByRole('button', { name: 'Card One' }));
+        fireEvent.mouseDown(cardSelector(view));
+        fireEvent.click(view.getByText('No card'));
 
         fireEvent.click(view.getByRole('button', { name: /Start Short Break/ }));
         // `null`, not `undefined`: the user chose "No card" on purpose, so the
         // Timer must not fall back to the focused list's first card.
         expect(onStart).toHaveBeenCalledWith(null);
+    });
+
+    it('shows how many cards can take the session', () => {
+        const view = renderMask({}, {}, twoCards);
+
+        expect(view.getByText('x 2')).toBeTruthy();
+    });
+
+    // Regression: the menu is opened from the edit state, so the first
+    // background click leaves that state instead of confirming the session.
+    it('dismisses the card selector without ending the session', () => {
+        const onCancel = jest.fn();
+        const view = renderMask({ onCancel }, {}, twoCards);
+
+        fireEvent.click(view.getByRole('button', { name: 'Card One' }));
+        fireEvent.mouseDown(cardSelector(view));
+        expect(view.getByText('Card Two')).toBeTruthy();
+
+        clickBackground(view);
+
+        expect(onCancel).not.toHaveBeenCalled();
+
+        // The next click is an ordinary background click again.
+        clickBackground(view);
+        expect(onCancel).toHaveBeenCalledWith('c1');
+    });
+
+    it('keeps the card selector in the edit state', () => {
+        const view = renderMask({}, {}, twoCards);
+
+        fireEvent.click(view.getByRole('button', { name: 'Card One' }));
+
+        expect(cardSelector(view)).toBeTruthy();
+    });
+
+    it('leaves the edit state after picking a card', () => {
+        const view = renderMask({}, {}, twoCards);
+
+        fireEvent.click(view.getByRole('button', { name: 'Card One' }));
+        fireEvent.mouseDown(cardSelector(view));
+        fireEvent.click(view.getByText('Card Two'));
+
+        // The project name heading is back, exactly as after a project pick.
+        expect(view.getByRole('heading', { name: 'Project One' })).toBeTruthy();
     });
 
     it('does not ask for a card when the focused list is empty', () => {
@@ -271,7 +325,10 @@ describe('TimerMask card attribution', () => {
             }
         );
 
-        expect(view.queryByText(/^Card:/)).toBeNull();
+        // A placeholder, not a control: there is nothing to pick, but the
+        // missing attribution is worth showing.
+        expect(view.getByText('No card')).toBeTruthy();
+        expect(view.queryByRole('button', { name: 'No card' })).toBeNull();
 
         clickBackground(view);
         // Nothing to credit: the session stays unattributed.

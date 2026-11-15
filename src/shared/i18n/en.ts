@@ -196,9 +196,11 @@ export const en = {
             shortBreak: 'Short Break',
             extend5: 'Extend 5 minutes',
             extend10: 'Extend 10 minutes',
-            card: 'Card',
             noCard: 'No card',
-            cardLine: (title: string, total: number): string => `Card: ${title} (of ${total})`,
+            /** Accessible name of the card selector on the ending mask. */
+            cardSelector: 'Choose a card',
+            /** Count badge next to the card name on the ending mask. */
+            cardCount: (count: number): string => `x ${count}`,
         },
         focusSelector: {
             placeholder: 'Choose Your Focus',

@@ -173,9 +173,11 @@ export const zh: CatalogShape<typeof en> = {
             shortBreak: '短休',
             extend5: '延长 5 分钟',
             extend10: '延长 10 分钟',
-            card: '卡片',
             noCard: '不挂卡',
-            cardLine: (title: string, total: number): string => `卡片：${title}（共 ${total} 张）`,
+            /** 遮罩上卡片下拉的可访问名称。 */
+            cardSelector: '选择卡片',
+            /** 遮罩上卡名右侧的数量标记。 */
+            cardCount: (count: number): string => `x ${count}`,
         },
         focusSelector: {
             placeholder: '选择专注项目',

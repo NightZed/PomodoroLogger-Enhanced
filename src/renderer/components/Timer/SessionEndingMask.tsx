@@ -1,8 +1,7 @@
-import { Button, ConfigProvider, Row } from 'antd';
+import { Button, ConfigProvider, Row, Select } from 'antd';
 import { LONG_BREAK_INTERVAL } from './action';
 import { FocusSelector } from './FocusSelector';
 import { PomodoroNumView } from './PomodoroNumView';
-import { CardPicker } from '../Kanban/CardPicker';
 import React from 'react';
 import styled from 'styled-components';
 import { connect } from 'react-redux';
@@ -13,6 +12,8 @@ import type { ListsState } from '../Kanban/type';
 import { PomodoroRecord } from '../../monitor/type';
 import { NIGHT_THEME_ID } from '../../theme/tokens';
 import { t } from '../../i18n';
+
+const { Option } = Select;
 
 const ButtonContainer = styled.div`
     position: absolute;
@@ -83,20 +84,56 @@ const PickerRow = styled.div`
 `;
 
 /**
- * The card line under the project name. It is only rendered when the focused
- * list holds more than one card, so it does not take up space for the common
- * single-card flow.
+ * The card row under the project name. It mirrors the project: a clickable
+ * name that opens the same edit state, a dashed placeholder when the focused
+ * list is empty, and nothing at all when there is exactly one card -- that one
+ * is credited automatically.
  */
-const CardLine = styled.div`
+const CardRow = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
     margin-bottom: 0.5em;
+`;
+
+/**
+ * Same affordance as the card column in the History day editor: a dashed
+ * underline says "this opens something", without the link blue. `min-width: 0`
+ * is what lets the title ellipsize instead of pushing the count out of the row.
+ */
+const CardName = styled.button`
+    min-width: 0;
+    max-width: 100%;
+    padding: 2px 4px;
+    border: none;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.5);
+    background: transparent;
+    color: white;
     font-size: 1.1em;
-    opacity: 0.85;
+    line-height: 1.4;
     cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 
     &:hover {
-        color: white;
-        text-decoration: underline;
+        background-color: rgba(255, 255, 255, 0.14);
     }
+`;
+
+const CardCount = styled.span`
+    flex: none;
+    font-size: 0.85em;
+    opacity: 0.75;
+`;
+
+const CardPlaceholder = styled.span`
+    padding: 2px 6px;
+    font-size: 1.1em;
+    line-height: 1.4;
+    opacity: 0.7;
 `;
 
 const PomodoroSummary = styled.div`
@@ -160,7 +197,6 @@ const TimerMaskInner = (props: MaskProps) => {
     // One session belongs to at most one card. `undefined` means "no card",
     // which is also what an empty focused list yields.
     const [chosenCardId, setChosenCardId] = React.useState<string | undefined>(undefined);
-    const [cardPickerOpen, setCardPickerOpen] = React.useState(false);
 
     // Starts empty (not `props.showMask`): a mask that is already up on the
     // first render still has to pick its defaults, exactly like one that opens
@@ -183,7 +219,6 @@ const TimerMaskInner = (props: MaskProps) => {
             setEditing(false);
         }
         if (!props.showMask) {
-            setCardPickerOpen(false);
             return;
         }
 
@@ -203,15 +238,6 @@ const TimerMaskInner = (props: MaskProps) => {
     const onStartClick = (event: React.MouseEvent) => {
         event.stopPropagation();
         props.onStart(chosenCardId ?? null);
-    };
-    /** The card line opens the same edit state as the project name. */
-    const onCardLineClick = (event: React.MouseEvent) => {
-        event.stopPropagation();
-        setEditing(true);
-    };
-    const onCardRowClick = (event: React.MouseEvent) => {
-        event.stopPropagation();
-        setCardPickerOpen(true);
     };
 
     /** Releases the lock only; the session is saved by the next background click. */
@@ -244,10 +270,30 @@ const TimerMaskInner = (props: MaskProps) => {
         [extendCurrentSession]
     );
 
-    const chosenCard = chosenCardId === undefined ? undefined : props.cards[chosenCardId];
-    // The card row only earns its space when there is a real choice to make:
-    // one card is credited automatically, none means no attribution.
-    const showCardChoice = candidates.length > 1;
+    /** Card this session will be credited to; `undefined` means "no card". */
+    const cardName =
+        chosenCardId === undefined
+            ? t('timer.session.noCard')
+            : props.cards[chosenCardId]?.title || t('kanban.cardPicker.untitled');
+    // One card is credited automatically and needs no row. Zero cards get a
+    // placeholder so the session's missing attribution is visible instead of
+    // silent.
+    const hasCardRow = props.isFocusing && candidates.length !== 1;
+
+    const cardNameRow = hasCardRow ? (
+        <CardRow>
+            {candidates.length === 0 ? (
+                <CardPlaceholder>{t('timer.session.noCard')}</CardPlaceholder>
+            ) : (
+                <>
+                    <CardName type="button" title={cardName} onClick={() => setEditing(true)}>
+                        {cardName}
+                    </CardName>
+                    <CardCount>{t('timer.session.cardCount', candidates.length)}</CardCount>
+                </>
+            )}
+        </CardRow>
+    ) : undefined;
 
     return (
         <>
@@ -275,12 +321,37 @@ const TimerMaskInner = (props: MaskProps) => {
                                             </Button>
                                         ) : undefined}
                                     </PickerRow>
-                                    {showCardChoice ? (
+                                    {candidates.length > 1 ? (
                                         <PickerRow>
-                                            <Button onClick={onCardRowClick}>
-                                                {t('timer.session.card')}:{' '}
-                                                {chosenCard?.title ?? t('timer.session.noCard')}
-                                            </Button>
+                                            {/* Same control as the project row: same
+                                                width, same motion token, same grey
+                                                "no card" option. */}
+                                            <ConfigProvider
+                                                theme={{ token: { motionDurationMid: '120ms' } }}
+                                            >
+                                                <Select
+                                                    value={chosenCardId ?? ''}
+                                                    style={{ width: props.compact ? 200 : 240 }}
+                                                    aria-label={t('timer.session.cardSelector')}
+                                                    onChange={(cardId: string) => {
+                                                        setChosenCardId(cardId || undefined);
+                                                        // Picking closes the edit state,
+                                                        // exactly like the project selector.
+                                                        setEditing(false);
+                                                    }}
+                                                    id="card-selector-mask"
+                                                >
+                                                    {candidates.map((cardId) => (
+                                                        <Option key={cardId} value={cardId}>
+                                                            {props.cards[cardId]?.title ||
+                                                                t('kanban.cardPicker.untitled')}
+                                                        </Option>
+                                                    ))}
+                                                    <Option value="" style={{ color: '#bfbfbf' }}>
+                                                        {t('timer.session.noCard')}
+                                                    </Option>
+                                                </Select>
+                                            </ConfigProvider>
                                         </PickerRow>
                                     ) : undefined}
                                 </>
@@ -292,15 +363,7 @@ const TimerMaskInner = (props: MaskProps) => {
                                     >
                                         {props.boards[props.boardId!]?.name}
                                     </ProjectName>
-                                    {showCardChoice ? (
-                                        <CardLine onClick={onCardLineClick}>
-                                            {t(
-                                                'timer.session.cardLine',
-                                                chosenCard?.title ?? t('timer.session.noCard'),
-                                                candidates.length
-                                            )}
-                                        </CardLine>
-                                    ) : undefined}
+                                    {cardNameRow}
                                 </>
                             )
                         ) : (
@@ -360,22 +423,6 @@ const TimerMaskInner = (props: MaskProps) => {
                     </ButtonContainer>
                 ) : undefined}
             </Mask>
-            {/*
-             * Sibling of the mask, not a child: React portals still bubble their
-             * events through the React tree, so a dialog nested inside `Mask`
-             * would hand every click to the mask's own onClick -- which confirms
-             * the session.
-             */}
-            <CardPicker
-                open={cardPickerOpen}
-                boardId={props.boardId}
-                value={chosenCardId}
-                onPick={(cardId) => {
-                    setChosenCardId(cardId);
-                    setCardPickerOpen(false);
-                }}
-                onClose={() => setCardPickerOpen(false)}
-            />
         </>
     );
 };

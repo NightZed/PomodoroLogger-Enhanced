@@ -861,6 +861,8 @@ describe('opacity sliders', () => {
             var: '--pl-wallpaper-opacity',
             value: '0.4',
         });
+        // The badge (the tooltip's replacement) reads the same live value.
+        expect(screen.getByText('40%')).toBeTruthy();
         // The other two sliders of the section were not touched.
         expect({ var: '--pl-content-opacity', value: cssVar('--pl-content-opacity') }).toEqual({
             var: '--pl-content-opacity',

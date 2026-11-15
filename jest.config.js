@@ -85,6 +85,11 @@ module.exports = {
     // available cores, capped so a many-core machine does not spawn a worker
     // per test file.
     maxWorkers: Math.min(8, os.cpus().length),
+    // jsdom + antd suites accumulate heap across the files a worker runs; a
+    // worker used to die with "Zone Allocation failed" near the end of a full
+    // run (UserGuide/Dialog.test.tsx was the usual last straw). Restart a
+    // worker once it goes idle above this ceiling instead of letting it die.
+    workerIdleMemoryLimit: '1GB',
     // Nothing consumes the HTML coverage report (locally or in CI), so emit flat
     // files only. This also avoids Windows-specific problems in reporters that
     // turn source paths into directories.

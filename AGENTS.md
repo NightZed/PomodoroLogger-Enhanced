@@ -190,9 +190,9 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
   因此任何仍能到达渲染层的标题栏按下事件都必须同时启动 `windowDrag`，否则滚动之后窗口就拖不动了——见 `src/renderer/components/AppTitleBar/dragRegion.ts` 和 `src/main/ipc/windowDrag.ts`。
 - `src/components/**` 是共享的可视化/小部件库（`Visualization/*`、`common/*`），渲染层用相对路径引用它——它不是渲染层自己的组件树。
 - 拖动驱动的设置走两条路之一，新滑块必须明确选边。
-  四个时长和音量用 `Setting/PreviewSlider.tsx`：只在松手时提交一次。
-  它们必须这样，因为 `Timer/index.tsx` 映射了整个 store，其 `shouldComponentUpdate` 会对四个时长中的任何一个重渲染，所以每事件写一次 store 会让整个番茄钟页面（进度环、`PomodoroNumView` 的 SVG 墙）在一次拖动里重渲染约 100 次。
-  `PreviewSlider` 是**非受控**的（`defaultValue` + `key` 重新播种），不要再改回受控 `value`：rc-slider 会用 layout effect 把每个新 value 抄进自己的 state，于是每帧变化的 value 每帧加一次嵌套更新，拖到第 50 帧 React 直接抛 `Maximum update depth exceeded`（v1.4 的时长滑块一直带着这个 bug，只是没人拖得那么快）。
+  七个滑块（四个时长、音量、三个不透明度）全部用 `Setting/PreviewSlider.tsx`，一律**非受控**（`defaultValue` + `key` 重新播种），不要再改回受控 `value`：rc-slider 会用 layout effect 把每个新 value 抄进自己的 state，于是每帧变化的 value 每帧加一次嵌套更新，拖到第 50 帧 React 直接抛 `Maximum update depth exceeded`（v1.4 的时长滑块一直带着这个 bug，只是没人拖得那么快）。
+  滑块的 **tooltip 已移除**（实测 A/B：tooltip 弹层链占一次快速拖动主线程时间的 ~93%，见 `PreviewSlider.test` 的 badge 注释），当前值由轨道右端上方、与上方文案齐平的常驻 `KeyBadge`（`Setting/KeyBadge.tsx`，与快捷键表格同一样式）显示：React 渲染提交值（`formatValue` + seed），拖动中 `onChange` 直接写 `textContent`——React 只在它记录的 children 变化时才重写文本节点，所以直写不会被重渲染冲掉；不要给 badge 走 store。badge 用列布局（badge 行右对齐 + slider）而非绝对定位，负 margin 上提到 hint 行；-16px 对「有 hint」与「上方直接是标题」两种上文都安全，因为标题/hint 在左端、badge 在右端，横向天然错开。
+  四个时长和音量的拖动值留在 slider 内部、松手才提交一次。它们必须这样，因为 `Timer/index.tsx` 映射了整个 store，其 `shouldComponentUpdate` 会对四个时长中的任何一个重渲染，所以每事件写一次 store 会让整个番茄钟页面（进度环、`PomodoroNumView` 的 SVG 墙）在一次拖动里重渲染约 100 次。
   重新播种只在设置被别处改动时发生：`expected` ref 记住刚提交的值，store 回写同一个值不算外部变化，否则松手瞬间重挂载会丢焦点（键盘用户接着按方向键就没反应了）。
   三个不透明度的值*就是*窗口显示的内容，但它们同样不进 store：拖动经 `onPreview` 折到每帧一次（`Setting/useSliderChange.ts`）后直接写 CSS 变量（`theme/opacity.ts`；`ThemeController` 是 store 侧的写入者，松手 `onCommit` 提交一次后两边写同一个值）。每帧 store 写入会让每个 connect 组件重渲染；一旦快速拖动让渲染跟不上指针，react-redux 给 `useSyncExternalStore` 的 getSnapshot 在 passive flush 里返回新的 props 对象、React 便在 flush 内再次调度渲染，连续 50 次就是控制台里的 `Maximum update depth exceeded`。持久化只发生在提交时（`Timer/action.ts` 的 `persistSettingWithDebounce`）；每次设置写入都会在自己的 WAL 提交里重写整张 `settings` 表，所以每事件持久化就是每个指针事件一次 fsync。
 - 主题：`src/renderer/theme`（tokens + `applyTheme`，CSS 自定义属性 `--pl-*`）通过 `ThemeController` 应用。
@@ -251,7 +251,7 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
 
 ## 测试约定
 
-- `jest.config.js` 使用 `jsdom`、Babel 转译、`maxWorkers: min(8, cpus)`、每测试 30 秒超时和 JUnit 输出（`junit.xml`）。
+- `jest.config.js` 使用 `jsdom`、Babel 转译、`maxWorkers: min(8, cpus)`、`workerIdleMemoryLimit`（worker 空闲超限即重启，防全量跑累积 OOM）、每测试 30 秒超时和 JUnit 输出（`junit.xml`）。
   `test/setup-env.js` 钉住 `NODE_ENV=test`，并为 antd polyfill `matchMedia`/`MessageChannel`/`ResizeObserver`。
 - `test/` 里的 `setupFilesAfterEnv` 装配提供了 DB 桥接、React act 环境、jsdom 兼容和 console 拦截——新测试自动获得这些。
 - `posttest` 删除 `.local/test`；action 测试跑的是真实 SQLite 事务，所以优先断言 repository 层的结果而不是 mock。

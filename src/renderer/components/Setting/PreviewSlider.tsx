@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Slider } from 'antd';
+import { KeyBadge } from './KeyBadge';
 
 interface Props {
     /** Committed value, in the slider's own unit (minutes for the durations). */
@@ -8,6 +9,11 @@ interface Props {
     max?: number;
     step?: number;
     marks?: React.ComponentProps<typeof Slider>['marks'];
+    /**
+     * Formats the readout shown in the badge to the right of the track.
+     * Passing it renders the badge; omitting it keeps the bare slider.
+     */
+    formatValue?: (value: number) => string;
     /**
      * Called on every move of a drag, *before* the value is committed. Only
      * for settings whose effect is visible while the thumb moves: use it to
@@ -24,16 +30,22 @@ interface Props {
 /**
  * A slider whose value is only committed when the drag ends.
  *
- * The other sliders of the settings page (the three opacities) also have to be
- * visible while the thumb moves, but they must not reach the store per frame:
- * their value is what the window is showing, yet a store write re-renders every
- * `connect()`ed component (the whole timer page, the whole application), and
- * when a fast drag makes the renders fall behind the pointer, each flush of
- * react-redux's `useSyncExternalStore` sees a changed snapshot and schedules
- * yet another render from inside React's passive effects -- fifty of those
- * consecutive and the console reports "Maximum update depth exceeded". They
- * therefore preview through `onPreview` (a CSS custom property write, folded to
- * once per frame) and commit once, on release.
+ * The antd tooltip is off and, when `formatValue` is passed, a `KeyBadge` to
+ * the right of the track shows the live value instead. The popup chain it
+ * replaces was measured at ~93% of a fast drag's main-thread time: the tooltip
+ * re-renders per value change, re-aligns per frame and re-aligns again from
+ * its ResizeObserver, while the badge is one text node in the slider's row.
+ *
+ * The badge has two writers and they never fight:
+ * - React renders `formatValue(seed.value)` -- the value it was seeded with;
+ * - during a drag, `onChange` writes the moving value straight into the text
+ *   node, bypassing React entirely (one `textContent` assignment per pointer
+ *   event, folded to the screen rate by the browser itself).
+ *
+ * React only rewrites a text node when its own recorded children change, and
+ * the seed stays at the last seeded value until an outside change re-seeds it
+ * -- so renders in between leave the dragged text untouched, and a re-seed
+ * writes the outside value over it.
  *
  * The slider is *uncontrolled* (`defaultValue`, re-keyed only when the setting
  * changes behind its back). A controlled `value` that follows the thumb is what
@@ -51,8 +63,15 @@ interface Props {
  * the setting (`restore defaults`, the store finishing its read, a value clamped
  * on write) does not match and re-seeds the thumb.
  */
-const PreviewSlider: React.FunctionComponent<Props> = ({ value, onPreview, onCommit, ...rest }) => {
+const PreviewSlider: React.FunctionComponent<Props> = ({
+    value,
+    formatValue,
+    onPreview,
+    onCommit,
+    ...rest
+}) => {
     const expected = useRef(value);
+    const badgeRef = useRef<HTMLElement>(null);
     const [seed, setSeed] = useState({ value, version: 0 });
 
     if (value !== expected.current) {
@@ -61,28 +80,43 @@ const PreviewSlider: React.FunctionComponent<Props> = ({ value, onPreview, onCom
     }
 
     return (
-        <Slider
-            {...rest}
-            key={seed.version}
-            defaultValue={seed.value}
-            onChange={(v) => {
-                if (typeof v !== 'number') {
-                    return;
-                }
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+            {formatValue && (
+                <KeyBadge ref={badgeRef} style={{ marginBottom: 2, marginTop: -16 }}>
+                    {formatValue(seed.value)}
+                </KeyBadge>
+            )}
+            <Slider
+                {...rest}
+                tooltip={{ open: false }}
+                key={seed.version}
+                defaultValue={seed.value}
+                // antd's slider adds its own top margin; dropping it keeps the
+                // badge right above the track's right end instead of leaving a
+                // gap, and the row's top stays level with the hint above.
+                style={{ width: '100%', marginTop: 0 }}
+                onChange={(v) => {
+                    if (typeof v !== 'number') {
+                        return;
+                    }
 
-                onPreview?.(v);
-            }}
-            onChangeComplete={(v) => {
-                if (typeof v !== 'number') {
-                    return;
-                }
+                    if (formatValue) {
+                        badgeRef.current!.textContent = formatValue(v);
+                    }
+                    onPreview?.(v);
+                }}
+                onChangeComplete={(v) => {
+                    if (typeof v !== 'number') {
+                        return;
+                    }
 
-                // The store is about to hold exactly this value; remembering it
-                // keeps its echo from re-seeding the slider.
-                expected.current = v;
-                onCommit(v);
-            }}
-        />
+                    // The store is about to hold exactly this value; remembering it
+                    // keeps its echo from re-seeding the slider.
+                    expected.current = v;
+                    onCommit(v);
+                }}
+            />
+        </div>
     );
 };
 

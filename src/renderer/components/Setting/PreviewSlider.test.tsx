@@ -120,3 +120,45 @@ it('does not require onPreview', () => {
     release();
     expect(onCommit).toHaveBeenCalledWith(20);
 });
+
+// The badge replaced the antd tooltip, whose popup chain was measured at ~93%
+// of a fast drag's main-thread time. The badge text is a plain text node: the
+// drag writes it directly (`onChange` -> textContent), React renders it for
+// the committed value and for outside changes, and the two writers must agree.
+it('shows the live value in the badge and keeps it in sync after release', () => {
+    const onCommit = jest.fn();
+    const { rerender } = render(
+        <PreviewSlider value={15} formatValue={(v) => `${v}:00`} onCommit={onCommit} />
+    );
+
+    expect(screen.getByText('15:00')).toBeTruthy();
+
+    // The thumb moves: the badge follows immediately (direct DOM write).
+    fireEvent.change(slider(), { target: { value: '25' } });
+    expect(screen.getByText('25:00')).toBeTruthy();
+    expect(screen.queryByText('15:00')).toBeNull();
+
+    release();
+    // The store echo arrives as a re-render with the committed value; React's
+    // own render must agree with what the drag already wrote.
+    rerender(<PreviewSlider value={25} formatValue={(v) => `${v}:00`} onCommit={onCommit} />);
+    expect(screen.getByText('25:00')).toBeTruthy();
+    expect(screen.queryByText('15:00')).toBeNull();
+});
+
+it('updates the badge when the setting changes from somewhere else', () => {
+    const onCommit = jest.fn();
+    const { rerender } = render(
+        <PreviewSlider value={15} formatValue={(v) => `${v}:00`} onCommit={onCommit} />
+    );
+
+    rerender(<PreviewSlider value={40} formatValue={(v) => `${v}:00`} onCommit={onCommit} />);
+    expect(screen.getByText('40:00')).toBeTruthy();
+    expect(screen.queryByText('15:00')).toBeNull();
+});
+
+it('renders no badge without a formatter', () => {
+    render(<PreviewSlider value={15} onCommit={jest.fn()} />);
+
+    expect(screen.queryByText(/:00/)).toBeNull();
+});

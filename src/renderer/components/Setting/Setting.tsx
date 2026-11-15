@@ -15,6 +15,7 @@ import { refreshDbs } from '../../dbs';
 import { BUILTIN_THEMES, ThemeDefinition } from '../../theme/tokens';
 import SettingNav from './SettingNav';
 import PreviewSlider from './PreviewSlider';
+import { KeyBadge } from './KeyBadge';
 import { DEFAULT_SECTION, SectionId, SHORTCUTS } from './sections';
 import { DataRepairDialog } from './DataRepairDialog';
 import { AppHoursCalibrationDialog } from './AppHoursCalibrationDialog';
@@ -75,6 +76,12 @@ const SliderContainer = styled.div`
     pointer-events: auto;
 `;
 
+// The readout badge of each slider (see `PreviewSlider`). The durations show
+// mm:ss of whole minutes, which keeps the label free of i18n strings; the
+// volume and the three opacities are plain percentages.
+const formatMinutes = (value: number) => `${String(value).padStart(2, '0')}:00`;
+const formatPercent = (value: number) => `${value}%`;
+
 const ButtonWrapper = styled.div`
     margin: 0.6em;
 `;
@@ -116,21 +123,6 @@ const Footer = styled.footer`
     padding-left: 180px;
     text-align: center;
     color: var(--pl-text-secondary);
-`;
-
-/** Key combination badge of the read-only shortcut table. */
-const ShortcutKey = styled.kbd`
-    display: inline-block;
-    min-width: 20px;
-    padding: 1px 6px;
-    border: 1px solid var(--pl-border);
-    border-radius: 4px;
-    background-color: var(--pl-bg-elevated);
-    color: var(--pl-text);
-    font-family: inherit;
-    font-size: 12px;
-    text-align: center;
-    white-space: nowrap;
 `;
 
 const ShortcutGroup = styled.div`
@@ -1125,6 +1117,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                         min={process.env.NODE_ENV === 'production' ? 20 : 2}
                                         max={60}
                                         value={props.focusDuration / 60}
+                                        formatValue={formatMinutes}
                                         onCommit={onChangeFocus}
                                     />
                                 </SliderContainer>
@@ -1139,6 +1132,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                         min={1}
                                         max={20}
                                         value={props.restDuration / 60}
+                                        formatValue={formatMinutes}
                                         onCommit={onChangeRest}
                                     />
                                 </SliderContainer>
@@ -1153,6 +1147,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                         min={1}
                                         max={40}
                                         value={props.longBreakDuration / 60}
+                                        formatValue={formatMinutes}
                                         onCommit={onChangeLongBreak}
                                     />
                                 </SliderContainer>
@@ -1171,6 +1166,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                             Math.min(props.minFinishDuration, props.focusDuration) /
                                             60
                                         }
+                                        formatValue={formatMinutes}
                                         onCommit={onChangeMinFinish}
                                     />
                                 </SliderContainer>
@@ -1250,6 +1246,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                         max={100}
                                         step={5}
                                         value={Math.round(props.contentOpacity * 100)}
+                                        formatValue={formatPercent}
                                         onPreview={queueContentOpacityPreview}
                                         onCommit={commitContentOpacity}
                                     />
@@ -1266,6 +1263,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                         max={100}
                                         step={5}
                                         value={Math.round(props.themeBackgroundOpacity * 100)}
+                                        formatValue={formatPercent}
                                         onPreview={queueThemeBackgroundOpacityPreview}
                                         onCommit={commitThemeBackgroundOpacity}
                                     />
@@ -1297,6 +1295,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                         max={100}
                                         step={5}
                                         value={Math.round(props.wallpaperOpacity * 100)}
+                                        formatValue={formatPercent}
                                         onPreview={queueWallpaperOpacityPreview}
                                         onCommit={commitWallpaperOpacity}
                                     />
@@ -1381,6 +1380,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                         step={1}
                                         value={Math.round(props.soundVolume * 100)}
                                         marks={{ 0: '0%', 50: '50%', 100: '100%' }}
+                                        formatValue={formatPercent}
                                         onCommit={(v) => props.setSoundVolume(v / 100)}
                                     />
                                 </SliderContainer>
@@ -1413,7 +1413,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                     {group.entries.map((entry) => (
                                         <ShortcutRow key={entry.keys}>
                                             <ShortcutKeys>
-                                                <ShortcutKey>{entry.keys}</ShortcutKey>
+                                                <KeyBadge>{entry.keys}</KeyBadge>
                                             </ShortcutKeys>
                                             <span>{t(entry.descriptionKey)}</span>
                                         </ShortcutRow>

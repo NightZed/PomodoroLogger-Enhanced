@@ -255,7 +255,8 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
   `test/setup-env.js` 钉住 `NODE_ENV=test`，并为 antd polyfill `matchMedia`/`MessageChannel`/`ResizeObserver`。
 - `test/` 里的 `setupFilesAfterEnv` 装配提供了 DB 桥接、React act 环境、jsdom 兼容和 console 拦截——新测试自动获得这些。
 - `posttest` 删除 `.local/test`；action 测试跑的是真实 SQLite 事务，所以优先断言 repository 层的结果而不是 mock。
-- 流程（红绿循环、seam、垂直切片）可参考 `/tdd` skill（已随仓库提供）；本仓库的判据（哪些契约可测、mock 停在哪、时钟与隔离、覆盖率）见 `docs/testing.md`。
+- **编写或修改任何测试必须符合 `docs/testing.md`**，动手前先读它。硬性判据：只断言外部可观察的行为（落库的行、dispatch 出去的 action、用户看得见的产物），不钉实现细节；mock 只停在 `fs`/`electron`/时钟等外部边界，应用内部跑真实现；失败信息必须指出元凶；不显而易见的测试带 `// Regression:` 注释；不加覆盖率阈值，不用快照。流程（红绿循环、seam、垂直切片）可参考 `/tdd` skill（已随仓库提供）。
+- 改动后的验证按影响面选范围，不要默认全量：局部组件/样式/单文件逻辑只跑受影响的测试文件 + `pnpm typecheck` + `pnpm lint`；动了共享基建（`jest.config.js`、`test/setup-*`、被多处引用或 mock 的模块）或提交前的最终确认才跑 `pnpm test` 全量。新增测试文件会加重全量跑的 worker 内存（见 `workerIdleMemoryLimit`），改完基建后跑一次全量确认稳定。
 
 ## 约定
 

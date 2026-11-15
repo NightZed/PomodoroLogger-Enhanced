@@ -76,6 +76,8 @@ const mockWin = {
     webContents,
     isDestroyed: jest.fn(() => false),
     isMaximized: jest.fn(() => false),
+    isMinimized: jest.fn(() => false),
+    isVisible: jest.fn(() => true),
     getBounds: jest.fn(() => ({ x: 0, y: 0, width: 100, height: 100 })),
     setAlwaysOnTop: jest.fn(),
     setContentSize: jest.fn(),
@@ -106,6 +108,8 @@ describe('main/ipc', () => {
         mockWin.webContents = webContents;
         mockWin.isDestroyed.mockReturnValue(false);
         mockWin.isMaximized.mockReturnValue(false);
+        mockWin.isMinimized.mockReturnValue(false);
+        mockWin.isVisible.mockReturnValue(true);
         // Display-mode handlers run the on-screen clamp; this default work
         // area keeps the stock bounds ({0,0,100,100}) in range so the clamp
         // stays a no-op unless a test pins its own display geometry.
@@ -286,10 +290,35 @@ describe('main/ipc', () => {
         await expect(handlers['desktopSource'](trustedEvent)).resolves.toBeUndefined();
     });
 
-    it('reports the current maximized state when asked', async () => {
-        await expect(handlers['windowState'](trustedEvent)).resolves.toEqual({ maximized: false });
+    it('reports the current maximized and tray state when asked', async () => {
+        await expect(handlers['windowState'](trustedEvent)).resolves.toEqual({
+            maximized: false,
+            inTray: false,
+        });
         mockWin.isMaximized.mockReturnValue(true);
-        await expect(handlers['windowState'](trustedEvent)).resolves.toEqual({ maximized: true });
+        await expect(handlers['windowState'](trustedEvent)).resolves.toEqual({
+            maximized: true,
+            inTray: false,
+        });
+
+        // Minimized or hidden counts as the tray.
+        mockWin.isMinimized.mockReturnValue(true);
+        await expect(handlers['windowState'](trustedEvent)).resolves.toMatchObject({
+            inTray: true,
+        });
+
+        mockWin.isMinimized.mockReturnValue(false);
+        mockWin.isVisible.mockReturnValue(false);
+        await expect(handlers['windowState'](trustedEvent)).resolves.toMatchObject({
+            inTray: true,
+        });
+
+        // A window that is merely covered by another one still reports
+        // `isVisible() === true` -- it is on screen, not in the tray.
+        mockWin.isVisible.mockReturnValue(true);
+        await expect(handlers['windowState'](trustedEvent)).resolves.toMatchObject({
+            inTray: false,
+        });
     });
 
     it('registers the login item with the requested visibility', async () => {

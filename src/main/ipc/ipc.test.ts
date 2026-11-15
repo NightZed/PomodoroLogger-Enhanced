@@ -660,5 +660,30 @@ describe('main/ipc', () => {
             });
             await expect(handlers['selectWallpaper'](trustedEvent)).resolves.toBeUndefined();
         });
+
+        it('returns the selected reminder sound or nothing when cancelled', async () => {
+            (dialog.showOpenDialog as jest.Mock).mockResolvedValueOnce({
+                canceled: false,
+                filePaths: ['C:\\sounds\\rain.mp3'],
+            });
+
+            await expect(handlers['selectSound'](trustedEvent)).resolves.toBe(
+                'C:\\sounds\\rain.mp3'
+            );
+            // The picker is the only format check: the file itself is used in
+            // place, never copied, so the row has to start from a narrow list.
+            const calls = (dialog.showOpenDialog as jest.Mock).mock.calls;
+            expect(calls[calls.length - 1]?.[0].filters[0]).toEqual(
+                expect.objectContaining({
+                    extensions: expect.arrayContaining(['mp3', 'wav', 'ogg']),
+                })
+            );
+
+            (dialog.showOpenDialog as jest.Mock).mockResolvedValueOnce({
+                canceled: true,
+                filePaths: [],
+            });
+            await expect(handlers['selectSound'](trustedEvent)).resolves.toBeUndefined();
+        });
     });
 });

@@ -7,7 +7,6 @@ import { isModalOpen } from '../popupLayer';
 import styled from 'styled-components';
 import { MiniLogger } from '../../../components/common/Mini/MiniLogger';
 import { timeScale, __DEV__ } from '../../../config';
-import dingMp3 from '../../../res/ding.mp3';
 import { EfficiencyAnalyser } from '../../../shared/efficiency/efficiency';
 import { normalizeAppHours } from '../../../shared/normalizeAppHours';
 import { Monitor } from '../../monitor';
@@ -34,6 +33,7 @@ import { PomodoroNumView } from './PomodoroNumView';
 import Progress from './Progress';
 import { feedback, FEEDBACK_MESSAGES } from '../feedback';
 import { reportRendererError } from '../../errorReporting';
+import { playSound, soundName } from '../../sound';
 import {
     countdownSeconds,
     effectiveMinFinishDuration,
@@ -43,6 +43,7 @@ import {
     isFinishTooEarly,
     namedSessionAction,
     progressPercent,
+    reminderSound,
     sessionRemainingMs,
     trayMenuItems,
     TrayActionKey,
@@ -317,7 +318,6 @@ class Timer extends Component<Props, State> {
      */
     private nextSessionStarter?: () => void;
     mainDiv: React.RefObject<HTMLDivElement | null>;
-    sound: React.RefObject<HTMLAudioElement | null>;
     extendedTimeInMinute: number;
     efficiencyAnalyser: EfficiencyAnalyser;
     private stagedSession?: PomodoroRecord;
@@ -330,6 +330,8 @@ class Timer extends Component<Props, State> {
     private focusStartWarningModal?: ReturnType<typeof feedback.confirm>;
     /** Unsubscribe function returned by the preload tray-event bridge. */
     private unsubscribeTrayAction?: () => void;
+    /** The "your sound cannot be played" toast is shown once per run. */
+    private soundFailureShown = false;
 
     constructor(props: Props) {
         super(props);
@@ -344,7 +346,6 @@ class Timer extends Component<Props, State> {
             hasError: false,
         };
         this.mainDiv = React.createRef<HTMLDivElement>();
-        this.sound = React.createRef<HTMLAudioElement>();
         this.extendedTimeInMinute = 0;
         this.efficiencyAnalyser = new EfficiencyAnalyser([]);
     }
@@ -946,7 +947,7 @@ class Timer extends Component<Props, State> {
     onDone = async (shouldRemind: boolean = true, isRotten?: boolean) => {
         if (this.props.timer.isFocusing) {
             await this.onFocusingSessionDone(shouldRemind, isRotten);
-        } else if (shouldRemind) {
+        } else if (shouldRemind && this.props.timer.desktopNotification) {
             window.api.notify(
                 t('timer.notify.restEndedTitle'),
                 t('timer.notify.completedToday', this.state.pomodoroNum)
@@ -967,7 +968,7 @@ class Timer extends Component<Props, State> {
         if (shouldRemind) {
             this.focusOnCurrentWindow();
             this.remindUserTimeout(0);
-            this.remindUserTimeout(60 * 1000, 1.0);
+            this.remindUserTimeout(60 * 1000);
         }
     };
 
@@ -976,7 +977,7 @@ class Timer extends Component<Props, State> {
             throw new Error('No monitor');
         }
 
-        if (shouldRemind) {
+        if (shouldRemind && this.props.timer.desktopNotification) {
             window.api.notify(
                 t('timer.notify.focusEndedTitle'),
                 t('timer.notify.completedToday', this.state.pomodoroNum + 1)
@@ -1301,17 +1302,50 @@ class Timer extends Component<Props, State> {
         }
     };
 
-    private remindUserTimeout = (timeout = 0, volume = 0.5) => {
+    /**
+     * Schedules one reminder chime. A session is announced twice -- now and
+     * after a minute -- and both play the sound of the session that ended.
+     *
+     * Which sound that is comes from `reminderSound` and is taken here, once:
+     * a minute later `isFocusing` / `iBreak` describe the next session.
+     */
+    private remindUserTimeout = (timeout = 0) => {
+        const reminder = reminderSound(this.props.timer, LONG_BREAK_INTERVAL);
+        if (reminder === undefined) {
+            return;
+        }
+
         setTimeout(() => {
             if (this.props.timer.sessionEnding) {
                 this.focusOnCurrentWindow();
-                if (this.sound.current) {
-                    this.sound.current.volume = volume;
-                    this.sound.current.play().catch((err) => console.error(err));
-                }
+                playSound(reminder.path, reminder.volume).catch(() => {
+                    this.reportSoundFailure(reminder.path, reminder.volume);
+                });
             }
         }, timeout);
     };
+
+    /**
+     * A chosen file can be moved or deleted behind the app's back, and Chromium
+     * cannot decode every format the picker offers. Fall back to the bundled
+     * chime, and say so once per run rather than silently playing something
+     * the user did not choose.
+     */
+    private reportSoundFailure(path?: string, volume = 0.5) {
+        if (path !== undefined) {
+            playSound(undefined, volume).catch((error) => console.error(error));
+        }
+
+        if (path === undefined || this.soundFailureShown) {
+            return;
+        }
+
+        this.soundFailureShown = true;
+        feedback.toast({
+            kind: 'warning',
+            content: t('settings.notification.soundFailed', soundName(path)),
+        });
+    }
 
     private extendCurrentSession = (minutes: number) => {
         if (this.monitor) {
@@ -1582,7 +1616,6 @@ class Timer extends Component<Props, State> {
                         confirm={this.onMaskClick}
                         confirmAndStartNextSession={this.onMaskButtonClick}
                     />
-                    <audio src={dingMp3} ref={this.sound} />
                 </Layout>
             );
         }
@@ -1809,7 +1842,6 @@ class Timer extends Component<Props, State> {
                         ) : undefined}
                     </TimerInnerLayout>
                 </TimerLayout>
-                <audio src={dingMp3} ref={this.sound} />
             </Layout>
         );
     }

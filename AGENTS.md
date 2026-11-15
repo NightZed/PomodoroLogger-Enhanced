@@ -205,6 +205,15 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
   触发器是 `resize` 事件而不是 `will-resize`（后者只对用户手势触发，脚本无法验证），代价是程序性 resize 也会触发；一次性 resize 的两步边框变化没有人手拖动遮着，会被看成窗口跳一下（v1.4.0 没有这套机制、不跳）。所以模式切换（`MinimizeWindow` / `CompactWindow`）和最大化按钮在 resize 前先调 `init.ts` 的 `suppressResizingNotification()`（300 ms 抑制窗），这几条路径上圆角全程不动。
   因此只有用户拖动期间圆角是方的；没在 trace 里量过 `Display::DrawAndSwap` 之前，不要给那个元素加回真实圆角边框或换成占布局的画法，也不要让新的程序性 resize 路径漏掉抑制调用。
 
+### 提示音与桌面通知
+
+- 会话自然结束时（`Timer.onDone`，`shouldRemind` 为真）响两次提示音——立即一次、60 秒后再一次——并按 `desktopNotification` 决定是否发系统通知；手动点 Finish 结束的会话两者都不做。
+- 三种会话各有音源（`workSoundPath` / `shortBreakSoundPath` / `longBreakSoundPath`）和独立开关（`*SoundEnabled`）；路径为 `undefined` = 内置 `src/res/ding.mp3`。「恢复」只清空路径，不删用户的文件。
+- 长休判定与 `getDuration` / `startTimer` 一致：休息结束且 `iBreak % 4 === 0`。音源和音量必须在 `remindUserTimeout` **被调用的那一刻**快照，60 秒后的回调里 `isFocusing` / `iBreak` 已经指向下一场会话。
+- 自定义文件不拷贝，只存绝对路径，经 `sound://local?path=...` 播放：`init.ts` 用 `protocol.handle` + `net.fetch(pathToFileURL(...))`（privileges 带 `stream`，媒体栈需要 Range 请求）。CSP 的 `media-src` 必须含 `sound:`，少写这一项文件会被静默拦掉。
+- 加载失败（文件被删、Chromium 不支持该格式）回退内置铃声并 toast 一次。`src/renderer/sound.ts` 是拼 URL 和播放的唯一入口，设置页的「测试」也走它。
+- 音量用 `PreviewSlider`（松手提交）：Timer 页映射整个 store，拖动时每帧写 store 会让进度环和番茄墙整页重渲染。
+
 ### 国际化
 
 界面提供英文和简体中文，用的是一个小自研 `t()` 而不是 i18n 库——渲染层没有 Provider，所以裸写的 `render(<Component />)` 测试能继续工作，语言切换也能让被 `React.memo` / `shouldComponentUpdate` 保护的组件重渲染。

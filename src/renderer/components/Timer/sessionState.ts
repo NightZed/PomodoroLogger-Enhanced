@@ -169,6 +169,58 @@ export function elapsedSeconds(
     return durationSeconds - countdownSeconds(rawRemainingMs, scale);
 }
 
+/** The reminder a finished session plays, when it has one. */
+export interface ReminderSound {
+    /** Absolute path of the chosen file; `undefined` = the bundled chime. */
+    path?: string;
+    volume: number;
+}
+
+/** What `reminderSound` reads from the timer state (see `Setting`). */
+export interface ReminderState {
+    isFocusing: boolean;
+    iBreak: number;
+    workSoundPath?: string;
+    workSoundEnabled: boolean;
+    shortBreakSoundPath?: string;
+    shortBreakSoundEnabled: boolean;
+    longBreakSoundPath?: string;
+    longBreakSoundEnabled: boolean;
+    soundVolume: number;
+}
+
+/**
+ * The sound that announces the session which just ended, or `undefined` when
+ * that kind is switched off or the volume is zero.
+ *
+ * Callers take the answer once per session end: the second chime fires a
+ * minute later, when the timer already describes the *next* session.
+ *
+ * `longBreakInterval` is passed in rather than imported: `LONG_BREAK_INTERVAL`
+ * lives in `action.ts`, which imports this module.
+ */
+export function reminderSound(
+    timer: ReminderState,
+    longBreakInterval: number
+): ReminderSound | undefined {
+    const volume = timer.soundVolume;
+    if (!(volume > 0)) {
+        return undefined;
+    }
+
+    if (timer.isFocusing) {
+        return timer.workSoundEnabled ? { path: timer.workSoundPath, volume } : undefined;
+    }
+
+    // Same rule as `getDuration` / `startTimer`: every fourth break is the long
+    // one. `iBreak` has not been advanced yet when the session ends.
+    if (timer.iBreak % longBreakInterval === 0) {
+        return timer.longBreakSoundEnabled ? { path: timer.longBreakSoundPath, volume } : undefined;
+    }
+
+    return timer.shortBreakSoundEnabled ? { path: timer.shortBreakSoundPath, volume } : undefined;
+}
+
 /**
  * What a "start the session I name" request must do to the current timer. The
  * callers are the two tray items (and the ending mask's own button), which name

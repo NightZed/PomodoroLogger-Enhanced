@@ -64,6 +64,8 @@ export enum IpcEventName {
     /** Writes a finished pomodoro and credits it to its board/card, atomically. */
     RecordFinishedSession = 'recordFinishedSession',
     SelectWallpaper = 'selectWallpaper',
+    /** Picks an audio file for one of the session-end reminders. */
+    SelectSound = 'selectSound',
     ActiveWin = 'activeWin',
     OpenAtLogin = 'openAtLogin',
     MinimizeWindow = 'minimizeWindow',
@@ -338,6 +340,7 @@ export type ExposedAPI = {
         payload: FinishedSessionPayload
     ): Promise<FinishedSessionResult>;
     [IpcEventName.SelectWallpaper](): Promise<string | undefined>;
+    [IpcEventName.SelectSound](): Promise<string | undefined>;
     [IpcEventName.ExportData](): Promise<ExportResult>;
     [IpcEventName.ActiveWin](): Promise<BaseResult | undefined>;
     [IpcEventName.OpenAtLogin](on: boolean): Promise<void>;

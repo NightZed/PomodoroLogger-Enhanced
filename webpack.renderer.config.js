@@ -19,7 +19,7 @@ const csp = [
     // code, while every script/connect source stays restricted to 'self'.
     "img-src 'self' data: blob: wallpaper: https:",
     "font-src 'self' data:",
-    "media-src 'self' blob:",
+    "media-src 'self' blob: sound:",
     "worker-src 'self' blob:",
     `connect-src 'self'${isDevelopment ? ' http://localhost:2003 ws://localhost:2003' : ''}`,
     "object-src 'none'",

@@ -43,6 +43,25 @@ function persistSettingWithDebounce(name: string, value: number): void {
 }
 
 /**
+ * Writes one of the three reminder-sound files, or removes the key when the
+ * setting goes back to the bundled chime.
+ *
+ * Storing the absence rather than an empty string matters: `fetchSettings`
+ * replays whatever is in the document, and an empty path would be treated as a
+ * missing file instead of "use the default".
+ */
+function persistSoundPath(
+    name: 'workSoundPath' | 'shortBreakSoundPath' | 'longBreakSoundPath',
+    path?: string
+): Promise<unknown> {
+    return settingDB.update(
+        { name: 'setting' },
+        path ? { $set: { [name]: path } } : { $unset: { [name]: true } },
+        { upsert: true }
+    );
+}
+
+/**
  * The app's pages. The order, the title bar entries and the Ctrl+Tab rotation
  * all live in ONE list, `APP_TABS` (see `../appTabs.ts`) -- this type only names
  * the values the state can hold. It used to be a second list here, which a
@@ -71,6 +90,28 @@ export interface Setting {
     minFinishDuration: number;
     monitorInterval: number;
     screenShotInterval?: number;
+    /**
+     * Reminder sounds, one per session kind. `undefined` means the bundled
+     * `ding.mp3`; the switch beside each one is separate so turning a sound off
+     * keeps the chosen file (and the settings page still shows it).
+     *
+     * The paths are absolute and point at the user's own file: nothing is
+     * copied into the data directory, so a moved or deleted file makes the
+     * reminder fall back to the bundled chime (see `renderer/sound.ts`).
+     */
+    workSoundPath?: string;
+    workSoundEnabled: boolean;
+    shortBreakSoundPath?: string;
+    shortBreakSoundEnabled: boolean;
+    longBreakSoundPath?: string;
+    longBreakSoundEnabled: boolean;
+    /** Playback volume of every reminder, 0..1. */
+    soundVolume: number;
+    /**
+     * Whether finishing a session shows an OS notification. On by default, as
+     * it has always behaved; only the switch is new.
+     */
+    desktopNotification: boolean;
     /**
      * When on, starting a focus session without a focusing project (or with an
      * empty "In Progress" list) asks for a confirmation first. Turned off from
@@ -227,6 +268,14 @@ export const defaultState: TimerState = {
 
     monitorInterval: 1000,
     screenShotInterval: undefined,
+    workSoundPath: undefined,
+    workSoundEnabled: true,
+    shortBreakSoundPath: undefined,
+    shortBreakSoundEnabled: true,
+    longBreakSoundPath: undefined,
+    longBreakSoundEnabled: true,
+    soundVolume: 0.5,
+    desktopNotification: true,
     warnBeforeFocusStart: true,
     calendarBaseColor: '#aceebb',
     themeId: DEFAULT_THEME_ID,
@@ -336,6 +385,27 @@ export const setScreenShotInterval = createAction(
     '[Timer]SET_SCREEN_SHOT_INTERVAL',
     (interval?: number) => ({ payload: interval })
 );
+/** `undefined` restores the bundled chime, see `Setting.workSoundPath`. */
+export const setWorkSoundPath = createAction('[Setting]SET_WORK_SOUND_PATH', (value?: string) => ({
+    payload: value,
+}));
+export const setShortBreakSoundPath = createAction(
+    '[Setting]SET_SHORT_BREAK_SOUND_PATH',
+    (value?: string) => ({ payload: value })
+);
+export const setLongBreakSoundPath = createAction(
+    '[Setting]SET_LONG_BREAK_SOUND_PATH',
+    (value?: string) => ({ payload: value })
+);
+export const setWorkSoundEnabled = createAction<boolean>('[Setting]SET_WORK_SOUND_ENABLED');
+export const setShortBreakSoundEnabled = createAction<boolean>(
+    '[Setting]SET_SHORT_BREAK_SOUND_ENABLED'
+);
+export const setLongBreakSoundEnabled = createAction<boolean>(
+    '[Setting]SET_LONG_BREAK_SOUND_ENABLED'
+);
+export const setSoundVolume = createAction<number>('[Setting]SET_SOUND_VOLUME');
+export const setDesktopNotification = createAction<boolean>('[Setting]SET_DESKTOP_NOTIFICATION');
 export const setWarnBeforeFocusStart = createAction<boolean>('[Timer]SET_WARN_BEFORE_FOCUS_START');
 export const setCalendarBaseColor = createAction<string>('[Timer]SET_CALENDAR_BASE_COLOR');
 export const switchFocusRestMode = createAction('[Timer]SWITCH_FOCUS_MODE');
@@ -378,6 +448,14 @@ export const actions = {
             ['restDuration', setRestDuration],
             ['monitorInterval', setMonitorInterval],
             ['screenShotInterval', setScreenShotInterval],
+            ['workSoundPath', setWorkSoundPath],
+            ['workSoundEnabled', setWorkSoundEnabled],
+            ['shortBreakSoundPath', setShortBreakSoundPath],
+            ['shortBreakSoundEnabled', setShortBreakSoundEnabled],
+            ['longBreakSoundPath', setLongBreakSoundPath],
+            ['longBreakSoundEnabled', setLongBreakSoundEnabled],
+            ['soundVolume', setSoundVolume],
+            ['desktopNotification', setDesktopNotification],
             ['warnBeforeFocusStart', setWarnBeforeFocusStart],
             ['startOnBoot', setStartOnBoot],
             ['useHardwareAcceleration', setUseHardwareAcceleration],
@@ -555,6 +633,59 @@ export const actions = {
         await settingDB.update(
             { name: 'setting' },
             { $set: { warnBeforeFocusStart } },
+            { upsert: true }
+        );
+    },
+    /**
+     * Reminder sounds. The file is written as given -- the app never copies it
+     * -- and an empty value unsets the key, so "no custom file" is absence
+     * rather than a stored `undefined`.
+     */
+    setWorkSoundPath: (path?: string) => async (dispatch: Dispatch) => {
+        dispatch(setWorkSoundPath(path));
+        await persistSoundPath('workSoundPath', path);
+    },
+    setShortBreakSoundPath: (path?: string) => async (dispatch: Dispatch) => {
+        dispatch(setShortBreakSoundPath(path));
+        await persistSoundPath('shortBreakSoundPath', path);
+    },
+    setLongBreakSoundPath: (path?: string) => async (dispatch: Dispatch) => {
+        dispatch(setLongBreakSoundPath(path));
+        await persistSoundPath('longBreakSoundPath', path);
+    },
+    setWorkSoundEnabled: (enabled: boolean) => async (dispatch: Dispatch) => {
+        dispatch(setWorkSoundEnabled(enabled));
+        await settingDB.update(
+            { name: 'setting' },
+            { $set: { workSoundEnabled: enabled } },
+            { upsert: true }
+        );
+    },
+    setShortBreakSoundEnabled: (enabled: boolean) => async (dispatch: Dispatch) => {
+        dispatch(setShortBreakSoundEnabled(enabled));
+        await settingDB.update(
+            { name: 'setting' },
+            { $set: { shortBreakSoundEnabled: enabled } },
+            { upsert: true }
+        );
+    },
+    setLongBreakSoundEnabled: (enabled: boolean) => async (dispatch: Dispatch) => {
+        dispatch(setLongBreakSoundEnabled(enabled));
+        await settingDB.update(
+            { name: 'setting' },
+            { $set: { longBreakSoundEnabled: enabled } },
+            { upsert: true }
+        );
+    },
+    setSoundVolume: (soundVolume: number) => (dispatch: Dispatch) => {
+        dispatch(setSoundVolume(soundVolume));
+        persistSettingWithDebounce('soundVolume', soundVolume);
+    },
+    setDesktopNotification: (desktopNotification: boolean) => async (dispatch: Dispatch) => {
+        dispatch(setDesktopNotification(desktopNotification));
+        await settingDB.update(
+            { name: 'setting' },
+            { $set: { desktopNotification } },
             { upsert: true }
         );
     },
@@ -739,6 +870,38 @@ export const reducer = createReducer<TimerState>(defaultState, (builder) => {
         .addCase(setStartOnBoot, (state, { payload }) => ({
             ...state,
             startOnBoot: payload,
+        }))
+        .addCase(setWorkSoundPath, (state, { payload }) => ({
+            ...state,
+            workSoundPath: payload,
+        }))
+        .addCase(setShortBreakSoundPath, (state, { payload }) => ({
+            ...state,
+            shortBreakSoundPath: payload,
+        }))
+        .addCase(setLongBreakSoundPath, (state, { payload }) => ({
+            ...state,
+            longBreakSoundPath: payload,
+        }))
+        .addCase(setWorkSoundEnabled, (state, { payload }) => ({
+            ...state,
+            workSoundEnabled: payload,
+        }))
+        .addCase(setShortBreakSoundEnabled, (state, { payload }) => ({
+            ...state,
+            shortBreakSoundEnabled: payload,
+        }))
+        .addCase(setLongBreakSoundEnabled, (state, { payload }) => ({
+            ...state,
+            longBreakSoundEnabled: payload,
+        }))
+        .addCase(setSoundVolume, (state, { payload }) => ({
+            ...state,
+            soundVolume: payload,
+        }))
+        .addCase(setDesktopNotification, (state, { payload }) => ({
+            ...state,
+            desktopNotification: payload,
         }))
         .addCase(setWarnBeforeFocusStart, (state, { payload }) => ({
             ...state,

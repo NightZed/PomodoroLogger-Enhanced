@@ -124,6 +124,7 @@ const api: ExposedAPI = {
     [IpcEventName.RecordFinishedSession]: (payload: FinishedSessionPayload) =>
         invoke<FinishedSessionResult>(IpcEventName.RecordFinishedSession, payload),
     [IpcEventName.SelectWallpaper]: () => invoke<string | undefined>(IpcEventName.SelectWallpaper),
+    [IpcEventName.SelectSound]: () => invoke<string | undefined>(IpcEventName.SelectSound),
     [IpcEventName.ExportData]: () => invoke<ExportResult>(IpcEventName.ExportData),
     [IpcEventName.ActiveWin]: () => invoke<BaseResult | undefined>(IpcEventName.ActiveWin),
     [IpcEventName.OpenAtLogin]: (on) => invoke<void>(IpcEventName.OpenAtLogin, on),

@@ -150,6 +150,7 @@ import type { ExportResult, ImportResult } from '../../../main/ipc/type';
 const exportData = jest.fn<Promise<ExportResult>, []>();
 const openDataDir = jest.fn<Promise<void>, []>();
 const openLogDir = jest.fn<Promise<void>, []>();
+const selectSound = jest.fn<Promise<string | undefined>, []>();
 const scanDataIssues = jest.fn();
 const repairData = jest.fn();
 const applyRepair = jest.fn();
@@ -163,6 +164,14 @@ const props = (): any => ({
     monitorInterval: 1000,
     autoUpdate: false,
     screenShotInterval: undefined,
+    workSoundPath: undefined,
+    workSoundEnabled: true,
+    shortBreakSoundPath: undefined,
+    shortBreakSoundEnabled: true,
+    longBreakSoundPath: undefined,
+    longBreakSoundEnabled: true,
+    soundVolume: 0.5,
+    desktopNotification: true,
     warnBeforeFocusStart: false,
     useHardwareAcceleration: true,
     unloadOnCloseToTray: false,
@@ -195,6 +204,14 @@ const props = (): any => ({
     setFollowSystemTheme: jest.fn(),
     setWallpaperPath: jest.fn(),
     setWallpaperOpacity: jest.fn(),
+    setWorkSoundPath: jest.fn(),
+    setShortBreakSoundPath: jest.fn(),
+    setLongBreakSoundPath: jest.fn(),
+    setWorkSoundEnabled: jest.fn(),
+    setShortBreakSoundEnabled: jest.fn(),
+    setLongBreakSoundEnabled: jest.fn(),
+    setSoundVolume: jest.fn(),
+    setDesktopNotification: jest.fn(),
     setStartOnBoot: jest.fn(),
     setCalendarBaseColor: jest.fn(),
     setLanguage: jest.fn(),
@@ -258,6 +275,7 @@ beforeEach(() => {
     importData.mockReset();
     openDataDir.mockReset();
     openLogDir.mockReset();
+    selectSound.mockReset();
     scanDataIssues.mockReset();
     repairData.mockReset();
     applyRepair.mockClear();
@@ -275,6 +293,7 @@ beforeEach(() => {
         openAtLogin: jest.fn(),
         openExternal: jest.fn(),
         selectWallpaper: jest.fn(),
+        selectSound,
     };
 });
 describe('minimum focus time before Finish', () => {
@@ -790,5 +809,106 @@ describe('Setting update check', () => {
         for (const unsubscribe of unsubscribers) {
             expect(unsubscribe).toHaveBeenCalledTimes(1);
         }
+    });
+});
+
+describe('notification sounds', () => {
+    const openNotifications = () => {
+        const nav = screen.getByRole('navigation', { name: 'Settings sections' });
+        fireEvent.click(within(nav).getByRole('button', { name: /Notifications/ }));
+    };
+
+    it('offers one row per session kind plus the desktop switch', () => {
+        render(<Setting {...props()} />);
+        openNotifications();
+
+        expect(screen.getByRole('button', { name: 'Focus Choose File' })).toBeTruthy();
+        expect(screen.getByRole('button', { name: 'Short break Choose File' })).toBeTruthy();
+        expect(screen.getByRole('button', { name: 'Long break Choose File' })).toBeTruthy();
+        expect(screen.getByRole('switch', { name: 'Focus' })).toBeTruthy();
+        expect(screen.getByRole('switch', { name: 'Desktop Notification' })).toBeTruthy();
+        // No file chosen yet: each row says it uses the bundled chime.
+        expect(screen.getAllByText('Default')).toHaveLength(3);
+    });
+
+    it('stores the file chosen for one row only', async () => {
+        selectSound.mockResolvedValue('C:\\sounds\\rain.mp3');
+        const p = props();
+        render(<Setting {...p} />);
+        openNotifications();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Focus Choose File' }));
+
+        await waitFor(() =>
+            expect(p.setWorkSoundPath).toHaveBeenCalledWith('C:\\sounds\\rain.mp3')
+        );
+        expect(p.setShortBreakSoundPath).not.toHaveBeenCalled();
+        expect(p.setLongBreakSoundPath).not.toHaveBeenCalled();
+    });
+
+    it('leaves the row alone when the picker was cancelled', async () => {
+        selectSound.mockResolvedValue(undefined);
+        const p = props();
+        render(<Setting {...p} />);
+        openNotifications();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Focus Choose File' }));
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        expect(p.setWorkSoundPath).not.toHaveBeenCalled();
+    });
+
+    it('resets only the chosen row to the default chime', () => {
+        const p = { ...props(), workSoundPath: 'C:\\sounds\\rain.mp3' };
+        render(<Setting {...p} />);
+        openNotifications();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Focus Reset' }));
+
+        expect(p.setWorkSoundPath).toHaveBeenCalledWith(undefined);
+        expect(p.setShortBreakSoundPath).not.toHaveBeenCalled();
+    });
+
+    it('silences one row without clearing its file', () => {
+        const p = props();
+        render(<Setting {...p} />);
+        openNotifications();
+
+        fireEvent.click(screen.getByRole('switch', { name: 'Focus' }));
+
+        expect(p.setWorkSoundEnabled).toHaveBeenCalledWith(false);
+        expect(p.setWorkSoundPath).not.toHaveBeenCalled();
+    });
+
+    it('shows the file name of a chosen sound', () => {
+        render(<Setting {...{ ...props(), workSoundPath: 'C:\\sounds\\rain.mp3' }} />);
+        openNotifications();
+
+        const name = screen.getByText('rain.mp3');
+        expect(name.getAttribute('title')).toBe('C:\\sounds\\rain.mp3');
+    });
+
+    it('saves the volume when the drag ends', () => {
+        const p = props();
+        render(<Setting {...p} />);
+        openNotifications();
+
+        const sliders = screen.getAllByTestId('slider');
+        expect(sliders).toHaveLength(1);
+        fireEvent.change(sliders[0], { target: { value: '40' } });
+
+        expect(p.setSoundVolume).toHaveBeenCalledWith(0.4);
+    });
+
+    it('switches the desktop notification off', () => {
+        const p = props();
+        render(<Setting {...p} />);
+        openNotifications();
+
+        fireEvent.click(screen.getByRole('switch', { name: 'Desktop Notification' }));
+
+        expect(p.setDesktopNotification).toHaveBeenCalledWith(false);
     });
 });

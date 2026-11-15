@@ -7,6 +7,7 @@ import {
     app,
     nativeTheme,
     dialog,
+    net,
 } from 'electron';
 import type { MenuItemConstructorOptions } from 'electron';
 import * as path from 'path';
@@ -47,6 +48,20 @@ protocol.registerSchemesAsPrivileged([
             secure: true,
             supportFetchAPI: true,
             corsEnabled: true,
+        },
+    },
+    {
+        // Reminder sounds are played from wherever the user keeps them, so this
+        // scheme resolves an arbitrary absolute path just like `wallpaper`
+        // does. `stream` matters here (and not for images): an <audio> element
+        // seeks inside the file with range requests.
+        scheme: 'sound',
+        privileges: {
+            standard: true,
+            secure: true,
+            supportFetchAPI: true,
+            corsEnabled: true,
+            stream: true,
         },
     },
 ]);
@@ -666,6 +681,26 @@ app.on('ready', async () => {
         } catch (error) {
             logError('app', 'wallpaper protocol: cannot resolve the path', error);
             callback({ error: -2 });
+        }
+    });
+    /**
+     * Serves the audio file a reminder setting points at. `net.fetch` instead
+     * of `registerFileProtocol` because it answers range requests, which the
+     * media stack uses to seek.
+     *
+     * The path is not restricted to a directory: the user picks the file
+     * anywhere, and nothing but the chosen setting ever produces this URL.
+     */
+    protocol.handle('sound', (request) => {
+        try {
+            const soundPath = new URL(request.url).searchParams.get('path');
+            if (!soundPath) {
+                return new Response(null, { status: 400 });
+            }
+            return net.fetch(url.pathToFileURL(soundPath).toString());
+        } catch (error) {
+            logError('app', 'sound protocol: cannot resolve the path', error);
+            return new Response(null, { status: 400 });
         }
     });
 

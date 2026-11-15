@@ -254,6 +254,68 @@ describe('Reducer', () => {
         expect(await stored()).toBe(40 * 60);
     });
 
+    it('persists the reminder sound settings and reads them back', async () => {
+        jest.useFakeTimers({ doNotFake: ['Date', 'nextTick', 'queueMicrotask'] });
+        let state: TimerState = { ...defaultState };
+        const dispatch = ((action: any) => {
+            state = reducer(state, action);
+        }) as unknown as Dispatch;
+
+        await actions.setWorkSoundPath('C:\\sounds\\rain.mp3')(dispatch);
+        await actions.setShortBreakSoundPath('C:\\sounds\\short.wav')(dispatch);
+        await actions.setLongBreakSoundPath('C:\\sounds\\long.wav')(dispatch);
+        await actions.setWorkSoundEnabled(false)(dispatch);
+        await actions.setShortBreakSoundEnabled(false)(dispatch);
+        await actions.setLongBreakSoundEnabled(false)(dispatch);
+        await actions.setSoundVolume(0.25)(dispatch);
+        await actions.setDesktopNotification(false)(dispatch);
+
+        // The volume is a slider setting: its write lands after the drag.
+        await jest.advanceTimersByTimeAsync(400);
+
+        state = { ...defaultState };
+        await actions.fetchSettings()(dispatch);
+
+        // The object in the assertion names the setting that disagrees.
+        expect({
+            workSoundPath: state.workSoundPath,
+            shortBreakSoundPath: state.shortBreakSoundPath,
+            longBreakSoundPath: state.longBreakSoundPath,
+            workSoundEnabled: state.workSoundEnabled,
+            shortBreakSoundEnabled: state.shortBreakSoundEnabled,
+            longBreakSoundEnabled: state.longBreakSoundEnabled,
+            soundVolume: state.soundVolume,
+            desktopNotification: state.desktopNotification,
+        }).toEqual({
+            workSoundPath: 'C:\\sounds\\rain.mp3',
+            shortBreakSoundPath: 'C:\\sounds\\short.wav',
+            longBreakSoundPath: 'C:\\sounds\\long.wav',
+            workSoundEnabled: false,
+            shortBreakSoundEnabled: false,
+            longBreakSoundEnabled: false,
+            soundVolume: 0.25,
+            desktopNotification: false,
+        });
+    });
+
+    it('removes the stored file when a row goes back to the default chime', async () => {
+        let state: TimerState = { ...defaultState };
+        const dispatch = ((action: any) => {
+            state = reducer(state, action);
+        }) as unknown as Dispatch;
+        const stored = async () =>
+            (await dbs.settingDB.findOne({ name: 'setting' }))?.workSoundPath;
+
+        await actions.setWorkSoundPath('C:\\sounds\\rain.mp3')(dispatch);
+        expect(await stored()).toBe('C:\\sounds\\rain.mp3');
+
+        await actions.setWorkSoundPath(undefined)(dispatch);
+        expect(state.workSoundPath).toBeUndefined();
+        // Absence, not an empty string: the next `fetchSettings` has to read
+        // this as "use the bundled chime".
+        expect(await stored()).toBeUndefined();
+    });
+
     it('ignores a stored screenshot interval in a packaged build', async () => {
         let state: TimerState = { ...defaultState };
         const dispatch = ((action: any) => {

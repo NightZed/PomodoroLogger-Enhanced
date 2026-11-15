@@ -6,6 +6,7 @@ import { setTrayImageWithMadeIcon } from './iconMaker';
 import { Monitor } from '../../monitor';
 import { DAY_THEME_ID, NIGHT_THEME_ID } from '../../theme/tokens';
 import { scaleMs } from '../../../config';
+import { DEFAULT_SOUND_URL, soundUrl } from '../../sound';
 
 const mockMonitorInstances: any[] = [];
 
@@ -115,6 +116,20 @@ const api = {
     platform: 'win32',
 };
 
+interface PlayedAudio {
+    src: string;
+    volume: number;
+    play: jest.Mock;
+    pause: jest.Mock;
+    addEventListener: jest.Mock;
+}
+
+/** Every audio element the page created, in playback order. */
+let played: PlayedAudio[] = [];
+/** Makes every `play()` reject, as a missing or undecodable file would. */
+let playbackFails = false;
+let originalAudio: typeof Audio;
+
 const boards = {
     b1: {
         _id: 'b1',
@@ -145,6 +160,14 @@ const baseTimer = {
     minFinishDuration: 0,
     warnBeforeFocusStart: false,
     screenShotInterval: undefined,
+    workSoundPath: undefined as string | undefined,
+    workSoundEnabled: true,
+    shortBreakSoundPath: undefined as string | undefined,
+    shortBreakSoundEnabled: true,
+    longBreakSoundPath: undefined as string | undefined,
+    longBreakSoundEnabled: true,
+    soundVolume: 0.5,
+    desktopNotification: true,
     followSystemTheme: false,
     themeId: DAY_THEME_ID,
     chosenRecord: undefined,
@@ -213,10 +236,31 @@ describe('Timer page', () => {
         api.setTrayImage.mockClear();
         api.notify.mockClear();
         api.focusOnWindow.mockClear();
+        played = [];
+        playbackFails = false;
+        originalAudio = window.Audio;
+        // jsdom has no media stack. The fake records what the page asked to
+        // play, which is the user-visible part of a reminder; `sound.ts` itself
+        // runs for real, so the URL and the volume are the ones production
+        // would use.
+        (window as any).Audio = jest.fn((src: string) => {
+            const audio: PlayedAudio = {
+                src,
+                volume: 1,
+                play: jest.fn(() =>
+                    playbackFails ? Promise.reject(new Error('decode failed')) : Promise.resolve()
+                ),
+                pause: jest.fn(),
+                addEventListener: jest.fn(),
+            };
+            played.push(audio);
+            return audio;
+        });
         (window as any).api = { ...(window as any).api, ...api };
     });
 
     afterEach(() => {
+        (window as any).Audio = originalAudio;
         cleanup();
         jest.clearAllTimers();
         jest.useRealTimers();
@@ -686,6 +730,129 @@ describe('Timer page', () => {
         expect(api.notify).toHaveBeenCalled();
         expect(actions.setSessionEnding).toHaveBeenCalledWith(true);
         expect(api.focusOnWindow).toHaveBeenCalled();
+    });
+
+    it('plays the short break sound at the configured volume when a break ends', async () => {
+        await renderTimer({
+            // The store raises the ending flag when the session finishes; the
+            // reminder callback reads it before playing.
+            sessionEnding: true,
+            isFocusing: false,
+            iBreak: 1,
+            isRunning: true,
+            targetTime: Date.now() + 1,
+            shortBreakSoundPath: 'C:\\sounds\\short.wav',
+            soundVolume: 0.3,
+        });
+
+        await act(async () => {
+            jest.advanceTimersByTime(1000);
+        });
+
+        expect(played).toHaveLength(1);
+        expect(played[0].src).toBe(soundUrl('C:\\sounds\\short.wav'));
+        expect(played[0].volume).toBe(0.3);
+    });
+
+    it('plays the long break sound when the fourth break ends', async () => {
+        await renderTimer({
+            sessionEnding: true,
+            isFocusing: false,
+            iBreak: 0,
+            isRunning: true,
+            targetTime: Date.now() + 1,
+            longBreakSoundPath: 'C:\\sounds\\long.wav',
+        });
+
+        await act(async () => {
+            jest.advanceTimersByTime(1000);
+        });
+
+        expect(played.map((audio) => audio.src)).toEqual([soundUrl('C:\\sounds\\long.wav')]);
+    });
+
+    it('stays silent when the row is switched off', async () => {
+        await renderTimer({
+            sessionEnding: true,
+            isFocusing: false,
+            iBreak: 1,
+            isRunning: true,
+            targetTime: Date.now() + 1,
+            shortBreakSoundPath: 'C:\\sounds\\short.wav',
+            shortBreakSoundEnabled: false,
+        });
+
+        await act(async () => {
+            jest.advanceTimersByTime(1000);
+        });
+
+        expect(played).toHaveLength(0);
+    });
+
+    it('stays silent at zero volume', async () => {
+        await renderTimer({
+            sessionEnding: true,
+            isFocusing: false,
+            iBreak: 1,
+            isRunning: true,
+            targetTime: Date.now() + 1,
+            soundVolume: 0,
+        });
+
+        await act(async () => {
+            jest.advanceTimersByTime(1000);
+        });
+
+        expect(played).toHaveLength(0);
+    });
+
+    it('falls back to the bundled chime when the file cannot be played', async () => {
+        playbackFails = true;
+        const { feedback } = require('../feedback');
+        // The fallback fails in this test as well; the page logs that on an
+        // expected error path, which the console gate would otherwise fail.
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+        await renderTimer({
+            sessionEnding: true,
+            isFocusing: false,
+            iBreak: 1,
+            isRunning: true,
+            targetTime: Date.now() + 1,
+            shortBreakSoundPath: 'C:\\sounds\\short.wav',
+        });
+
+        await act(async () => {
+            jest.advanceTimersByTime(1000);
+            await Promise.resolve();
+        });
+
+        expect(played.map((audio) => audio.src)).toEqual([
+            soundUrl('C:\\sounds\\short.wav'),
+            DEFAULT_SOUND_URL,
+        ]);
+        expect(feedback.toast).toHaveBeenCalledTimes(1);
+        expect(feedback.toast).toHaveBeenCalledWith({
+            kind: 'warning',
+            content: 'Cannot play short.wav; the default chime is used instead.',
+        });
+
+        errorSpy.mockRestore();
+    });
+
+    it('skips the desktop notification when the switch is off', async () => {
+        await renderTimer({
+            isFocusing: false,
+            isRunning: true,
+            targetTime: Date.now() + 1,
+            desktopNotification: false,
+        });
+
+        await act(async () => {
+            jest.advanceTimersByTime(1000);
+        });
+
+        expect(api.notify).not.toHaveBeenCalled();
     });
 
     it('asks before starting a focus session without a project', async () => {

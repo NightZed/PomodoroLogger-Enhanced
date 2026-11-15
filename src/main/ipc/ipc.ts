@@ -721,4 +721,26 @@ export function initialize() {
         const filePath = result.filePaths[0];
         return filePath;
     });
+    /**
+     * The reminder sounds are used in place: the chosen file is never copied,
+     * so the renderer stores this path and plays it through the `sound://`
+     * protocol (see `init.ts`). The dialog filter is the only format check --
+     * a file Chromium cannot decode falls back to the bundled chime at play
+     * time (`renderer/sound.ts`).
+     */
+    handle(IpcEventName.SelectSound, async (): Promise<string | undefined> => {
+        const result = await dialog.showOpenDialog({
+            properties: ['openFile'],
+            filters: [
+                {
+                    name: m('native.fileFilter.audio'),
+                    extensions: ['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac'],
+                },
+            ],
+        });
+        if (result.canceled || result.filePaths.length === 0) {
+            return undefined;
+        }
+        return result.filePaths[0];
+    });
 }

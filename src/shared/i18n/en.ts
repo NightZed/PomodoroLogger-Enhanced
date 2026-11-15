@@ -717,10 +717,20 @@ export const en = {
             focusStartWarning: 'Focus Start Warning',
             focusStartWarningHint:
                 'Asks for a confirmation before starting a focus session without a project.',
-            sessionEnd: 'Session End',
-            sessionEndHint:
-                'A chime plays when a session finishes. There is no desktop notification: ' +
-                'the ending screen takes over the window instead.',
+            audio: 'Sound',
+            workSound: 'Focus',
+            shortBreakSound: 'Short break',
+            longBreakSound: 'Long break',
+            testSound: 'Test',
+            chooseSound: 'Choose File',
+            restoreSound: 'Reset',
+            defaultSound: 'Default',
+            soundFailed: (name: string): string =>
+                `Cannot play ${name}; the default chime is used instead.`,
+            volume: 'Volume',
+            desktop: 'Desktop',
+            desktopNotification: 'Desktop Notification',
+            desktopNotificationHint: 'Shows a system notification every time a session finishes.',
         },
         about: {
             hint: 'A time logger that meets the Pomodoro technique and a kanban board.',
@@ -768,6 +778,7 @@ export const en = {
             json: 'JSON',
             allFiles: 'All Files',
             images: 'Images',
+            audio: 'Audio',
         },
         importNotJson: (detail: string): string =>
             'the file is not valid JSON: ' +

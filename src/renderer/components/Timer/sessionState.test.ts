@@ -7,11 +7,13 @@ import {
     isFinishTooEarly,
     namedSessionAction,
     progressPercent,
+    reminderSound,
     sessionRemainingMs,
     trayMenuItems,
     TrayActionKey,
     TrayMenuItem,
     TrayState,
+    ReminderState,
 } from './sessionState';
 
 const state = (over: Partial<TrayState> = {}): TrayState => ({
@@ -350,5 +352,62 @@ describe('trayMenuItems', () => {
         expect(menu.finish.enabled).toBe(false);
         // The record is already waiting: Stop cannot throw it away.
         expect(menu.stop.enabled).toBe(false);
+    });
+});
+
+describe('reminderSound', () => {
+    const reminder = (over: Partial<ReminderState> = {}): ReminderState => ({
+        isFocusing: true,
+        iBreak: 0,
+        workSoundPath: undefined,
+        workSoundEnabled: true,
+        shortBreakSoundPath: undefined,
+        shortBreakSoundEnabled: true,
+        longBreakSoundPath: undefined,
+        longBreakSoundEnabled: true,
+        soundVolume: 0.5,
+        ...over,
+    });
+
+    it('uses the focus file for a finished focus session', () => {
+        expect(reminderSound(reminder({ workSoundPath: 'C:\\rain.mp3' }), 4)).toEqual({
+            path: 'C:\\rain.mp3',
+            volume: 0.5,
+        });
+    });
+
+    it('uses the short break file for the other breaks', () => {
+        expect(
+            reminderSound(
+                reminder({ isFocusing: false, iBreak: 2, shortBreakSoundPath: 'C:\\short.wav' }),
+                4
+            )
+        ).toEqual({ path: 'C:\\short.wav', volume: 0.5 });
+    });
+
+    it('uses the long break file for every fourth break', () => {
+        expect(
+            reminderSound(
+                reminder({ isFocusing: false, iBreak: 4, longBreakSoundPath: 'C:\\long.wav' }),
+                4
+            )
+        ).toEqual({ path: 'C:\\long.wav', volume: 0.5 });
+    });
+
+    it('asks for the bundled chime when the row has no file', () => {
+        expect(reminderSound(reminder(), 4)).toEqual({ path: undefined, volume: 0.5 });
+    });
+
+    const switchedOff: [string, Partial<ReminderState>][] = [
+        ['focus', { workSoundEnabled: false }],
+        ['short break', { isFocusing: false, iBreak: 2, shortBreakSoundEnabled: false }],
+        ['long break', { isFocusing: false, iBreak: 0, longBreakSoundEnabled: false }],
+    ];
+    it.each(switchedOff)('is silent when the %s row is switched off', (_kind, over) => {
+        expect(reminderSound(reminder(over), 4)).toBeUndefined();
+    });
+
+    it('is silent at zero volume', () => {
+        expect(reminderSound(reminder({ soundVolume: 0 }), 4)).toBeUndefined();
     });
 });

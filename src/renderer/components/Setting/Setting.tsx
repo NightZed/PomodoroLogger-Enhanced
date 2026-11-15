@@ -21,6 +21,7 @@ import { AppHoursCalibrationDialog } from './AppHoursCalibrationDialog';
 import { ImportReportDialog } from './ImportReportDialog';
 import { useSliderChange } from './useSliderChange';
 import { isScreenshotAvailable } from '../../screenshotSupport';
+import { playSound, soundName } from '../../sound';
 import { t, useI18n } from '../../i18n';
 import type { LanguagePreference, PlainMessageKey } from '../../../shared/i18n';
 import type { LogLevel } from '../../../shared/log';
@@ -297,6 +298,118 @@ const SettingLabel = styled.span`
     color: var(--pl-text);
 `;
 
+/** One reminder sound of the audio group. */
+const SoundBlock = styled.div`
+    padding: 8px 0;
+    border-bottom: 1px solid var(--pl-border);
+
+    &:last-of-type {
+        padding-bottom: 0;
+        border-bottom: none;
+    }
+`;
+
+const SoundRow = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+`;
+
+const SoundFile = styled.div<{ $disabled: boolean }>`
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--pl-text-secondary);
+    opacity: ${({ $disabled }) => ($disabled ? 0.6 : 1)};
+    word-break: break-all;
+`;
+
+interface SoundOptionProps {
+    label: string;
+    /** Absolute path of the chosen file; `undefined` = the bundled chime. */
+    path?: string;
+    enabled: boolean;
+    volume: number;
+    onToggle: (value: boolean) => void;
+    onSelect: () => void;
+    onRestore: () => void;
+}
+
+/**
+ * The switch, the three buttons and the file name of one session kind.
+ *
+ * The switch only silences that kind: the chosen file stays, so turning it
+ * back on needs no new trip through the file dialog (the same reason "Reset"
+ * removes the path instead of the switch).
+ */
+const SoundOption: React.FunctionComponent<SoundOptionProps> = ({
+    label,
+    path,
+    enabled,
+    volume,
+    onToggle,
+    onSelect,
+    onRestore,
+}) => {
+    const { t } = useI18n();
+    const disabled = !enabled;
+
+    const test = async () => {
+        try {
+            await playSound(path, volume);
+        } catch {
+            feedback.toast({
+                kind: 'warning',
+                content: t(
+                    'settings.notification.soundFailed',
+                    path ? soundName(path) : t('settings.notification.defaultSound')
+                ),
+            });
+        }
+    };
+
+    return (
+        <SoundBlock>
+            <SoundRow>
+                <SettingLabel>{label}</SettingLabel>
+                <Switch
+                    size="small"
+                    checked={enabled}
+                    onChange={(value) => onToggle(value)}
+                    aria-label={label}
+                />
+                <Button
+                    size="small"
+                    onClick={test}
+                    disabled={disabled}
+                    aria-label={`${label} ${t('settings.notification.testSound')}`}
+                >
+                    {t('settings.notification.testSound')}
+                </Button>
+                <Button
+                    size="small"
+                    onClick={onSelect}
+                    disabled={disabled}
+                    aria-label={`${label} ${t('settings.notification.chooseSound')}`}
+                >
+                    {t('settings.notification.chooseSound')}
+                </Button>
+                <Button
+                    size="small"
+                    onClick={onRestore}
+                    disabled={disabled || !path}
+                    aria-label={`${label} ${t('settings.notification.restoreSound')}`}
+                >
+                    {t('settings.notification.restoreSound')}
+                </Button>
+            </SoundRow>
+            <SoundFile $disabled={disabled} title={path}>
+                {path ? soundName(path) : t('settings.notification.defaultSound')}
+            </SoundFile>
+        </SoundBlock>
+    );
+};
+
 const marks = {
     25: '25min',
     35: '35min',
@@ -363,6 +476,14 @@ const settingUiStates = [
     'minFinishDuration',
     'monitorInterval',
     'screenShotInterval',
+    'workSoundPath',
+    'workSoundEnabled',
+    'shortBreakSoundPath',
+    'shortBreakSoundEnabled',
+    'longBreakSoundPath',
+    'longBreakSoundEnabled',
+    'soundVolume',
+    'desktopNotification',
     'warnBeforeFocusStart',
     'useHardwareAcceleration',
     'unloadOnCloseToTray',
@@ -713,6 +834,18 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
         const onClearWallpaper = useCallback(() => {
             setWallpaperPath(undefined);
         }, [setWallpaperPath]);
+
+        /**
+         * Opens the audio picker for one reminder row. A cancelled dialog
+         * leaves the row as it was -- `undefined` is only for an explicit
+         * "Reset".
+         */
+        const chooseSound = useCallback(async (set: (path?: string) => void) => {
+            const path = await window.api.selectSound();
+            if (path) {
+                set(path);
+            }
+        }, []);
 
         const onOpenLogDir = useCallback(async () => {
             try {
@@ -1185,8 +1318,63 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             </Field>
 
                             <Field>
-                                <h4>{t('settings.notification.sessionEnd')}</h4>
-                                <Hint>{t('settings.notification.sessionEndHint')}</Hint>
+                                <h4>{t('settings.notification.audio')}</h4>
+                                <SoundOption
+                                    label={t('settings.notification.workSound')}
+                                    path={props.workSoundPath}
+                                    enabled={props.workSoundEnabled}
+                                    volume={props.soundVolume}
+                                    onToggle={props.setWorkSoundEnabled}
+                                    onSelect={() => chooseSound(props.setWorkSoundPath)}
+                                    onRestore={() => props.setWorkSoundPath(undefined)}
+                                />
+                                <SoundOption
+                                    label={t('settings.notification.shortBreakSound')}
+                                    path={props.shortBreakSoundPath}
+                                    enabled={props.shortBreakSoundEnabled}
+                                    volume={props.soundVolume}
+                                    onToggle={props.setShortBreakSoundEnabled}
+                                    onSelect={() => chooseSound(props.setShortBreakSoundPath)}
+                                    onRestore={() => props.setShortBreakSoundPath(undefined)}
+                                />
+                                <SoundOption
+                                    label={t('settings.notification.longBreakSound')}
+                                    path={props.longBreakSoundPath}
+                                    enabled={props.longBreakSoundEnabled}
+                                    volume={props.soundVolume}
+                                    onToggle={props.setLongBreakSoundEnabled}
+                                    onSelect={() => chooseSound(props.setLongBreakSoundPath)}
+                                    onRestore={() => props.setLongBreakSoundPath(undefined)}
+                                />
+                            </Field>
+
+                            <Field>
+                                <h4>{t('settings.notification.volume')}</h4>
+                                <SliderContainer>
+                                    <PreviewSlider
+                                        min={0}
+                                        max={100}
+                                        step={1}
+                                        value={Math.round(props.soundVolume * 100)}
+                                        marks={{ 0: '0%', 50: '50%', 100: '100%' }}
+                                        onCommit={(v) => props.setSoundVolume(v / 100)}
+                                    />
+                                </SliderContainer>
+                            </Field>
+
+                            <Field>
+                                <h4>{t('settings.notification.desktop')}</h4>
+                                <SoundRow>
+                                    <SettingLabel>
+                                        {t('settings.notification.desktopNotification')}
+                                    </SettingLabel>
+                                    <Switch
+                                        checked={props.desktopNotification}
+                                        onChange={(value) => props.setDesktopNotification(value)}
+                                        aria-label={t('settings.notification.desktopNotification')}
+                                    />
+                                </SoundRow>
+                                <Hint>{t('settings.notification.desktopNotificationHint')}</Hint>
                             </Field>
                         </>
                     )}

@@ -124,6 +124,70 @@ describe('EditKanbanForm board name validation', () => {
     );
 });
 
+describe('EditKanbanForm visibility toggle', () => {
+    const Harness = (props: { hidden?: boolean; onSave?: jest.Mock }) => {
+        const [form] = Form.useForm();
+        return (
+            <EditKanbanForm
+                boardId="board-1"
+                boardName="Work"
+                hidden={props.hidden}
+                form={form}
+                visible={true}
+                isCreating={false}
+                onSave={props.onSave}
+                onCancel={jest.fn()}
+                onDelete={jest.fn()}
+                nameValidator={() => true}
+            />
+        );
+    };
+
+    afterEach(() => {
+        cleanup();
+        document.body.innerHTML = '';
+    });
+
+    it('seeds the button from the board, flips it as a draft, and re-seeds on reopen', () => {
+        const onSave = jest.fn();
+        const { rerender } = render(<Harness onSave={onSave} />);
+
+        // The label names the action, so a visible board offers "Hide".
+        fireEvent.click(screen.getByRole('button', { name: 'Hide' }));
+        expect(screen.getByRole('button', { name: 'Show' })).toBeTruthy();
+
+        // Regression: hiding is a draft like the name. Writing here would make
+        // Cancel a lie, and the toggle sits inside the form where a submit
+        // button would close the dialog by accident.
+        expect(onSave).not.toHaveBeenCalled();
+
+        // Reopening on a hidden board starts from that board, not from whatever
+        // was toggled in the previous visit.
+        rerender(<Harness hidden={true} onSave={onSave} />);
+        expect(screen.getByRole('button', { name: 'Show' })).toBeTruthy();
+    });
+
+    it('saves the toggled value together with the other fields', async () => {
+        const onSave = jest.fn();
+        render(<Harness onSave={onSave} />);
+
+        fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), {
+            target: { value: 'Work' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: 'Hide' }));
+
+        await act(async () => {
+            fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+        });
+
+        await waitFor(() =>
+            expect(onSave).toHaveBeenCalledWith(
+                expect.objectContaining({ name: 'Work', hidden: true })
+            )
+        );
+    });
+});
+
 describe('EditKanbanForm delete', () => {
     afterEach(() => {
         cleanup();

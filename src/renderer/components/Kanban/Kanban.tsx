@@ -2,7 +2,7 @@ import React, { FunctionComponent, useCallback, useEffect, useState } from 'reac
 import { KanbanActionTypes } from './action';
 import { KanbanState, uiStateNames } from './reducer';
 import { BoardActionTypes, getCardView } from './Board/action';
-import { Button, Form, Layout, Segmented, Select, Switch, Tooltip } from 'antd';
+import { Button, Form, Layout, Segmented, Select, Tooltip } from 'antd';
 import { AntdIcon as Icon, IconComponent } from '../antdIcon';
 import { feedback, FEEDBACK_MESSAGES } from '../feedback';
 import Board from './Board';
@@ -57,8 +57,11 @@ const CARD_VIEW_OPTIONS: { value: CardView; icon: React.ReactNode; tooltipKey: P
  * background, so the track disappeared into the board header. Style it as a
  * 32px bordered pill that matches the search bar and the circular icon buttons;
  * the selected segment uses the same elevated surface as those buttons.
+ *
+ * Shared by every header segmented: the card view of a board and both the
+ * visibility and view-mode switches of the overview.
  */
-const CardViewSwitch = styled.div`
+const HeaderSegmented = styled.div`
     display: inline-flex;
     flex: none;
     align-items: center;
@@ -100,6 +103,22 @@ const CardViewSwitch = styled.div`
             box-shadow: 0 0 0 1px var(--pl-border);
         }
     }
+`;
+
+/**
+ * Icon-only segments need an accessible name of their own: the icon inside a
+ * `label` is all a screen reader would otherwise read ("eye", "appstore").
+ */
+const SegmentLabel = styled.span`
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+`;
+
+const SegmentCount = styled.span`
+    font-size: 12px;
+    line-height: 1;
+    opacity: 0.75;
 `;
 
 const Content = styled.main`
@@ -222,6 +241,8 @@ export const Kanban: FunctionComponent<Props> = React.memo(
             () => Object.values(props.boards).filter((board) => board.hidden).length,
             [props.boards]
         );
+        /** One string for the segment's tooltip and its accessible name. */
+        const hiddenBoardsLabel = t('kanban.page.hiddenBoards', hiddenBoardCount);
         const getSuggestions = React.useCallback(() => {
             const board = props.kanban.chosenBoardId
                 ? props.boards[props.kanban.chosenBoardId]
@@ -295,14 +316,13 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                 setEditingBoardId(id);
                 setVisible(true);
                 if (id === undefined) {
-                    boardForm.setFieldsValue({ name: '', description: '', hidden: false });
+                    boardForm.setFieldsValue({ name: '', description: '' });
                 } else {
                     const board = boardsRef.current[id];
                     if (board !== undefined) {
                         boardForm.setFieldsValue({
                             name: board.name,
                             description: board.description,
-                            hidden: !!board.hidden,
                         });
                     }
                 }
@@ -498,7 +518,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                         searchStr={props.kanban.searchReg}
                                         tags={getSuggestions}
                                     />
-                                    <CardViewSwitch>
+                                    <HeaderSegmented>
                                         <Segmented
                                             shape="round"
                                             aria-label={t('kanban.page.cardView')}
@@ -513,7 +533,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                                 onCardViewChange(value as CardView)
                                             }
                                         />
-                                    </CardViewSwitch>
+                                    </HeaderSegmented>
                                     <Tooltip title={t('kanban.unassigned.button', unassignedTotal)}>
                                         <Button
                                             style={{
@@ -548,25 +568,73 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                             </>
                         ) : (
                             <LabelButton>
-                                <Segmented
-                                    shape="round"
-                                    aria-label={t('kanban.page.boardScope')}
-                                    style={{ marginRight: 12 }}
-                                    value={showHidden ? 'hidden' : 'active'}
-                                    onChange={(value) => setShowHidden(value === 'hidden')}
-                                    options={[
-                                        {
-                                            value: 'active',
-                                            label: t('kanban.page.activeBoards'),
-                                        },
-                                        {
-                                            value: 'hidden',
-                                            label: t('kanban.page.hiddenBoards', hiddenBoardCount),
-                                        },
-                                    ]}
-                                />
-                                <label>{t('kanban.page.showTable')} </label>
-                                <Switch onChange={onShowTableChange} checked={showTable} />
+                                <HeaderSegmented>
+                                    <Segmented
+                                        shape="round"
+                                        aria-label={t('kanban.page.boardScope')}
+                                        value={showHidden ? 'hidden' : 'active'}
+                                        onChange={(value) => setShowHidden(value === 'hidden')}
+                                        options={[
+                                            {
+                                                value: 'active',
+                                                tooltip: t('kanban.page.activeBoards'),
+                                                label: (
+                                                    <SegmentLabel
+                                                        aria-label={t('kanban.page.activeBoards')}
+                                                    >
+                                                        <Icon type="eye" />
+                                                    </SegmentLabel>
+                                                ),
+                                            },
+                                            {
+                                                value: 'hidden',
+                                                tooltip: hiddenBoardsLabel,
+                                                label: (
+                                                    <SegmentLabel aria-label={hiddenBoardsLabel}>
+                                                        <Icon type="eye-invisible" />
+                                                        {hiddenBoardCount > 0 ? (
+                                                            <SegmentCount>
+                                                                {hiddenBoardCount}
+                                                            </SegmentCount>
+                                                        ) : null}
+                                                    </SegmentLabel>
+                                                ),
+                                            },
+                                        ]}
+                                    />
+                                </HeaderSegmented>
+                                <HeaderSegmented>
+                                    <Segmented
+                                        shape="round"
+                                        aria-label={t('kanban.page.viewMode')}
+                                        value={showTable ? 'table' : 'board'}
+                                        onChange={(value) => onShowTableChange(value === 'table')}
+                                        options={[
+                                            {
+                                                value: 'board',
+                                                tooltip: t('kanban.page.boardView'),
+                                                label: (
+                                                    <SegmentLabel
+                                                        aria-label={t('kanban.page.boardView')}
+                                                    >
+                                                        <Icon type="appstore" />
+                                                    </SegmentLabel>
+                                                ),
+                                            },
+                                            {
+                                                value: 'table',
+                                                tooltip: t('kanban.page.tableView'),
+                                                label: (
+                                                    <SegmentLabel
+                                                        aria-label={t('kanban.page.tableView')}
+                                                    >
+                                                        <Icon type="table" />
+                                                    </SegmentLabel>
+                                                ),
+                                            },
+                                        ]}
+                                    />
+                                </HeaderSegmented>
                             </LabelButton>
                         )}
                     </div>
@@ -606,6 +674,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                 <EditKanbanForm
                     boardId={editingBoardId || ''}
                     boardName={editingBoardId ? props.boards[editingBoardId]?.name : undefined}
+                    hidden={editingBoardId ? !!props.boards[editingBoardId]?.hidden : false}
                     form={boardForm}
                     visible={visible}
                     onSave={handleSave}

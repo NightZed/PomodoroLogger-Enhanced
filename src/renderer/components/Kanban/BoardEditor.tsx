@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
-import { Button, Form, Input, Switch, Tabs } from 'antd';
+import { Button, Form, Input, Tabs, Tooltip } from 'antd';
 import type { RuleObject } from 'antd/es/form';
+import styled from 'styled-components';
 import { feedback, FEEDBACK_MESSAGES } from '../feedback';
 import { AppModal } from '../AppModal';
 import { getPopupContainer } from '../popupLayer';
@@ -13,10 +14,23 @@ import { Markdown } from './style/Markdown';
 import { AntdIcon as Icon } from '../antdIcon';
 import { useI18n } from '../../i18n';
 
+/**
+ * Delete and the visibility toggle share the bottom row of the form. Hiding is
+ * a draft exactly like the name and the description: the button flips right
+ * away, but only Save writes `hidden`, so Cancel keeps the board as it was.
+ */
+const ActionRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
 interface FormProps {
     boardId: string;
     /** Shown in the delete confirmation so the dialog names its target. */
     boardName?: string;
+    /** Whether the board is currently hidden; the toggle edits a draft of it. */
+    hidden?: boolean;
     onSave?: (values: { name: string; description: string; hidden?: boolean }) => void;
     onCancel?: any;
     form: any;
@@ -41,9 +55,19 @@ export const EditKanbanForm = (props: FormProps) => {
         boardName,
         onCancel,
         createdTime,
+        hidden: savedHidden,
     } = props;
     const [showMarkdownPreview, setShowMarkdownPreview] = useState(false);
     const [description, setDescription] = useState('');
+    /**
+     * Draft of the board's visibility, seeded when the dialog opens. It is not
+     * a `Form.Item`: the toggle is a button at the bottom of the form, and a
+     * field the form does not render would never reach `onFinish`. The draft is
+     * merged back into the values in `onFinish` instead.
+     */
+    const [hidden, setHidden] = useState(!!savedHidden);
+    /** The button names the action, so its label flips with the draft. */
+    const visibilityLabel = hidden ? t('kanban.boardEditor.show') : t('kanban.boardEditor.hide');
 
     const onKeydown = useCallback(
         (e: React.KeyboardEvent<any>) => {
@@ -63,12 +87,15 @@ export const EditKanbanForm = (props: FormProps) => {
     }, [form]);
 
     // Every time the dialog opens (for a new or an existing board) it has to
-    // start on the Edit tab, even if the previous visit ended on Preview.
+    // start on the Edit tab, even if the previous visit ended on Preview. The
+    // visibility draft is re-seeded here too, so reopening a board never shows
+    // the toggle of whatever was edited before.
     useLayoutEffect(() => {
         if (visible) {
             setShowMarkdownPreview(false);
+            setHidden(!!savedHidden);
         }
-    }, [visible, isCreating]);
+    }, [visible, isCreating, savedHidden]);
 
     const validator = useCallback(
         (_rule: RuleObject, name: unknown) => {
@@ -118,7 +145,12 @@ export const EditKanbanForm = (props: FormProps) => {
             forceRender
         >
             <EditorContainer>
-                <Form form={form} layout="vertical" onKeyDown={onKeydown} onFinish={onSave}>
+                <Form
+                    form={form}
+                    layout="vertical"
+                    onKeyDown={onKeydown}
+                    onFinish={(values) => onSave?.({ ...values, hidden })}
+                >
                     <Form.Item
                         label={t('kanban.boardEditor.name')}
                         name="name"
@@ -133,17 +165,6 @@ export const EditKanbanForm = (props: FormProps) => {
                     >
                         <Input onKeyDown={onKeydown} />
                     </Form.Item>
-                    {!isCreating ? (
-                        <Form.Item
-                            label={t('kanban.boardEditor.hidden')}
-                            name="hidden"
-                            valuePropName="checked"
-                            extra={t('kanban.boardEditor.hiddenHint')}
-                            style={{ marginBottom: 12 }}
-                        >
-                            <Switch />
-                        </Form.Item>
-                    ) : undefined}
                     {!isCreating && createdTime !== undefined ? (
                         <CreatedTime style={{ marginTop: -4, marginBottom: 8 }}>
                             {t('kanban.page.created')}: {formatTimeYmdHm(createdTime)}
@@ -197,14 +218,30 @@ export const EditKanbanForm = (props: FormProps) => {
                     {!isCreating ? (
                         <>
                             <Form.Item>
-                                <Button
-                                    type="primary"
-                                    danger
-                                    icon={<Icon type={'delete'} />}
-                                    onClick={onDeleteClick}
-                                >
-                                    {t('common.delete')}
-                                </Button>
+                                <ActionRow>
+                                    <Button
+                                        type="primary"
+                                        danger
+                                        icon={<Icon type={'delete'} />}
+                                        onClick={onDeleteClick}
+                                    >
+                                        {t('common.delete')}
+                                    </Button>
+                                    {/* The label names the action, so it flips with
+                                        the pending value: a visible board offers
+                                        "hide", a hidden one offers "show". The
+                                        explicit `aria-label` keeps the icon's own
+                                        name ("eye-invisible") out of it. */}
+                                    <Tooltip title={t('kanban.boardEditor.hiddenHint')}>
+                                        <Button
+                                            icon={<Icon type={hidden ? 'eye' : 'eye-invisible'} />}
+                                            aria-label={visibilityLabel}
+                                            onClick={() => setHidden((value) => !value)}
+                                        >
+                                            {visibilityLabel}
+                                        </Button>
+                                    </Tooltip>
+                                </ActionRow>
                             </Form.Item>
                             <DistractingListModalButton boardId={boardId} />
                         </>

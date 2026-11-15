@@ -4,8 +4,8 @@ import { Kanban } from './Kanban';
 
 jest.mock('./Board', () => ({ __esModule: true, default: () => <div data-testid="board" /> }));
 jest.mock('./Board/Overview', () => ({
-    Overview: ({ showConfigById, showTable }: any) => (
-        <div data-testid="overview" data-table={String(showTable)}>
+    Overview: ({ showConfigById, showTable, showHidden }: any) => (
+        <div data-testid="overview" data-table={String(showTable)} data-hidden={String(showHidden)}>
             <button data-testid="overview-configure" onClick={() => showConfigById('b1')} />
         </div>
     ),
@@ -353,5 +353,47 @@ describe('Kanban page', () => {
 
         expect(actions.setSearchReg).toHaveBeenCalledWith(undefined);
         expect((global as any).__searchProps.enabled).toBe(false);
+    });
+});
+
+describe('Kanban overview header', () => {
+    afterEach(() => {
+        cleanup();
+        jest.clearAllTimers();
+    });
+
+    it('switches the overview between the board grid and the table', () => {
+        const { getByRole, getByTestId } = renderKanban();
+        expect(getByTestId('overview').getAttribute('data-table')).toBe('false');
+
+        fireEvent.click(getByRole('radio', { name: 'Table' }));
+        expect(getByTestId('overview').getAttribute('data-table')).toBe('true');
+
+        fireEvent.click(getByRole('radio', { name: 'Board' }));
+        expect(getByTestId('overview').getAttribute('data-table')).toBe('false');
+    });
+
+    // Regression: the icon-only segments got their name from the icon itself
+    // ("eye", "appstore") until each label carried an explicit aria-label, so
+    // the control was unusable without sight.
+    it('names the visibility segments after the boards they show', () => {
+        const hidden = { ...board, _id: 'b2', name: 'Board Two', hidden: true };
+        const { getByRole, getByTestId } = renderKanban({
+            boards: { b1: board, b2: hidden },
+        });
+
+        expect(getByTestId('overview').getAttribute('data-hidden')).toBe('false');
+        fireEvent.click(getByRole('radio', { name: 'Hidden (1)' }));
+
+        expect(getByTestId('overview').getAttribute('data-hidden')).toBe('true');
+    });
+
+    it('keeps the hidden segment usable when nothing is hidden', () => {
+        const { getByRole, getByTestId } = renderKanban();
+
+        fireEvent.click(getByRole('radio', { name: 'Hidden (0)' }));
+
+        // The empty state is reachable instead of the segment going dead.
+        expect(getByTestId('overview').getAttribute('data-hidden')).toBe('true');
     });
 });

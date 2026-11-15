@@ -1,6 +1,7 @@
 import * as React from 'react';
 import Icon, {
     AlignLeftOutlined,
+    AppstoreOutlined,
     BarChartOutlined,
     BellOutlined,
     BorderOutlined,
@@ -12,6 +13,8 @@ import Icon, {
     DeleteOutlined,
     DownOutlined,
     ExpandOutlined,
+    EyeInvisibleOutlined,
+    EyeOutlined,
     FileTextOutlined,
     FullscreenExitOutlined,
     FullscreenOutlined,
@@ -35,6 +38,7 @@ import Icon, {
     SkinOutlined,
     SwapOutlined,
     SwitcherOutlined,
+    TableOutlined,
     TagsOutlined,
     UnlockOutlined,
     UpOutlined,
@@ -56,6 +60,8 @@ export { Icon as IconComponent };
 
 const MAP = {
     'align-left': AlignLeftOutlined,
+    /** Board cards laid out in a grid, the counterpart of `table`. */
+    appstore: AppstoreOutlined,
     'bar-chart': BarChartOutlined,
     bell: BellOutlined,
     border: BorderOutlined,
@@ -70,6 +76,13 @@ const MAP = {
     down: DownOutlined,
     expand: ExpandOutlined,
     'exclamation-circle': InfoCircleOutlined,
+    /**
+     * A board's visibility toggle shows the icon of the *action*, not of the
+     * current state: a shown board offers "hide" (crossed eye), a hidden one
+     * offers "show" (open eye).
+     */
+    'eye-invisible': EyeInvisibleOutlined,
+    eye: EyeOutlined,
     'file-text': FileTextOutlined,
     'fullscreen-exit': FullscreenExitOutlined,
     fullscreen: FullscreenOutlined,
@@ -94,6 +107,8 @@ const MAP = {
     skin: SkinOutlined,
     swap: SwapOutlined,
     switcher: SwitcherOutlined,
+    /** Rows and columns: the table view of the overview. */
+    table: TableOutlined,
     tags: TagsOutlined,
     unlock: UnlockOutlined,
     up: UpOutlined,

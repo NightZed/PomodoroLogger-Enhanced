@@ -514,13 +514,25 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                             }
                                         />
                                     </CardViewSwitch>
-                                    <Button
-                                        style={{ marginRight: 4 }}
-                                        disabled={unassignedTotal === 0}
-                                        onClick={() => setUnassignedOpen(true)}
-                                    >
-                                        {t('kanban.unassigned.button', unassignedTotal)}
-                                    </Button>
+                                    <Tooltip title={t('kanban.unassigned.button', unassignedTotal)}>
+                                        <Button
+                                            style={{
+                                                marginRight: 4,
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: 6,
+                                            }}
+                                            disabled={unassignedTotal === 0}
+                                            aria-label={t(
+                                                'kanban.unassigned.button',
+                                                unassignedTotal
+                                            )}
+                                            onClick={() => setUnassignedOpen(true)}
+                                        >
+                                            <Icon type={'inbox'} />
+                                            {unassignedTotal}
+                                        </Button>
+                                    </Tooltip>
                                     <PlayPauseButton
                                         showPlay={
                                             !(props.isFocusingOnChosenBoard && props.isTimerRunning)

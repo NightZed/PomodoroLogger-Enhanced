@@ -17,6 +17,7 @@ import Icon, {
     FullscreenOutlined,
     GithubOutlined,
     HistoryOutlined,
+    InboxOutlined,
     InfoCircleOutlined,
     LinkOutlined,
     LockOutlined,
@@ -74,6 +75,8 @@ const MAP = {
     fullscreen: FullscreenOutlined,
     github: GithubOutlined,
     history: HistoryOutlined,
+    /** Sessions that no card counts: the "inbox" of a board. */
+    inbox: InboxOutlined,
     'info-circle': InfoCircleOutlined,
     link: LinkOutlined,
     lock: LockOutlined,

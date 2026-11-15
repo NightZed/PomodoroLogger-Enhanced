@@ -276,8 +276,8 @@ export const zh: CatalogShape<typeof en> = {
             hidden: '已隐藏',
         },
         unassigned: {
-            button: (count: number): string => `未分配 (${count})`,
-            title: (board: string): string => `未分配 · ${board}`,
+            button: (count: number): string => `未挂卡的番茄 (${count})`,
+            title: (board: string): string => `未挂卡的番茄 · ${board}`,
             hint: '这些专注还没有被任何卡片计入。',
             empty: '没有等待挂卡的记录',
             noCard: '未挂卡',

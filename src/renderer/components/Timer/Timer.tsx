@@ -24,6 +24,7 @@ import backIcon from '../../../res/back.svg';
 import { DAY_THEME_ID, NIGHT_THEME_ID } from '../../theme/tokens';
 import { PomodoroTimeTreemap } from '../Visualization/PomodoroTimeTreemap';
 import { AsyncWordCloud } from '../Visualization/WordCloud';
+import { deriveWindowMode } from '../pageUnload';
 import { LONG_BREAK_INTERVAL, TimerActionTypes as ThisActionTypes, uiStateNames } from './action';
 import { FocusSelector } from './FocusSelector';
 import { FocusStartWarning, getFocusStartWarningIfEnabled } from './focusStartWarning';
@@ -547,11 +548,16 @@ class Timer extends Component<Props, State> {
             this.reloadTodaySessions();
         }
 
-        // Entering compact mode clips the stats charts: the window is 370px of
-        // content while the treemap and the word cloud are 800px wide. Close
-        // the panel instead of leaving it open-but-invisible, so the chart
-        // button toggles back on predictably after expanding again.
-        if (!prevProps.timer.compact && this.props.timer.compact && this.state.more) {
+        // Leaving the normal window closes the "today's statistics" panel.
+        // Compact clips the charts (370px of content against 800px wide ones),
+        // the mini strip does not render the page body at all, and the tray is
+        // not being looked at -- there the treemap and the word cloud are memory
+        // nothing will read. A tray entry releases them right away instead of
+        // waiting for the page-unload grace, which pays off the most here: the
+        // Timer page itself never unmounts (see `pageUnload.ts`).
+        const previousMode = deriveWindowMode(prevProps.timer);
+        const mode = deriveWindowMode(this.props.timer);
+        if (mode !== previousMode && mode !== 'normal' && this.state.more) {
             this.setState({ more: false });
         }
     }

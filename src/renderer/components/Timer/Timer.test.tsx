@@ -137,6 +137,7 @@ const baseTimer = {
     iBreak: 0,
     minimize: false,
     compact: false,
+    inTray: false,
     boardId: 'b1' as string | undefined,
     focusDuration: 25 * 60,
     restDuration: 5 * 60,
@@ -526,6 +527,59 @@ describe('Timer page', () => {
             timer: { ...compactProps.timer, compact: false },
         };
         await rerenderTimer(view, expandedProps);
+        expect(view.queryByTestId('treemap')).toBeNull();
+    });
+
+    it('closes the open stats panel when the window becomes the mini strip', async () => {
+        (getTodaySessions as jest.Mock).mockResolvedValue([
+            { _id: 's1', startTime: 1, boardId: 'b1' },
+        ]);
+        const view = await renderTimer();
+
+        fireEvent.click(view.container.querySelector('#more-timer-button')!);
+        expect(view.queryByTestId('treemap')).toBeTruthy();
+
+        const miniProps = {
+            ...view.props,
+            timer: { ...view.props.timer, minimize: true },
+        };
+        await rerenderTimer(view, miniProps);
+        // The strip does not render the panel at all, so it must not come back
+        // open when the window expands again.
+        expect(view.queryByTestId('treemap')).toBeNull();
+
+        const expandedProps = {
+            ...miniProps,
+            timer: { ...miniProps.timer, minimize: false },
+        };
+        await rerenderTimer(view, expandedProps);
+        expect(view.queryByTestId('treemap')).toBeNull();
+    });
+
+    it('closes the open stats panel when the window goes to the tray', async () => {
+        (getTodaySessions as jest.Mock).mockResolvedValue([
+            { _id: 's1', startTime: 1, boardId: 'b1' },
+        ]);
+        const view = await renderTimer();
+
+        fireEvent.click(view.container.querySelector('#more-timer-button')!);
+        expect(view.queryByTestId('treemap')).toBeTruthy();
+
+        const trayProps = {
+            ...view.props,
+            timer: { ...view.props.timer, inTray: true },
+        };
+        await rerenderTimer(view, trayProps);
+        // Nobody is looking: the treemap and the word cloud are released now,
+        // not after the page-unload grace -- the Timer page never unmounts.
+        expect(view.queryByTestId('treemap')).toBeNull();
+        expect(view.queryByTestId('word-cloud')).toBeNull();
+
+        const backProps = {
+            ...trayProps,
+            timer: { ...trayProps.timer, inTray: false },
+        };
+        await rerenderTimer(view, backProps);
         expect(view.queryByTestId('treemap')).toBeNull();
     });
 

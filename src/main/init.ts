@@ -187,6 +187,42 @@ function notifyWindowState(): void {
     win.webContents.send(WindowEventName.MaximizedChanged, maximized);
 }
 
+/**
+ * Whether the window is off screen: minimized (Windows close-to-tray, see
+ * `closeToTray`) or hidden (every other platform). Occlusion deliberately does
+ * not count -- a window fully covered by another opaque window is still on
+ * screen, and `document.visibilityState` cannot tell the two apart, which is
+ * exactly why the renderer no longer decides this (see
+ * `WindowEventName.TrayChanged`).
+ *
+ * This is the ONLY place the state is settled. The page-unload grace in the
+ * renderer and the aggregation child's release both hang off it. They used to
+ * be two separate judgements -- `document.visibilityState` on one side,
+ * `minimize`/`hide` listeners on the other -- so they drifted apart: a covered
+ * window released its pages while the child waited out its 60s idle timer, and
+ * a real tray entry unloaded pages after 30s while the child went at once.
+ */
+let trayState = false;
+
+function applyTrayState(next: boolean): void {
+    if (next === trayState) {
+        // `restore` + `show` arrive as a pair, and the very first `show()` of a
+        // new window lands here too; only changes are worth broadcasting.
+        return;
+    }
+
+    trayState = next;
+    log('app', 'info', `window ${next ? 'entered' : 'left'} the tray`);
+    if (next) {
+        // The child still holds the year of records it aggregated, and nobody
+        // is going to ask for more while the window is away. A request already
+        // in flight is left to finish; the child goes when its reply lands.
+        releaseWorkerNow();
+    }
+
+    win?.webContents.send(WindowEventName.TrayChanged, next);
+}
+
 let windowDiagnosticsInstalled = false;
 
 /**
@@ -538,13 +574,16 @@ const createWindow = async () => {
     win.on('blur', stopWindowDrag);
     win.on('hide', stopWindowDrag);
 
-    // The aggregation child still holds the year of records it handed back.
-    // Nobody is going to ask it for more while the window is out of sight, so
-    // let it go now instead of waiting out its 60s idle timer. Windows reaches
-    // this through `minimize()` (see `closeToTray`), the other platforms
-    // through `hide()`.
-    win.on('minimize', releaseWorkerNow);
-    win.on('hide', releaseWorkerNow);
+    // The window went out of sight or came back. Drives both the aggregation
+    // child's release and the renderer's page-unload grace, so the two can
+    // never disagree (see `applyTrayState`). Windows reaches `true` through
+    // `minimize()` (see `closeToTray`), the other platforms through `hide()`;
+    // `restore` and `show` are the respective ways back -- `revealWindow` calls
+    // both, and the duplicates are absorbed by the state check.
+    win.on('minimize', () => applyTrayState(true));
+    win.on('hide', () => applyTrayState(true));
+    win.on('restore', () => applyTrayState(false));
+    win.on('show', () => applyTrayState(false));
 
     // No `Event` annotation: since Electron 39 the handler receives Electron's
     // own structural `Event` type, which is not the DOM `Event` from `lib.dom`.

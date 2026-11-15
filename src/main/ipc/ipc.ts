@@ -491,7 +491,14 @@ export function initialize() {
     // Asked once by the renderer when it mounts: the pushed
     // `WindowEventName.MaximizedChanged` events only report changes, and a
     // reload would otherwise have to wait for the next one to match the icon.
-    handle(IpcEventName.WindowState, () => ({ maximized: win ? win.isMaximized() : false }));
+    // `inTray` is the same judgement `init.ts` applies to the pushed
+    // `TrayChanged` event. It cannot be "not visible": an occluded window (one
+    // fully covered by another opaque window) is still visible and must NOT
+    // count as being in the tray.
+    handle(IpcEventName.WindowState, () => ({
+        maximized: win ? win.isMaximized() : false,
+        inTray: win ? win.isMinimized() || !win.isVisible() : false,
+    }));
     handle(
         IpcEventName.OpenAtLogin,
         (on) => {

@@ -133,9 +133,17 @@ export enum UpdateEventName {
  * Electron emulates it by resizing to the display work area (see
  * `NativeWindowViews::Maximize`) -- so the renderer's caption buttons cannot
  * read the state from anywhere else, and the window has to be able to report it.
+ *
+ * `TrayChanged` carries whether the window is off screen (`minimize()`d or
+ * `hide()`n). The renderer used `document.visibilityState` for this, but on
+ * Windows that also reports `hidden` while the window is merely covered by
+ * another opaque window: the two cases are indistinguishable from the page, so
+ * the window would release its pages while still on screen. Only the main
+ * process can tell them apart (`isVisible()` stays true when occluded).
  */
 export enum WindowEventName {
     MaximizedChanged = 'window-maximized-changed',
+    TrayChanged = 'window-tray-changed',
     /**
      * The user is dragging an edge (true) or stopped more than
      * `RESIZE_IDLE_MS` ago (false). Pushed, not polled: the renderer switches
@@ -373,6 +381,13 @@ export type ExposedAPI = {
     onUpdateError(listener: (payload: UpdateErrorPayload) => void): () => void;
     onWindowMaximizedChanged(listener: (maximized: boolean) => void): () => void;
     onWindowResizingChanged(listener: (resizing: boolean) => void): () => void;
+    /**
+     * The window left the screen (`true`) or came back (`false`). Pushed, not
+     * polled; the first value comes from `windowState()`, because a renderer
+     * that reloads while the window is in the tray would otherwise wait for the
+     * next change. See `WindowEventName.TrayChanged`.
+     */
+    onWindowTrayChanged(listener: (inTray: boolean) => void): () => void;
     onTrayAction(listener: (key: TrayActionKey) => void): () => void;
 };
 
@@ -399,6 +414,12 @@ export type WindowDragPhase = 'start' | 'end';
 /** Window state the renderer's caption buttons mirror. */
 export type WindowState = {
     maximized: boolean;
+    /**
+     * The window is minimized or hidden -- i.e. only in the tray, not merely
+     * covered by another window. Asked once on mount because the pushed
+     * `TrayChanged` events only report changes.
+     */
+    inTray: boolean;
 };
 
 /**

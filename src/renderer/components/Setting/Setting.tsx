@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { TimerActionTypes, TimerState } from '../Timer/action';
 import styled from 'styled-components';
 import { GithubOutlined } from '@ant-design/icons';
-import { Button, Slider, Switch } from 'antd';
+import { Button, Switch } from 'antd';
 import { deleteAllUserData } from '../../monitor/sessionManager';
 import { feedback, FEEDBACK_MESSAGES } from '../feedback';
 import { DistractingListModalButton } from './DistractingList';
@@ -20,6 +20,11 @@ import { DataRepairDialog } from './DataRepairDialog';
 import { AppHoursCalibrationDialog } from './AppHoursCalibrationDialog';
 import { ImportReportDialog } from './ImportReportDialog';
 import { useSliderChange } from './useSliderChange';
+import {
+    applyContentOpacity,
+    applyThemeBackgroundOpacity,
+    applyWallpaperOpacity,
+} from '../../theme/opacity';
 import { isScreenshotAvailable } from '../../screenshotSupport';
 import { playSound, soundName } from '../../sound';
 import { t, useI18n } from '../../i18n';
@@ -641,36 +646,51 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
         // duration allows it.
         const minFinishMaxMinutes = Math.max(1, Math.floor(props.focusDuration / 60));
 
-        const onChangeContentOpacity = React.useCallback(
-            (v: number) => {
-                setContentOpacity(v / 100);
-            },
+        // `PreviewSlider` hands the slider's own unit (0-100) to `onCommit`; the
+        // setting is kept as a 0-1 fraction like everywhere else.
+        const commitContentOpacity = React.useCallback(
+            (v: number) => setContentOpacity(v / 100),
             [setContentOpacity]
         );
-
-        const onChangeThemeBackgroundOpacity = React.useCallback(
-            (v: number) => {
-                setThemeBackgroundOpacity(v / 100);
-            },
+        const commitThemeBackgroundOpacity = React.useCallback(
+            (v: number) => setThemeBackgroundOpacity(v / 100),
             [setThemeBackgroundOpacity]
         );
-
-        const onChangeWallpaperOpacity = React.useCallback(
-            (v: number) => {
-                setWallpaperOpacity(v / 100);
-            },
+        const commitWallpaperOpacity = React.useCallback(
+            (v: number) => setWallpaperOpacity(v / 100),
             [setWallpaperOpacity]
         );
 
+        // The three opacity sliders preview straight to the DOM: their value is
+        // what the window is showing, so a drag applies it per frame -- but as
+        // a CSS custom property write (`theme/opacity.ts`), NOT as a store
+        // update. A per-frame store write re-renders every connect()ed
+        // component; once a fast drag outruns those renders, react-redux's
+        // store check starts scheduling re-renders from inside React's passive
+        // effects and trips the nested-update counter
+        // ("Maximum update depth exceeded"). The store hears about the drag
+        // once, through `onCommit`, and `ThemeController` writes the variable
+        // again with the same value.
+        const previewContentOpacity = React.useCallback(
+            (v: number) => applyContentOpacity(v / 100),
+            []
+        );
+        const previewThemeBackgroundOpacity = React.useCallback(
+            (v: number) => applyThemeBackgroundOpacity(v / 100),
+            []
+        );
+        const previewWallpaperOpacity = React.useCallback(
+            (v: number) => applyWallpaperOpacity(v / 100),
+            []
+        );
+
         // Dragging reports a value per pointer event, far more often than a
-        // screen can show one: these fold that burst into one change per frame
-        // (see `useSliderChange`). Only the value travels this way -- what each
-        // slider *saves* is decided in its action. The durations do not need
-        // this at all: `PreviewSlider` leaves the value to the slider and
-        // commits it once, when the drag ends.
-        const queueContentOpacityChange = useSliderChange(onChangeContentOpacity);
-        const queueThemeBackgroundOpacityChange = useSliderChange(onChangeThemeBackgroundOpacity);
-        const queueWallpaperOpacityChange = useSliderChange(onChangeWallpaperOpacity);
+        // screen can show one: these fold that burst into one write per frame
+        // (see `useSliderChange`). The preview is the only thing traveling this
+        // way -- what each slider *saves* is decided by its `onCommit` action.
+        const queueContentOpacityPreview = useSliderChange(previewContentOpacity);
+        const queueThemeBackgroundOpacityPreview = useSliderChange(previewThemeBackgroundOpacity);
+        const queueWallpaperOpacityPreview = useSliderChange(previewWallpaperOpacity);
 
         const switchScreenshot = React.useCallback(
             (v: boolean) => {
@@ -1224,13 +1244,14 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                 <h4>{t('settings.appearance.contentOpacity')}</h4>
                                 <Hint>{t('settings.appearance.contentOpacityHint')}</Hint>
                                 <SliderContainer>
-                                    <Slider
+                                    <PreviewSlider
                                         marks={opacityMarks}
                                         min={10}
                                         max={100}
                                         step={5}
                                         value={Math.round(props.contentOpacity * 100)}
-                                        onChange={queueContentOpacityChange}
+                                        onPreview={queueContentOpacityPreview}
+                                        onCommit={commitContentOpacity}
                                     />
                                 </SliderContainer>
                             </Field>
@@ -1239,13 +1260,14 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                 <h4>{t('settings.appearance.backgroundOpacity')}</h4>
                                 <Hint>{t('settings.appearance.backgroundOpacityHint')}</Hint>
                                 <SliderContainer>
-                                    <Slider
+                                    <PreviewSlider
                                         marks={themeBackgroundOpacityMarks}
                                         min={10}
                                         max={100}
                                         step={5}
                                         value={Math.round(props.themeBackgroundOpacity * 100)}
-                                        onChange={queueThemeBackgroundOpacityChange}
+                                        onPreview={queueThemeBackgroundOpacityPreview}
+                                        onCommit={commitThemeBackgroundOpacity}
                                     />
                                 </SliderContainer>
                             </Field>
@@ -1269,13 +1291,14 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             <Field>
                                 <h4>{t('settings.appearance.wallpaperOpacity')}</h4>
                                 <SliderContainer>
-                                    <Slider
+                                    <PreviewSlider
                                         marks={wallpaperOpacityMarks}
                                         min={10}
                                         max={100}
                                         step={5}
                                         value={Math.round(props.wallpaperOpacity * 100)}
-                                        onChange={queueWallpaperOpacityChange}
+                                        onPreview={queueWallpaperOpacityPreview}
+                                        onCommit={commitWallpaperOpacity}
                                     />
                                 </SliderContainer>
                             </Field>

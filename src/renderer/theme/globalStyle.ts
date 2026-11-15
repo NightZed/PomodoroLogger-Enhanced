@@ -16,6 +16,8 @@ export const GlobalStyle = createGlobalStyle`
     /* Fallback so the very first frame already matches the default (night) theme. */
     :root {
         --pl-theme-bg-opacity: 100%;
+        --pl-wallpaper-opacity: 1;
+        --pl-content-opacity: 1;
         --pl-bg: #141414;
         --pl-bg-elevated: #1f1f1f;
         --pl-bg-sunken: #262626;

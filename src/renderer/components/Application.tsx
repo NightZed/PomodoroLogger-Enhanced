@@ -57,9 +57,14 @@ import { FeedbackContextBridge } from './feedback/Feedback';
  * once, on that band only) and stays on the solid-fill fast path.
  *
  * The three settings are independent on purpose (a translucent background must
- * not dim the text, and vice versa) and each has exactly one output path: the
- * surfaces travel as the `--pl-theme-bg-opacity` custom property written by
- * `ThemeController`, the other two are plain element opacities.
+ * not dim the text, and vice versa) and each has exactly one output path: all
+ * three travel as CSS custom properties (`--pl-theme-bg-opacity`,
+ * `--pl-wallpaper-opacity`, `--pl-content-opacity`) written by
+ * `ThemeController`. That indirection is what lets a slider drag preview
+ * without touching the store: the drag writes the variable directly (no React
+ * work, no re-render of this tree), and the committed value arrives here the
+ * usual way. The surfaces quote the properties instead of taking the values as
+ * props, so each setting has exactly one output path.
  */
 
 /**
@@ -182,7 +187,7 @@ const Main = styled.div<StyledProps>`
     }
 `;
 
-const Wallpaper = styled.div<{ $path?: string; $opacity: number }>`
+const Wallpaper = styled.div<{ $path?: string }>`
     position: absolute;
     inset: 0;
     z-index: 1;
@@ -196,15 +201,15 @@ const Wallpaper = styled.div<{ $path?: string; $opacity: number }>`
         background-position: center;
         background-size: cover;
         background-repeat: no-repeat;
-        opacity: ${({ $opacity }) => $opacity};
+        opacity: var(--pl-wallpaper-opacity);
     }
 `;
 
-const Content = styled.div<{ $contentOpacity: number }>`
+const Content = styled.div`
     position: relative;
     z-index: 2;
     height: 100%;
-    opacity: ${({ $contentOpacity }) => $contentOpacity};
+    opacity: var(--pl-content-opacity);
 `;
 
 const WindowRing = styled.div<{ $resizing: boolean }>`
@@ -231,9 +236,7 @@ interface Props extends TimerActionTypes, HistoryActionCreatorTypes {
     minimize: boolean;
     compact: boolean;
     compactAlwaysOnTop: boolean;
-    contentOpacity: number;
     wallpaperDataUrl?: string;
-    wallpaperOpacity: number;
     /** The ending mask is up: the pages must not be switched away from it. */
     sessionEnding: boolean;
     /**
@@ -420,9 +423,7 @@ class Application extends React.Component<Props, State> {
             minimize,
             compact,
             compactAlwaysOnTop,
-            contentOpacity,
             wallpaperDataUrl,
-            wallpaperOpacity,
             sessionEnding,
             setCompactAlwaysOnTop,
             unloadOnCloseToTray,
@@ -447,8 +448,8 @@ class Application extends React.Component<Props, State> {
             // An explicit container/getContainer prop on any of them still
             // wins over this default.
             <Main $minimize={minimize} $compact={compact} $resizing={this.state.resizing}>
-                <Wallpaper $path={wallpaperDataUrl} $opacity={wallpaperOpacity} />
-                <Content $contentOpacity={contentOpacity}>
+                <Wallpaper $path={wallpaperDataUrl} />
+                <Content>
                     {/* Mount point of every antd overlay (dialogs, toasts,
                         notifications, popovers). It lives inside the content
                         layer so those surfaces fade with the page instead of
@@ -514,9 +515,7 @@ const ApplicationContainer = connect(
         minimize: state.timer.minimize,
         compact: state.timer.compact,
         compactAlwaysOnTop: state.timer.compactAlwaysOnTop,
-        contentOpacity: state.timer.contentOpacity,
         wallpaperDataUrl: state.timer.wallpaperDataUrl,
-        wallpaperOpacity: state.timer.wallpaperOpacity,
         sessionEnding: state.timer.sessionEnding,
         unloadOnCloseToTray: state.timer.unloadOnCloseToTray,
         inTray: state.timer.inTray,

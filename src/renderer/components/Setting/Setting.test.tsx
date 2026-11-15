@@ -813,6 +813,85 @@ describe('Setting update check', () => {
     });
 });
 
+describe('opacity sliders', () => {
+    const openAppearance = () => {
+        const nav = screen.getByRole('navigation', { name: 'Settings sections' });
+        fireEvent.click(within(nav).getByRole('button', { name: /Appearance/ }));
+    };
+    // The preview lands on the document element as inline style -- that is what
+    // every surface quotes (see the layer table in Application.tsx), so the
+    // inline value IS the observable output of a drag.
+    const cssVar = (name: string) => document.documentElement.style.getPropertyValue(name);
+    const OPACITY_VARS = [
+        '--pl-content-opacity',
+        '--pl-wallpaper-opacity',
+        '--pl-theme-bg-opacity',
+    ];
+
+    beforeEach(() => {
+        for (const name of OPACITY_VARS) {
+            document.documentElement.style.removeProperty(name);
+        }
+    });
+    afterEach(() => {
+        for (const name of OPACITY_VARS) {
+            document.documentElement.style.removeProperty(name);
+        }
+    });
+
+    it('previews a drag straight to the DOM and commits it once, divided by 100', async () => {
+        const p = props();
+        render(<Setting {...p} />);
+        openAppearance();
+
+        // Content, theme background, then wallpaper: the third slider of the
+        // appearance section.
+        const sliders = screen.getAllByTestId('slider') as HTMLInputElement[];
+        expect(sliders).toHaveLength(3);
+        fireEvent.change(sliders[2], { target: { value: '40' } });
+        // The stand-in above fires `onChange` and `onChangeComplete` in one
+        // event, so the commit is immediate.
+        expect(p.setWallpaperOpacity).toHaveBeenCalledWith(0.4);
+
+        // The preview is folded to one write per frame (`useSliderChange`).
+        await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 30));
+        });
+        expect({ var: '--pl-wallpaper-opacity', value: cssVar('--pl-wallpaper-opacity') }).toEqual({
+            var: '--pl-wallpaper-opacity',
+            value: '0.4',
+        });
+        // The other two sliders of the section were not touched.
+        expect({ var: '--pl-content-opacity', value: cssVar('--pl-content-opacity') }).toEqual({
+            var: '--pl-content-opacity',
+            value: '',
+        });
+        expect({ var: '--pl-theme-bg-opacity', value: cssVar('--pl-theme-bg-opacity') }).toEqual({
+            var: '--pl-theme-bg-opacity',
+            value: '',
+        });
+        expect(p.setContentOpacity).not.toHaveBeenCalled();
+    });
+
+    it('previews the content slider without touching the store while dragging', async () => {
+        const p = props();
+        render(<Setting {...p} />);
+        openAppearance();
+
+        const sliders = screen.getAllByTestId('slider') as HTMLInputElement[];
+        fireEvent.change(sliders[0], { target: { value: '70' } });
+        await act(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 30));
+        });
+
+        expect({ var: '--pl-content-opacity', value: cssVar('--pl-content-opacity') }).toEqual({
+            var: '--pl-content-opacity',
+            value: '0.7',
+        });
+        expect(p.setContentOpacity).toHaveBeenCalledWith(0.7);
+    });
+});
+
 describe('notification sounds', () => {
     const openNotifications = () => {
         const nav = screen.getByRole('navigation', { name: 'Settings sections' });

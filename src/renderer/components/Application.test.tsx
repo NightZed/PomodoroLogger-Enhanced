@@ -167,21 +167,25 @@ describe('Application page switching', () => {
     const state = () => store.getState()!.timer;
 
     /**
-     * The generated CSS that belongs to `Main` (styled-components splits its
-     * output into one <style> per component, so the rules are matched by class
-     * name). ConfigProvider renders no DOM of its own, so `Main` is the first
-     * element Application puts into the container.
+     * The generated CSS that belongs to one styled element (styled-components
+     * splits its output into one <style> per component, so the rules are
+     * matched by class name).
      */
-    const mainCss = () => {
-        const main = container.firstElementChild as HTMLElement;
-        expect(main).not.toBeNull();
+    const styledCssFor = (el: Element | null) => {
+        expect(el).not.toBeNull();
 
-        const classes = Array.from(main.classList);
+        const classes = Array.from(el!.classList);
         return Array.from(document.querySelectorAll('style[data-styled]'))
             .map((style) => style.textContent || '')
             .filter((text) => classes.some((cls) => text.includes(`.${cls}`)))
             .join('\n');
     };
+
+    /**
+     * ConfigProvider renders no DOM of its own, so `Main` is the first element
+     * Application puts into the container.
+     */
+    const mainCss = () => styledCssFor(container.firstElementChild);
 
     /**
      * CSS rules of the window highlight ring layer (see WindowRing in
@@ -496,6 +500,21 @@ describe('Application page switching', () => {
         expect(css).toContain('background-color:var(--pl-bg-elevated)');
         expect(css).toContain('background-color:var(--pl-bg)');
         expect(css).toContain('opacity:var(--pl-theme-bg-opacity)');
+    });
+
+    // The wallpaper and the content layer read their opacity from CSS custom
+    // properties instead of props: the opacity sliders preview by writing the
+    // variables directly (theme/opacity.ts), so a drag re-renders nothing, and
+    // the committed value reaches CSS through ThemeController. A wrong variable
+    // name here would freeze the preview mid-drag and leave the committed
+    // value without an output path.
+    it('reads the wallpaper and content opacity from the CSS variables', () => {
+        const main = container.firstElementChild!;
+        // Wallpaper, Content, then the ring overlay (see the layer table).
+        const wallpaperCss = styledCssFor(main.children[0]);
+        const contentCss = styledCssFor(main.children[1]);
+        expect(wallpaperCss).toContain('opacity:var(--pl-wallpaper-opacity)');
+        expect(contentCss).toContain('opacity:var(--pl-content-opacity)');
     });
 
     // Regression: the rounded 1px frame on the clipping container cost an extra

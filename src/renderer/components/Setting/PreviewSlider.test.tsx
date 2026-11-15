@@ -14,7 +14,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 
 jest.mock('antd', () => {
     const React = require('react');
-    const Slider = ({ defaultValue, onChangeComplete }: any) => {
+    const Slider = ({ defaultValue, onChange, onChangeComplete }: any) => {
         const [value, setValue] = React.useState(defaultValue);
         return React.createElement(
             'div',
@@ -25,7 +25,10 @@ jest.mock('antd', () => {
                 min: 0,
                 max: 60,
                 value,
-                onChange: (event: any) => setValue(Number(event.target.value)),
+                onChange: (event: any) => {
+                    setValue(Number(event.target.value));
+                    onChange?.(Number(event.target.value));
+                },
             }),
             React.createElement('button', { onClick: () => onChangeComplete?.(value) }, 'release')
         );
@@ -85,4 +88,35 @@ it('follows the setting when it changes from somewhere else', () => {
     // store: the thumb has to move even though this slider never saw it.
     rerender(<PreviewSlider value={40} onCommit={onCommit} />);
     expect(slider().value).toBe('40');
+});
+
+// The opacity sliders: what the thumb shows IS what the window displays, so a
+// drag needs the live values -- but as DOM writes, not store updates (a
+// per-frame store write re-renders the whole application and, once the renders
+// fall behind a fast pointer, trips React's nested-update counter from inside
+// react-redux's store check).
+it('reports every move to onPreview and still commits once, on release', () => {
+    const onPreview = jest.fn();
+    const onCommit = jest.fn();
+    render(<PreviewSlider value={15} onPreview={onPreview} onCommit={onCommit} />);
+
+    fireEvent.change(slider(), { target: { value: '20' } });
+    fireEvent.change(slider(), { target: { value: '25' } });
+
+    expect(onPreview).toHaveBeenCalledTimes(2);
+    expect(onPreview).toHaveBeenLastCalledWith(25);
+    expect(onCommit).not.toHaveBeenCalled();
+
+    release();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith(25);
+});
+
+it('does not require onPreview', () => {
+    const onCommit = jest.fn();
+    render(<PreviewSlider value={15} onCommit={onCommit} />);
+
+    expect(() => fireEvent.change(slider(), { target: { value: '20' } })).not.toThrow();
+    release();
+    expect(onCommit).toHaveBeenCalledWith(20);
 });

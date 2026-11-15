@@ -193,7 +193,7 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
   它们必须这样，因为 `Timer/index.tsx` 映射了整个 store，其 `shouldComponentUpdate` 会对四个时长中的任何一个重渲染，所以每事件写一次 store 会让整个番茄钟页面（进度环、`PomodoroNumView` 的 SVG 墙）在一次拖动里重渲染约 100 次。
   `PreviewSlider` 是**非受控**的（`defaultValue` + `key` 重新播种），不要再改回受控 `value`：rc-slider 会用 layout effect 把每个新 value 抄进自己的 state，于是每帧变化的 value 每帧加一次嵌套更新，拖到第 50 帧 React 直接抛 `Maximum update depth exceeded`（v1.4 的时长滑块一直带着这个 bug，只是没人拖得那么快）。
   重新播种只在设置被别处改动时发生：`expected` ref 记住刚提交的值，store 回写同一个值不算外部变化，否则松手瞬间重挂载会丢焦点（键盘用户接着按方向键就没反应了）。
-  三个不透明度不能这么做——它们的值*就是*窗口显示的内容——所以它们走 `Setting/useSliderChange.ts`（折到每帧一次变更），再按 key 做 300 ms 防抖写入（`Timer/action.ts` 的 `persistSettingWithDebounce`）；每次设置写入都会在自己的 WAL 提交里重写整张 `settings` 表，所以每事件持久化就是每个指针事件一次 fsync。
+  三个不透明度的值*就是*窗口显示的内容，但它们同样不进 store：拖动经 `onPreview` 折到每帧一次（`Setting/useSliderChange.ts`）后直接写 CSS 变量（`theme/opacity.ts`；`ThemeController` 是 store 侧的写入者，松手 `onCommit` 提交一次后两边写同一个值）。每帧 store 写入会让每个 connect 组件重渲染；一旦快速拖动让渲染跟不上指针，react-redux 给 `useSyncExternalStore` 的 getSnapshot 在 passive flush 里返回新的 props 对象、React 便在 flush 内再次调度渲染，连续 50 次就是控制台里的 `Maximum update depth exceeded`。持久化只发生在提交时（`Timer/action.ts` 的 `persistSettingWithDebounce`）；每次设置写入都会在自己的 WAL 提交里重写整张 `settings` 表，所以每事件持久化就是每个指针事件一次 fsync。
 - 主题：`src/renderer/theme`（tokens + `applyTheme`，CSS 自定义属性 `--pl-*`）通过 `ThemeController` 应用。
   首次绘制的主题经 `additionalArguments` → `window.api.initialTheme` 跨进程边界传递，这样渲染层不会闪一下错误的主题；动启动主题时两侧都要同步改。
 - 样式用 styled-components（外加少量 `.scss` 全局文件）；不要为组件添加独立 CSS 文件。

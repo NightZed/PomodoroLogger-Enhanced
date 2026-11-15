@@ -8,6 +8,15 @@ interface Props {
     max?: number;
     step?: number;
     marks?: React.ComponentProps<typeof Slider>['marks'];
+    /**
+     * Called on every move of a drag, *before* the value is committed. Only
+     * for settings whose effect is visible while the thumb moves: use it to
+     * write straight to the DOM (a CSS custom property), never to the store --
+     * a per-frame store write re-renders the whole application and, when the
+     * renders fall behind the pointer, trips React's nested-update counter
+     * (see the opacity sliders below).
+     */
+    onPreview?: (value: number) => void;
     /** Called once, when the thumb is released or the key lifted. */
     onCommit: (value: number) => void;
 }
@@ -15,14 +24,16 @@ interface Props {
 /**
  * A slider whose value is only committed when the drag ends.
  *
- * The other sliders of the settings page (the three opacities) have to reach the
- * store on every frame: their value is what the window is showing. A duration is
- * not -- nothing outside the settings page displays it while the thumb moves,
- * and the timer page sits behind this one. Holding the value away from the store
- * therefore keeps a drag from being a store update, and keeps it from
- * re-rendering the whole timer page (progress ring, pomodoro wall, ...) once per
- * frame; that cascade is what made a fast drag cost a third of a core and grow
- * the renderer heap by tens of megabytes.
+ * The other sliders of the settings page (the three opacities) also have to be
+ * visible while the thumb moves, but they must not reach the store per frame:
+ * their value is what the window is showing, yet a store write re-renders every
+ * `connect()`ed component (the whole timer page, the whole application), and
+ * when a fast drag makes the renders fall behind the pointer, each flush of
+ * react-redux's `useSyncExternalStore` sees a changed snapshot and schedules
+ * yet another render from inside React's passive effects -- fifty of those
+ * consecutive and the console reports "Maximum update depth exceeded". They
+ * therefore preview through `onPreview` (a CSS custom property write, folded to
+ * once per frame) and commit once, on release.
  *
  * The slider is *uncontrolled* (`defaultValue`, re-keyed only when the setting
  * changes behind its back). A controlled `value` that follows the thumb is what
@@ -40,7 +51,7 @@ interface Props {
  * the setting (`restore defaults`, the store finishing its read, a value clamped
  * on write) does not match and re-seeds the thumb.
  */
-const PreviewSlider: React.FunctionComponent<Props> = ({ value, onCommit, ...rest }) => {
+const PreviewSlider: React.FunctionComponent<Props> = ({ value, onPreview, onCommit, ...rest }) => {
     const expected = useRef(value);
     const [seed, setSeed] = useState({ value, version: 0 });
 
@@ -54,6 +65,13 @@ const PreviewSlider: React.FunctionComponent<Props> = ({ value, onCommit, ...res
             {...rest}
             key={seed.version}
             defaultValue={seed.value}
+            onChange={(v) => {
+                if (typeof v !== 'number') {
+                    return;
+                }
+
+                onPreview?.(v);
+            }}
             onChangeComplete={(v) => {
                 if (typeof v !== 'number') {
                     return;

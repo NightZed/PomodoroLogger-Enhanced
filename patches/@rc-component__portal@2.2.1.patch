@@ -1,0 +1,68 @@
+diff --git a/es/Portal.js b/es/Portal.js
+index 3a2b35a068cb81e1df55899afa93e504c3b220ef..c5ce35a7b0bde611f974656d703598316df644fe 100644
+--- a/es/Portal.js
++++ b/es/Portal.js	
+@@ -49,13 +49,23 @@ const Portal = /*#__PURE__*/React.forwardRef((props, ref) => {
+   // ======================== Container ========================
+   const [innerContainer, setInnerContainer] = React.useState(() => getPortalContainer(getContainer));
+   React.useEffect(() => {
+-    const customizeContainer = getPortalContainer(getContainer);
++    const customizeContainer = getPortalContainer(getContainer) ?? null;
+ 
+-    // Tell component that we check this in effect which is safe to be `null`
+-    setInnerContainer(() =>
+-    // React do the state update even the value is the same,
+-    // Use function call to force React to compare update
+-    customizeContainer ?? null);
++    // Tell component that we check this in effect which is safe to be `null`.
++    //
++    // Skip the setState when nothing changed. This effect has no dependency
++    // array, so it re-runs after EVERY render and the original unconditional
++    // setState relied on React's eager bail-out (same value => no schedule)
++    // to stay harmless. React 19 skips that bail-out whenever the fiber still
++    // has pending lanes -- which, while a Slider's tooltip re-renders with the
++    // dragged value, is EVERY frame: each dispatch then lands inside the
++    // passive-effects flush that follows the commit, React's nested-update
++    // counter accumulates and 50 of them log "Maximum update depth exceeded"
++    // (the counter is only armed by dispatches that happen during that flush).
++    // Gate the call so a stable container never dispatches at all.
++    if (innerContainer !== customizeContainer) {
++      setInnerContainer(customizeContainer);
++    }
+   });
+   const [defaultContainer, queueCreate] = useDom(mergedRender && !innerContainer, debug);
+   const mergedContainer = innerContainer ?? defaultContainer;
+diff --git a/lib/Portal.js b/lib/Portal.js
+index ce4c0fc5010746cdc41525198490d7fe48a2815b..766294bf95bfcb494079e18ed816944f2bfae1b0 100644
+--- a/lib/Portal.js
++++ b/lib/Portal.js	
+@@ -58,13 +58,23 @@ const Portal = /*#__PURE__*/React.forwardRef((props, ref) => {
+   // ======================== Container ========================
+   const [innerContainer, setInnerContainer] = React.useState(() => getPortalContainer(getContainer));
+   React.useEffect(() => {
+-    const customizeContainer = getPortalContainer(getContainer);
++    const customizeContainer = getPortalContainer(getContainer) ?? null;
+ 
+-    // Tell component that we check this in effect which is safe to be `null`
+-    setInnerContainer(() =>
+-    // React do the state update even the value is the same,
+-    // Use function call to force React to compare update
+-    customizeContainer ?? null);
++    // Tell component that we check this in effect which is safe to be `null`.
++    //
++    // Skip the setState when nothing changed. This effect has no dependency
++    // array, so it re-runs after EVERY render and the original unconditional
++    // setState relied on React's eager bail-out (same value => no schedule)
++    // to stay harmless. React 19 skips that bail-out whenever the fiber still
++    // has pending lanes -- which, while a Slider's tooltip re-renders with the
++    // dragged value, is EVERY frame: each dispatch then lands inside the
++    // passive-effects flush that follows the commit, React's nested-update
++    // counter accumulates and 50 of them log "Maximum update depth exceeded"
++    // (the counter is only armed by dispatches that happen during that flush).
++    // Gate the call so a stable container never dispatches at all.
++    if (innerContainer !== customizeContainer) {
++      setInnerContainer(customizeContainer);
++    }
+   });
+   const [defaultContainer, queueCreate] = (0, _useDom.default)(mergedRender && !innerContainer, debug);
+   const mergedContainer = innerContainer ?? defaultContainer;

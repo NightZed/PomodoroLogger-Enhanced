@@ -82,7 +82,8 @@ CI（`.github/workflows/test.yml`）在每次 push/PR 上跑 `pnpm lint`、`pnpm
 ### 包管理器
 
 pnpm 11，版本钉在 `packageManager`。
-`pnpm-workspace.yaml` 是安装行为的唯一位置：`nodeLinker: hoisted`（electron-builder 需要扁平的 `node_modules`）、`overrides`（取代 yarn 的 `resolutions`）、`allowBuilds`。
+`pnpm-workspace.yaml` 是安装行为的唯一位置：`nodeLinker: hoisted`（electron-builder 需要扁平的 `node_modules`）、`overrides`（取代 yarn 的 `resolutions`）、`allowBuilds`、`patchedDependencies`。
+目前唯一一个 patch 是 `patches/@rc-component__portal@2.2.1.patch`：Portal 的 container effect 无依赖数组且每次渲染无条件 `setState`，平时靠 React 的 eager bail-out 兜底；React 19 在 fiber 还有 pending lanes 时跳过 bail-out，于是拖动任何滑块时（antd Slider 的 tooltip 弹层每帧带着新值重渲染 Portal）每帧一次真实 dispatch 落在 passive flush 里，50 帧后打出一串 `Maximum update depth exceeded`。patch 在值未变化时跳过 setState（用 `git apply` 更新 patch 后要跑 `pnpm install` 重放）。升 antd/@rc-component/* 时先检查该上游是否已修，已修就撤掉 patch。
 pnpm 11 的 `strictDepBuilds` 默认为 `true`，所以一个带未审核安装脚本的依赖会让整个安装以非零码失败——要显式列成 `true` 或 `false`，不要指望只给个警告。
 `electron` 44 和 `better-sqlite3` 13 不带安装脚本：前者在第一次 `electron .` 时下载二进制，后者加载自带的 `prebuilds/`。
 `get-windows` 10 是唯一带真实 `install` 脚本的原生模块（`node-pre-gyp install --fallback-to-build`）：`@electron/rebuild` 在 `pnpm install` 期间用 `binding.gyp` 编译它的 napi addon，所以这一步需要 node-gyp 加一个 Python（CI runner 自带），并且 `get-windows` 必须留在 `allowBuilds` 里。

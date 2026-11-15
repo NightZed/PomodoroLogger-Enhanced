@@ -20,3 +20,6 @@ allowBuilds:
   # 本项目走 NSIS。
   core-js-pure: false
   electron-winstaller: false
+
+patchedDependencies:
+  '@rc-component/portal@2.2.1': patches/@rc-component__portal@2.2.1.patch

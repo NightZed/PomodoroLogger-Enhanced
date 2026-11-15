@@ -38,6 +38,7 @@ import {
 import { getMainLanguage, m, setMainLanguage } from '../i18n';
 import type { Language } from '../../shared/i18n';
 import { readAllData } from '../io/read';
+import { showOpenFileDialog } from '../fileDialog';
 import { activeWin } from '../activeWin';
 import { startWindowDrag, stopWindowDrag } from './windowDrag';
 import {
@@ -555,19 +556,22 @@ export function initialize() {
     });
 
     handle(IpcEventName.ImportData, async (): Promise<ImportResult> => {
-        const selection = await dialog.showOpenDialog({
-            filters: [
-                {
-                    name: m('native.fileFilter.json'),
-                    extensions: ['json'],
-                },
-                {
-                    name: m('native.fileFilter.allFiles'),
-                    extensions: ['*'],
-                },
-            ],
-            properties: ['openFile'],
-        });
+        const selection = await showOpenFileDialog(
+            {
+                filters: [
+                    {
+                        name: m('native.fileFilter.json'),
+                        extensions: ['json'],
+                    },
+                    {
+                        name: m('native.fileFilter.allFiles'),
+                        extensions: ['*'],
+                    },
+                ],
+                properties: ['openFile'],
+            },
+            'import'
+        );
         if (selection.canceled || selection.filePaths.length === 0) {
             return { status: 'cancelled' };
         }
@@ -706,15 +710,18 @@ export function initialize() {
         [assertFinishedSessionPayload]
     );
     handle(IpcEventName.SelectWallpaper, async (): Promise<string | undefined> => {
-        const result = await dialog.showOpenDialog({
-            properties: ['openFile'],
-            filters: [
-                {
-                    name: m('native.fileFilter.images'),
-                    extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'],
-                },
-            ],
-        });
+        const result = await showOpenFileDialog(
+            {
+                properties: ['openFile'],
+                filters: [
+                    {
+                        name: m('native.fileFilter.images'),
+                        extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'],
+                    },
+                ],
+            },
+            'wallpaper'
+        );
         if (result.canceled || result.filePaths.length === 0) {
             return undefined;
         }
@@ -729,15 +736,18 @@ export function initialize() {
      * time (`renderer/sound.ts`).
      */
     handle(IpcEventName.SelectSound, async (): Promise<string | undefined> => {
-        const result = await dialog.showOpenDialog({
-            properties: ['openFile'],
-            filters: [
-                {
-                    name: m('native.fileFilter.audio'),
-                    extensions: ['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac'],
-                },
-            ],
-        });
+        const result = await showOpenFileDialog(
+            {
+                properties: ['openFile'],
+                filters: [
+                    {
+                        name: m('native.fileFilter.audio'),
+                        extensions: ['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac'],
+                    },
+                ],
+            },
+            'sound'
+        );
         if (result.canceled || result.filePaths.length === 0) {
             return undefined;
         }

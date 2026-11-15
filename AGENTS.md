@@ -213,6 +213,10 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
 - 自定义文件不拷贝，只存绝对路径，经 `sound://local?path=...` 播放：`init.ts` 用 `protocol.handle` + `net.fetch(pathToFileURL(...))`（privileges 带 `stream`，媒体栈需要 Range 请求）。CSP 的 `media-src` 必须含 `sound:`，少写这一项文件会被静默拦掉。
 - 加载失败（文件被删、Chromium 不支持该格式）回退内置铃声并 toast 一次。`src/renderer/sound.ts` 是拼 URL 和播放的唯一入口，设置页的「测试」也走它。
 - 音量用 `PreviewSlider`（松手提交）：Timer 页映射整个 store，拖动时每帧写 store 会让进度环和番茄墙整页重渲染。
+- 所有「打开文件」对话框都走 `src/main/fileDialog.ts` 的 `showOpenFileDialog(options, kind)`：每种用途（`sound` / `wallpaper` / `import`）记住自己的目录，作为下次的 `defaultPath`。
+  三个目录存在 settings 文档的 `fileDialogDirs` 里（不是 `Setting`，渲染层不读）；取消不覆盖，目录不存在时退回系统默认。
+  不要合并成一份记忆：音频、图片和备份通常不在同一个文件夹，共享会让第二个对话框落到上一个用途的目录。
+  新增选择文件的功能不要直接调 `dialog.showOpenDialog`（导出用的 `showSaveDialog` 仍直接调用，它自己给 `defaultPath` 传文件名）。
 
 ### 国际化
 

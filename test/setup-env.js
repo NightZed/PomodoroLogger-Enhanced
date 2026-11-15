@@ -34,43 +34,75 @@ if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
     });
 }
 
-// antd v6's rc-select schedules open/close macros via MessageChannel,
-// which jsdom does not provide. Polyfill a minimal MessageChannel so
-// Select/AutoComplete mount without "ReferenceError: MessageChannel is not defined".
+// jsdom does not provide MessageChannel. Install a minimal spec-shaped one:
+// `port2.postMessage` delivers asynchronously to `port1.onmessage` (across
+// the pair, never back to the posting port), `close()` releases both ends,
+// and `start()` drains messages queued before it. Older antd/rc-select
+// scheduled open/close macros through MessageChannel and used to mount with
+// "ReferenceError: MessageChannel is not defined" without it. The semantics
+// matter beyond antd: the renderer's timer-free macrotask waits
+// (`src/renderer/components/Timer/wait.ts`) hang on their first await under
+// a self-delivering stub, so a draft of this polyfill must not regress to
+// one (see `test/setupEnv.test.ts`).
 if (typeof globalThis.MessageChannel === 'undefined') {
     class MessagePort {
         constructor() {
-            this.handlers = [];
-            this.queue = [];
             this.started = false;
+            this.queue = [];
+            this.peer = null;
+            this._onmessage = null;
+        }
+        // Attaching a listener starts the port per spec, so a caller that
+        // never calls start() explicitly still receives messages.
+        get onmessage() {
+            return this._onmessage;
+        }
+        set onmessage(handler) {
+            this._onmessage = handler;
+            if (handler !== null) {
+                this.start();
+            }
         }
         start() {
+            if (this.started) {
+                return;
+            }
             this.started = true;
             this.drain();
         }
+        close() {
+            this.started = false;
+            this.onmessage = null;
+            this.queue = [];
+        }
         postMessage(value) {
             const deliver = () => {
-                this.queue.push(value);
-                if (this.started) this.drain();
+                const peer = this.peer;
+                if (peer === null) {
+                    return;
+                }
+                peer.queue.push(value);
+                if (peer.started) {
+                    peer.drain();
+                }
             };
             setTimeout(deliver, 0);
         }
         drain() {
-            while (this.queue.length) {
+            while (this.started && this.queue.length) {
                 const msg = this.queue.shift();
-                this.handlers.forEach((h) => h({ data: msg }));
-                if (this.onmessage) this.onmessage({ data: msg });
+                if (this.onmessage) {
+                    this.onmessage({ data: msg });
+                }
             }
         }
-        addEventListener(type, handler) {
-            if (type === 'message') this.handlers.push(handler);
-        }
-        removeEventListener() {}
     }
     class MessageChannel {
         constructor() {
             this.port1 = new MessagePort();
             this.port2 = new MessagePort();
+            this.port1.peer = this.port2;
+            this.port2.peer = this.port1;
         }
     }
     globalThis.MessageChannel = MessageChannel;

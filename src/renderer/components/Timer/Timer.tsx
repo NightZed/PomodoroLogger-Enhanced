@@ -50,7 +50,7 @@ import {
     TrayActionKey,
 } from './sessionState';
 import { TimerMask } from './SessionEndingMask';
-import { waitUntil } from './wait';
+import { nextMacroTask, waitUntil } from './wait';
 import { WorkRestIcon } from './WorkRestIcon';
 
 const KanbanName = styled.h1`
@@ -672,7 +672,12 @@ class Timer extends Component<Props, State> {
             }
 
             this.onStop();
-            await new Promise((r) => requestAnimationFrame(r));
+            // Let the onStop dispatch reach `props` through react-redux in a
+            // macrotask. See `nextMacroTask` for why this cannot be a timer
+            // (throttled to one wakeup per minute once the page has been
+            // hidden for five minutes) or an animation frame (never arrives
+            // while the window is occluded).
+            await nextMacroTask();
         }
 
         if (!this.props.timer.isFocusing) {
@@ -1131,7 +1136,10 @@ class Timer extends Component<Props, State> {
             const startNextSession = this.nextSessionStarter;
             this.nextSessionStarter = undefined;
             if (startNextSession !== undefined) {
-                await new Promise((r) => setTimeout(r, 30));
+                // A macrotask, not a timer: this rides on the tray's
+                // start-after-confirm path, which must survive an occluded
+                // window (see `nextMacroTask`).
+                await nextMacroTask();
                 startNextSession();
             } else {
                 // Confirmed with no follow-up session: the tray was showing the

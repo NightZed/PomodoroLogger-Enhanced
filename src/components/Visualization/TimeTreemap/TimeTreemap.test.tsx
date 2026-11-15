@@ -122,6 +122,13 @@ describe('TimeTreemap option', () => {
         expect(option.title[0].subtextStyle.color).toBe(nightTokens.textSecondary);
     });
 
+    it('appends the shared pomodoro count to both panel subtitles', () => {
+        const option = getOption(props({ pomodoroCount: 25 }), nightTokens) as any;
+
+        expect(option.title[0].subtext).toBe(`${PROJECT_TOTAL.toFixed(1)} h (25)`);
+        expect(option.title[1].subtext).toBe(`${APP_TOTAL.toFixed(1)} h (25)`);
+    });
+
     it('labels each block with its hours and share of the panel total', () => {
         const option = getOption(props(), dayTokens) as any;
         const projectLabel = option.series[0].label.formatter;

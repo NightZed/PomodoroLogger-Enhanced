@@ -137,6 +137,18 @@ describe('History (aggregation load lifecycle)', () => {
         view.unmount();
     });
 
+    it('shows each stat card with its hours beside the pomodoro count', async () => {
+        // The hours used to live only in the card column's hover tooltip.
+        aggHistory().mockResolvedValue(AGG);
+        const view = render(<History {...props()} />);
+        await flush();
+
+        expect(pageText(view.container)).toContain('1(1.0h)');
+        expect(pageText(view.container)).toContain('2(2.0h)');
+        expect(pageText(view.container)).toContain('3(3.0h)');
+        view.unmount();
+    });
+
     it('does not re-run the aggregation when the board map is replaced', async () => {
         aggHistory().mockResolvedValue(AGG);
         const initial = props();

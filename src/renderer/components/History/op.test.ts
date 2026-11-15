@@ -16,6 +16,7 @@ describe('History aggregating operations', () => {
                 appData: [],
                 projectTotal: 0,
                 appTotal: 0,
+                pomodoroCount: 0,
             },
             total: {
                 count: 0,

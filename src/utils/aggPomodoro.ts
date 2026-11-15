@@ -20,6 +20,13 @@ export interface TimeSpentData {
      */
     projectTotal?: number;
     appTotal?: number;
+    /**
+     * How many pomodoro records went into both panels. Every record lands in
+     * exactly one project bucket (its board, or the Unknown one) and contributes
+     * its apps, so the two panels always describe the same record set and share
+     * this count. The panel subtitles print it next to the hours total.
+     */
+    pomodoroCount?: number;
 }
 
 const DAY_MS = 24 * 3600 * 1000;
@@ -135,6 +142,7 @@ export function getTimeSpentDataFromRecordsSync(
         // calendar instead of straddling the .25 boundary.
         projectTotal: roundHours(counterTotal(projectTimeCounter)),
         appTotal: roundHours(counterTotal(appTimeCounter)),
+        pomodoroCount: pomodoros.length,
     };
 }
 

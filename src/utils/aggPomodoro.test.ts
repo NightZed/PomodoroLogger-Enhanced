@@ -50,6 +50,9 @@ describe('aggPomodoro shared core', () => {
 
         expect(timeSpent.projectTotal).toBe(11.25);
         expect(timeSpent.appTotal).toBe(11.25);
+        // Every record lands in exactly one project bucket, so both panels
+        // describe the same record set and the subtitles share this count.
+        expect(timeSpent.pomodoroCount).toBe(27);
     });
 
     it('resolves project names through boardNames', async () => {

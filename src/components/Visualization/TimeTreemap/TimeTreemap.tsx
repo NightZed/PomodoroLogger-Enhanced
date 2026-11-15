@@ -25,6 +25,13 @@ export interface Props {
      */
     projectTotal?: number;
     appTotal?: number;
+    /**
+     * How many pomodoro records the two panels describe. When supplied, each
+     * panel's subtitle appends it in parentheses next to the hours total
+     * ("11.3 h (25)"); both panels share the same record set, so both show the
+     * same number.
+     */
+    pomodoroCount?: number;
     onProjectClick?: (project: string) => void;
     showAllApplications?: boolean;
 }
@@ -213,6 +220,12 @@ function treemapSeries(
     };
 }
 
+/** "11.3 h", with the shared record count appended when the caller supplied it. */
+const panelTotalSubtext = (total: number, pomodoroCount?: number): string => {
+    const hours = `${roundHours(total).toFixed(1)} h`;
+    return pomodoroCount === undefined ? hours : `${hours} (${pomodoroCount})`;
+};
+
 /**
  * Exported for tests; the component itself only wires it to echarts-for-react.
  */
@@ -239,14 +252,14 @@ export function getOption(
                 text: t('chart.treemap.projects'),
                 // `roundHours` first: a panel total of 11.249999999999998
                 // must print 11.3, the same way the calendar widget does.
-                subtext: `${roundHours(projectTotal).toFixed(1)} h`,
+                subtext: panelTotalSubtext(projectTotal, props.pomodoroCount),
                 left: 0,
                 top: 0,
                 ...panelTitle,
             },
             {
                 text: t('chart.treemap.applications'),
-                subtext: `${roundHours(appTotal).toFixed(1)} h`,
+                subtext: panelTotalSubtext(appTotal, props.pomodoroCount),
                 left: PANEL_DIVIDE,
                 top: 0,
                 ...panelTitle,
@@ -307,6 +320,7 @@ export const TimeTreemap: React.FC<Props> = (props: Props) => {
                     appData,
                     projectTotal,
                     appTotal,
+                    pomodoroCount: props.pomodoroCount,
                     width,
                     height,
                     showAllApplications,
@@ -319,6 +333,7 @@ export const TimeTreemap: React.FC<Props> = (props: Props) => {
             appData,
             projectTotal,
             appTotal,
+            props.pomodoroCount,
             width,
             height,
             showAllApplications,

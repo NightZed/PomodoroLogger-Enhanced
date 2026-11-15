@@ -7,6 +7,7 @@ import {
 } from '../../../components/Visualization/GridCalendar/GridCalendar';
 import styled from 'styled-components';
 import { AggPomodoroInfo, getTimeSpentDataFromRecords, TimeSpentData } from './op';
+import { roundHours } from '../../../shared/hours';
 import { WordCloud } from '../Visualization/WordCloud';
 import { KanbanBoardState } from '../Kanban/Board/action';
 import { Loading } from '../utils/Loading';
@@ -408,6 +409,11 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                     title={title}
                     value={loaded.count}
                     precision={0}
+                    /* `roundHours` first, the same normalization the treemap
+                       subtitles and the calendar use: a raw float sum of
+                       25-minute sessions can land below the .25 boundary and
+                       print one decimal lower than every other widget. */
+                    suffix={`(${roundHours(loaded.hours).toFixed(1)}h)`}
                     styles={{ content: { color } }}
                 />
             );
@@ -494,29 +500,17 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                     </BadgeHolder>
                 </Row>
                 <Row gutter={16}>
-                    <Col
-                        span={8}
-                        title={aggInfo.agg.day ? aggInfo.agg.day.hours.toFixed(1) + 'h' : ''}
-                        style={{ cursor: 'default' }}
-                    >
+                    <Col span={8}>
                         <Card>
                             {statSlot(aggInfo.agg.day, t('history.pomodorosToday'), '#3f8600')}
                         </Card>
                     </Col>
-                    <Col
-                        span={8}
-                        title={aggInfo.agg.week ? aggInfo.agg.week.hours.toFixed(1) + 'h' : ''}
-                        style={{ cursor: 'default' }}
-                    >
+                    <Col span={8}>
                         <Card>
                             {statSlot(aggInfo.agg.week, t('history.pomodorosThisWeek'), '#3f8600')}
                         </Card>
                     </Col>
-                    <Col
-                        span={8}
-                        title={aggInfo.agg.month ? aggInfo.agg.month.hours.toFixed(1) + 'h' : ''}
-                        style={{ cursor: 'default' }}
-                    >
+                    <Col span={8}>
                         <Card>
                             {statSlot(
                                 aggInfo.agg.month,

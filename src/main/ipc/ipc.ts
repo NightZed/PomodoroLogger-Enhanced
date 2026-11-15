@@ -24,7 +24,7 @@ import { sendWorkerMessage } from '../worker/fork';
 import { promisify } from 'util';
 import { readFile, writeFile } from 'fs';
 import * as path from 'path';
-import logo from '../../res/icon_sm.png';
+import notifyIcon from '../../res/icon.png';
 import { writeAllFile } from '../io/write';
 import {
     revealWindow,
@@ -385,8 +385,11 @@ export function initialize() {
                 title,
                 body,
                 // The renderer no longer knows a filesystem path; the main
-                // process owns the app icon and resolves it from its own bundle.
-                icon: nativeImage.createFromPath(path.join(__dirname, logo)),
+                // process owns the app icon and resolves it from its own
+                // bundle. 128px rather than the 32px tray icon: Windows draws
+                // the toast icon at 48px and scales it up on high-DPI
+                // displays, which made the small one look blurred.
+                icon: nativeImage.createFromPath(path.join(__dirname, notifyIcon)),
             });
             notification.show();
         },

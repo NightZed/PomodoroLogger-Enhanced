@@ -100,11 +100,11 @@ win.on('show', () => applyTrayState(false));
 
 zh：
 
-> 窗口收进托盘后，历史页的统计计算会立刻结束，其他页面 30 秒后释放。重新打开窗口时会重建，历史页需要重新计算。
+> 窗口收进托盘后，历史页的统计计算会立刻结束，其他页面 30 秒后释放。重新打开窗口时页面会重建，历史页需要重新计算一次。
 
 en：
 
-> Closing to the tray ends the history page's statistics calculation right away and releases the other pages after 30 seconds. Reopening rebuilds them, and history recalculates.
+> Closing the window to the tray stops the history statistics right away and releases the other pages after 30 seconds. Reopening rebuilds them, and history recalculates.
 
 ## 测试
 

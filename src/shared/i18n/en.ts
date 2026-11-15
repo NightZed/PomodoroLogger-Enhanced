@@ -654,9 +654,9 @@ export const en = {
             hardwareAcceleration: 'Hardware Acceleration',
             unloadOnCloseToTray: 'Release Page Memory in Tray',
             unloadOnCloseToTrayHint:
-                'Once the window is closed to the tray, unloads the pages still open in the ' +
-                'background after 30 seconds. Reopening the window rebuilds them, and the ' +
-                'history page recalculates its statistics.',
+                'Closing the window to the tray stops the history statistics right away and ' +
+                'releases the other pages after 30 seconds. Reopening rebuilds them, and ' +
+                'history recalculates.',
             update: 'Update',
             autoUpdate: 'Auto Update',
             checkUpdate: 'Check Update',

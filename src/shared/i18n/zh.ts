@@ -599,8 +599,8 @@ export const zh: CatalogShape<typeof en> = {
             hardwareAcceleration: '硬件加速',
             unloadOnCloseToTray: '隐藏到托盘时释放页面内存',
             unloadOnCloseToTrayHint:
-                '窗口收进托盘 30 秒后，卸载仍在后台的页面。重新打开窗口时会重建，' +
-                '历史页需要重新计算统计。',
+                '窗口收进托盘后，历史页的统计计算会立刻结束，其他页面 30 秒后释放。' +
+                '重新打开窗口时页面会重建，历史页需要重新计算一次。',
             update: '更新',
             autoUpdate: '自动更新',
             checkUpdate: '检查更新',

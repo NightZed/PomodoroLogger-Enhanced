@@ -4,9 +4,10 @@ import styled from 'styled-components';
 import { connect } from 'react-redux';
 import type { Dispatch } from 'redux';
 import { AppModal } from '../AppModal';
-import { DAY_EDITOR_WIDTH } from '../dialogLayout';
+import { DAY_EDITOR_WIDTH, DIALOG_BODY_HEIGHT } from '../dialogLayout';
 import { feedback } from '../feedback';
 import { CardPicker } from '../Kanban/CardPicker';
+import { PickerFooter } from '../Kanban/PickerFooter';
 import { ProjectPicker } from '../Kanban/ProjectPicker';
 import { useI18n } from '../../i18n';
 import { formatTimeYMD } from '../Visualization/Timeline';
@@ -59,8 +60,21 @@ interface Props extends SessionDayEditorProps {
 type PickerState =
     { kind: 'project'; rowIds: string[] } | { kind: 'card'; rowIds: string[] } | undefined;
 
+/**
+ * Fixed height with the list on `flex: 1`, shared with the pickers opened from
+ * here. See `DIALOG_BODY_HEIGHT`: the dialog stays this tall for any number of
+ * sessions, so a short day leaves space below the list rather than a panel that
+ * changes size and a picker that no longer lines up with it.
+ */
+const Body = styled.div`
+    display: flex;
+    flex-direction: column;
+    height: ${DIALOG_BODY_HEIGHT}px;
+`;
+
 const Toolbar = styled.div`
     display: flex;
+    flex: none;
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
@@ -72,13 +86,17 @@ const Spacer = styled.div`
 `;
 
 const List = styled.div`
-    max-height: 380px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     border-top: 1px solid var(--pl-border);
 `;
 
 const Row = styled.div<{ $deleted: boolean }>`
     display: grid;
+    flex: none;
     grid-template-columns: 28px 24px 56px 64px minmax(110px, 1fr) minmax(110px, 1fr) 72px;
     align-items: center;
     gap: 8px;
@@ -121,16 +139,14 @@ const LinkButton = styled.button`
 `;
 
 const Empty = styled.div`
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
     padding: 24px;
     text-align: center;
     font-size: 13px;
     color: var(--pl-text-secondary);
-`;
-
-const Footer = styled.div`
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
 `;
 
 const pad = (value: number): string => (value < 10 ? `0${value}` : String(value));
@@ -396,134 +412,145 @@ const SessionDayEditorInner = (props: Props) => {
                 width={DAY_EDITOR_WIDTH}
                 title={t('history.sessionEditor.title', day)}
                 onCancel={requestClose}
-                footer={
-                    <Footer>
+                /* The button row belongs to the fixed-height body, not to
+                   antd's footer: the pickers keep their buttons inside their
+                   body, and only matching that structure keeps both dialogs
+                   the same height. */
+                footer={null}
+            >
+                <Body>
+                    <Toolbar>
+                        <Segmented<Filter>
+                            value={filter}
+                            onChange={setFilter}
+                            options={[
+                                { label: t('history.sessionEditor.all'), value: 'all' },
+                                {
+                                    label: t('history.sessionEditor.unassigned'),
+                                    value: 'unassigned',
+                                },
+                                { label: t('history.sessionEditor.noProject'), value: 'noProject' },
+                            ]}
+                        />
+                        <Button size="small" onClick={toggleSelectAll}>
+                            {t('history.sessionEditor.selectAll')}
+                        </Button>
+                        <span style={{ fontSize: 12, color: 'var(--pl-text-secondary)' }}>
+                            {t('history.sessionEditor.selected', selected.size)}
+                        </span>
+                        <Spacer />
+                        <Button
+                            size="small"
+                            disabled={targets.length === 0}
+                            onClick={() => setPicker({ kind: 'project', rowIds: targets })}
+                        >
+                            {t('history.sessionEditor.batchProject')}
+                        </Button>
+                        <Button
+                            size="small"
+                            disabled={targets.length === 0 || batchBoardId === undefined}
+                            title={
+                                targets.length > 0 && batchBoardId === undefined
+                                    ? t('history.sessionEditor.batchCardNeedsBoard')
+                                    : undefined
+                            }
+                            onClick={() => setPicker({ kind: 'card', rowIds: targets })}
+                        >
+                            {t('history.sessionEditor.batchCard')}
+                        </Button>
+                    </Toolbar>
+                    <List>
+                        {visibleRows.length === 0 ? (
+                            <Empty>{t('history.sessionEditor.empty')}</Empty>
+                        ) : (
+                            visibleRows.map((row) => (
+                                <Row key={row._id} $deleted={row.deleted}>
+                                    <Checkbox
+                                        checked={selected.has(row._id)}
+                                        disabled={row.deleted}
+                                        onChange={() => toggleSelected(row._id)}
+                                    />
+                                    <DotCell>
+                                        {recordById.has(row._id) ? (
+                                            <PomodoroNumView
+                                                pomodoros={[recordById.get(row._id)!]}
+                                                showNum={false}
+                                                inline
+                                                chooseRecord={props.chooseRecord}
+                                            />
+                                        ) : undefined}
+                                    </DotCell>
+                                    <Cell>{timeLabel(row.startTime)}</Cell>
+                                    <Cell>{row.spentTimeInHour.toFixed(2)}h</Cell>
+                                    <Cell>
+                                        <LinkButton
+                                            type="button"
+                                            title={boardTitle(row.boardId)}
+                                            onClick={() =>
+                                                setPicker({ kind: 'project', rowIds: [row._id] })
+                                            }
+                                        >
+                                            {boardTitle(row.boardId)}
+                                        </LinkButton>
+                                    </Cell>
+                                    <Cell>
+                                        <LinkButton
+                                            type="button"
+                                            title={cardTitle(row.cardId)}
+                                            onClick={() => {
+                                                // A card belongs to a board: without a
+                                                // project there is nothing to pick from,
+                                                // so send the user to the project first.
+                                                setPicker(
+                                                    row.boardId === undefined
+                                                        ? { kind: 'project', rowIds: [row._id] }
+                                                        : { kind: 'card', rowIds: [row._id] }
+                                                );
+                                            }}
+                                        >
+                                            {row.cardId === undefined
+                                                ? t('history.sessionEditor.unassignedCard')
+                                                : row.originalCardIds.length > 1 &&
+                                                    row.cardId === row.originalCardIds[0]
+                                                  ? t(
+                                                        'history.sessionEditor.cardMore',
+                                                        cardTitle(row.cardId),
+                                                        row.originalCardIds.length - 1
+                                                    )
+                                                  : cardTitle(row.cardId)}
+                                        </LinkButton>
+                                    </Cell>
+                                    <Button
+                                        size="small"
+                                        type="text"
+                                        onClick={() =>
+                                            setRows((current) =>
+                                                current.map((candidate) =>
+                                                    candidate._id === row._id
+                                                        ? {
+                                                              ...candidate,
+                                                              deleted: !candidate.deleted,
+                                                          }
+                                                        : candidate
+                                                )
+                                            )
+                                        }
+                                    >
+                                        {row.deleted
+                                            ? t('history.sessionEditor.undoDelete')
+                                            : t('history.sessionEditor.delete')}
+                                    </Button>
+                                </Row>
+                            ))
+                        )}
+                    </List>
+                    <PickerFooter>
                         <Button onClick={requestClose}>{t('history.sessionEditor.cancel')}</Button>
                         <Button type="primary" loading={saving} onClick={onSave}>
                             {t('history.sessionEditor.save')}
                         </Button>
-                    </Footer>
-                }
-            >
-                <Toolbar>
-                    <Segmented<Filter>
-                        value={filter}
-                        onChange={setFilter}
-                        options={[
-                            { label: t('history.sessionEditor.all'), value: 'all' },
-                            { label: t('history.sessionEditor.unassigned'), value: 'unassigned' },
-                            { label: t('history.sessionEditor.noProject'), value: 'noProject' },
-                        ]}
-                    />
-                    <Button size="small" onClick={toggleSelectAll}>
-                        {t('history.sessionEditor.selectAll')}
-                    </Button>
-                    <span style={{ fontSize: 12, color: 'var(--pl-text-secondary)' }}>
-                        {t('history.sessionEditor.selected', selected.size)}
-                    </span>
-                    <Spacer />
-                    <Button
-                        size="small"
-                        disabled={targets.length === 0}
-                        onClick={() => setPicker({ kind: 'project', rowIds: targets })}
-                    >
-                        {t('history.sessionEditor.batchProject')}
-                    </Button>
-                    <Button
-                        size="small"
-                        disabled={targets.length === 0 || batchBoardId === undefined}
-                        title={
-                            targets.length > 0 && batchBoardId === undefined
-                                ? t('history.sessionEditor.batchCardNeedsBoard')
-                                : undefined
-                        }
-                        onClick={() => setPicker({ kind: 'card', rowIds: targets })}
-                    >
-                        {t('history.sessionEditor.batchCard')}
-                    </Button>
-                </Toolbar>
-                <List>
-                    {visibleRows.length === 0 ? (
-                        <Empty>{t('history.sessionEditor.empty')}</Empty>
-                    ) : (
-                        visibleRows.map((row) => (
-                            <Row key={row._id} $deleted={row.deleted}>
-                                <Checkbox
-                                    checked={selected.has(row._id)}
-                                    disabled={row.deleted}
-                                    onChange={() => toggleSelected(row._id)}
-                                />
-                                <DotCell>
-                                    {recordById.has(row._id) ? (
-                                        <PomodoroNumView
-                                            pomodoros={[recordById.get(row._id)!]}
-                                            showNum={false}
-                                            inline
-                                            chooseRecord={props.chooseRecord}
-                                        />
-                                    ) : undefined}
-                                </DotCell>
-                                <Cell>{timeLabel(row.startTime)}</Cell>
-                                <Cell>{row.spentTimeInHour.toFixed(2)}h</Cell>
-                                <Cell>
-                                    <LinkButton
-                                        type="button"
-                                        title={boardTitle(row.boardId)}
-                                        onClick={() =>
-                                            setPicker({ kind: 'project', rowIds: [row._id] })
-                                        }
-                                    >
-                                        {boardTitle(row.boardId)}
-                                    </LinkButton>
-                                </Cell>
-                                <Cell>
-                                    <LinkButton
-                                        type="button"
-                                        title={cardTitle(row.cardId)}
-                                        onClick={() => {
-                                            // A card belongs to a board: without a
-                                            // project there is nothing to pick from,
-                                            // so send the user to the project first.
-                                            setPicker(
-                                                row.boardId === undefined
-                                                    ? { kind: 'project', rowIds: [row._id] }
-                                                    : { kind: 'card', rowIds: [row._id] }
-                                            );
-                                        }}
-                                    >
-                                        {row.cardId === undefined
-                                            ? t('history.sessionEditor.unassignedCard')
-                                            : row.originalCardIds.length > 1 &&
-                                                row.cardId === row.originalCardIds[0]
-                                              ? t(
-                                                    'history.sessionEditor.cardMore',
-                                                    cardTitle(row.cardId),
-                                                    row.originalCardIds.length - 1
-                                                )
-                                              : cardTitle(row.cardId)}
-                                    </LinkButton>
-                                </Cell>
-                                <Button
-                                    size="small"
-                                    type="text"
-                                    onClick={() =>
-                                        setRows((current) =>
-                                            current.map((candidate) =>
-                                                candidate._id === row._id
-                                                    ? { ...candidate, deleted: !candidate.deleted }
-                                                    : candidate
-                                            )
-                                        )
-                                    }
-                                >
-                                    {row.deleted
-                                        ? t('history.sessionEditor.undoDelete')
-                                        : t('history.sessionEditor.delete')}
-                                </Button>
-                            </Row>
-                        ))
-                    )}
-                </List>
+                    </PickerFooter>
+                </Body>
             </AppModal>
 
             {/*

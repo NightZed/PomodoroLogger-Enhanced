@@ -280,7 +280,9 @@ WIP 限制（进行中列表最多几张卡）作为**独立的看板功能**后
 - **点击即选中并关闭**，与卡片选择器一致，不再设「确认」按钮——多一次点击没有收益，选错了可以再点一次。
 - 隐藏看板灰显 + 「已隐藏」角标，仍可选。
 - 「无项目」清空 `boardId` 并解除卡片关联。
-- 两个弹窗与按天管理弹窗同宽（860），内容区同高（380）：它们在按天弹窗里只隔一次点击，宽度或高度变化会被读成窗口在跳。项目弹窗为此带一个只有「取消」的底栏，与卡片弹窗的底栏对齐。宽度与内容高度是 `components/dialogLayout.ts` 里的共享常量，按天弹窗与三个选择器（项目 / 卡片 / 列表）都引用同一份，同宽同高由结构保证——jsdom 没有布局，用 `860px` / `getComputedStyle` 写断言只会钉住今天的数字，改设计就红。底栏由内容组件自己渲染（`AppModal` 的 `footer={null}`），不是 Modal 的 footer：列表选择器的「移动」要读它自己的选中项。
+- 两个弹窗与按天管理弹窗同宽（860）、同高：它们在按天弹窗里只隔一次点击，宽度或高度变化会被读成窗口在跳。宽度与内容高度是 `components/dialogLayout.ts` 里的共享常量（`DAY_EDITOR_WIDTH` / `DIALOG_BODY_HEIGHT`），按天弹窗、看板的未分配弹窗与三个选择器（项目 / 卡片 / 列表）都引用同一份——jsdom 没有布局，用 `860px` / `getComputedStyle` 写断言只会钉住今天的数字，改设计就红。
+- 高度只由**一个**数（`DIALOG_BODY_HEIGHT` = 466，含工具栏/搜索行、滚动区、按钮行，不含标题与 body padding）决定，各弹窗内部一律「工具栏 `flex: none` + 滚动区 `flex: 1` + 按钮行 `flex: none`」。按天弹窗与未分配弹窗在这个高度下**任意行数都不变**：会话少时列表下方留白，而不是弹窗随行数长高缩短、再把选择器顶得对不齐。按天弹窗的列表因此出来是 466 − 工具栏 − 按钮行 ≈ 380，与之前显示的行数一致。
+- 按钮行由内容组件自己渲染（`Kanban/PickerFooter`，`AppModal` 传 `footer={null}`），不是 Modal 的 footer。两个原因：列表选择器的「移动」要读它自己的选中项；只有结构一致（四个弹窗都是 `Body(height) > 工具栏 + 滚动区 + PickerFooter`），高度才真的相等。之前按天弹窗把按钮交给 antd footer、选择器把按钮放在 body 里，两套算法差出一行工具栏，会话撑满时选择器下面正好露出这一条。
 - 卡片弹窗的列容器只允许横向滚动（列表多时），纵向滚动留给每列自己的 `ColumnBody`。两层都纵向滚动时，外层会在弹窗右边缘多出一条滚动条，看起来像「内容区高度算错了」。
 
 ```
@@ -430,7 +432,7 @@ UI：
 
 两个推论：
 
-- 两个 body 必须同高（`PICKER_BODY_HEIGHT` = 380）。否则合并后 Modal 在两步之间改高度，底部塌一下，还是「窗口在跳」。现在 `ListPicker` 按内容撑高，实际只有 140 左右，是唯一没接这个常量的选择器，合并时一并补上。
+- 两个 body 必须同高，都取 `DIALOG_BODY_HEIGHT`。否则合并后 Modal 在两步之间改高度，底部塌一下，还是「窗口在跳」。
 - 底部按钮放进 body 自己的一行，`AppModal` 传 `footer={null}`。第二步的确认按钮要读 body 内的选中列表；footer 若由 Modal 渲染，就得把选中态提升到容器，父子两边各推一次默认列表，两处逻辑迟早会分叉。代价是 `ProjectPicker` 的「取消」从 Modal footer 挪进 body，视觉上要自己补上 `margin-top` 与右对齐。
 
 实现细节（第 7 步定稿）：
@@ -442,7 +444,7 @@ UI：
 - `completedTime` 只在目标列表是该看板的 `doneList` 时写 `Date.now()`；离开 done 列表保留原值，与拖拽一致。
 - 会话解绑其他卡片时按出现次数扣减，和 `applySessionEdits` 一样，存量重复引用不会留下虚高。
 - UI 是两步：`BoardListPicker`（`Kanban/BoardListPicker.tsx`）包一个 `AppModal`，`step === 'project'` 时渲染 `ProjectPickerBody`（`allowNone={false}`，移动必须有目标板），否则渲染 `ListPickerBody`（标出 `focused` / `done`，默认选 `focusedList`，源列表禁用）。第二步的「取消」回到项目步，不是关闭整个流程。`RestoreCardsDialog` 用同一个 `BoardListPicker`，只换确认文案与回调。
-- `ProjectPicker` / `ListPicker` 的内容拆成具名导出 `ProjectPickerBody` / `ListPickerBody`，两者都用 `PICKER_BODY_HEIGHT` 固定内容高度，并自带一行底部按钮。`ProjectPicker` 仍是 `AppModal + ProjectPickerBody`（按天弹窗在用）；`ListPicker` 组件随两个调用点改用 `BoardListPicker` 而删除。
+- `ProjectPicker` / `ListPicker` 的内容拆成具名导出 `ProjectPickerBody` / `ListPickerBody`，两者都用 `DIALOG_BODY_HEIGHT` 固定内容高度，并自带一行底部按钮。`ProjectPicker` 仍是 `AppModal + ProjectPickerBody`（按天弹窗在用）；`ListPicker` 组件随两个调用点改用 `BoardListPicker` 而删除。
 - 入口在 `CardEditor` 底部与「删除」并列，仅编辑态显示；`CardMoveDialog`（`Kanban/CardMoveDialog.tsx`）自己 connect，避免把整张 `cards` / `lists` 表塞进重量级的卡片编辑弹窗。
 - 卡片编辑弹窗的 document 级 Esc/Ctrl+Enter 监听要把 `moveOpen` 一起排除，否则在移动弹窗里按 Esc 会关掉背后的编辑器并丢掉未保存内容（与插入链接弹窗同一处理）。
 

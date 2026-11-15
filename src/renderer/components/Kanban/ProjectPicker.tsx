@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { connect } from 'react-redux';
 import { AppModal } from '../AppModal';
 import { useI18n } from '../../i18n';
-import { DAY_EDITOR_WIDTH, PICKER_BODY_HEIGHT } from '../dialogLayout';
+import { DAY_EDITOR_WIDTH, DIALOG_BODY_HEIGHT } from '../dialogLayout';
 import { PickerFooter } from './PickerFooter';
 import type { RootState } from '../../reducers';
 import type { KanbanBoard } from './type';
@@ -40,14 +40,14 @@ interface BodyProps extends ProjectPickerBodyProps {
 }
 
 /**
- * Fixed height so the dialog is the same size as the card picker. The grid
- * takes whatever is left and scrolls on its own; the search bar and the "no
- * project" button stay put.
+ * The body carries the button row and a fixed height: `DIALOG_BODY_HEIGHT`
+ * makes it exactly as tall as the day editor (and the other pickers) it opens
+ * over, so no band of the dialog underneath shows past its bottom edge.
  */
 const Body = styled.div`
     display: flex;
     flex-direction: column;
-    height: ${PICKER_BODY_HEIGHT}px;
+    height: ${DIALOG_BODY_HEIGHT}px;
 `;
 
 const Toolbar = styled.div`
@@ -161,59 +161,57 @@ const ProjectPickerBodyInner = (props: BodyProps) => {
     }, [props.boards, keyword, sortBy]);
 
     return (
-        <>
-            <Body>
-                <Toolbar>
-                    <Input
-                        allowClear
-                        autoFocus
-                        placeholder={t('kanban.projectPicker.search')}
-                        value={keyword}
-                        onChange={(event) => setKeyword(event.target.value)}
-                    />
-                    <Select<SortBy>
-                        value={sortBy}
-                        style={{ width: 150, flex: 'none' }}
-                        onChange={setSortBy}
-                    >
-                        <Option value="created">{t('kanban.projectPicker.sortCreated')}</Option>
-                        <Option value="visited">{t('kanban.projectPicker.sortVisited')}</Option>
-                        <Option value="name">{t('kanban.projectPicker.sortName')}</Option>
-                    </Select>
-                </Toolbar>
-                {boards.length === 0 ? (
-                    <Empty>{t('kanban.projectPicker.empty')}</Empty>
-                ) : (
-                    <Grid role="listbox" aria-label={t('kanban.projectPicker.title')}>
-                        {boards.map((board) => (
-                            <BoardOption
-                                key={board._id}
-                                type="button"
-                                role="option"
-                                aria-selected={board._id === props.value}
-                                $selected={board._id === props.value}
-                                $hidden={!!board.hidden}
-                                title={board.name}
-                                onClick={() => props.onPick(board._id)}
-                            >
-                                <BoardName>{board.name}</BoardName>
-                                {board.hidden ? (
-                                    <HiddenTag>{t('kanban.projectPicker.hidden')}</HiddenTag>
-                                ) : undefined}
-                            </BoardOption>
-                        ))}
-                    </Grid>
-                )}
-                {props.allowNone === false ? undefined : (
-                    <NoProject type="button" onClick={() => props.onPick(undefined)}>
-                        {t('kanban.projectPicker.none')}
-                    </NoProject>
-                )}
-            </Body>
+        <Body>
+            <Toolbar>
+                <Input
+                    allowClear
+                    autoFocus
+                    placeholder={t('kanban.projectPicker.search')}
+                    value={keyword}
+                    onChange={(event) => setKeyword(event.target.value)}
+                />
+                <Select<SortBy>
+                    value={sortBy}
+                    style={{ width: 150, flex: 'none' }}
+                    onChange={setSortBy}
+                >
+                    <Option value="created">{t('kanban.projectPicker.sortCreated')}</Option>
+                    <Option value="visited">{t('kanban.projectPicker.sortVisited')}</Option>
+                    <Option value="name">{t('kanban.projectPicker.sortName')}</Option>
+                </Select>
+            </Toolbar>
+            {boards.length === 0 ? (
+                <Empty>{t('kanban.projectPicker.empty')}</Empty>
+            ) : (
+                <Grid role="listbox" aria-label={t('kanban.projectPicker.title')}>
+                    {boards.map((board) => (
+                        <BoardOption
+                            key={board._id}
+                            type="button"
+                            role="option"
+                            aria-selected={board._id === props.value}
+                            $selected={board._id === props.value}
+                            $hidden={!!board.hidden}
+                            title={board.name}
+                            onClick={() => props.onPick(board._id)}
+                        >
+                            <BoardName>{board.name}</BoardName>
+                            {board.hidden ? (
+                                <HiddenTag>{t('kanban.projectPicker.hidden')}</HiddenTag>
+                            ) : undefined}
+                        </BoardOption>
+                    ))}
+                </Grid>
+            )}
+            {props.allowNone === false ? undefined : (
+                <NoProject type="button" onClick={() => props.onPick(undefined)}>
+                    {t('kanban.projectPicker.none')}
+                </NoProject>
+            )}
             <PickerFooter>
                 <Button onClick={props.onCancel}>{t('common.cancel')}</Button>
             </PickerFooter>
-        </>
+        </Body>
     );
 };
 

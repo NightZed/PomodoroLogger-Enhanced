@@ -2,8 +2,9 @@ import * as React from 'react';
 import { Button, Checkbox } from 'antd';
 import styled from 'styled-components';
 import { AppModal } from '../../AppModal';
-import { DAY_EDITOR_WIDTH } from '../../dialogLayout';
+import { DAY_EDITOR_WIDTH, DIALOG_BODY_HEIGHT } from '../../dialogLayout';
 import { CardPicker } from '../CardPicker';
+import { PickerFooter } from '../PickerFooter';
 import { feedback } from '../../feedback';
 import { useI18n } from '../../../i18n';
 import { PomodoroNumView } from '../../Timer/PomodoroNumView';
@@ -37,7 +38,19 @@ interface DraftRow {
     deleted: boolean;
 }
 
+/**
+ * Same frame as the History day editor: a fixed height with the list on
+ * `flex: 1`, so the card picker opened from here is neither taller nor shorter
+ * than this dialog. See `DIALOG_BODY_HEIGHT`.
+ */
+const Body = styled.div`
+    display: flex;
+    flex-direction: column;
+    height: ${DIALOG_BODY_HEIGHT}px;
+`;
+
 const Hint = styled.p`
+    flex: none;
     margin: 0 0 12px;
     font-size: 12px;
     color: var(--pl-text-secondary);
@@ -45,6 +58,7 @@ const Hint = styled.p`
 
 const Toolbar = styled.div`
     display: flex;
+    flex: none;
     align-items: center;
     gap: 8px;
     margin-bottom: 10px;
@@ -55,7 +69,8 @@ const Spacer = styled.div`
 `;
 
 const List = styled.div`
-    max-height: 380px;
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     border-top: 1px solid var(--pl-border);
 `;
@@ -108,16 +123,14 @@ const LinkButton = styled.button`
 `;
 
 const Empty = styled.div`
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
     padding: 24px;
     text-align: center;
     font-size: 13px;
     color: var(--pl-text-secondary);
-`;
-
-const Footer = styled.div`
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
 `;
 
 const pad = (value: number): string => (value < 10 ? `0${value}` : String(value));
@@ -298,96 +311,99 @@ export const UnassignedPanel = (props: UnassignedPanelProps) => {
                 width={DAY_EDITOR_WIDTH}
                 open={props.open}
                 onCancel={requestClose}
-                footer={
-                    <Footer>
+                /* Buttons live inside the fixed-height body, exactly as in the
+                   day editor and the pickers. */
+                footer={null}
+            >
+                <Body>
+                    <Hint>{t('kanban.unassigned.hint')}</Hint>
+                    {props.rows.length === 0 ? (
+                        <Empty>{t('kanban.unassigned.empty')}</Empty>
+                    ) : (
+                        <>
+                            <Toolbar>
+                                <Button size="small" onClick={toggleSelectAll}>
+                                    {t('kanban.unassigned.selectAll')}
+                                </Button>
+                                <span style={{ fontSize: 12, color: 'var(--pl-text-secondary)' }}>
+                                    {t('kanban.unassigned.selected', selected.size)}
+                                </span>
+                                <Spacer />
+                                <Button
+                                    size="small"
+                                    disabled={selected.size === 0}
+                                    onClick={() => setPickerFor(Array.from(selected))}
+                                >
+                                    {t('kanban.unassigned.assignTo')}
+                                </Button>
+                            </Toolbar>
+                            <List>
+                                {props.rows.map((row) => (
+                                    <Row key={row._id} $deleted={isDeleted(row._id)}>
+                                        <Checkbox
+                                            checked={selected.has(row._id)}
+                                            disabled={isDeleted(row._id)}
+                                            onChange={() => toggle(row._id)}
+                                        />
+                                        <DotCell>
+                                            <PomodoroNumView
+                                                pomodoros={[
+                                                    {
+                                                        _id: row._id,
+                                                        startTime: row.startTime,
+                                                    } as PomodoroRecord,
+                                                ]}
+                                                showNum={false}
+                                                inline
+                                                chooseRecord={() => {
+                                                    void openSankey(row._id);
+                                                }}
+                                            />
+                                        </DotCell>
+                                        <Cell>{dayTimeLabel(row.startTime)}</Cell>
+                                        <Cell>{row.spentTimeInHour.toFixed(2)}h</Cell>
+                                        <Cell>
+                                            <LinkButton
+                                                type="button"
+                                                title={
+                                                    cardIdOf(row._id) === undefined
+                                                        ? t('kanban.unassigned.noCard')
+                                                        : cardTitle(cardIdOf(row._id)!)
+                                                }
+                                                disabled={isDeleted(row._id)}
+                                                onClick={() => setPickerFor([row._id])}
+                                            >
+                                                {cardIdOf(row._id) === undefined
+                                                    ? t('kanban.unassigned.noCard')
+                                                    : cardTitle(cardIdOf(row._id)!)}
+                                            </LinkButton>
+                                        </Cell>
+                                        <Button
+                                            size="small"
+                                            type="text"
+                                            onClick={() => toggleDelete(row._id)}
+                                        >
+                                            {isDeleted(row._id)
+                                                ? t('kanban.unassigned.undoDelete')
+                                                : t('kanban.unassigned.delete')}
+                                        </Button>
+                                    </Row>
+                                ))}
+                            </List>
+                            {props.total > props.rows.length ? (
+                                <Hint>
+                                    {t('kanban.unassigned.more', props.total - props.rows.length)}
+                                </Hint>
+                            ) : undefined}
+                        </>
+                    )}
+                    <PickerFooter>
                         <Button onClick={requestClose}>{t('kanban.unassigned.cancel')}</Button>
                         <Button type="primary" loading={saving} onClick={save}>
                             {t('kanban.unassigned.save')}
                         </Button>
-                    </Footer>
-                }
-            >
-                <Hint>{t('kanban.unassigned.hint')}</Hint>
-                {props.rows.length === 0 ? (
-                    <Empty>{t('kanban.unassigned.empty')}</Empty>
-                ) : (
-                    <>
-                        <Toolbar>
-                            <Button size="small" onClick={toggleSelectAll}>
-                                {t('kanban.unassigned.selectAll')}
-                            </Button>
-                            <span style={{ fontSize: 12, color: 'var(--pl-text-secondary)' }}>
-                                {t('kanban.unassigned.selected', selected.size)}
-                            </span>
-                            <Spacer />
-                            <Button
-                                size="small"
-                                disabled={selected.size === 0}
-                                onClick={() => setPickerFor(Array.from(selected))}
-                            >
-                                {t('kanban.unassigned.assignTo')}
-                            </Button>
-                        </Toolbar>
-                        <List>
-                            {props.rows.map((row) => (
-                                <Row key={row._id} $deleted={isDeleted(row._id)}>
-                                    <Checkbox
-                                        checked={selected.has(row._id)}
-                                        disabled={isDeleted(row._id)}
-                                        onChange={() => toggle(row._id)}
-                                    />
-                                    <DotCell>
-                                        <PomodoroNumView
-                                            pomodoros={[
-                                                {
-                                                    _id: row._id,
-                                                    startTime: row.startTime,
-                                                } as PomodoroRecord,
-                                            ]}
-                                            showNum={false}
-                                            inline
-                                            chooseRecord={() => {
-                                                void openSankey(row._id);
-                                            }}
-                                        />
-                                    </DotCell>
-                                    <Cell>{dayTimeLabel(row.startTime)}</Cell>
-                                    <Cell>{row.spentTimeInHour.toFixed(2)}h</Cell>
-                                    <Cell>
-                                        <LinkButton
-                                            type="button"
-                                            title={
-                                                cardIdOf(row._id) === undefined
-                                                    ? t('kanban.unassigned.noCard')
-                                                    : cardTitle(cardIdOf(row._id)!)
-                                            }
-                                            disabled={isDeleted(row._id)}
-                                            onClick={() => setPickerFor([row._id])}
-                                        >
-                                            {cardIdOf(row._id) === undefined
-                                                ? t('kanban.unassigned.noCard')
-                                                : cardTitle(cardIdOf(row._id)!)}
-                                        </LinkButton>
-                                    </Cell>
-                                    <Button
-                                        size="small"
-                                        type="text"
-                                        onClick={() => toggleDelete(row._id)}
-                                    >
-                                        {isDeleted(row._id)
-                                            ? t('kanban.unassigned.undoDelete')
-                                            : t('kanban.unassigned.delete')}
-                                    </Button>
-                                </Row>
-                            ))}
-                        </List>
-                        {props.total > props.rows.length ? (
-                            <Hint>
-                                {t('kanban.unassigned.more', props.total - props.rows.length)}
-                            </Hint>
-                        ) : undefined}
-                    </>
-                )}
+                    </PickerFooter>
+                </Body>
             </AppModal>
             <CardPicker
                 open={pickerFor !== undefined}

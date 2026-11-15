@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { connect } from 'react-redux';
 import { AppModal } from '../AppModal';
 import { useI18n } from '../../i18n';
-import { DAY_EDITOR_WIDTH, PICKER_BODY_HEIGHT } from '../dialogLayout';
+import { DAY_EDITOR_WIDTH, DIALOG_BODY_HEIGHT } from '../dialogLayout';
 import type { RootState } from '../../reducers';
 
 export interface CardPickerProps {
@@ -29,16 +29,26 @@ interface Props extends CardPickerProps {
 }
 
 /**
- * Fixed height, and the only axis that may scroll here is horizontal (many
- * lists). Each column owns its own vertical scrollbar: the frame itself must
- * never scroll, or the dialog shows a second scrollbar on the right that looks
- * like the whole panel is too short.
+ * Same frame as the other pickers and the editor they open over: a fixed
+ * height from `DIALOG_BODY_HEIGHT`, columns on `flex: 1`, buttons inside.
+ *
+ * The only axis that may scroll on the frame is horizontal (many lists). Each
+ * column owns its own vertical scrollbar: the frame itself must never scroll,
+ * or the dialog shows a second scrollbar on the right that looks like the whole
+ * panel is too short.
  */
+const Body = styled.div`
+    display: flex;
+    flex-direction: column;
+    height: ${DIALOG_BODY_HEIGHT}px;
+`;
+
 const Columns = styled.div`
     display: flex;
     align-items: stretch;
     gap: 12px;
-    height: ${PICKER_BODY_HEIGHT}px;
+    flex: 1;
+    min-height: 0;
     overflow-x: auto;
     overflow-y: hidden;
 `;
@@ -97,17 +107,19 @@ const CardOption = styled.button<{ $selected: boolean }>`
 
 const EmptyBody = styled.div`
     display: flex;
+    flex: 1;
     align-items: center;
     justify-content: center;
-    height: ${PICKER_BODY_HEIGHT}px;
     font-size: 13px;
     color: var(--pl-text-secondary);
 `;
 
 const FooterRow = styled.div`
     display: flex;
+    flex: none;
     justify-content: space-between;
     gap: 8px;
+    margin-top: 12px;
 `;
 
 const CardPickerInner = (props: Props) => {
@@ -145,41 +157,42 @@ const CardPickerInner = (props: Props) => {
             /* Same frame as the project picker: the two are one click apart in
                the History day editor. */
             width={DAY_EDITOR_WIDTH}
-            footer={
+            footer={null}
+        >
+            <Body>
+                {isEmpty ? (
+                    <EmptyBody>{t('kanban.cardPicker.empty')}</EmptyBody>
+                ) : (
+                    <Columns>
+                        {columns.map((column) => (
+                            <Column key={column.list._id}>
+                                <ColumnTitle>{column.list.title}</ColumnTitle>
+                                <ColumnBody role="listbox" aria-label={column.list.title}>
+                                    {column.cards.map((card) => (
+                                        <CardOption
+                                            key={card._id}
+                                            type="button"
+                                            role="option"
+                                            aria-selected={card._id === props.value}
+                                            $selected={card._id === props.value}
+                                            title={card.title}
+                                            onClick={() => props.onPick(card._id)}
+                                        >
+                                            {card.title || t('kanban.cardPicker.untitled')}
+                                        </CardOption>
+                                    ))}
+                                </ColumnBody>
+                            </Column>
+                        ))}
+                    </Columns>
+                )}
                 <FooterRow>
                     <Button onClick={() => props.onPick(undefined)}>
                         {t('kanban.cardPicker.noCard')}
                     </Button>
                     <Button onClick={props.onClose}>{t('kanban.cardPicker.cancel')}</Button>
                 </FooterRow>
-            }
-        >
-            {isEmpty ? (
-                <EmptyBody>{t('kanban.cardPicker.empty')}</EmptyBody>
-            ) : (
-                <Columns>
-                    {columns.map((column) => (
-                        <Column key={column.list._id}>
-                            <ColumnTitle>{column.list.title}</ColumnTitle>
-                            <ColumnBody role="listbox" aria-label={column.list.title}>
-                                {column.cards.map((card) => (
-                                    <CardOption
-                                        key={card._id}
-                                        type="button"
-                                        role="option"
-                                        aria-selected={card._id === props.value}
-                                        $selected={card._id === props.value}
-                                        title={card.title}
-                                        onClick={() => props.onPick(card._id)}
-                                    >
-                                        {card.title || t('kanban.cardPicker.untitled')}
-                                    </CardOption>
-                                ))}
-                            </ColumnBody>
-                        </Column>
-                    ))}
-                </Columns>
-            )}
+            </Body>
         </AppModal>
     );
 };

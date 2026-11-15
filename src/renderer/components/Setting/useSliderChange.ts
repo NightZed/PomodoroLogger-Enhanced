@@ -15,13 +15,10 @@ import { useCallback, useEffect, useRef } from 'react';
  * change per frame, and a single click, arrow key or programmatic change lands
  * on the next frame -- 16 ms, under the threshold where a thumb looks late.
  *
- * `cancel` drops the value that is still queued, for a caller that commits
- * something else in between (see `PreviewSlider`).
- *
  * `apply` has to be a stable callback (a `useCallback` handler or a
  * `useState` setter): a scheduled frame keeps the one it was created with.
  */
-export function useSliderChange<T>(apply: (value: T) => void): [(value: T) => void, () => void] {
+export function useSliderChange<T>(apply: (value: T) => void): (value: T) => void {
     const pending = useRef<{ value: T } | null>(null);
     const frame = useRef<number | null>(null);
 
@@ -36,7 +33,7 @@ export function useSliderChange<T>(apply: (value: T) => void): [(value: T) => vo
     // A scheduled frame must not fire into an unmounted page.
     useEffect(() => cancel, [cancel]);
 
-    const change = useCallback(
+    return useCallback(
         (value: T) => {
             pending.current = { value };
 
@@ -56,6 +53,4 @@ export function useSliderChange<T>(apply: (value: T) => void): [(value: T) => vo
         },
         [apply]
     );
-
-    return [change, cancel];
 }

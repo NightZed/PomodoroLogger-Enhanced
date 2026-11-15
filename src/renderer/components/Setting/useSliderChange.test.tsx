@@ -14,10 +14,9 @@ import { useSliderChange } from './useSliderChange';
 
 /** Last handler the harness rendered, i.e. the one the slider would receive. */
 let push: (value: number) => void = () => undefined;
-let cancel: () => void = () => undefined;
 
 const Harness: React.FunctionComponent<{ apply: (value: number) => void }> = ({ apply }) => {
-    [push, cancel] = useSliderChange(apply);
+    push = useSliderChange(apply);
     return null;
 };
 
@@ -75,20 +74,6 @@ it('keeps a steady drag at one value per frame', () => {
     frame();
 
     expect(apply.mock.calls).toEqual([[2], [4]]);
-});
-
-it('drops a queued value on cancel, which is what a commit uses', () => {
-    const apply = jest.fn();
-    render(<Harness apply={apply} />);
-
-    push(1);
-    cancel();
-    frame();
-    expect(apply).not.toHaveBeenCalled();
-
-    push(2);
-    frame();
-    expect(apply.mock.calls).toEqual([[2]]);
 });
 
 it('drops a frame that is still pending when the page goes away', () => {

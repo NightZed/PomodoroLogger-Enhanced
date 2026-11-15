@@ -189,8 +189,10 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
   因此任何仍能到达渲染层的标题栏按下事件都必须同时启动 `windowDrag`，否则滚动之后窗口就拖不动了——见 `src/renderer/components/AppTitleBar/dragRegion.ts` 和 `src/main/ipc/windowDrag.ts`。
 - `src/components/**` 是共享的可视化/小部件库（`Visualization/*`、`common/*`），渲染层用相对路径引用它——它不是渲染层自己的组件树。
 - 拖动驱动的设置走两条路之一，新滑块必须明确选边。
-  四个时长用 `Setting/PreviewSlider.tsx`：整个拖动过程中值留在本地 state，只在松手时提交一次。
+  四个时长和音量用 `Setting/PreviewSlider.tsx`：只在松手时提交一次。
   它们必须这样，因为 `Timer/index.tsx` 映射了整个 store，其 `shouldComponentUpdate` 会对四个时长中的任何一个重渲染，所以每事件写一次 store 会让整个番茄钟页面（进度环、`PomodoroNumView` 的 SVG 墙）在一次拖动里重渲染约 100 次。
+  `PreviewSlider` 是**非受控**的（`defaultValue` + `key` 重新播种），不要再改回受控 `value`：rc-slider 会用 layout effect 把每个新 value 抄进自己的 state，于是每帧变化的 value 每帧加一次嵌套更新，拖到第 50 帧 React 直接抛 `Maximum update depth exceeded`（v1.4 的时长滑块一直带着这个 bug，只是没人拖得那么快）。
+  重新播种只在设置被别处改动时发生：`expected` ref 记住刚提交的值，store 回写同一个值不算外部变化，否则松手瞬间重挂载会丢焦点（键盘用户接着按方向键就没反应了）。
   三个不透明度不能这么做——它们的值*就是*窗口显示的内容——所以它们走 `Setting/useSliderChange.ts`（折到每帧一次变更），再按 key 做 300 ms 防抖写入（`Timer/action.ts` 的 `persistSettingWithDebounce`）；每次设置写入都会在自己的 WAL 提交里重写整张 `settings` 表，所以每事件持久化就是每个指针事件一次 fsync。
 - 主题：`src/renderer/theme`（tokens + `applyTheme`，CSS 自定义属性 `--pl-*`）通过 `ThemeController` 应用。
   首次绘制的主题经 `additionalArguments` → `window.api.initialTheme` 跨进程边界传递，这样渲染层不会闪一下错误的主题；动启动主题时两侧都要同步改。

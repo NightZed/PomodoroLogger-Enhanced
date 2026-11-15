@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Slider } from 'antd';
-import { useSliderChange } from './useSliderChange';
 
 interface Props {
     /** Committed value, in the slider's own unit (minutes for the durations). */
@@ -19,45 +18,51 @@ interface Props {
  * The other sliders of the settings page (the three opacities) have to reach the
  * store on every frame: their value is what the window is showing. A duration is
  * not -- nothing outside the settings page displays it while the thumb moves,
- * and the timer page sits behind this one. Holding the value in local state
+ * and the timer page sits behind this one. Holding the value away from the store
  * therefore keeps a drag from being a store update, and keeps it from
  * re-rendering the whole timer page (progress ring, pomodoro wall, ...) once per
  * frame; that cascade is what made a fast drag cost a third of a core and grow
  * the renderer heap by tens of megabytes.
  *
- * The preview itself is folded to one value per frame: a slider re-render is not
- * free either, and a mouse can report several times per frame.
+ * The slider is *uncontrolled* (`defaultValue`, re-keyed only when the setting
+ * changes behind its back). A controlled `value` that follows the thumb is what
+ * breaks: the rc slider mirrors every incoming value into its own state from a
+ * layout effect, so a value that changes once per frame adds a nested update per
+ * frame and React aborts the drag with "Maximum update depth exceeded" after
+ * fifty of them. Left to the slider, a drag is one internal update per pointer
+ * event and nothing in React's nested-update count.
  *
- * `onChangeComplete` is fired by the rc slider on pointerup, at the end of a
- * track click and on keyup of the arrow/page keys, so a value can never be left
- * behind in the local state.
+ * `expected` is what keeps the re-seeding honest: it is the value the store is
+ * about to report (the one just committed) or the last one seen from outside.
+ * The echo of our own commit therefore does not look like an outside change --
+ * re-keying there would remount the slider under the pointer, dropping the drag
+ * and the focus the arrow keys need right after it. Anything else that changes
+ * the setting (`restore defaults`, the store finishing its read, a value clamped
+ * on write) does not match and re-seeds the thumb.
  */
 const PreviewSlider: React.FunctionComponent<Props> = ({ value, onCommit, ...rest }) => {
-    const [preview, setPreview] = useState<number | null>(null);
-    const [showPreview, dropPreview] = useSliderChange(setPreview);
+    const expected = useRef(value);
+    const [seed, setSeed] = useState({ value, version: 0 });
+
+    if (value !== expected.current) {
+        expected.current = value;
+        setSeed((prev) => ({ value, version: prev.version + 1 }));
+    }
 
     return (
         <Slider
             {...rest}
-            value={preview ?? value}
-            onChange={(v) => {
-                if (typeof v === 'number') {
-                    showPreview(v);
-                }
-            }}
+            key={seed.version}
+            defaultValue={seed.value}
             onChangeComplete={(v) => {
                 if (typeof v !== 'number') {
                     return;
                 }
 
-                // Anything still queued for the next frame belongs to the drag
-                // that just ended; the commit below is the value that counts.
-                dropPreview();
-
-                // One batch: the store takes the value and the preview is
-                // dropped together, so the thumb never jumps back.
+                // The store is about to hold exactly this value; remembering it
+                // keeps its echo from re-seeding the slider.
+                expected.current = v;
                 onCommit(v);
-                setPreview(null);
             }}
         />
     );

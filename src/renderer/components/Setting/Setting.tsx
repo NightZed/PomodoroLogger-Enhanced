@@ -666,10 +666,11 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
         // screen can show one: these fold that burst into one change per frame
         // (see `useSliderChange`). Only the value travels this way -- what each
         // slider *saves* is decided in its action. The durations do not need
-        // this at all: they are committed once per drag by `PreviewSlider`.
-        const [queueContentOpacityChange] = useSliderChange(onChangeContentOpacity);
-        const [queueThemeBackgroundOpacityChange] = useSliderChange(onChangeThemeBackgroundOpacity);
-        const [queueWallpaperOpacityChange] = useSliderChange(onChangeWallpaperOpacity);
+        // this at all: `PreviewSlider` leaves the value to the slider and
+        // commits it once, when the drag ends.
+        const queueContentOpacityChange = useSliderChange(onChangeContentOpacity);
+        const queueThemeBackgroundOpacityChange = useSliderChange(onChangeThemeBackgroundOpacity);
+        const queueWallpaperOpacityChange = useSliderChange(onChangeWallpaperOpacity);
 
         const switchScreenshot = React.useCallback(
             (v: boolean) => {

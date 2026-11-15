@@ -1,35 +1,33 @@
 /**
- * A duration slider must not talk to the store while it is being dragged: that
- * is what re-rendered the whole timer page once per pointer event.
+ * A slider of the settings page, as far as the drag is concerned: the value
+ * stays in the slider while the thumb moves, and the store hears about it once.
  *
- * The stand-in below keeps the real slider's two announcements apart -- one
- * `onChange` per step of the drag, one `onChangeComplete` when it ends.
+ * The stand-in below mirrors the real slider's contract -- it owns the value
+ * (`defaultValue`) and announces the end of the drag -- because that ownership
+ * is the point. A controlled value that follows the thumb is what made a drag
+ * feed React's nested-update counter ("Maximum update depth exceeded": rc-slider
+ * copies every incoming value into its own state from a layout effect, so a
+ * value that changes once per frame never settles).
  */
 import * as React from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 
 jest.mock('antd', () => {
     const React = require('react');
-    const Slider = ({ value, onChange, onChangeComplete }: any) => {
-        // The real slider keeps the dragged value internally, so the release
-        // reports the position of the thumb even when the parent has not
-        // re-rendered yet.
-        const latest = React.useRef(value);
+    const Slider = ({ defaultValue, onChangeComplete }: any) => {
+        const [value, setValue] = React.useState(defaultValue);
         return React.createElement(
             'div',
             null,
             React.createElement('input', {
-                'data-testid': 'slider',
+                type: 'range',
+                'aria-label': 'Duration',
+                min: 0,
+                max: 60,
                 value,
-                onChange: (event: any) => {
-                    latest.current = Number(event.target.value);
-                    onChange?.(latest.current);
-                },
+                onChange: (event: any) => setValue(Number(event.target.value)),
             }),
-            React.createElement('button', {
-                'data-testid': 'release',
-                onClick: () => onChangeComplete?.(latest.current),
-            })
+            React.createElement('button', { onClick: () => onChangeComplete?.(value) }, 'release')
         );
     };
     return { Slider };
@@ -37,74 +35,54 @@ jest.mock('antd', () => {
 
 import PreviewSlider from './PreviewSlider';
 
-const sliderValue = () => (screen.getByTestId('slider') as HTMLInputElement).value;
+const slider = () => screen.getByRole('slider', { name: 'Duration' }) as HTMLInputElement;
+const release = () => fireEvent.click(screen.getByRole('button', { name: 'release' }));
 
-/** The preview is folded into one value per frame, like the other sliders. */
-const frame = () => act(() => jest.advanceTimersByTime(20));
-
-beforeEach(() => {
-    jest.useFakeTimers();
-});
-
-afterEach(() => {
-    jest.useRealTimers();
-});
-
-// Regression: committing per pointer event re-rendered the whole timer page
-// (and, for the opacity sliders, repainted the window) on every event of a drag.
-it('keeps a dragged value local and commits it once, when the drag ends', () => {
+// Regression: committing per pointer event re-rendered the whole timer page on
+// every event of a drag.
+it('keeps a dragged value in the slider and commits it once, when the drag ends', () => {
     const onCommit = jest.fn();
     render(<PreviewSlider value={15} onCommit={onCommit} />);
 
-    expect(sliderValue()).toBe('15');
+    expect(slider().value).toBe('15');
 
-    fireEvent.change(screen.getByTestId('slider'), { target: { value: '20' } });
-    frame();
-    fireEvent.change(screen.getByTestId('slider'), { target: { value: '25' } });
-    frame();
+    fireEvent.change(slider(), { target: { value: '20' } });
+    fireEvent.change(slider(), { target: { value: '25' } });
 
-    // The page follows the thumb...
-    expect(sliderValue()).toBe('25');
+    // The thumb follows the pointer...
+    expect(slider().value).toBe('25');
     // ...while the store has not heard about the drag at all. Only the last
     // value is handed over, on release.
     expect(onCommit).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByTestId('release'));
+    release();
     expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit).toHaveBeenCalledWith(25);
 });
 
-it('commits the value of the step that was still waiting for its frame', () => {
-    const onCommit = jest.fn();
-    render(<PreviewSlider value={15} onCommit={onCommit} />);
-
-    // A drag that ends inside the same frame as its last pointer event: the
-    // preview may still be queued, but the release names the value.
-    fireEvent.change(screen.getByTestId('slider'), { target: { value: '30' } });
-    fireEvent.click(screen.getByTestId('release'));
-
-    expect(onCommit).toHaveBeenCalledWith(30);
-    // Nothing from the finished drag is applied afterwards.
-    frame();
-    expect(sliderValue()).toBe('15');
-});
-
-it('shows the committed value after the release, not a stale preview', () => {
+// Regression: the store echoes the committed value back as the prop a moment
+// later, which is indistinguishable from an outside change unless the commit is
+// remembered. Re-seeding there remounted the slider under the pointer -- a lost
+// drag, and lost focus for the arrow keys right after it.
+it('keeps the focus on the slider when the store echoes the commit back', () => {
     const onCommit = jest.fn();
     const { rerender } = render(<PreviewSlider value={15} onCommit={onCommit} />);
 
-    fireEvent.change(screen.getByTestId('slider'), { target: { value: '25' } });
-    frame();
-    fireEvent.click(screen.getByTestId('release'));
+    slider().focus();
+    fireEvent.change(slider(), { target: { value: '25' } });
+    release();
 
-    // What the store does right after the commit: the new value comes back as
-    // the prop, and the preview must not fight it.
     rerender(<PreviewSlider value={25} onCommit={onCommit} />);
-    expect(sliderValue()).toBe('25');
 
-    fireEvent.change(screen.getByTestId('slider'), { target: { value: '30' } });
-    frame();
-    rerender(<PreviewSlider value={25} onCommit={onCommit} />);
-    // A preview survives an unrelated re-render of the page.
-    expect(sliderValue()).toBe('30');
+    expect(document.activeElement).toBe(slider());
+});
+
+it('follows the setting when it changes from somewhere else', () => {
+    const onCommit = jest.fn();
+    const { rerender } = render(<PreviewSlider value={15} onCommit={onCommit} />);
+
+    // Restore defaults, another window, a value clamped on the way into the
+    // store: the thumb has to move even though this slider never saw it.
+    rerender(<PreviewSlider value={40} onCommit={onCommit} />);
+    expect(slider().value).toBe('40');
 });

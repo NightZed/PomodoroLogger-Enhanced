@@ -125,14 +125,16 @@ jest.mock('../../dbs', () => ({
 // pointer geometry of the real slider. A native range input exposes value/min/
 // max and calls the same onChange with a number; the real slider announces the
 // end of a drag separately, so the input reports both (see PreviewSlider).
+// `PreviewSlider` hands the value over as `defaultValue` -- the slider owns it
+// while the thumb moves -- so the stand-in reads either spelling.
 jest.mock('antd', () => {
     const React = require('react');
     const actual = jest.requireActual('antd');
-    const Slider = ({ value, min, max, onChange, onChangeComplete }: any) =>
+    const Slider = ({ value, defaultValue, min, max, onChange, onChangeComplete }: any) =>
         React.createElement('input', {
             type: 'range',
             'data-testid': 'slider',
-            value,
+            value: value ?? defaultValue,
             min,
             max,
             onChange: (event: any) => {
@@ -312,9 +314,8 @@ describe('minimum focus time before Finish', () => {
         const sliders = screen.getAllByTestId('slider') as HTMLInputElement[];
         expect(sliders.length).toBe(4);
         fireEvent.change(sliders[3], { target: { value: '5' } });
-        // The page folds slider events into one change per frame (see
-        // `useSliderChange`), so the value is applied on the next frame rather
-        // than inside the event.
+        // The stand-in above reports the end of the drag in the same event
+        // (`onChangeComplete` is the real slider's release).
         await waitFor(() => expect(p.setMinFinishDuration).toHaveBeenCalledWith(5 * 60));
     });
 

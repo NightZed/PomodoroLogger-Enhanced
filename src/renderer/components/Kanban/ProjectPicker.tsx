@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { connect } from 'react-redux';
 import { AppModal } from '../AppModal';
 import { useI18n } from '../../i18n';
-import { DAY_EDITOR_WIDTH, DIALOG_BODY_HEIGHT } from '../dialogLayout';
+import { DAY_EDITOR_WIDTH, DIALOG_BODY_MAX_HEIGHT } from '../dialogLayout';
 import { PickerFooter } from './PickerFooter';
 import type { RootState } from '../../reducers';
 import type { KanbanBoard } from './type';
@@ -47,7 +47,7 @@ interface BodyProps extends ProjectPickerBodyProps {
 const Body = styled.div`
     display: flex;
     flex-direction: column;
-    height: ${DIALOG_BODY_HEIGHT}px;
+    height: ${DIALOG_BODY_MAX_HEIGHT};
 `;
 
 const Toolbar = styled.div`

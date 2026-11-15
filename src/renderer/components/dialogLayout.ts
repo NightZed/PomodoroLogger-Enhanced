@@ -33,3 +33,21 @@ export const DAY_EDITOR_WIDTH = 860;
  * today's design.
  */
 export const DIALOG_BODY_HEIGHT = 466;
+
+/**
+ * What the dialogs actually use: `DIALOG_BODY_HEIGHT`, capped by the viewport.
+ *
+ * antd places the dialog 100px from the top and never shrinks it, so 466px
+ * needs a window at least ~730px tall. The window can be dragged down to 90px
+ * (`init.ts`), and then these dialogs run past the bottom edge with their
+ * buttons reachable only by scrolling the page. `100vh - 240px` covers the
+ * 100px offset, the title, the 20px body padding on both sides and a bottom
+ * margin; a normal 960px window still resolves to 466.
+ *
+ * Compact mode (370x490) is not the reason: switching to any non-Timer tab
+ * leaves it first (`planTabChange` restores the normal window).
+ *
+ * Same expression everywhere, so the dialogs keep matching each other in every
+ * window size; only the number they all share changes.
+ */
+export const DIALOG_BODY_MAX_HEIGHT = `min(${DIALOG_BODY_HEIGHT}px, calc(100vh - 240px))`;

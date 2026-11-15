@@ -3,7 +3,7 @@ import { Button } from 'antd';
 import styled from 'styled-components';
 import { connect } from 'react-redux';
 import { useI18n } from '../../i18n';
-import { DIALOG_BODY_HEIGHT } from '../dialogLayout';
+import { DIALOG_BODY_MAX_HEIGHT } from '../dialogLayout';
 import { PickerFooter } from './PickerFooter';
 import type { RootState } from '../../reducers';
 
@@ -37,7 +37,7 @@ interface Props extends ListPickerBodyProps {
 const Body = styled.div`
     display: flex;
     flex-direction: column;
-    height: ${DIALOG_BODY_HEIGHT}px;
+    height: ${DIALOG_BODY_MAX_HEIGHT};
 `;
 
 const Columns = styled.div`

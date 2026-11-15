@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Button, Checkbox } from 'antd';
 import styled from 'styled-components';
 import { AppModal } from '../../AppModal';
-import { DAY_EDITOR_WIDTH, DIALOG_BODY_HEIGHT } from '../../dialogLayout';
+import { DAY_EDITOR_WIDTH, DIALOG_BODY_MAX_HEIGHT } from '../../dialogLayout';
 import { CardPicker } from '../CardPicker';
 import { PickerFooter } from '../PickerFooter';
 import { feedback } from '../../feedback';
@@ -46,7 +46,7 @@ interface DraftRow {
 const Body = styled.div`
     display: flex;
     flex-direction: column;
-    height: ${DIALOG_BODY_HEIGHT}px;
+    height: ${DIALOG_BODY_MAX_HEIGHT};
 `;
 
 const Hint = styled.p`

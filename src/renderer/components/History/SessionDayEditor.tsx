@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { connect } from 'react-redux';
 import type { Dispatch } from 'redux';
 import { AppModal } from '../AppModal';
-import { DAY_EDITOR_WIDTH, DIALOG_BODY_HEIGHT } from '../dialogLayout';
+import { DAY_EDITOR_WIDTH, DIALOG_BODY_MAX_HEIGHT } from '../dialogLayout';
 import { feedback } from '../feedback';
 import { CardPicker } from '../Kanban/CardPicker';
 import { PickerFooter } from '../Kanban/PickerFooter';
@@ -69,7 +69,7 @@ type PickerState =
 const Body = styled.div`
     display: flex;
     flex-direction: column;
-    height: ${DIALOG_BODY_HEIGHT}px;
+    height: ${DIALOG_BODY_MAX_HEIGHT};
 `;
 
 const Toolbar = styled.div`

@@ -7,6 +7,7 @@ import { deleteAllUserData } from '../../monitor/sessionManager';
 import { feedback, FEEDBACK_MESSAGES } from '../feedback';
 import { DistractingListModalButton } from './DistractingList';
 import { isShallowEqualByKeys } from '../../utils';
+import { TITLE_BAR_HEIGHT } from '../AppTitleBar/tokens';
 import pkg from '../../../../package.json';
 import type { ExportResult, ImportResult, UpdateErrorPayload } from '../../../main/ipc/type';
 import type { DataIssuesReport, DataRepairResult } from '../../../shared/dataRepair';
@@ -40,7 +41,7 @@ import type { LogLevel } from '../../../shared/log';
 const Container = styled.div`
     display: flex;
     align-items: stretch;
-    height: calc(100vh - 44px);
+    height: calc(100vh - ${TITLE_BAR_HEIGHT}px);
     color: var(--pl-text);
     -webkit-app-region: no-drag;
 `;
@@ -52,6 +53,12 @@ const Pane = styled.div`
        whole settings page and would otherwise cover the last option. */
     padding: 12px 36px 72px 12px;
     overflow-y: auto;
+`;
+
+/** The options column: capped at a readable width, centered in the pane. */
+const PaneContent = styled.div`
+    max-width: 960px;
+    margin: 0 auto;
 `;
 
 /**
@@ -83,6 +90,14 @@ const formatMinutes = (value: number) => `${String(value).padStart(2, '0')}:00`;
 const formatPercent = (value: number) => `${value}%`;
 
 const ButtonWrapper = styled.div`
+    margin: 0.6em;
+`;
+
+/** Row of the data-management buttons; wraps when the pane is too narrow. */
+const ButtonRow = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
     margin: 0.6em;
 `;
 
@@ -120,7 +135,6 @@ const Footer = styled.footer`
     margin: 0;
     width: 100%;
     box-sizing: border-box;
-    padding-left: 180px;
     text-align: center;
     color: var(--pl-text-secondary);
 `;
@@ -1106,481 +1120,487 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             <Container>
                 <SettingNav active={section} onChange={setSection} />
                 <Pane>
-                    {section === 'timer' && (
-                        <>
-                            <Field>
-                                <h4>{t('settings.timer.focusDuration')}</h4>
-                                <SliderContainer>
-                                    <PreviewSlider
-                                        marks={marks}
-                                        step={1}
-                                        min={process.env.NODE_ENV === 'production' ? 20 : 2}
-                                        max={60}
-                                        value={props.focusDuration / 60}
-                                        formatValue={formatMinutes}
-                                        onCommit={onChangeFocus}
-                                    />
-                                </SliderContainer>
-                            </Field>
-
-                            <Field>
-                                <h4>{t('settings.timer.shortBreak')}</h4>
-                                <SliderContainer>
-                                    <PreviewSlider
-                                        marks={restMarks}
-                                        step={1}
-                                        min={1}
-                                        max={20}
-                                        value={props.restDuration / 60}
-                                        formatValue={formatMinutes}
-                                        onCommit={onChangeRest}
-                                    />
-                                </SliderContainer>
-                            </Field>
-
-                            <Field>
-                                <h4>{t('settings.timer.longBreak')}</h4>
-                                <SliderContainer>
-                                    <PreviewSlider
-                                        marks={longBreakMarks}
-                                        step={1}
-                                        min={1}
-                                        max={40}
-                                        value={props.longBreakDuration / 60}
-                                        formatValue={formatMinutes}
-                                        onCommit={onChangeLongBreak}
-                                    />
-                                </SliderContainer>
-                            </Field>
-
-                            <Field>
-                                <h4>{t('settings.timer.minFinish')}</h4>
-                                <Hint>{t('settings.timer.minFinishHint')}</Hint>
-                                <SliderContainer>
-                                    <PreviewSlider
-                                        marks={minFinishMarks(minFinishMaxMinutes)}
-                                        step={1}
-                                        min={0}
-                                        max={minFinishMaxMinutes}
-                                        value={
-                                            Math.min(props.minFinishDuration, props.focusDuration) /
-                                            60
-                                        }
-                                        formatValue={formatMinutes}
-                                        onCommit={onChangeMinFinish}
-                                    />
-                                </SliderContainer>
-                            </Field>
-
-                            <Field>
-                                <h4>{t('settings.timer.distracting')}</h4>
-                                <ButtonWrapper>
-                                    <DistractingListModalButton />
-                                </ButtonWrapper>
-                            </Field>
-                        </>
-                    )}
-
-                    {section === 'appearance' && (
-                        <>
-                            <Field>
-                                <h4>{t('settings.appearance.theme')}</h4>
-                                <ThemeOptions>
-                                    {themes.map((theme: ThemeDefinition) => {
-                                        // Built-in theme names are copy; a custom
-                                        // theme's name is user data and stays as is.
-                                        const name =
-                                            theme.id === 'day'
-                                                ? t('theme.day')
-                                                : theme.id === 'night'
-                                                  ? t('theme.night')
-                                                  : theme.name;
-                                        return (
-                                            <ThemeButton
-                                                key={theme.id}
-                                                $active={
-                                                    !props.followSystemTheme &&
-                                                    props.themeId === theme.id
-                                                }
-                                                onClick={() => onSelectTheme(theme.id)}
-                                                title={t('settings.appearance.switchToTheme', name)}
-                                            >
-                                                <Swatches>
-                                                    <i
-                                                        style={{
-                                                            backgroundColor: theme.tokens.bg,
-                                                        }}
-                                                    />
-                                                    <i
-                                                        style={{
-                                                            backgroundColor:
-                                                                theme.tokens.bgElevated,
-                                                        }}
-                                                    />
-                                                    <i
-                                                        style={{
-                                                            backgroundColor: theme.tokens.primary,
-                                                        }}
-                                                    />
-                                                </Swatches>
-                                                {name}
-                                            </ThemeButton>
-                                        );
-                                    })}
-                                </ThemeOptions>
-                                <SettingLabel>{t('settings.appearance.followSystem')}</SettingLabel>
-                                <Switch
-                                    onChange={onToggleFollowSystem}
-                                    checked={props.followSystemTheme}
-                                    style={{ margin: 8 }}
-                                />
-                            </Field>
-
-                            <Field>
-                                <h4>{t('settings.appearance.contentOpacity')}</h4>
-                                <Hint>{t('settings.appearance.contentOpacityHint')}</Hint>
-                                <SliderContainer>
-                                    <PreviewSlider
-                                        marks={opacityMarks}
-                                        min={10}
-                                        max={100}
-                                        step={5}
-                                        value={Math.round(props.contentOpacity * 100)}
-                                        formatValue={formatPercent}
-                                        onPreview={queueContentOpacityPreview}
-                                        onCommit={commitContentOpacity}
-                                    />
-                                </SliderContainer>
-                            </Field>
-
-                            <Field>
-                                <h4>{t('settings.appearance.backgroundOpacity')}</h4>
-                                <Hint>{t('settings.appearance.backgroundOpacityHint')}</Hint>
-                                <SliderContainer>
-                                    <PreviewSlider
-                                        marks={themeBackgroundOpacityMarks}
-                                        min={10}
-                                        max={100}
-                                        step={5}
-                                        value={Math.round(props.themeBackgroundOpacity * 100)}
-                                        formatValue={formatPercent}
-                                        onPreview={queueThemeBackgroundOpacityPreview}
-                                        onCommit={commitThemeBackgroundOpacity}
-                                    />
-                                </SliderContainer>
-                            </Field>
-
-                            <Field>
-                                <h4>{t('settings.appearance.wallpaper')}</h4>
-                                <Button
-                                    size="small"
-                                    onClick={onSelectWallpaper}
-                                    style={{ margin: 8 }}
-                                >
-                                    {t('common.choose')}
-                                </Button>
-                                {props.wallpaperPath && (
-                                    <Button size="small" onClick={onClearWallpaper}>
-                                        {t('common.clear')}
-                                    </Button>
-                                )}
-                            </Field>
-
-                            <Field>
-                                <h4>{t('settings.appearance.wallpaperOpacity')}</h4>
-                                <SliderContainer>
-                                    <PreviewSlider
-                                        marks={wallpaperOpacityMarks}
-                                        min={10}
-                                        max={100}
-                                        step={5}
-                                        value={Math.round(props.wallpaperOpacity * 100)}
-                                        formatValue={formatPercent}
-                                        onPreview={queueWallpaperOpacityPreview}
-                                        onCommit={commitWallpaperOpacity}
-                                    />
-                                </SliderContainer>
-                            </Field>
-
-                            <Field>
-                                <h4>{t('settings.appearance.calendarBaseColor')}</h4>
-                                <ColorInput
-                                    type="color"
-                                    value={props.calendarBaseColor}
-                                    onChange={(e) => setCalendarColor(e.target.value)}
-                                />
-                                <Button size="small" onClick={resetCalendarColor}>
-                                    {t('common.reset')}
-                                </Button>
-                            </Field>
-                        </>
-                    )}
-
-                    {section === 'notification' && (
-                        <>
-                            {screenshotAvailable && (
+                    <PaneContent>
+                        {section === 'timer' && (
+                            <>
                                 <Field>
-                                    <h4>{t('settings.notification.screenshot')}</h4>
-                                    <Hint>{t('settings.notification.screenshotHint')}</Hint>
+                                    <h4>{t('settings.timer.focusDuration')}</h4>
+                                    <SliderContainer>
+                                        <PreviewSlider
+                                            marks={marks}
+                                            step={1}
+                                            min={process.env.NODE_ENV === 'production' ? 20 : 2}
+                                            max={60}
+                                            value={props.focusDuration / 60}
+                                            formatValue={formatMinutes}
+                                            onCommit={onChangeFocus}
+                                        />
+                                    </SliderContainer>
+                                </Field>
+
+                                <Field>
+                                    <h4>{t('settings.timer.shortBreak')}</h4>
+                                    <SliderContainer>
+                                        <PreviewSlider
+                                            marks={restMarks}
+                                            step={1}
+                                            min={1}
+                                            max={20}
+                                            value={props.restDuration / 60}
+                                            formatValue={formatMinutes}
+                                            onCommit={onChangeRest}
+                                        />
+                                    </SliderContainer>
+                                </Field>
+
+                                <Field>
+                                    <h4>{t('settings.timer.longBreak')}</h4>
+                                    <SliderContainer>
+                                        <PreviewSlider
+                                            marks={longBreakMarks}
+                                            step={1}
+                                            min={1}
+                                            max={40}
+                                            value={props.longBreakDuration / 60}
+                                            formatValue={formatMinutes}
+                                            onCommit={onChangeLongBreak}
+                                        />
+                                    </SliderContainer>
+                                </Field>
+
+                                <Field>
+                                    <h4>{t('settings.timer.minFinish')}</h4>
+                                    <Hint>{t('settings.timer.minFinishHint')}</Hint>
+                                    <SliderContainer>
+                                        <PreviewSlider
+                                            marks={minFinishMarks(minFinishMaxMinutes)}
+                                            step={1}
+                                            min={0}
+                                            max={minFinishMaxMinutes}
+                                            value={
+                                                Math.min(
+                                                    props.minFinishDuration,
+                                                    props.focusDuration
+                                                ) / 60
+                                            }
+                                            formatValue={formatMinutes}
+                                            onCommit={onChangeMinFinish}
+                                        />
+                                    </SliderContainer>
+                                </Field>
+
+                                <Field>
+                                    <h4>{t('settings.timer.distracting')}</h4>
+                                    <ButtonWrapper>
+                                        <DistractingListModalButton />
+                                    </ButtonWrapper>
+                                </Field>
+                            </>
+                        )}
+
+                        {section === 'appearance' && (
+                            <>
+                                <Field>
+                                    <h4>{t('settings.appearance.theme')}</h4>
+                                    <ThemeOptions>
+                                        {themes.map((theme: ThemeDefinition) => {
+                                            // Built-in theme names are copy; a custom
+                                            // theme's name is user data and stays as is.
+                                            const name =
+                                                theme.id === 'day'
+                                                    ? t('theme.day')
+                                                    : theme.id === 'night'
+                                                      ? t('theme.night')
+                                                      : theme.name;
+                                            return (
+                                                <ThemeButton
+                                                    key={theme.id}
+                                                    $active={
+                                                        !props.followSystemTheme &&
+                                                        props.themeId === theme.id
+                                                    }
+                                                    onClick={() => onSelectTheme(theme.id)}
+                                                    title={t(
+                                                        'settings.appearance.switchToTheme',
+                                                        name
+                                                    )}
+                                                >
+                                                    <Swatches>
+                                                        <i
+                                                            style={{
+                                                                backgroundColor: theme.tokens.bg,
+                                                            }}
+                                                        />
+                                                        <i
+                                                            style={{
+                                                                backgroundColor:
+                                                                    theme.tokens.bgElevated,
+                                                            }}
+                                                        />
+                                                        <i
+                                                            style={{
+                                                                backgroundColor:
+                                                                    theme.tokens.primary,
+                                                            }}
+                                                        />
+                                                    </Swatches>
+                                                    {name}
+                                                </ThemeButton>
+                                            );
+                                        })}
+                                    </ThemeOptions>
+                                    <SettingLabel>
+                                        {t('settings.appearance.followSystem')}
+                                    </SettingLabel>
                                     <Switch
-                                        onChange={switchScreenshot}
-                                        checked={!!props.screenShotInterval}
+                                        onChange={onToggleFollowSystem}
+                                        checked={props.followSystemTheme}
                                         style={{ margin: 8 }}
                                     />
                                 </Field>
-                            )}
 
-                            <Field>
-                                <h4>{t('settings.notification.focusStartWarning')}</h4>
-                                <Hint>{t('settings.notification.focusStartWarningHint')}</Hint>
-                                <Switch
-                                    onChange={onToggleFocusStartWarning}
-                                    checked={props.warnBeforeFocusStart}
-                                    style={{ margin: 8 }}
-                                />
-                            </Field>
+                                <Field>
+                                    <h4>{t('settings.appearance.contentOpacity')}</h4>
+                                    <Hint>{t('settings.appearance.contentOpacityHint')}</Hint>
+                                    <SliderContainer>
+                                        <PreviewSlider
+                                            marks={opacityMarks}
+                                            min={10}
+                                            max={100}
+                                            step={5}
+                                            value={Math.round(props.contentOpacity * 100)}
+                                            formatValue={formatPercent}
+                                            onPreview={queueContentOpacityPreview}
+                                            onCommit={commitContentOpacity}
+                                        />
+                                    </SliderContainer>
+                                </Field>
 
-                            <Field>
-                                <h4>{t('settings.notification.audio')}</h4>
-                                <SoundOption
-                                    label={t('settings.notification.workSound')}
-                                    path={props.workSoundPath}
-                                    enabled={props.workSoundEnabled}
-                                    volume={props.soundVolume}
-                                    onToggle={props.setWorkSoundEnabled}
-                                    onSelect={() => chooseSound(props.setWorkSoundPath)}
-                                    onRestore={() => props.setWorkSoundPath(undefined)}
-                                />
-                                <SoundOption
-                                    label={t('settings.notification.shortBreakSound')}
-                                    path={props.shortBreakSoundPath}
-                                    enabled={props.shortBreakSoundEnabled}
-                                    volume={props.soundVolume}
-                                    onToggle={props.setShortBreakSoundEnabled}
-                                    onSelect={() => chooseSound(props.setShortBreakSoundPath)}
-                                    onRestore={() => props.setShortBreakSoundPath(undefined)}
-                                />
-                                <SoundOption
-                                    label={t('settings.notification.longBreakSound')}
-                                    path={props.longBreakSoundPath}
-                                    enabled={props.longBreakSoundEnabled}
-                                    volume={props.soundVolume}
-                                    onToggle={props.setLongBreakSoundEnabled}
-                                    onSelect={() => chooseSound(props.setLongBreakSoundPath)}
-                                    onRestore={() => props.setLongBreakSoundPath(undefined)}
-                                />
-                            </Field>
+                                <Field>
+                                    <h4>{t('settings.appearance.backgroundOpacity')}</h4>
+                                    <Hint>{t('settings.appearance.backgroundOpacityHint')}</Hint>
+                                    <SliderContainer>
+                                        <PreviewSlider
+                                            marks={themeBackgroundOpacityMarks}
+                                            min={10}
+                                            max={100}
+                                            step={5}
+                                            value={Math.round(props.themeBackgroundOpacity * 100)}
+                                            formatValue={formatPercent}
+                                            onPreview={queueThemeBackgroundOpacityPreview}
+                                            onCommit={commitThemeBackgroundOpacity}
+                                        />
+                                    </SliderContainer>
+                                </Field>
 
-                            <Field>
-                                <h4>{t('settings.notification.volume')}</h4>
-                                <SliderContainer>
-                                    <PreviewSlider
-                                        min={0}
-                                        max={100}
-                                        step={1}
-                                        value={Math.round(props.soundVolume * 100)}
-                                        marks={{ 0: '0%', 50: '50%', 100: '100%' }}
-                                        formatValue={formatPercent}
-                                        onCommit={(v) => props.setSoundVolume(v / 100)}
+                                <Field>
+                                    <h4>{t('settings.appearance.wallpaper')}</h4>
+                                    <Button
+                                        size="small"
+                                        onClick={onSelectWallpaper}
+                                        style={{ margin: 8 }}
+                                    >
+                                        {t('common.choose')}
+                                    </Button>
+                                    {props.wallpaperPath && (
+                                        <Button size="small" onClick={onClearWallpaper}>
+                                            {t('common.clear')}
+                                        </Button>
+                                    )}
+                                </Field>
+
+                                <Field>
+                                    <h4>{t('settings.appearance.wallpaperOpacity')}</h4>
+                                    <SliderContainer>
+                                        <PreviewSlider
+                                            marks={wallpaperOpacityMarks}
+                                            min={10}
+                                            max={100}
+                                            step={5}
+                                            value={Math.round(props.wallpaperOpacity * 100)}
+                                            formatValue={formatPercent}
+                                            onPreview={queueWallpaperOpacityPreview}
+                                            onCommit={commitWallpaperOpacity}
+                                        />
+                                    </SliderContainer>
+                                </Field>
+
+                                <Field>
+                                    <h4>{t('settings.appearance.calendarBaseColor')}</h4>
+                                    <ColorInput
+                                        type="color"
+                                        value={props.calendarBaseColor}
+                                        onChange={(e) => setCalendarColor(e.target.value)}
                                     />
-                                </SliderContainer>
-                            </Field>
+                                    <Button size="small" onClick={resetCalendarColor}>
+                                        {t('common.reset')}
+                                    </Button>
+                                </Field>
+                            </>
+                        )}
 
+                        {section === 'notification' && (
+                            <>
+                                {screenshotAvailable && (
+                                    <Field>
+                                        <h4>{t('settings.notification.screenshot')}</h4>
+                                        <Hint>{t('settings.notification.screenshotHint')}</Hint>
+                                        <Switch
+                                            onChange={switchScreenshot}
+                                            checked={!!props.screenShotInterval}
+                                            style={{ margin: 8 }}
+                                        />
+                                    </Field>
+                                )}
+
+                                <Field>
+                                    <h4>{t('settings.notification.focusStartWarning')}</h4>
+                                    <Hint>{t('settings.notification.focusStartWarningHint')}</Hint>
+                                    <Switch
+                                        onChange={onToggleFocusStartWarning}
+                                        checked={props.warnBeforeFocusStart}
+                                        style={{ margin: 8 }}
+                                    />
+                                </Field>
+
+                                <Field>
+                                    <h4>{t('settings.notification.audio')}</h4>
+                                    <SoundOption
+                                        label={t('settings.notification.workSound')}
+                                        path={props.workSoundPath}
+                                        enabled={props.workSoundEnabled}
+                                        volume={props.soundVolume}
+                                        onToggle={props.setWorkSoundEnabled}
+                                        onSelect={() => chooseSound(props.setWorkSoundPath)}
+                                        onRestore={() => props.setWorkSoundPath(undefined)}
+                                    />
+                                    <SoundOption
+                                        label={t('settings.notification.shortBreakSound')}
+                                        path={props.shortBreakSoundPath}
+                                        enabled={props.shortBreakSoundEnabled}
+                                        volume={props.soundVolume}
+                                        onToggle={props.setShortBreakSoundEnabled}
+                                        onSelect={() => chooseSound(props.setShortBreakSoundPath)}
+                                        onRestore={() => props.setShortBreakSoundPath(undefined)}
+                                    />
+                                    <SoundOption
+                                        label={t('settings.notification.longBreakSound')}
+                                        path={props.longBreakSoundPath}
+                                        enabled={props.longBreakSoundEnabled}
+                                        volume={props.soundVolume}
+                                        onToggle={props.setLongBreakSoundEnabled}
+                                        onSelect={() => chooseSound(props.setLongBreakSoundPath)}
+                                        onRestore={() => props.setLongBreakSoundPath(undefined)}
+                                    />
+                                </Field>
+
+                                <Field>
+                                    <h4>{t('settings.notification.volume')}</h4>
+                                    <SliderContainer>
+                                        <PreviewSlider
+                                            min={0}
+                                            max={100}
+                                            step={1}
+                                            value={Math.round(props.soundVolume * 100)}
+                                            marks={{ 0: '0%', 50: '50%', 100: '100%' }}
+                                            formatValue={formatPercent}
+                                            onCommit={(v) => props.setSoundVolume(v / 100)}
+                                        />
+                                    </SliderContainer>
+                                </Field>
+
+                                <Field>
+                                    <h4>{t('settings.notification.desktop')}</h4>
+                                    <SoundRow>
+                                        <SettingLabel>
+                                            {t('settings.notification.desktopNotification')}
+                                        </SettingLabel>
+                                        <Switch
+                                            checked={props.desktopNotification}
+                                            onChange={(value) =>
+                                                props.setDesktopNotification(value)
+                                            }
+                                            aria-label={t(
+                                                'settings.notification.desktopNotification'
+                                            )}
+                                        />
+                                    </SoundRow>
+                                    <Hint>
+                                        {t('settings.notification.desktopNotificationHint')}
+                                    </Hint>
+                                </Field>
+                            </>
+                        )}
+
+                        {section === 'shortcuts' && (
                             <Field>
-                                <h4>{t('settings.notification.desktop')}</h4>
-                                <SoundRow>
+                                <h4>{t('settings.shortcuts.title')}</h4>
+                                <Hint>{t('settings.shortcuts.disclaimer')}</Hint>
+                                {SHORTCUTS.map((group) => (
+                                    <ShortcutGroup key={group.groupKey}>
+                                        <h5>{t(group.groupKey)}</h5>
+                                        {group.entries.map((entry) => (
+                                            <ShortcutRow key={entry.keys}>
+                                                <ShortcutKeys>
+                                                    <KeyBadge>{entry.keys}</KeyBadge>
+                                                </ShortcutKeys>
+                                                <span>{t(entry.descriptionKey)}</span>
+                                            </ShortcutRow>
+                                        ))}
+                                    </ShortcutGroup>
+                                ))}
+                            </Field>
+                        )}
+
+                        {section === 'system' && (
+                            <>
+                                <Field>
+                                    <h4>{t('settings.system.language')}</h4>
+                                    <Hint>{t('settings.system.languageHint')}</Hint>
+                                    <ThemeOptions
+                                        role="group"
+                                        aria-label={t('settings.system.language')}
+                                    >
+                                        {LANGUAGE_OPTIONS.map((option) => (
+                                            <ThemeButton
+                                                key={option.value}
+                                                type="button"
+                                                $active={props.language === option.value}
+                                                aria-pressed={props.language === option.value}
+                                                onClick={() => props.setLanguage(option.value)}
+                                            >
+                                                {t(option.labelKey)}
+                                            </ThemeButton>
+                                        ))}
+                                    </ThemeOptions>
+                                </Field>
+
+                                <Field>
+                                    <h4>{t('settings.system.logging')}</h4>
+                                    <SettingLabel>{t('settings.system.logLevel')}</SettingLabel>
+                                    <Hint>{t('settings.system.logLevelHint')}</Hint>
+                                    <ThemeOptions
+                                        role="group"
+                                        aria-label={t('settings.system.logLevel')}
+                                    >
+                                        {LOG_LEVEL_OPTIONS.map((option) => (
+                                            <ThemeButton
+                                                key={option.value}
+                                                type="button"
+                                                $active={props.logLevel === option.value}
+                                                aria-pressed={props.logLevel === option.value}
+                                                onClick={() => props.setLogLevel(option.value)}
+                                            >
+                                                {t(option.labelKey)}
+                                            </ThemeButton>
+                                        ))}
+                                    </ThemeOptions>
+                                    <ButtonWrapper>
+                                        <Button onClick={onOpenLogDir}>
+                                            {t('settings.system.openLogFolder')}
+                                        </Button>
+                                    </ButtonWrapper>
+                                </Field>
+
+                                <Field>
                                     <SettingLabel>
-                                        {t('settings.notification.desktopNotification')}
+                                        {t('settings.system.compactAlwaysOnTop')}
                                     </SettingLabel>
                                     <Switch
-                                        checked={props.desktopNotification}
-                                        onChange={(value) => props.setDesktopNotification(value)}
-                                        aria-label={t('settings.notification.desktopNotification')}
+                                        onChange={props.setCompactAlwaysOnTop}
+                                        checked={props.compactAlwaysOnTop}
+                                        style={{ margin: 8 }}
                                     />
-                                </SoundRow>
-                                <Hint>{t('settings.notification.desktopNotificationHint')}</Hint>
-                            </Field>
-                        </>
-                    )}
+                                </Field>
 
-                    {section === 'shortcuts' && (
-                        <Field>
-                            <h4>{t('settings.shortcuts.title')}</h4>
-                            <Hint>{t('settings.shortcuts.disclaimer')}</Hint>
-                            {SHORTCUTS.map((group) => (
-                                <ShortcutGroup key={group.groupKey}>
-                                    <h5>{t(group.groupKey)}</h5>
-                                    {group.entries.map((entry) => (
-                                        <ShortcutRow key={entry.keys}>
-                                            <ShortcutKeys>
-                                                <KeyBadge>{entry.keys}</KeyBadge>
-                                            </ShortcutKeys>
-                                            <span>{t(entry.descriptionKey)}</span>
-                                        </ShortcutRow>
-                                    ))}
-                                </ShortcutGroup>
-                            ))}
-                        </Field>
-                    )}
+                                <Field>
+                                    <h4>{t('settings.system.startup')}</h4>
+                                    <SettingLabel>{t('settings.system.startOnBoot')}</SettingLabel>
+                                    <Switch
+                                        onChange={setStartOnBoot}
+                                        checked={props.startOnBoot}
+                                        style={{ margin: 8 }}
+                                    />
+                                </Field>
 
-                    {section === 'system' && (
-                        <>
+                                <Field>
+                                    <SettingLabel>
+                                        {t('settings.system.hardwareAcceleration')}
+                                    </SettingLabel>
+                                    <Switch
+                                        onChange={setUseHardwareAcceleration}
+                                        checked={props.useHardwareAcceleration}
+                                        style={{ margin: 8 }}
+                                    />
+                                </Field>
+
+                                <Field>
+                                    <SettingLabel>
+                                        {t('settings.system.unloadOnCloseToTray')}
+                                    </SettingLabel>
+                                    <Hint>{t('settings.system.unloadOnCloseToTrayHint')}</Hint>
+                                    <Switch
+                                        onChange={setUnloadOnCloseToTray}
+                                        checked={props.unloadOnCloseToTray}
+                                        style={{ margin: 8 }}
+                                    />
+                                </Field>
+
+                                <Field>
+                                    <h4>{t('settings.system.update')}</h4>
+                                    <SettingLabel>{t('settings.system.autoUpdate')}</SettingLabel>
+                                    <Switch
+                                        onChange={switchAutoUpdate}
+                                        checked={props.autoUpdate}
+                                        style={{ margin: 8 }}
+                                    />
+                                    <Button
+                                        size="small"
+                                        loading={checkingUpdate}
+                                        onClick={onCheckUpdate}
+                                    >
+                                        {t('settings.system.checkUpdate')}
+                                    </Button>
+                                </Field>
+
+                                <Field>
+                                    <h4>{t('settings.system.dataManagement')}</h4>
+                                    <ButtonRow>
+                                        <Button onClick={onOpenDataDir}>
+                                            {t('settings.system.openDataFolder')}
+                                        </Button>
+                                        <Button onClick={onExportClick} loading={exporting}>
+                                            {t('settings.system.exportData')}
+                                        </Button>
+                                        <Button loading={importing} onClick={onImportConfirm}>
+                                            {t('settings.system.importData')}
+                                        </Button>
+                                        <Button loading={checking} onClick={onCheckData}>
+                                            {t('settings.system.checkData')}
+                                        </Button>
+                                        <Button onClick={() => setHoursOpen(true)}>
+                                            {t('appHours.button')}
+                                        </Button>
+                                        <Button danger={true} onClick={onDeleteConfirm}>
+                                            {t('settings.system.deleteAllData')}
+                                        </Button>
+                                    </ButtonRow>
+                                </Field>
+                            </>
+                        )}
+
+                        {section === 'about' && (
                             <Field>
-                                <h4>{t('settings.system.language')}</h4>
-                                <Hint>{t('settings.system.languageHint')}</Hint>
-                                <ThemeOptions
-                                    role="group"
-                                    aria-label={t('settings.system.language')}
-                                >
-                                    {LANGUAGE_OPTIONS.map((option) => (
-                                        <ThemeButton
-                                            key={option.value}
-                                            type="button"
-                                            $active={props.language === option.value}
-                                            aria-pressed={props.language === option.value}
-                                            onClick={() => props.setLanguage(option.value)}
-                                        >
-                                            {t(option.labelKey)}
-                                        </ThemeButton>
-                                    ))}
-                                </ThemeOptions>
-                            </Field>
-
-                            <Field>
-                                <h4>{t('settings.system.logging')}</h4>
-                                <SettingLabel>{t('settings.system.logLevel')}</SettingLabel>
-                                <Hint>{t('settings.system.logLevelHint')}</Hint>
-                                <ThemeOptions
-                                    role="group"
-                                    aria-label={t('settings.system.logLevel')}
-                                >
-                                    {LOG_LEVEL_OPTIONS.map((option) => (
-                                        <ThemeButton
-                                            key={option.value}
-                                            type="button"
-                                            $active={props.logLevel === option.value}
-                                            aria-pressed={props.logLevel === option.value}
-                                            onClick={() => props.setLogLevel(option.value)}
-                                        >
-                                            {t(option.labelKey)}
-                                        </ThemeButton>
-                                    ))}
-                                </ThemeOptions>
+                                <h4>{t('app.title')}</h4>
+                                <Hint>{t('settings.about.hint')}</Hint>
                                 <ButtonWrapper>
-                                    <Button onClick={onOpenLogDir}>
-                                        {t('settings.system.openLogFolder')}
+                                    <Button onClick={openIssuePage}>
+                                        {t('settings.about.feedback')}
                                     </Button>
                                 </ButtonWrapper>
                             </Field>
-
-                            <Field>
-                                <SettingLabel>
-                                    {t('settings.system.compactAlwaysOnTop')}
-                                </SettingLabel>
-                                <Switch
-                                    onChange={props.setCompactAlwaysOnTop}
-                                    checked={props.compactAlwaysOnTop}
-                                    style={{ margin: 8 }}
-                                />
-                            </Field>
-
-                            <Field>
-                                <h4>{t('settings.system.startup')}</h4>
-                                <SettingLabel>{t('settings.system.startOnBoot')}</SettingLabel>
-                                <Switch
-                                    onChange={setStartOnBoot}
-                                    checked={props.startOnBoot}
-                                    style={{ margin: 8 }}
-                                />
-                            </Field>
-
-                            <Field>
-                                <SettingLabel>
-                                    {t('settings.system.hardwareAcceleration')}
-                                </SettingLabel>
-                                <Switch
-                                    onChange={setUseHardwareAcceleration}
-                                    checked={props.useHardwareAcceleration}
-                                    style={{ margin: 8 }}
-                                />
-                            </Field>
-
-                            <Field>
-                                <SettingLabel>
-                                    {t('settings.system.unloadOnCloseToTray')}
-                                </SettingLabel>
-                                <Hint>{t('settings.system.unloadOnCloseToTrayHint')}</Hint>
-                                <Switch
-                                    onChange={setUnloadOnCloseToTray}
-                                    checked={props.unloadOnCloseToTray}
-                                    style={{ margin: 8 }}
-                                />
-                            </Field>
-
-                            <Field>
-                                <h4>{t('settings.system.update')}</h4>
-                                <SettingLabel>{t('settings.system.autoUpdate')}</SettingLabel>
-                                <Switch
-                                    onChange={switchAutoUpdate}
-                                    checked={props.autoUpdate}
-                                    style={{ margin: 8 }}
-                                />
-                                <Button
-                                    size="small"
-                                    loading={checkingUpdate}
-                                    onClick={onCheckUpdate}
-                                >
-                                    {t('settings.system.checkUpdate')}
-                                </Button>
-                            </Field>
-
-                            <Field>
-                                <h4>{t('settings.system.dataManagement')}</h4>
-                                <ButtonWrapper>
-                                    <Button onClick={onOpenDataDir}>
-                                        {t('settings.system.openDataFolder')}
-                                    </Button>
-                                </ButtonWrapper>
-                                <ButtonWrapper>
-                                    <Button onClick={onExportClick} loading={exporting}>
-                                        {t('settings.system.exportData')}
-                                    </Button>
-                                </ButtonWrapper>
-                                <ButtonWrapper>
-                                    <Button loading={importing} onClick={onImportConfirm}>
-                                        {t('settings.system.importData')}
-                                    </Button>
-                                </ButtonWrapper>
-                                <ButtonWrapper>
-                                    <Button loading={checking} onClick={onCheckData}>
-                                        {t('settings.system.checkData')}
-                                    </Button>
-                                </ButtonWrapper>
-                                <ButtonWrapper>
-                                    <Button onClick={() => setHoursOpen(true)}>
-                                        {t('appHours.button')}
-                                    </Button>
-                                </ButtonWrapper>
-                                <ButtonWrapper>
-                                    <Button danger={true} onClick={onDeleteConfirm}>
-                                        {t('settings.system.deleteAllData')}
-                                    </Button>
-                                </ButtonWrapper>
-                            </Field>
-                        </>
-                    )}
-
-                    {section === 'about' && (
-                        <Field>
-                            <h4>{t('app.title')}</h4>
-                            <Hint>{t('settings.about.hint')}</Hint>
-                            <ButtonWrapper>
-                                <Button onClick={openIssuePage}>
-                                    {t('settings.about.feedback')}
-                                </Button>
-                            </ButtonWrapper>
-                        </Field>
-                    )}
+                        )}
+                    </PaneContent>
                 </Pane>
                 <Footer>
                     {t('settings.footer.openSource')}
@@ -1659,7 +1679,9 @@ function fileNameOf(filePath: string): string {
 }
 
 function openIssuePage() {
-    window.api.openExternal('https://github.com/NightZed/PomodoroLogger-Enhanced/issues/new');
+    window.api.openExternal(
+        'https://github.com/NightZed/PomodoroLogger-Enhanced/issues/new/choose'
+    );
 }
 
 function openGithubPage() {

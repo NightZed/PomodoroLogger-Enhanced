@@ -21,6 +21,7 @@ import { BoardActionTypes } from '../Kanban/Board/action';
 import { HelpIcon } from '../UserGuide/HelpIcon';
 import backIcon from '../../../res/back.svg';
 import { DAY_THEME_ID, NIGHT_THEME_ID } from '../../theme/tokens';
+import { COMPACT_TITLE_BAR_HEIGHT, TITLE_BAR_HEIGHT } from '../AppTitleBar/tokens';
 import { PomodoroTimeTreemap } from '../Visualization/PomodoroTimeTreemap';
 import { AsyncWordCloud } from '../Visualization/WordCloud';
 import { deriveWindowMode } from '../pageUnload';
@@ -106,11 +107,11 @@ const TimerLayout = styled.div<{ $compact: boolean }>`
     padding: 0 24px 0 24px;
     overflow-y: ${({ $compact }) => ($compact ? 'hidden' : 'auto')};
     width: 100%;
-    height: calc(100vh - 44px);
+    height: calc(100vh - ${TITLE_BAR_HEIGHT}px);
     ${({ $compact }) =>
         $compact
             ? `
-                height: calc(100vh - 32px);
+                height: calc(100vh - ${COMPACT_TITLE_BAR_HEIGHT}px);
                 padding: 0 8px;
             `
             : ''}

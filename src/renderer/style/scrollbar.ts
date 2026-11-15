@@ -5,6 +5,8 @@
  * selector (`.card ::-webkit-scrollbar`) and stops styling the scroll container
  * itself.
  */
+import { TITLE_BAR_HEIGHT } from '../components/AppTitleBar/tokens';
+
 export const thinScrollBar = `
     &::-webkit-scrollbar {
         width: 4px;
@@ -38,6 +40,6 @@ export const fatScrollBar = `
     }
 `;
 
-export const tabMaxHeight = ` 
-    max-height: calc(100vh - 45px);
+export const tabMaxHeight = `
+    max-height: calc(100vh - ${TITLE_BAR_HEIGHT}px);
 `;

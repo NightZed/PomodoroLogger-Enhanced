@@ -12,6 +12,7 @@ import { formatTimeYmdHm } from '../Visualization/Timeline';
 import { CreatedTime } from './style/CreatedTime';
 import { LabelButton } from '../../style/form';
 import backIcon from '../../../res/back.svg';
+import { TITLE_BAR_HEIGHT } from '../AppTitleBar/tokens';
 import { Label } from './style/Form';
 import Hotkeys from '../Hotkeys';
 import { uid } from '../../../utils/uid';
@@ -424,7 +425,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
             <Layout
                 style={{
                     padding: 4,
-                    height: 'calc(100vh - 45px)',
+                    height: `calc(100vh - ${TITLE_BAR_HEIGHT}px)`,
                     backgroundColor: 'transparent',
                 }}
             >
@@ -642,7 +643,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                 <Content
                     style={{
                         padding: 4,
-                        height: 'calc(100vh - 45px)',
+                        height: `calc(100vh - ${TITLE_BAR_HEIGHT}px)`,
                     }}
                 >
                     {/* Keep the overview mounted while a board is open. Going

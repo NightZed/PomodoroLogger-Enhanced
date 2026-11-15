@@ -10,6 +10,7 @@ import { AggPomodoroInfo, getTimeSpentDataFromRecords, TimeSpentData } from './o
 import { WordCloud } from '../Visualization/WordCloud';
 import { KanbanBoardState } from '../Kanban/Board/action';
 import { Loading } from '../utils/Loading';
+import { TITLE_BAR_HEIGHT } from '../AppTitleBar/tokens';
 import { debounce } from 'lodash';
 import { fatScrollBar } from '../../style/scrollbar';
 import { PomodoroNumView } from '../Timer/PomodoroNumView';
@@ -61,7 +62,7 @@ const Container = styled.div`
     margin: 0;
     color: var(--pl-text);
     padding: 20px;
-    height: calc(100vh - 45px);
+    height: calc(100vh - ${TITLE_BAR_HEIGHT}px);
     ${fatScrollBar}
 
     & .history-month-filter.ant-select-disabled .ant-select-selector {

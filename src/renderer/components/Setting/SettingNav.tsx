@@ -21,6 +21,7 @@ const Nav = styled.nav`
     color: var(--pl-text);
     -webkit-app-region: no-drag;
     overflow-y: auto;
+    background-color: var(--pl-bg-sunken);
 `;
 
 const NavList = styled.ul`

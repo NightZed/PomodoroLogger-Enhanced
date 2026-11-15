@@ -72,12 +72,13 @@ jest.mock('../workers', () => ({
     },
 }));
 import { rootReducer, RootState } from '../reducers';
-import { setCompact, setUnloadOnCloseToTray } from './Timer/action';
+import { setCompact, setMinimize, setUnloadOnCloseToTray } from './Timer/action';
 import { feedback } from './feedback';
 import ConnectedApplication from './Application';
 
 let windowMaximizedListener: ((maximized: boolean) => void) | undefined;
 let windowResizingListener: ((resizing: boolean) => void) | undefined;
+let windowTrayListener: ((inTray: boolean) => void) | undefined;
 
 // The compact thunk resizes the real window through the preload bridge, and the
 // title bar asks for the window state on mount.
@@ -96,9 +97,13 @@ let windowResizingListener: ((resizing: boolean) => void) | undefined;
         windowResizingListener = listener;
         return jest.fn();
     }),
+    onWindowTrayChanged: jest.fn((listener: (inTray: boolean) => void) => {
+        windowTrayListener = listener;
+        return jest.fn();
+    }),
     windowAction: jest.fn(),
     windowDrag: jest.fn(),
-    windowState: jest.fn().mockResolvedValue({ maximized: false }),
+    windowState: jest.fn().mockResolvedValue({ maximized: false, inTray: false }),
 };
 
 /** Fires the pushed window-state event exactly like the preload bridge does. */
@@ -108,11 +113,18 @@ const fireWindowMaximized = (maximized: boolean) => windowMaximizedListener?.(ma
 const fireWindowResizing = (resizing: boolean) => windowResizingListener?.(resizing);
 
 /**
- * jsdom has no window manager, so fake the visibility Chromium reports once the
- * window is minimized or hidden -- which is exactly what `closeToTray()` does
- * (`minimize()`), and why the renderer needs no IPC to learn about it.
+ * Same for the tray state, which is now the only input of the page-unload
+ * graces. The renderer must not read `document.visibilityState` for this: on
+ * Windows it reports `hidden` for a window that is merely covered by another
+ * opaque window, which is not "in the tray".
  */
-const setVisibility = (state: 'visible' | 'hidden') => {
+const fireWindowTray = (inTray: boolean) => windowTrayListener?.(inTray);
+
+/**
+ * What Chromium reports while another window fully covers this one. Kept
+ * around for the regression test: it must have NO effect on the pages.
+ */
+const setDocumentVisibility = (state: 'visible' | 'hidden') => {
     Object.defineProperty(document, 'visibilityState', {
         configurable: true,
         get: () => state,
@@ -295,7 +307,7 @@ describe('Application page switching', () => {
         // No dispatch: this is the default the user gets on a fresh install.
         jest.useFakeTimers();
         try {
-            act(() => setVisibility('hidden'));
+            act(() => fireWindowTray(true));
 
             act(() => {
                 jest.advanceTimersByTime(29_999);
@@ -308,10 +320,54 @@ describe('Application page switching', () => {
             expect(screen.queryByTestId('kanban-page')).toBeNull();
         } finally {
             jest.useRealTimers();
-            delete (document as any).visibilityState;
+            act(() => fireWindowTray(false));
+        }
+    });
+
+    it('unloads the background pages 30s after the window becomes the mini strip', async () => {
+        await clickTab(1);
+        await clickTab(0);
+
+        jest.useFakeTimers();
+        try {
             act(() => {
-                document.dispatchEvent(new Event('visibilitychange'));
+                store.dispatch(setMinimize(true));
             });
+
+            // The mini strip hides the tab bar, so the other pages cannot be
+            // reached at all. It is a fixed rule, not the tray setting.
+            act(() => {
+                jest.advanceTimersByTime(30_000);
+            });
+            expect(screen.queryByTestId('kanban-page')).toBeNull();
+        } finally {
+            jest.useRealTimers();
+            act(() => {
+                store.dispatch(setMinimize(false));
+            });
+        }
+    });
+
+    it('ignores document visibility, so a merely covered window keeps its pages', async () => {
+        // Regression: the pages used to hang off `document.visibilityState`,
+        // which on Windows reports `hidden` while another opaque window covers
+        // this one -- so looking at a maximized browser for half a minute
+        // unloaded the board.
+        await clickTab(1);
+        await clickTab(0);
+
+        jest.useFakeTimers();
+        try {
+            act(() => setDocumentVisibility('hidden'));
+
+            act(() => {
+                jest.advanceTimersByTime(30_000);
+            });
+            expect(screen.queryByTestId('kanban-page')).not.toBeNull();
+        } finally {
+            jest.useRealTimers();
+            act(() => setDocumentVisibility('visible'));
+            delete (document as any).visibilityState;
         }
     });
 
@@ -325,7 +381,7 @@ describe('Application page switching', () => {
 
         jest.useFakeTimers();
         try {
-            act(() => setVisibility('hidden'));
+            act(() => fireWindowTray(true));
 
             act(() => {
                 jest.advanceTimersByTime(30_000);
@@ -334,10 +390,7 @@ describe('Application page switching', () => {
             expect(screen.queryByTestId('kanban-page')).not.toBeNull();
         } finally {
             jest.useRealTimers();
-            delete (document as any).visibilityState;
-            act(() => {
-                document.dispatchEvent(new Event('visibilitychange'));
-            });
+            act(() => fireWindowTray(false));
         }
     });
 

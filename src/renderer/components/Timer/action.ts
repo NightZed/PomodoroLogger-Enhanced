@@ -174,6 +174,14 @@ export interface TimerState extends Setting {
      * for those words.
      */
     compact: boolean;
+    /**
+     * The window is off screen (minimized or hidden), as reported by the main
+     * process -- `document.visibilityState` cannot be used for this, because on
+     * Windows it also reports `hidden` for a window that is merely covered by
+     * another one. Not a setting: it is pushed while the app runs and never
+     * persisted. See `WindowEventName.TrayChanged`.
+     */
+    inTray: boolean;
 
     currentTab: tabType;
 
@@ -215,6 +223,7 @@ export const defaultState: TimerState = {
     wallpaperOpacity: 1,
     minimize: false,
     compact: false,
+    inTray: false,
 
     monitorInterval: 1000,
     screenShotInterval: undefined,
@@ -247,6 +256,10 @@ export const uiStateNames = [
     'iBreak',
     'minimize',
     'compact',
+    // Not a window setting the user edits, but the page has to re-render when
+    // it flips: the "today's statistics" panel is closed on the way out, see
+    // `Timer.componentDidUpdate`.
+    'inTray',
     'language',
     // Not a UI setting, but the page has to re-render when it changes so
     // `componentDidUpdate` can re-read today's sessions.
@@ -273,6 +286,8 @@ export const setWallpaperDataUrl = createAction(
     (value?: string) => ({ payload: value })
 );
 export const setCompact = createAction<boolean>('[Timer]SET_COMPACT');
+/** The window went off screen or came back, reported by the main process. */
+export const setInTray = createAction<boolean>('[Timer]SET_IN_TRAY');
 export const setCompactAlwaysOnTop = createAction<boolean>('[Timer]SET_COMPACT_ALWAYS_ON_TOP');
 export const setContentOpacity = createAction<number>('[Setting]SET_CONTENT_OPACITY');
 export const setThemeBackgroundOpacity = createAction<number>(
@@ -426,6 +441,13 @@ export const actions = {
     setCompact: (compact: boolean) => async (dispatch: Dispatch, getState: any) => {
         dispatch(setCompact(compact));
         window.api.compactWindow(compact, getState().timer.compactAlwaysOnTop);
+    },
+    /**
+     * Pushed by the main process, so there is nothing to write back: the value
+     * describes the window, not a preference. `Application` is the only caller.
+     */
+    setInTray: (inTray: boolean) => (dispatch: Dispatch) => {
+        dispatch(setInTray(inTray));
     },
     setCompactAlwaysOnTop: (value: boolean) => async (dispatch: Dispatch, getState: any) => {
         dispatch(setCompactAlwaysOnTop(value));
@@ -778,6 +800,10 @@ export const reducer = createReducer<TimerState>(defaultState, (builder) => {
         .addCase(setCompactAlwaysOnTop, (state, { payload }) => ({
             ...state,
             compactAlwaysOnTop: payload,
+        }))
+        .addCase(setInTray, (state, { payload }) => ({
+            ...state,
+            inTray: payload,
         }))
         .addCase(setContentOpacity, (state, { payload }) => ({
             ...state,

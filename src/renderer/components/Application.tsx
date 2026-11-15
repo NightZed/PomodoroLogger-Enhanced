@@ -8,6 +8,7 @@ import { loadDBs } from '../dbs';
 import { RootState } from '../reducers';
 import { genMapDispatchToProp } from '../utils';
 import { DestroyOnTimeoutWrapper } from './DestroyOnTimeoutWrapper';
+import { deriveWindowMode, planPageUnload } from './pageUnload';
 import History from './History';
 import { actions as historyActions, HistoryActionCreatorTypes } from './History/action';
 import Kanban from './Kanban';
@@ -62,36 +63,10 @@ import { FeedbackContextBridge } from './feedback/Feedback';
  */
 
 /**
- * How long a page stays mounted after the user leaves it.
- *
- * A page is not torn down the moment it goes inactive: leaving and coming back
- * is a routine hop, and the wrapper's grace period absorbs it. What sets the
- * length is the cost of a remount, which differs a lot per page:
- *
- * - `kanban` remounts with one `fetchBoards` (a handful of rows out of the local
- *   SQLite file) plus a fresh batched card render, so a short grace covers the
- *   "check the board, go back to the timer, check again" hop.
- * - `setting` loses more: an import, an export or a version check may still be
- *   in flight with its progress in component state. It is the least visited page
- *   anyway, hence the middling delay.
- * - `history` re-runs the whole `aggHistory` aggregation in the main-process
- *   child on every mount. That is the expensive one, so it keeps the long grace
- *   and flipping between the timer and the charts stays instant.
+ * How long a page stays mounted after the user leaves it, and what the window
+ * modes do to that, live in `pageUnload.ts`: the tables are a pure function so
+ * the four modes can be tested without rendering the window.
  */
-const TAB_UNLOAD_DELAY = {
-    kanban: 120_000,
-    setting: 300_000,
-    history: 600_000,
-} as const;
-
-/**
- * The shorter grace used once the window is in the tray, when the user asked
- * for it (`unloadOnCloseToTray`). Not zero on purpose: a mis-clicked close or a
- * quick look at another window still comes back to a live page, while a window
- * left in the tray gives the memory back within half a minute.
- */
-const HIDDEN_TAB_UNLOAD_DELAY = 30_000;
-
 interface StyledProps {
     $minimize: boolean;
     $compact: boolean;
@@ -261,7 +236,13 @@ interface Props extends TimerActionTypes, HistoryActionCreatorTypes {
     wallpaperOpacity: number;
     /** The ending mask is up: the pages must not be switched away from it. */
     sessionEnding: boolean;
-    /** Shorten the page-unload grace to 30s once the window is in the tray. */
+    /**
+     * The window is off screen (minimized or hidden). Pushed by the main
+     * process; `document.visibilityState` is NOT usable for this, see
+     * `WindowEventName.TrayChanged`.
+     */
+    inTray: boolean;
+    /** Shorten the page-unload grace in the tray; see `planPageUnload`. */
     unloadOnCloseToTray: boolean;
 
     fetchKanban: () => void;
@@ -276,13 +257,6 @@ interface State {
      * only side that knows, and it reports the state on every change.
      */
     maximized: boolean;
-    /**
-     * The window is minimized or hidden -- i.e. closed to the tray. Drives
-     * `unloadOnCloseToTray`; see `HIDDEN_TAB_UNLOAD_DELAY`. Chromium reports
-     * this for `minimize()`, which is what `closeToTray()` uses, so no IPC is
-     * needed to learn about it.
-     */
-    hidden: boolean;
     /**
      * The user is dragging a window edge. Dropping the rounded border for the
      * duration is worth a full-window composite pass per frame -- see the note
@@ -303,7 +277,6 @@ class Application extends React.Component<Props, State> {
 
     state: State = {
         maximized: false,
-        hidden: document.visibilityState === 'hidden',
         resizing: false,
     };
 
@@ -313,10 +286,8 @@ class Application extends React.Component<Props, State> {
     /** Same, for the live-resize flag (see `Main`'s border note). */
     private unsubscribeWindowResizing?: () => void;
 
-    /** Repaints the page-unload decisions when the window leaves/enters the tray. */
-    private onVisibilityChange = () => {
-        this.setState({ hidden: document.visibilityState === 'hidden' });
-    };
+    /** Same, for the tray state that drives the page-unload graces. */
+    private unsubscribeWindowTray?: () => void;
 
     componentDidUpdate(prevProps: Props): void {
         if (!prevProps.compact && this.props.compact) {
@@ -340,12 +311,16 @@ class Application extends React.Component<Props, State> {
         this.unsubscribeWindowResizing = window.api.onWindowResizingChanged((resizing) =>
             this.setState({ resizing })
         );
+        this.unsubscribeWindowTray = window.api.onWindowTrayChanged(this.props.setInTray);
         // Pushed events only report changes, and the window keeps its state
         // across a renderer reload: read it once for the first paint, otherwise
-        // a reloaded page would show "maximize" over a maximized window.
-        window.api.windowState().then(({ maximized }) => this.setState({ maximized }));
-
-        document.addEventListener('visibilitychange', this.onVisibilityChange);
+        // a reloaded page would show "maximize" over a maximized window -- and,
+        // worse, would keep every page mounted while the window sits in the
+        // tray, because no `TrayChanged` event is coming.
+        window.api.windowState().then(({ maximized, inTray }) => {
+            this.setState({ maximized });
+            this.props.setInTray(inTray);
+        });
     }
 
     /**
@@ -431,11 +406,12 @@ class Application extends React.Component<Props, State> {
     };
 
     componentWillUnmount() {
-        document.removeEventListener('visibilitychange', this.onVisibilityChange);
         this.unsubscribeWindowMaximized?.();
         this.unsubscribeWindowMaximized = undefined;
         this.unsubscribeWindowResizing?.();
         this.unsubscribeWindowResizing = undefined;
+        this.unsubscribeWindowTray?.();
+        this.unsubscribeWindowTray = undefined;
     }
 
     render() {
@@ -450,14 +426,19 @@ class Application extends React.Component<Props, State> {
             sessionEnding,
             setCompactAlwaysOnTop,
             unloadOnCloseToTray,
+            inTray,
         } = this.props;
-        // The tray is a "nobody is looking" state: when the user asked for it,
-        // every page that is not the timer starts its 30s countdown from here
-        // instead of waiting out its regular grace period. A page that is
-        // currently on screen counts too -- revealing the window brings it back
-        // through `isVisible`, and `DestroyOnTimeoutWrapper` restores it in the
-        // same commit.
-        const pagesUnloading = unloadOnCloseToTray && this.state.hidden;
+        // The window mode collapses the three store flags into the one value
+        // the unload table is written against; the precedence (tray over mini)
+        // and the per-mode graces live in `pageUnload.ts`. A page that is
+        // currently on screen counts as unreachable too when the window goes to
+        // the tray -- revealing it brings the page back through `mounted`, and
+        // `DestroyOnTimeoutWrapper` restores it in the same commit.
+        const mode = deriveWindowMode({ inTray, minimize, compact });
+        const unloadOptions = { currentTab, unloadOnCloseToTray };
+        const kanbanPlan = planPageUnload('kanban', mode, unloadOptions);
+        const historyPlan = planPageUnload('history', mode, unloadOptions);
+        const settingPlan = planPageUnload('setting', mode, unloadOptions);
         return (
             // Every antd overlay mounts into the shared popup layer by default:
             // the context makes Select, AutoComplete, Tooltip, DatePicker,
@@ -485,36 +466,24 @@ class Application extends React.Component<Props, State> {
                         timer={this.timer}
                         kanban={
                             <DestroyOnTimeoutWrapper
-                                isVisible={!pagesUnloading && currentTab === 'kanban'}
-                                timeout={
-                                    pagesUnloading
-                                        ? HIDDEN_TAB_UNLOAD_DELAY
-                                        : TAB_UNLOAD_DELAY.kanban
-                                }
+                                isVisible={kanbanPlan.mounted}
+                                timeout={kanbanPlan.graceMs}
                             >
                                 <Kanban />
                             </DestroyOnTimeoutWrapper>
                         }
                         history={
                             <DestroyOnTimeoutWrapper
-                                isVisible={!pagesUnloading && currentTab === 'history'}
-                                timeout={
-                                    pagesUnloading
-                                        ? HIDDEN_TAB_UNLOAD_DELAY
-                                        : TAB_UNLOAD_DELAY.history
-                                }
+                                isVisible={historyPlan.mounted}
+                                timeout={historyPlan.graceMs}
                             >
                                 <History />
                             </DestroyOnTimeoutWrapper>
                         }
                         setting={
                             <DestroyOnTimeoutWrapper
-                                isVisible={!pagesUnloading && currentTab === 'setting'}
-                                timeout={
-                                    pagesUnloading
-                                        ? HIDDEN_TAB_UNLOAD_DELAY
-                                        : TAB_UNLOAD_DELAY.setting
-                                }
+                                isVisible={settingPlan.mounted}
+                                timeout={settingPlan.graceMs}
                             >
                                 <Setting />
                             </DestroyOnTimeoutWrapper>
@@ -550,6 +519,7 @@ const ApplicationContainer = connect(
         wallpaperOpacity: state.timer.wallpaperOpacity,
         sessionEnding: state.timer.sessionEnding,
         unloadOnCloseToTray: state.timer.unloadOnCloseToTray,
+        inTray: state.timer.inTray,
     }),
     genMapDispatchToProp<
         TimerActionTypes & HistoryActionCreatorTypes & { fetchKanban: () => void }

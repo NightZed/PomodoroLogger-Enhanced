@@ -27,6 +27,7 @@ import * as path from 'path';
 import notifyIcon from '../../res/icon.png';
 import { writeAllFile } from '../io/write';
 import {
+    isWindowInTray,
     revealWindow,
     rebuildTrayMenu,
     restoreWindowForError,
@@ -495,13 +496,13 @@ export function initialize() {
     // Asked once by the renderer when it mounts: the pushed
     // `WindowEventName.MaximizedChanged` events only report changes, and a
     // reload would otherwise have to wait for the next one to match the icon.
-    // `inTray` is the same judgement `init.ts` applies to the pushed
-    // `TrayChanged` event. It cannot be "not visible": an occluded window (one
-    // fully covered by another opaque window) is still visible and must NOT
-    // count as being in the tray.
+    // `inTray` is the state `closeToTray` / `revealWindow` settle, NOT a
+    // window-state query: a plain minimize leaves the window off screen too,
+    // but the pages must keep behaving as they do on screen (see
+    // `isWindowInTray`).
     handle(IpcEventName.WindowState, () => ({
         maximized: win ? win.isMaximized() : false,
-        inTray: win ? win.isMinimized() || !win.isVisible() : false,
+        inTray: isWindowInTray(),
     }));
     handle(
         IpcEventName.OpenAtLogin,

@@ -136,12 +136,14 @@ export enum UpdateEventName {
  * `NativeWindowViews::Maximize`) -- so the renderer's caption buttons cannot
  * read the state from anywhere else, and the window has to be able to report it.
  *
- * `TrayChanged` carries whether the window is off screen (`minimize()`d or
- * `hide()`n). The renderer used `document.visibilityState` for this, but on
- * Windows that also reports `hidden` while the window is merely covered by
- * another opaque window: the two cases are indistinguishable from the page, so
- * the window would release its pages while still on screen. Only the main
- * process can tell them apart (`isVisible()` stays true when occluded).
+ * `TrayChanged` carries whether the user sent the window to the tray by
+ * closing it. It is NOT "the window is not visible": a plain minimize
+ * (`Win+Down`, the caption button) also takes the window off screen, but the
+ * user is coming straight back and the pages must behave as they do on screen.
+ * Only the main process knows the intention (its `close` handler is what enters
+ * the tray), so the renderer cannot derive this from `document.visibilityState`
+ * -- which additionally reports `hidden` for a window merely covered by another
+ * one.
  */
 export enum WindowEventName {
     MaximizedChanged = 'window-maximized-changed',
@@ -418,9 +420,10 @@ export type WindowDragPhase = 'start' | 'end';
 export type WindowState = {
     maximized: boolean;
     /**
-     * The window is minimized or hidden -- i.e. only in the tray, not merely
-     * covered by another window. Asked once on mount because the pushed
-     * `TrayChanged` events only report changes.
+     * The user closed the window to the tray. Not "the window is minimized or
+     * hidden": a plain minimize keeps the pages on their normal schedule (see
+     * `isWindowInTray`). Asked once on mount because the pushed `TrayChanged`
+     * events only report changes.
      */
     inTray: boolean;
 };

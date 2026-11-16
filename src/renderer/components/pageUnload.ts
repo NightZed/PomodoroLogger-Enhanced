@@ -5,10 +5,14 @@ import type { tabType } from './Timer/action';
  *
  * The four values are not independent flags: `minimize` and `compact` are
  * mutually exclusive in the store (see `setMinimize` / `setCompact` in
- * `Timer/action.ts`), and `tray` wins over both because a window that is off
- * screen is not being looked at no matter which shape it had. Closing the
- * 90px mini strip, for instance, minimizes it: the store still says
- * `minimize: true`, but the user cannot see anything.
+ * `Timer/action.ts`), and `tray` wins over both because a window that was
+ * closed to the tray is not coming back for a while no matter which shape it
+ * had. Closing the 90px mini strip, for instance, goes through the same close
+ * path: the store still says `minimize: true`, but the user is not looking.
+ *
+ * `tray` is the CLOSE path only. A plain minimize (`Win+Down`, the caption
+ * button) leaves `inTray` false and the pages on their normal schedule -- the
+ * user is coming straight back and expects the page they left untouched.
  */
 export type WindowMode = 'normal' | 'compact' | 'mini' | 'tray';
 

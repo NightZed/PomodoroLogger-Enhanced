@@ -123,6 +123,13 @@ function closeToTray(): void {
         return;
     }
 
+    // The tray state is settled HERE, not from a `minimize` event: a minimize
+    // the user asked for is ordinary window behaviour (pages keep their usual
+    // grace, the aggregation child keeps its idle timer), while only the close
+    // path means "gone to the tray". Both end up as `minimize()` on Windows,
+    // so the event cannot tell them apart -- the intention can.
+    applyTrayState(true);
+
     if (!skipTaskbarWanted) {
         win.setSkipTaskbar(true);
         forcedSkipTaskbar = true;
@@ -143,6 +150,9 @@ export function revealWindow(): void {
     if (!win) {
         return;
     }
+
+    // The window is coming back from the tray, whatever put it there.
+    applyTrayState(false);
 
     if (win.isMinimized()) {
         win.restore();
@@ -203,26 +213,32 @@ function notifyWindowState(): void {
 }
 
 /**
- * Whether the window is off screen: minimized (Windows close-to-tray, see
- * `closeToTray`) or hidden (every other platform). Occlusion deliberately does
- * not count -- a window fully covered by another opaque window is still on
- * screen, and `document.visibilityState` cannot tell the two apart, which is
- * exactly why the renderer no longer decides this (see
- * `WindowEventName.TrayChanged`).
+ * Whether the user sent the window to the tray by CLOSING it (see
+ * `closeToTray` / `revealWindow`).
  *
- * This is the ONLY place the state is settled. The page-unload grace in the
- * renderer and the aggregation child's release both hang off it. They used to
- * be two separate judgements -- `document.visibilityState` on one side,
- * `minimize`/`hide` listeners on the other -- so they drifted apart: a covered
- * window released its pages while the child waited out its 60s idle timer, and
- * a real tray entry unloaded pages after 30s while the child went at once.
+ * Deliberately not "the window is not visible": a plain minimize (`Win+Down`,
+ * the caption button) leaves the window off screen too, but the user is coming
+ * straight back and expects the page they left untouched. Only the close path
+ * means "nobody is looking for a while", which is what both the page-unload
+ * grace and the aggregation child's release are about.
+ *
+ * This is the ONLY place the state is settled. The renderer reads it through
+ * `WindowEventName.TrayChanged` / `windowState()`. It used to read
+ * `document.visibilityState`, which also reports `hidden` for a window merely
+ * covered by another one -- a third case that must not unload anything either.
  */
 let trayState = false;
 
+/** Read by `windowState()` (see `IpcEventName.WindowState`). */
+export function isWindowInTray(): boolean {
+    return trayState;
+}
+
 function applyTrayState(next: boolean): void {
     if (next === trayState) {
-        // `restore` + `show` arrive as a pair, and the very first `show()` of a
-        // new window lands here too; only changes are worth broadcasting.
+        // `revealWindow` runs on every tray entry click, and the close path can
+        // be reached twice (a second close while already away); only changes
+        // are worth broadcasting.
         return;
     }
 
@@ -233,6 +249,13 @@ function applyTrayState(next: boolean): void {
         // is going to ask for more while the window is away. A request already
         // in flight is left to finish; the child goes when its reply lands.
         releaseWorkerNow();
+        // A close the page did not see coming (`Alt+F4`) hides the window in
+        // the same tick, so the frame kept for the next restore may still carry
+        // the content the renderer is about to drop. Ask for one more paint
+        // while the window is technically still there. The caption buttons
+        // already repaint before handing the window over -- see
+        // `windowHideIntent.ts` on the renderer side.
+        win?.webContents.invalidate();
     }
 
     win?.webContents.send(WindowEventName.TrayChanged, next);
@@ -589,16 +612,10 @@ const createWindow = async () => {
     win.on('blur', stopWindowDrag);
     win.on('hide', stopWindowDrag);
 
-    // The window went out of sight or came back. Drives both the aggregation
-    // child's release and the renderer's page-unload grace, so the two can
-    // never disagree (see `applyTrayState`). Windows reaches `true` through
-    // `minimize()` (see `closeToTray`), the other platforms through `hide()`;
-    // `restore` and `show` are the respective ways back -- `revealWindow` calls
-    // both, and the duplicates are absorbed by the state check.
-    win.on('minimize', () => applyTrayState(true));
-    win.on('hide', () => applyTrayState(true));
-    win.on('restore', () => applyTrayState(false));
-    win.on('show', () => applyTrayState(false));
+    // The tray state is NOT driven from window events: `minimize`/`hide` also
+    // fire for a plain minimize the user asked for, which must behave like any
+    // other window resize as far as the pages are concerned. It is settled by
+    // `closeToTray` / `revealWindow` instead, see `applyTrayState`.
 
     // No `Event` annotation: since Electron 39 the handler receives Electron's
     // own structural `Event` type, which is not the DOM `Event` from `lib.dom`.
@@ -611,6 +628,7 @@ const createWindow = async () => {
             if (process.platform === 'win32') {
                 closeToTray();
             } else {
+                applyTrayState(true);
                 win.hide();
             }
         }

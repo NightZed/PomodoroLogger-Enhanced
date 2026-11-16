@@ -240,9 +240,8 @@ interface Props extends TimerActionTypes, HistoryActionCreatorTypes {
     /** The ending mask is up: the pages must not be switched away from it. */
     sessionEnding: boolean;
     /**
-     * The window is off screen (minimized or hidden). Pushed by the main
-     * process; `document.visibilityState` is NOT usable for this, see
-     * `WindowEventName.TrayChanged`.
+     * The user closed the window to the tray (not a plain minimize). Pushed by
+     * the main process; see `planPageUnload` for what each mode does.
      */
     inTray: boolean;
     /** Shorten the page-unload grace in the tray; see `planPageUnload`. */

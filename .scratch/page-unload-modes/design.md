@@ -20,9 +20,10 @@ type WindowMode = 'normal' | 'compact' | 'mini' | 'tray';
 deriveWindowMode({ inTray, minimize, compact }): WindowMode
 ```
 
-- `inTray`：主进程 push，存进 `timer` slice；不进 `settingUiStates` / `uiStateNames` / `trayStateKeys` 白名单（瞬时状态，不持久化）。
+- `inTray`：主进程在 `closeToTray` / `revealWindow` 里设定，存进 `timer` slice；不进 `settingUiStates` / `uiStateNames` / `trayStateKeys` 白名单（瞬时状态，不持久化）。
+- **只有「关闭到托盘」算 `tray`**。普通最小化（`Win+↓`、标题栏最小化按钮）保持原档位：页面不卸载、worker 不提前退出、今日统计不收起——用户马上回来，期望看到的是离开时的页面。
 - `minimize` / `compact`：已在 store 且互斥（`Timer/action.ts` 的 `setMinimize` / `setCompact`）。
-- 托盘优先于迷你：在 90px 迷你条上点关闭会触发 `minimize()`，此时 `minimize` 仍为 `true` 但窗口不可见，必须按 `tray` 处理。
+- 托盘优先于迷你：在 90px 迷你条上点关闭走的是关闭路径，此时 `minimize` 仍为 `true`，但用户已经不在看，按 `tray` 处理。
 - 从托盘恢复：`revealWindow()` 先 `restore()` 后 `show()`，`inTray` 变 `false`；若 `minimize` 仍为 `true` 则回落到 `mini`。
 
 `WindowMode` 是派生值，不入 store。
@@ -75,24 +76,33 @@ planPageUnload(page, mode, { currentTab, unloadOnCloseToTray }): {
 ## 信号链路（主进程）
 
 ```ts
-const inTray = () => win.isMinimized() || !win.isVisible();
+let trayState = false;
 
-function applyTrayState(next: boolean) {
-    if (next === trayState) return; // restore + show 成对到达，在这里吸收
-    trayState = next;
-    if (next) releaseWorkerNow(); // 唯一调用点
-    win?.webContents.send(WindowEventName.TrayChanged, next);
+function closeToTray() {
+    applyTrayState(true);   // window 还可见，趁这时广播
+    win.minimize();
 }
 
-win.on('minimize', () => applyTrayState(true));
-win.on('hide', () => applyTrayState(true));
-win.on('restore', () => applyTrayState(false));
-win.on('show', () => applyTrayState(false));
+export function revealWindow() {
+    applyTrayState(false);
+    win.restore();
+    win.show();
+    win.focus();
+}
+
+function applyTrayState(next: boolean) {
+    if (next === trayState) return;
+    trayState = next;
+    if (next) {
+        releaseWorkerNow();              // 唯一调用点
+        win?.webContents.invalidate();   // 兜底 Alt+F4 的最后一帧
+    }
+    win?.webContents.send(WindowEventName.TrayChanged, next);
+}
 ```
 
-- 删除 `win.on('minimize', releaseWorkerNow)` / `win.on('hide', releaseWorkerNow)`。
-- `windowState()` 返回值加 `inTray`，供渲染层首次同步（`loadURL` 异步，push 可能错过）。
-- 用事件名推导目标值，不在回调里读 `isVisible()`：minimize 过程中读数会抖动。
+- **不监听 `minimize` / `hide` / `restore` / `show`**：`minimize` 也由用户主动最小化触发，而那条路径必须和正常页面一致。判据是「关闭的意图」，不是「窗口不可见的物理状态」。
+- `windowState()` 返回 `isWindowInTray()`，供渲染层首次同步（`loadURL` 异步，push 可能错过）。
 
 ## 文案
 
@@ -126,17 +136,29 @@ en：
 手工验证（自动化覆盖不到）：
 
 - 最大化浏览器盖住窗口 60 秒：页面不卸载、worker 不提前退出；
-- 点最小化：30 秒后三页卸载、worker 立即退出；
+- **点最小化按钮 / `Win+↓`：页面按正常宽限，worker 不提前退出，今日统计保持展开**；
+- 关闭到托盘：30 秒后三页卸载、worker 立即退出；
 - 迷你模式 30 秒：同上；
-- 托盘恢复：历史页同帧重挂载，无空白闪烁。
+- 托盘恢复：历史页同帧重挂载，无空白闪烁；
+- 展开今日统计后关闭到托盘，再恢复：图表不闪回（见下一节）。
+
+## 关闭时的最后一帧
+
+问题：展开今日统计后关闭到托盘，再恢复窗口时会看到图表残留一瞬。原因不在 React 状态，而在合成：Windows 保留窗口最后合成的那一帧并在恢复时先贴出来，而 Chromium 一旦判定窗口隐藏就不再产生新帧——`TrayChanged` 是 `minimize()` 之后才发的，收起结果进不了那一帧。
+
+处理：
+
+- 关闭按钮先 `announceWindowHideIntent()`（`windowHideIntent.ts`），`Timer` 同步收起面板；再等两帧 rAF 让浏览器把收起后的画面画出来，之后才发 `windowAction('close')`。
+- 最小化按钮**不走**这条路径：它不改变页面内容，旧帧和恢复后的画面一致。
+- `Alt+F4` 这类没有预判时机的关闭，靠 `applyTrayState(true)` 里的 `webContents.invalidate()` 兜底，属于 best effort。
 
 ## 改动清单
 
 主进程：
 
-- `src/main/init.ts`：`applyTrayState`、四个事件、去掉 `releaseWorkerNow` 直挂。
+- `src/main/init.ts`：`applyTrayState`（由 `closeToTray` / `revealWindow` 驱动）、`isWindowInTray()`、去掉 `releaseWorkerNow` 直挂。
 - `src/main/ipc/type.ts`：`WindowEventName.TrayChanged`、`ExposedAPI.onWindowTrayChanged`、`WindowState.inTray`。
-- `src/main/ipc/ipc.ts`：`WindowState` 处理器返回 `inTray`。
+- `src/main/ipc/ipc.ts`：`WindowState` 处理器返回 `isWindowInTray()`。
 - `src/main/preload.ts`：订阅转发。
 
 渲染层：
@@ -144,11 +166,13 @@ en：
 - `src/renderer/components/pageUnload.ts`（新）：`WindowMode`、`deriveWindowMode`、`planPageUnload`、常量。
 - `Timer/action.ts`：`inTray` 字段 + `setInTray`。
 - `Application.tsx`：删 `state.hidden`、`onVisibilityChange`、`visibilitychange` 监听；读 `inTray` 推导 mode；三个 wrapper 用 `planPageUnload`；`windowState()` 初始化时 dispatch `setInTray`。
-- `Timer/Timer.tsx`：`componentDidUpdate` 里按 mode 收起 `more`。
+- `Timer/Timer.tsx`：`componentDidUpdate` 里按 mode 收起 `more`；订阅 `windowHideIntent`，关闭前收起。
+- `WindowControls.tsx`：关闭按钮先广播意图、等两帧再发 IPC；最小化/最大化立即。
+- `windowHideIntent.ts`（新）：意图广播模块，`Timer` 订阅、`WindowControls` 触发。
 
 文档：
 
-- `AGENTS.md`：页面卸载段改为四档表；标注托盘信号来源。
+- `AGENTS.md`：页面卸载段改为四档表；标注托盘信号来源与「最小化不算托盘」。
 - `src/shared/i18n/{zh,en}.ts`：hint 文案。
 
 ## 提交切分
@@ -157,5 +181,6 @@ en：
 2. `feat(renderer): 按窗口模式统一页面卸载规则`
 3. `feat(timer): 进入非正常窗口模式时收起今日统计`
 4. `docs(setting): 说明托盘时历史统计的计算会立刻结束`
+5. `fix(window): 关闭到托盘前先收起今日统计，避免恢复时闪回`
 
 每步独立通过 lint / typecheck / test；第 1 步行为不变，便于定位回归。

@@ -165,7 +165,7 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
 ### CPU 密集任务
 
 - `src/main/worker/fork.ts` 懒加载 fork `worker.js` 做 History 聚合（为词云分词每一个窗口标题）。
-  空闲 60 秒后关掉子进程；窗口收进托盘或最小化时由 `init.ts` 的 `applyTrayState` 调 `releaseWorkerNow` 立即释放（有请求在途就等它落地）。
+  空闲 60 秒后关掉子进程；窗口**关闭到托盘**时由 `init.ts` 的 `applyTrayState` 调 `releaseWorkerNow` 立即释放（有请求在途就等它落地）。普通最小化不触发——那和正常窗口行为一致，子进程仍走 60 秒空闲退出。
   `releaseWorkerNow` 只有那一个调用点，页面卸载和子进程释放必须共用同一个托盘判据，不要再各自挂窗口事件。
   worker 出故障时 `src/main/db/ipc.ts` 回退到进程内聚合。
 - 渲染层剩下的那个 web worker（`src/renderer/workers`）是分词器；`DBWorker` 只是 IPC 代理上的一层薄封装。
@@ -185,7 +185,8 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
   `timer` 永久挂载，因为它持有正在运行的会话。
   窗口档位有四档：`normal` / `compact` 下页面可见、可交互，走各自的常规宽限；`mini`（90px 条，标签栏隐藏）和 `tray` 下其余页面不可达，统一压到 30 秒。
   `tray` 的压缩受 `unloadOnCloseToTray` 控制，`mini` 不受——那个开关描述的是托盘。
-  托盘的判定来自主进程（`WindowEventName.TrayChanged`，判据 `isMinimized() || !isVisible()`），**不要**改回 `document.visibilityState`：Windows 上窗口被其他窗口完全遮挡时它同样报 `hidden`，会把「盖住」当成「收进托盘」。
+  **只有「关闭到托盘」算 `tray`**：状态由主进程的 `closeToTray` / `revealWindow` 设定并经 `WindowEventName.TrayChanged` 下发。普通最小化（`Win+↓`、标题栏按钮）保持原档位，页面不卸载、worker 不提前退出、今日统计不收起。
+  不要改回 `document.visibilityState`：Windows 上窗口被其他窗口完全遮挡时它同样报 `hidden`，会把「盖住」当成「收进托盘」。
 - 标题栏保留 `-webkit-app-region: drag`，这样普通窗口能拿到原生移动和 Aero Snap，但 Chromium 在滚动容器滚动后会把那块区域裁掉（被裁掉的条带跟着滚动容器的宽度走）。
   因此任何仍能到达渲染层的标题栏按下事件都必须同时启动 `windowDrag`，否则滚动之后窗口就拖不动了——见 `src/renderer/components/AppTitleBar/dragRegion.ts` 和 `src/main/ipc/windowDrag.ts`。
 - `src/components/**` 是共享的可视化/小部件库（`Visualization/*`、`common/*`），渲染层用相对路径引用它——它不是渲染层自己的组件树。

@@ -216,10 +216,9 @@ export interface TimerState extends Setting {
      */
     compact: boolean;
     /**
-     * The window is off screen (minimized or hidden), as reported by the main
-     * process -- `document.visibilityState` cannot be used for this, because on
-     * Windows it also reports `hidden` for a window that is merely covered by
-     * another one. Not a setting: it is pushed while the app runs and never
+     * The user closed the window to the tray, as reported by the main process.
+     * A plain minimize does NOT set this: the pages keep behaving as they do on
+     * screen. Not a setting -- it is pushed while the app runs and never
      * persisted. See `WindowEventName.TrayChanged`.
      */
     inTray: boolean;

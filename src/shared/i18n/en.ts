@@ -658,6 +658,8 @@ export const en = {
             startup: 'Startup',
             startOnBoot: 'Start On Boot',
             hardwareAcceleration: 'Hardware Acceleration',
+            hardwareAccelerationHint:
+                'Turn this on if the window stops rendering or feels sluggish.',
             unloadOnCloseToTray: 'Release Page Memory in Tray',
             unloadOnCloseToTrayHint:
                 'Closing the window to the tray stops the history statistics right away and ' +

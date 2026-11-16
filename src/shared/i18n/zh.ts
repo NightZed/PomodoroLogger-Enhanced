@@ -603,6 +603,7 @@ export const zh: CatalogShape<typeof en> = {
             startup: '启动',
             startOnBoot: '开机自动启动',
             hardwareAcceleration: '硬件加速',
+            hardwareAccelerationHint: '窗口出现渲染异常或卡顿时，可以尝试开启。',
             unloadOnCloseToTray: '隐藏到托盘时释放页面内存',
             unloadOnCloseToTrayHint:
                 '窗口收进托盘后，历史页的统计计算会立刻结束，其他页面 30 秒后释放。' +

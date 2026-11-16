@@ -1527,6 +1527,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                     <SettingLabel>
                                         {t('settings.system.hardwareAcceleration')}
                                     </SettingLabel>
+                                    <Hint>{t('settings.system.hardwareAccelerationHint')}</Hint>
                                     <Switch
                                         onChange={setUseHardwareAcceleration}
                                         checked={props.useHardwareAcceleration}

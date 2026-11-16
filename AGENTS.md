@@ -260,6 +260,7 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
 
 ## 约定
 
+- 需求有歧义或关键信息缺失时，**先追问、后动手**：不确定要改什么就提问澄清，弄清楚需求之前不要开始改代码；基于猜测写出的代码返工成本高于一次提问。
 - 提交信息必须符合 Conventional Commits（commitlint）；类型决定 semantic-release 的版本号。
 - **提交信息一律用简体中文**：`type` 和 `scope` 保持英文小写（`fix(timer): 应用时长与会话总时长保持一致`），subject 与 body 都用中文，不要写英文句子再翻译。commit 历史与 changelog 是给中文使用者读的，混入英文正文会让检索和复盘都变差。
   Husky + lint-staged 会对暂存文件跑 prettier 和 `eslint --fix`。

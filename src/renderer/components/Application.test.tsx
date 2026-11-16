@@ -101,6 +101,7 @@ let windowTrayListener: ((inTray: boolean) => void) | undefined;
         windowTrayListener = listener;
         return jest.fn();
     }),
+    onWindowCloseRequested: jest.fn(() => jest.fn()),
     windowAction: jest.fn(),
     windowDrag: jest.fn(),
     windowState: jest.fn().mockResolvedValue({ maximized: false, inTray: false }),

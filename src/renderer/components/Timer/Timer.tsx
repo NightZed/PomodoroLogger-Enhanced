@@ -25,6 +25,7 @@ import { COMPACT_TITLE_BAR_HEIGHT, TITLE_BAR_HEIGHT } from '../AppTitleBar/token
 import { PomodoroTimeTreemap } from '../Visualization/PomodoroTimeTreemap';
 import { AsyncWordCloud } from '../Visualization/WordCloud';
 import { deriveWindowMode } from '../pageUnload';
+import { subscribeWindowHideIntent } from '../windowHideIntent';
 import { LONG_BREAK_INTERVAL, TimerActionTypes as ThisActionTypes, uiStateNames } from './action';
 import { FocusSelector } from './FocusSelector';
 import { FocusStartWarning, getFocusStartWarningIfEnabled } from './focusStartWarning';
@@ -331,6 +332,8 @@ class Timer extends Component<Props, State> {
     private focusStartWarningModal?: ReturnType<typeof feedback.confirm>;
     /** Unsubscribe function returned by the preload tray-event bridge. */
     private unsubscribeTrayAction?: () => void;
+    /** Unsubscribe for the "window is about to be closed" announcement. */
+    private unsubscribeHideIntent?: () => void;
     /** The "your sound cannot be played" toast is shown once per run. */
     private soundFailureShown = false;
 
@@ -366,6 +369,10 @@ class Timer extends Component<Props, State> {
     componentDidMount(): void {
         this.efficiencyAnalyser = new EfficiencyAnalyser(this.props.timer.distractingList);
         this.unsubscribeTrayAction = window.api.onTrayAction(this.onTrayAction);
+        // Closing the window drops the stats panel *before* the window hides,
+        // so the frame the system keeps for the next restore has no charts in
+        // it. See `windowHideIntent.ts`.
+        this.unsubscribeHideIntent = subscribeWindowHideIntent(this.closeStatsPanel);
         this.interval = setInterval(this.updateLeftTime, 500);
         this.updateLeftTime();
         this.selfRef.current!.addEventListener('resize', this.onResize);
@@ -559,15 +566,31 @@ class Timer extends Component<Props, State> {
         // Timer page itself never unmounts (see `pageUnload.ts`).
         const previousMode = deriveWindowMode(prevProps.timer);
         const mode = deriveWindowMode(this.props.timer);
-        if (mode !== previousMode && mode !== 'normal' && this.state.more) {
-            this.setState({ more: false });
+        if (mode !== previousMode && mode !== 'normal') {
+            this.closeStatsPanel();
         }
     }
+
+    /**
+     * Drops the "today's statistics" panel, if it is open.
+     *
+     * Called from two places: the mode change above, and `requestClose` (the
+     * caption button / `Alt+F4` path), which runs BEFORE the window hides so
+     * this re-render is painted into the frame the system keeps for the next
+     * restore (see `windowHideIntent.ts`).
+     */
+    private closeStatsPanel = () => {
+        if (this.state.more) {
+            this.setState({ more: false });
+        }
+    };
 
     componentWillUnmount(): void {
         this.componentGone = true;
         this.unsubscribeTrayAction?.();
         this.unsubscribeTrayAction = undefined;
+        this.unsubscribeHideIntent?.();
+        this.unsubscribeHideIntent = undefined;
         if (this.monitor) {
             // A staged session (ending mask still up) has already snapshotted
             // the record -- and a click on the mask may be pending its

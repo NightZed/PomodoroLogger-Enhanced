@@ -144,20 +144,22 @@ en：
 
 ## 关闭时的最后一帧
 
-问题：展开今日统计后关闭到托盘，再恢复窗口时会看到图表残留一瞬。原因不在 React 状态，而在合成：Windows 保留窗口最后合成的那一帧并在恢复时先贴出来，而 Chromium 一旦判定窗口隐藏就不再产生新帧——`TrayChanged` 是 `minimize()` 之后才发的，收起结果进不了那一帧。
+问题：展开今日统计后关闭到托盘，再恢复窗口时会看到图表残留一瞬。原因不在 React 状态，而在合成：Windows 保留窗口最后合成的那一帧并在恢复时先贴出来，而 Chromium 一旦判定窗口隐藏就不再产生新帧。收起如果发生在 `minimize()` 之后，永远进不了那一帧。
 
-处理：
+处理是「先收起、再绘制、最后关窗」：
 
-- 关闭按钮先 `announceWindowHideIntent()`（`windowHideIntent.ts`），`Timer` 同步收起面板；再等两帧 rAF 让浏览器把收起后的画面画出来，之后才发 `windowAction('close')`。
-- 最小化按钮**不走**这条路径：它不改变页面内容，旧帧和恢复后的画面一致。
-- `Alt+F4` 这类没有预判时机的关闭，靠 `applyTrayState(true)` 里的 `webContents.invalidate()` 兜底，属于 best effort。
+- 标题栏关闭用 `windowHideIntent.ts` 的 `requestClose()`：广播一次「即将关闭」，`Timer` 同步收起面板；等两帧 rAF（第二帧回调时第一帧的绘制已经完成），才发 `windowAction('close')`。
+- `Alt+F4` 由主进程的 `before-input-event` 拦下（系统会在页面看到 keydown 之前处理它），转成 `WindowEventName.CloseRequested` 交给渲染层，走同一个 `requestClose()`。
+- 最小化**不走**这条路径：它不改变页面内容，旧帧和恢复后的画面一致。
+
+试过但无效的做法：在主进程的 `close` 事件里延迟 50ms 再 `minimize()`。窗口进入关闭流程后，这段时间内的绘制不会进到系统保留的那一帧——标题栏关闭也因此退化，所以没有保留。
 
 ## 改动清单
 
 主进程：
 
-- `src/main/init.ts`：`applyTrayState`（由 `closeToTray` / `revealWindow` 驱动）、`isWindowInTray()`、去掉 `releaseWorkerNow` 直挂。
-- `src/main/ipc/type.ts`：`WindowEventName.TrayChanged`、`ExposedAPI.onWindowTrayChanged`、`WindowState.inTray`。
+- `src/main/init.ts`：`applyTrayState`（由 `closeToTray` / `revealWindow` 驱动）、`isWindowInTray()`、`before-input-event` 拦 `Alt+F4`。
+- `src/main/ipc/type.ts`：`WindowEventName.TrayChanged` / `CloseRequested`、`ExposedAPI.onWindowTrayChanged` / `onWindowCloseRequested`、`WindowState.inTray`。
 - `src/main/ipc/ipc.ts`：`WindowState` 处理器返回 `isWindowInTray()`。
 - `src/main/preload.ts`：订阅转发。
 
@@ -167,8 +169,8 @@ en：
 - `Timer/action.ts`：`inTray` 字段 + `setInTray`。
 - `Application.tsx`：删 `state.hidden`、`onVisibilityChange`、`visibilitychange` 监听；读 `inTray` 推导 mode；三个 wrapper 用 `planPageUnload`；`windowState()` 初始化时 dispatch `setInTray`。
 - `Timer/Timer.tsx`：`componentDidUpdate` 里按 mode 收起 `more`；订阅 `windowHideIntent`，关闭前收起。
-- `WindowControls.tsx`：关闭按钮先广播意图、等两帧再发 IPC；最小化/最大化立即。
-- `windowHideIntent.ts`（新）：意图广播模块，`Timer` 订阅、`WindowControls` 触发。
+- `WindowControls.tsx`：关闭走 `requestClose()`，最小化/最大化立即。
+- `windowHideIntent.ts`（新）：意图广播 + `requestClose()`（两帧 rAF）。
 
 文档：
 

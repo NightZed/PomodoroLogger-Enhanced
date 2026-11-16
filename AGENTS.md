@@ -186,6 +186,7 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
   窗口档位有四档：`normal` / `compact` 下页面可见、可交互，走各自的常规宽限；`mini`（90px 条，标签栏隐藏）和 `tray` 下其余页面不可达，统一压到 30 秒。
   `tray` 的压缩受 `unloadOnCloseToTray` 控制，`mini` 不受——那个开关描述的是托盘。
   **只有「关闭到托盘」算 `tray`**：状态由主进程的 `closeToTray` / `revealWindow` 设定并经 `WindowEventName.TrayChanged` 下发。普通最小化（`Win+↓`、标题栏按钮）保持原档位，页面不卸载、worker 不提前退出、今日统计不收起。
+  关闭前要让页面先收起、再绘制：标题栏关闭走 `windowHideIntent.ts` 的 `requestClose()`（广播 → 两帧 rAF → 发 close）；`Alt+F4` 由主进程的 `before-input-event` 拦下，转成同一个 `CloseRequested` 事件。系统保留的是窗口最后一帧，先隐藏再收起会把今日统计的图表留在下次恢复里。
   不要改回 `document.visibilityState`：Windows 上窗口被其他窗口完全遮挡时它同样报 `hidden`，会把「盖住」当成「收进托盘」。
 - 标题栏保留 `-webkit-app-region: drag`，这样普通窗口能拿到原生移动和 Aero Snap，但 Chromium 在滚动容器滚动后会把那块区域裁掉（被裁掉的条带跟着滚动容器的宽度走）。
   因此任何仍能到达渲染层的标题栏按下事件都必须同时启动 `windowDrag`，否则滚动之后窗口就拖不动了——见 `src/renderer/components/AppTitleBar/dragRegion.ts` 和 `src/main/ipc/windowDrag.ts`。

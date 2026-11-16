@@ -149,6 +149,15 @@ export enum WindowEventName {
     MaximizedChanged = 'window-maximized-changed',
     TrayChanged = 'window-tray-changed',
     /**
+     * The window is about to be closed by the system (`Alt+F4`). The main
+     * process intercepts the key so the renderer can drop what it only keeps
+     * for the screen, paint, and then ask for the close -- the same path the
+     * caption button takes. Without this the window would hide before that
+     * paint, and the panel would be missing from the frame the system keeps for
+     * the next restore (see `windowHideIntent.ts`).
+     */
+    CloseRequested = 'window-close-requested',
+    /**
      * The user is dragging an edge (true) or stopped more than
      * `RESIZE_IDLE_MS` ago (false). Pushed, not polled: the renderer switches
      * the window's rounded border off for the duration, because a rounded 1px
@@ -393,6 +402,12 @@ export type ExposedAPI = {
      * next change. See `WindowEventName.TrayChanged`.
      */
     onWindowTrayChanged(listener: (inTray: boolean) => void): () => void;
+    /**
+     * The system asked to close the window (`Alt+F4`). The renderer answers by
+     * going through `requestClose()`, i.e. dropping content, painting, and then
+     * sending `WindowAction('close')`.
+     */
+    onWindowCloseRequested(listener: () => void): () => void;
     onTrayAction(listener: (key: TrayActionKey) => void): () => void;
 };
 

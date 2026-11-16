@@ -135,7 +135,12 @@ function closeToTray(): void {
         forcedSkipTaskbar = true;
     }
 
-    win.minimize();
+    // Windows minimizes instead of hiding, see the flicker note above.
+    if (process.platform === 'win32') {
+        win.minimize();
+    } else {
+        win.hide();
+    }
 }
 
 /**
@@ -249,13 +254,6 @@ function applyTrayState(next: boolean): void {
         // is going to ask for more while the window is away. A request already
         // in flight is left to finish; the child goes when its reply lands.
         releaseWorkerNow();
-        // A close the page did not see coming (`Alt+F4`) hides the window in
-        // the same tick, so the frame kept for the next restore may still carry
-        // the content the renderer is about to drop. Ask for one more paint
-        // while the window is technically still there. The caption buttons
-        // already repaint before handing the window over -- see
-        // `windowHideIntent.ts` on the renderer side.
-        win?.webContents.invalidate();
     }
 
     win?.webContents.send(WindowEventName.TrayChanged, next);
@@ -617,20 +615,28 @@ const createWindow = async () => {
     // other window resize as far as the pages are concerned. It is settled by
     // `closeToTray` / `revealWindow` instead, see `applyTrayState`.
 
+    // `Alt+F4` is handled by the system before the page sees a keydown, so the
+    // renderer cannot prepare its content the way the close button does.
+    // Catching it here turns it into the same renderer-driven close: the page
+    // drops the stats panel, paints, then asks for the close (see
+    // `windowHideIntent.ts`). If the input never arrives -- some platform took
+    // it first -- the plain `close` handler below still works, only without
+    // that extra paint.
+    win.webContents.on('before-input-event', (event, input) => {
+        if (input.type === 'keyDown' && input.alt && input.key === 'F4') {
+            event.preventDefault();
+            win?.webContents.send(WindowEventName.CloseRequested);
+        }
+    });
+
     // No `Event` annotation: since Electron 39 the handler receives Electron's
     // own structural `Event` type, which is not the DOM `Event` from `lib.dom`.
-    // Closing hides the window to the tray instead of destroying it. On
-    // Windows that is `closeToTray()` (minimize, not hide -- see why there);
-    // other platforms keep plain hide/show, which never flickered.
+    // Closing sends the window to the tray instead of destroying it: minimize
+    // on Windows (not hide -- see why above), plain hide on the other platforms.
     win.on('close', (event) => {
         if (win) {
             event.preventDefault();
-            if (process.platform === 'win32') {
-                closeToTray();
-            } else {
-                applyTrayState(true);
-                win.hide();
-            }
+            closeToTray();
         }
     });
 

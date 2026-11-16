@@ -7,6 +7,7 @@ import { Monitor } from '../../monitor';
 import { DAY_THEME_ID, NIGHT_THEME_ID } from '../../theme/tokens';
 import { scaleMs } from '../../../config';
 import { DEFAULT_SOUND_URL, soundUrl } from '../../sound';
+import { announceWindowHideIntent } from '../windowHideIntent';
 
 const mockMonitorInstances: any[] = [];
 
@@ -625,6 +626,25 @@ describe('Timer page', () => {
         };
         await rerenderTimer(view, backProps);
         expect(view.queryByTestId('treemap')).toBeNull();
+    });
+
+    it('closes the open stats panel before the window is handed over', async () => {
+        // Regression: the close path announces the hide before asking the main
+        // process, so the panel is gone from the frame that Windows shows again
+        // on restore. The tray event arrives too late for that frame and the
+        // charts flashed back for a moment.
+        (getTodaySessions as jest.Mock).mockResolvedValue([
+            { _id: 's1', startTime: 1, boardId: 'b1' },
+        ]);
+        const view = await renderTimer();
+
+        fireEvent.click(view.container.querySelector('#more-timer-button')!);
+        expect(view.queryByTestId('treemap')).toBeTruthy();
+
+        act(() => announceWindowHideIntent());
+
+        expect(view.queryByTestId('treemap')).toBeNull();
+        expect(view.queryByTestId('word-cloud')).toBeNull();
     });
 
     it('expands the window and opens the stats panel when clicked in compact mode', async () => {

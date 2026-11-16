@@ -9,6 +9,7 @@ import { RootState } from '../reducers';
 import { genMapDispatchToProp } from '../utils';
 import { DestroyOnTimeoutWrapper } from './DestroyOnTimeoutWrapper';
 import { deriveWindowMode, planPageUnload } from './pageUnload';
+import { requestClose } from './windowHideIntent';
 import History from './History';
 import { actions as historyActions, HistoryActionCreatorTypes } from './History/action';
 import Kanban from './Kanban';
@@ -291,6 +292,14 @@ class Application extends React.Component<Props, State> {
     /** Same, for the tray state that drives the page-unload graces. */
     private unsubscribeWindowTray?: () => void;
 
+    /**
+     * Same, for a close the system started (`Alt+F4`). It is answered with
+     * `requestClose()`, i.e. the same drop-and-paint path the close button uses
+     * -- otherwise the window would hide before the page repaints and the
+     * dropped panel would be missing from the frame restored later.
+     */
+    private unsubscribeWindowCloseRequest?: () => void;
+
     componentDidUpdate(prevProps: Props): void {
         if (!prevProps.compact && this.props.compact) {
             this.returnToCompact = true;
@@ -314,6 +323,7 @@ class Application extends React.Component<Props, State> {
             this.setState({ resizing })
         );
         this.unsubscribeWindowTray = window.api.onWindowTrayChanged(this.props.setInTray);
+        this.unsubscribeWindowCloseRequest = window.api.onWindowCloseRequested(requestClose);
         // Pushed events only report changes, and the window keeps its state
         // across a renderer reload: read it once for the first paint, otherwise
         // a reloaded page would show "maximize" over a maximized window -- and,
@@ -414,6 +424,8 @@ class Application extends React.Component<Props, State> {
         this.unsubscribeWindowResizing = undefined;
         this.unsubscribeWindowTray?.();
         this.unsubscribeWindowTray = undefined;
+        this.unsubscribeWindowCloseRequest?.();
+        this.unsubscribeWindowCloseRequest = undefined;
     }
 
     render() {

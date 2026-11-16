@@ -181,6 +181,8 @@ const api: ExposedAPI = {
         subscribe(WindowEventName.ResizingChanged, listener),
     onWindowTrayChanged: (listener: (inTray: boolean) => void) =>
         subscribe(WindowEventName.TrayChanged, listener),
+    onWindowCloseRequested: (listener: () => void) =>
+        subscribe(WindowEventName.CloseRequested, listener),
     onTrayAction: (listener: (key: TrayActionKey) => void) =>
         subscribe(TrayEventName.Action, listener),
 };

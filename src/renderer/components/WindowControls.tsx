@@ -3,6 +3,7 @@ import React, { FC } from 'react';
 import styled from 'styled-components';
 import { COMPACT_TITLE_BAR_HEIGHT, TITLE_BAR_HEIGHT } from './AppTitleBar/tokens';
 import { t } from '../i18n';
+import { requestClose } from './windowHideIntent';
 
 /**
  * Caption buttons (minimize / maximize / close) for the frameless window
@@ -69,8 +70,21 @@ const WindowControls: FC<Props> = ({
     alwaysOnTop = true,
     onToggleAlwaysOnTop,
 }) => {
-    const call = (action: 'minimize' | 'maximize' | 'close') => () =>
+    /**
+     * Minimize and maximize are handed over immediately. Close goes through
+     * `requestClose`, which drops the page content and lets it paint first: the
+     * frame painted last is the one the system shows again on restore, and the
+     * window must not hide before it carries the dropped panel (see
+     * `windowHideIntent.ts`).
+     */
+    const call = (action: 'minimize' | 'maximize' | 'close') => () => {
+        if (action === 'close') {
+            requestClose();
+            return;
+        }
+
         window.api.windowAction(action);
+    };
     return (
         <Controls $compact={compact}>
             {compact && onToggleAlwaysOnTop ? (

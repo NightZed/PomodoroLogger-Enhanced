@@ -266,7 +266,7 @@ export const zh: CatalogShape<typeof en> = {
             irreversible: '此操作不可撤销。',
             cancel: '取消',
             confirm: '移动',
-            moved: '卡片已移动',
+            moved: (from: string, to: string): string => `卡片已从 ${from} 移动到 ${to}`,
             failed: (detail: string): string => '移动失败' + (detail ? `：${detail}` : ''),
         },
         projectPicker: {

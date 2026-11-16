@@ -291,7 +291,7 @@ export const en = {
             irreversible: 'This cannot be undone.',
             cancel: 'Cancel',
             confirm: 'Move',
-            moved: 'Card moved',
+            moved: (from: string, to: string): string => `Card moved from ${from} to ${to}`,
             failed: (detail: string): string =>
                 'Could not move the card' + (detail ? `: ${detail}` : ''),
         },

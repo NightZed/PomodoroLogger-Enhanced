@@ -113,11 +113,31 @@ describe('CardMoveDialog', () => {
         });
 
         expect(moveCard).toHaveBeenCalledWith({ cardId: 'c1', targetListId: 'l2' });
-        expect(feedback.toast).toHaveBeenCalledWith(expect.objectContaining({ kind: 'success' }));
+        // The toast names both ends of the move, so the user can tell where
+        // the card landed without hunting for it.
+        const toastContent = (feedback.toast as jest.Mock).mock.calls[0][0].content as string;
+        expect(toastContent).toContain('Todo');
+        expect(toastContent).toContain('Doing');
         expect(onClose).toHaveBeenCalledTimes(1);
         // The card now lives elsewhere, so the editor that opened this has to
         // close as well.
         expect(onMoved).toHaveBeenCalledTimes(1);
+    });
+
+    it('qualifies the destination with the board name when moving across boards', async () => {
+        renderDialog();
+
+        pickProject('Beta');
+        await act(async () => {
+            fireEvent.click(screen.getByRole('button', { name: /^Move$|^移动$/ }));
+        });
+
+        // "Todo" lives in Alpha, "Review" in Beta; the bare list name alone
+        // would not tell the user the card left the board.
+        const toastContent = (feedback.toast as jest.Mock).mock.calls[0][0].content as string;
+        expect(toastContent).toContain('Todo');
+        expect(toastContent).toContain('Beta');
+        expect(toastContent).toContain('Review');
     });
 
     it('stays open and reports the failure when the move is rejected', async () => {
@@ -164,16 +184,16 @@ describe('CardMoveDialog', () => {
 
         pickProject('Alpha');
         // Alpha focuses "Doing", so that is preselected.
-        expect(
-            screen.getByRole('option', { name: /Doing/ }).getAttribute('aria-selected')
-        ).toBe('true');
+        expect(screen.getByRole('option', { name: /Doing/ }).getAttribute('aria-selected')).toBe(
+            'true'
+        );
 
         fireEvent.click(cancelButton());
         pickProject('Beta');
 
         // Beta focuses "Review"; nothing carries over from Alpha.
-        expect(
-            screen.getByRole('option', { name: /Review/ }).getAttribute('aria-selected')
-        ).toBe('true');
+        expect(screen.getByRole('option', { name: /Review/ }).getAttribute('aria-selected')).toBe(
+            'true'
+        );
     });
 });

@@ -156,13 +156,25 @@ const StyledLogger = styled.div`
         justify-content: flex-start;
     }
 
-    /* Minimal icon-only buttons: no border/background until hovered */
+    /* Minimal icon-only buttons: no border/background until hovered.
+
+       The buttons are antd "text" variants, not the default outlined ones. An
+       outlined button draws its 1px border back on :hover at a specificity of
+       (0,4,0), which beats this block (0,1,1); that border then fades from the
+       resting text color to the primary color over antd's 0.2s "all"
+       transition, i.e. a grey ring turning bright blue around the button. The
+       text variant redraws the border in transparent, but antd's border
+       transition still interpolates the width (3px -> 1px) and paints a
+       translucent grey ring for those 200ms. Keeping the resting border at
+       "0 solid transparent" and zeroing the width variable gives the hover
+       border the same computed value, so no ring can appear, while the tint
+       and text color keep antd's own transition and tokens. */
     .btn-side button {
         box-sizing: border-box;
         width: 24px;
         height: 24px;
         padding: 0;
-        border: none;
+        border: 0 solid transparent;
         background: transparent;
         box-shadow: none;
         border-radius: 50%;
@@ -170,6 +182,7 @@ const StyledLogger = styled.div`
         align-items: center;
         justify-content: center;
         color: var(--pl-text-secondary);
+        --ant-btn-border-width: 0px;
         flex-shrink: 0;
     }
 
@@ -362,12 +375,14 @@ export class MiniLogger extends React.Component<Props> {
         const left = isConfirming ? (
             <>
                 <Button
+                    type="text"
                     size="small"
                     icon={<Icon type="caret-right" />}
                     onClick={confirmAndStartNextSession}
                     title={t('timer.mini.startNext')}
                 />
                 <Button
+                    type="text"
                     size="small"
                     icon={<Icon type="check" />}
                     title={t('timer.mini.finish')}
@@ -378,6 +393,7 @@ export class MiniLogger extends React.Component<Props> {
             <>
                 {isRunning ? (
                     <Button
+                        type="text"
                         size="small"
                         icon={<Icon type="pause" />}
                         title={t('timer.controls.pause')}
@@ -385,6 +401,7 @@ export class MiniLogger extends React.Component<Props> {
                     />
                 ) : (
                     <Button
+                        type="text"
                         size="small"
                         icon={<Icon type="caret-right" />}
                         title={t('timer.controls.start')}
@@ -396,6 +413,7 @@ export class MiniLogger extends React.Component<Props> {
                     "a session that has not reached 2% yet". */}
                 {hasSession ? (
                     <Button
+                        type="text"
                         size="small"
                         icon={<Icon type="check" />}
                         title={t('timer.controls.finish')}
@@ -403,6 +421,7 @@ export class MiniLogger extends React.Component<Props> {
                     />
                 ) : (
                     <Button
+                        type="text"
                         size="small"
                         icon={<Icon type="swap" />}
                         title={t('timer.controls.switchMode')}
@@ -417,6 +436,7 @@ export class MiniLogger extends React.Component<Props> {
                 // A focus session just ended: offer the extend options.
                 <>
                     <Button
+                        type="text"
                         size="small"
                         className="btn-extend"
                         onClick={this.extend5Minutes}
@@ -425,6 +445,7 @@ export class MiniLogger extends React.Component<Props> {
                         +5
                     </Button>
                     <Button
+                        type="text"
                         size="small"
                         className="btn-extend"
                         onClick={this.extend10Minutes}
@@ -439,6 +460,7 @@ export class MiniLogger extends React.Component<Props> {
                 // for confirmation, but leaving mini mode still works.
                 <>
                     <Button
+                        type="text"
                         size="small"
                         icon={<Icon type="close" />}
                         title={t('timer.controls.stop')}
@@ -446,6 +468,7 @@ export class MiniLogger extends React.Component<Props> {
                         disabled={isConfirming}
                     />
                     <Button
+                        type="text"
                         size="small"
                         icon={<Icon type="fullscreen" />}
                         title={t('timer.mini.expand')}

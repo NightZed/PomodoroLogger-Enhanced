@@ -88,7 +88,9 @@ const BeforePlaceHolder = styled.div`
     top: 0;
     left: 0;
     right: 0;
-    height: 0.6rem;
+    /* Same as one card gap: the fade ends exactly where the first card starts,
+       so it never paints over a card when the list is scrolled to the top. */
+    height: 8px;
     background: linear-gradient(
         var(--pl-bg-sunken) 0%,
         rgba(255, 255, 255, 0.001) 100%
@@ -97,15 +99,17 @@ const BeforePlaceHolder = styled.div`
     z-index: 1;
 `;
 
-// Bottom fade, same length and gradient as the top one. The bottom has no
-// padding to get in the way, so sticky still works there.
+// Bottom fade, same length and gradient as the top one. It also supplies the
+// gap below the last card: there is deliberately no margin above it, so the
+// list edge sits one card-gap away from the content instead of 20px further
+// down.
 const AfterPlaceHolder = styled.div`
-    margin-top: 20px;
+    margin-top: 0;
     position: sticky;
     display: block;
     bottom: -2px;
     width: 100%;
-    height: 0.6rem;
+    height: 8px;
     background: linear-gradient(
         rgba(255, 255, 255, 0.001),
         var(--pl-bg-sunken)
@@ -143,12 +147,11 @@ const ListBody = styled.div`
 
 const Cards = styled.div`
     position: relative;
-    /* The gap above the first card. Padding is part of the content box, so
-       dnd's empty-list drop position starts where the first card starts
-       instead of 19.6px above it. border-box keeps min/max-height meaning the
-       same as before the padding moved here. */
+    /* No extra gap at the top: CardContainer's 8px margin is both the
+       card-to-card spacing and the distance from the list edge, so the content
+       starts exactly one card gap below the top. */
     box-sizing: border-box;
-    padding: calc(0.6rem + 10px) 0 0;
+    padding: 0;
     background-color: var(--pl-bg-sunken);
     border-radius: 4px;
     max-height: calc(100vh - 230px);

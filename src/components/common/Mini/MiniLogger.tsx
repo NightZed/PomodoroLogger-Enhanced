@@ -186,8 +186,11 @@ const StyledLogger = styled.div`
         flex-shrink: 0;
     }
 
+    /* Keyboard focus only: a click leaves the button focused, and styling
+       :focus would keep the tint after the pointer leaves -- the strip's blank
+       area is a window drag region, so nothing in it moves the focus away. */
     .btn-side button:hover,
-    .btn-side button:focus {
+    .btn-side button:focus-visible {
         background-color: var(--pl-bg-hover);
         color: var(--pl-text);
     }
@@ -196,7 +199,7 @@ const StyledLogger = styled.div`
        dimmed and not clickable, and the hover highlight must not show. */
     .btn-side button:disabled,
     .btn-side button:disabled:hover,
-    .btn-side button:disabled:focus {
+    .btn-side button:disabled:focus-visible {
         background-color: transparent;
         color: var(--pl-text-secondary);
         opacity: 0.35;

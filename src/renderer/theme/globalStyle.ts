@@ -152,8 +152,14 @@ export const GlobalStyle = createGlobalStyle`
             border-color: var(--pl-border);
             color: var(--pl-text);
         }
+        /* Hover and keyboard focus share one look, but focus is matched via
+           :focus-visible only. A mouse click leaves the button focused, so
+           :focus kept painting the hover look after the pointer left and until
+           the focus moved elsewhere; in mini mode that lasted until the window
+           was deactivated, because the strip's blank area is a window drag
+           region and never moves focus away from the button. */
         .ant-btn:not(.ant-btn-primary):not(.ant-btn-dangerous):not(.ant-btn-link):not(.ant-btn-text):not(.ant-btn-variant-text):not(.ant-btn-variant-link):hover,
-        .ant-btn:not(.ant-btn-primary):not(.ant-btn-dangerous):not(.ant-btn-link):not(.ant-btn-text):not(.ant-btn-variant-text):not(.ant-btn-variant-link):focus {
+        .ant-btn:not(.ant-btn-primary):not(.ant-btn-dangerous):not(.ant-btn-link):not(.ant-btn-text):not(.ant-btn-variant-text):not(.ant-btn-variant-link):focus-visible {
             background-color: var(--pl-bg-hover);
             border-color: var(--pl-primary);
             color: var(--pl-primary);

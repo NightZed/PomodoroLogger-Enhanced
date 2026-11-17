@@ -381,7 +381,44 @@ export const List: FC<Props> = React.memo((props: Props) => {
         return () => cancelFrame(handle);
     }, [renderLimit, filteredCards.length]);
 
-    const renderedCards = filteredCards.slice(0, renderLimit);
+    // A card that is already on screen must never be dropped by the progressive
+    // window. `filteredCards` can grow while `renderLimit` is still one commit
+    // behind -- the common case is a drop: the moved card lands in the middle,
+    // every card after it shifts down by one, and the last one falls out of
+    // `slice(0, renderLimit)`. Its `Draggable` then unmounts and dnd's registry
+    // loses the entry. If the user is already pressing that card for the next
+    // drag -- which is exactly what dragging quickly after a drop looks like --
+    // the lift throws `Cannot find draggable entry with id [...]`. So the slice
+    // also covers every card rendered by the previous commit that is still in
+    // this list. The ref is written in the layout effect below rather than
+    // during render, so a discarded render cannot widen the window.
+    const lastRenderedRef = React.useRef<string[]>([]);
+    const lastRenderedSet = new Set(lastRenderedRef.current);
+    let keepCount = 0;
+    for (let index = 0; index < filteredCards.length; index += 1) {
+        if (lastRenderedSet.has(filteredCards[index])) {
+            keepCount = index + 1;
+        }
+    }
+
+    // The previous paint's set only describes this filter. After a search
+    // change it would widen the fresh window (clearing the search would render
+    // the whole column at once), so the window falls back to `renderLimit`.
+    const lastSearchRef = React.useRef(searchReg);
+    const sameFilter = lastSearchRef.current === searchReg;
+
+    const visibleCount = sameFilter ? Math.max(renderLimit, keepCount) : renderLimit;
+    const renderedCards = filteredCards.slice(0, visibleCount);
+
+    // The refs describe the previous commit, so they are written here rather
+    // than during render: a discarded render must not widen the window above,
+    // and the search filter must be compared against the one that produced
+    // `lastRenderedRef`.
+    React.useLayoutEffect(() => {
+        lastRenderedRef.current = renderedCards;
+        lastSearchRef.current = searchReg;
+    });
+
     const [estimatedTimeSum, actualTimeSum] = React.useMemo(
         () =>
             filteredCards.reduce(
@@ -591,7 +628,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
                                                     initiallyVisible={index < 3}
                                                     isDragDisabled={
                                                         preview ||
-                                                        renderLimit < filteredCards.length
+                                                        visibleCount < filteredCards.length
                                                     }
                                                     preview={preview}
                                                     // The first card of each list

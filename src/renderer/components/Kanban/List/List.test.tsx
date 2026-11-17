@@ -55,6 +55,7 @@ const noop: any = jest.fn();
 describe('List progressive card mounting', () => {
     afterEach(() => {
         cleanup();
+        jest.useRealTimers();
     });
 
     it('mounts only the first page synchronously', () => {
@@ -83,6 +84,62 @@ describe('List progressive card mounting', () => {
 
         // 6 cards for the first frame, not all 20.
         expect(container.querySelectorAll('.kanban-card')).toHaveLength(6);
+    });
+
+    // Regression: dragging a card into a list that had been rendered in full
+    // used to unmount the card that got pushed past `renderLimit` for one
+    // commit. When the user was already pressing that card for the next drag,
+    // dnd's registry had lost the entry and the lift threw
+    // "Cannot find draggable entry with id [...]".
+    it('keeps a rendered card that a newly added card pushes past the page limit', () => {
+        // Fake timers keep the next progressive batch (a requestAnimationFrame
+        // turn) from running, so the assertion sees the commit where
+        // `renderLimit` still lags one card behind.
+        jest.useFakeTimers();
+        const { ids, cards } = makeCards(1);
+        const base: any = {
+            _id: 'list-1',
+            listId: 'list-1',
+            index: 0,
+            boardId: 'board-1',
+            title: 'List',
+            cards: ids,
+            cardsState: cards,
+            cardView: 'full',
+            setVisibleCards: noop,
+            setEditCard: noop,
+            setSearchReg: noop,
+            setContent: noop,
+            deleteList: noop,
+            renameList: noop,
+            addCard: noop,
+        };
+
+        const { rerender } = render(<List {...base} />);
+        // One card means the first page is one card.
+        expect(screen.getByText('Card 0')).toBeTruthy();
+
+        // A drop lands a new card at the top, so card-0 moves to index 1 while
+        // `renderLimit` is still 1 until the next frame.
+        rerender(
+            <List
+                {...base}
+                cards={['card-new', 'card-0']}
+                cardsState={{
+                    ...cards,
+                    'card-new': {
+                        _id: 'card-new',
+                        title: 'Card new',
+                        content: 'content new',
+                        sessionIds: [],
+                        spentTimeInHour: { estimated: 1, actual: 0 },
+                        createdTime: 1600000000000,
+                    },
+                }}
+            />
+        );
+
+        expect(screen.getByText('Card 0')).toBeTruthy();
     });
 
     it('preview ignores the board search and never writes visibleCards', () => {

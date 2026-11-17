@@ -156,7 +156,12 @@ const Cards = styled.div`
     border-radius: 4px;
     max-height: calc(100vh - 230px);
     overflow-y: overlay;
-    overflow-x: visible;
+    /* A single-axis scroll container cannot keep "visible" on the other axis:
+       the spec computes it to "auto", so any transient overflow (e.g. while a
+       drag moves things around) pops a horizontal scrollbar. Cards never
+       legitimately overflow horizontally (262px + margins = the 270px body),
+       so clip it. */
+    overflow-x: hidden;
     min-height: 200px;
     /* The thumb paints itself with box-shadow: inset 0 0 0 10px, i.e. with
        currentColor, so color *is* the scrollbar color here and has to come from

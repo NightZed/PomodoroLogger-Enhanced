@@ -51,11 +51,24 @@ const usefulPropNames = Object.keys(defaultBoard).concat(['lists', 'cards', 'boa
 interface Props extends KanbanBoard, BoardActionTypes, InputProps {}
 export const Board: FC<Props> = React.memo(
     (props: Props) => {
+        // The last pointer position is only needed by cards that mount right
+        // after a cross-list drop: those never received a pointerenter, so they
+        // ask the document instead (see the effect in Card.tsx). A passive
+        // listener writing two numbers is cheaper than tracking it per card.
+        React.useEffect(() => {
+            const onPointerMove = (event: PointerEvent) => {
+                dragActivity.pointer = { x: event.clientX, y: event.clientY };
+            };
+            window.addEventListener('pointermove', onPointerMove, { passive: true });
+            return () => window.removeEventListener('pointermove', onPointerMove);
+        }, []);
+
         const onDragStart = () => {
             dragActivity.dragging = true;
         };
         const onDragEnd = (result: DropResult) => {
             dragActivity.dragging = false;
+            dragActivity.lastDropAt = performance.now();
             handleDragEnd(result);
         };
 

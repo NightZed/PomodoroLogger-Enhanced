@@ -191,6 +191,21 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
   卡片很多时的实际操作是：先把卡片拖到另一个短列表，滚动原列表找到插入点，再拖回去。
   不要为了省这一步把 `WINDOW_SIZE` 调大，那只是把 50ms 换回 1s。
   详细设计、实测数据和未完成项见 `.scratch/kanban-virtual-list/design.md`。
+- 卡片的悬停高亮是 React state（`Card.tsx` 的 `hovered` + `data-hover-lock`），**不要改回 `:hover`**：
+  dnd 的落位动画期间卡片会在指针下方移动约 0.1s，浏览器会把 `:hover` 摘掉，而它只在鼠标移动时恢复，
+  表现就是「松手后高亮消失、动一下鼠标才回来」。拖拽中到落位结束一直挂着 `data-hover-lock`，`pointerleave` 在这段时间是空操作。
+  高亮是叠加在卡片底色上的一层半透明色（`background-image: linear-gradient(var(--pl-card-hover), var(--pl-card-hover))`），**不要换回模糊阴影**：
+  整个应用禁用硬件加速（`src/main/main.ts` 的 `disableHardwareAcceleration`），18px 模糊在 CPU 光栅化下是这一列里最贵的一次绘制；
+  而且 `--pl-shadow` 是纯黑（暗 0.45 / 亮 0.15），在两套主题的卡片底色上都几乎看不见。
+  颜色只有一个旋钮 `--pl-card-hover`，定义在 `theme/globalStyle.ts` 的 `:root`（暗）和 `html[data-theme='light']`（亮）；
+  用 `background-image` 叠而不是改 `background-color`，卡片底色才不会被透明色替换掉。
+  跨列表落位后目标列表里的卡片是**新实例**，`pointerenter` 要等鼠标移动才会来：`Card` 在挂载后的 500 ms 内用
+  `dragActivity.pointer`（`Board` 的 passive pointermove 只负责记录坐标）加 `document.elementsFromPoint` 自检一次，
+  命中就立即点亮。用 `elementsFromPoint` 而不是 `elementFromPoint`，因为落位动画期间 dnd 的 fixed 卡片还压在指针上。
+  `pointerleave` 在整个拖拽期间被忽略，所以拖到列表外松手后卡片收不到新的 leave：`pointerup` 后 150 ms 用同一次坐标再校正一次，指针不在卡片上就关掉。
+  但 `pointerleave` 本身也不可靠：落位动画期间源卡片的 fixed 克隆压在指针上，浏览器不会把目标卡片放进 hover 链，短暂悬停后离开收不到 leave。
+  所以亮着的卡片还会在 window 上监听 `pointermove`，用自己 `getBoundingClientRect()` 判断指针是否还在里面；只在 `hovered` 时挂载，最多一张卡。
+  侧栏预览卡片（`preview`）同样有悬停高亮，只是不可拖。
 - `src/renderer/components/appTabs.ts` 是页面的唯一事实来源；标签栏、Ctrl+Tab 处理和紧凑模式切换全部从 `APP_TABS` / `planTabChange` 推导。
   不要加一份并行的标签列表。
 - 非活动页面不会永远保留：`DestroyOnTimeoutWrapper` 在每页各自的宽限期后丢弃该页子树。

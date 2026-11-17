@@ -13,7 +13,7 @@
  * branch stealing one of them.
  */
 import * as React from 'react';
-import { act, cleanup, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { createStore } from 'redux';
 
@@ -40,6 +40,7 @@ jest.mock('../../Visualization/Timeline', () => ({
 }));
 
 import { Card } from './Card';
+import { dragActivity } from '../dragActivity';
 
 describe('Card content clicks', () => {
     let container: HTMLDivElement;
@@ -238,6 +239,113 @@ describe('Card content clicks', () => {
             expect(container.querySelector('p')?.textContent).toBe('deferred body');
         } finally {
             (globalThis as any).IntersectionObserver = original;
+        }
+    });
+
+    // The highlight lives in React state rather than a `:hover` rule so it
+    // survives dnd moving the card under the pointer during the drop animation
+    // (see Card.tsx). jsdom cannot evaluate `:hover`, so this also proves the
+    // state path is actually wired to the pointer events.
+    it('lights the card while the pointer is over it', () => {
+        renderCard('body');
+        const card = container.querySelector('.kanban-card') as HTMLElement;
+
+        expect(card).not.toBeNull();
+        expect(getComputedStyle(card).backgroundImage).toBe('none');
+
+        fireEvent.pointerEnter(card);
+        expect(getComputedStyle(card).backgroundImage).toContain('linear-gradient');
+
+        fireEvent.pointerLeave(card);
+        expect(getComputedStyle(card).backgroundImage).toBe('none');
+    });
+
+    // The Timer sidebar renders cards with `preview` (no drag, click to edit).
+    // They are still hover targets, so they get the same shadow.
+    it('highlights a preview card on hover too', () => {
+        renderCard('body', { preview: true });
+        const card = container.querySelector('.kanban-card-preview') as HTMLElement;
+
+        expect(card).not.toBeNull();
+        expect(getComputedStyle(card).backgroundImage).toBe('none');
+
+        fireEvent.pointerEnter(card);
+        expect(getComputedStyle(card).backgroundImage).toContain('linear-gradient');
+    });
+
+    // Regression: while dnd's drop clone covers the pointer the browser never
+    // puts the destination card in its hover chain, so no `pointerleave` is
+    // sent when the pointer moves away -- a card hovered only briefly kept its
+    // shadow. The card now watches the pointer geometry itself.
+    it('clears the highlight when the pointer moves outside the card', () => {
+        renderCard('body');
+        const card = container.querySelector('.kanban-card') as HTMLElement;
+        fireEvent.pointerEnter(card);
+        expect(getComputedStyle(card).backgroundImage).toContain('linear-gradient');
+
+        // jsdom reports a 0x0 rect, so any real coordinate is outside it.
+        fireEvent.pointerMove(window, { clientX: 100, clientY: 100 });
+
+        expect(getComputedStyle(card).backgroundImage).toBe('none');
+    });
+
+    // Regression: dragging a card out of its list and releasing over empty
+    // space left the shadow on. `pointerleave` is ignored for the whole drag,
+    // and nothing sends another one once the pointer is already outside.
+    it('clears the highlight after a drop when the pointer left the card', () => {
+        jest.useFakeTimers();
+        const original = (document as any).elementsFromPoint;
+        (document as any).elementsFromPoint = () => [];
+
+        try {
+            renderCard('body');
+            const card = container.querySelector('.kanban-card') as HTMLElement;
+            fireEvent.pointerEnter(card);
+            expect(getComputedStyle(card).backgroundImage).toContain('linear-gradient');
+
+            dragActivity.pointer = { x: 400, y: 400 };
+            dragActivity.lastDropAt = performance.now();
+            act(() => {
+                window.dispatchEvent(new Event('pointerup'));
+                jest.advanceTimersByTime(200);
+            });
+
+            expect(getComputedStyle(card).backgroundImage).toBe('none');
+        } finally {
+            (document as any).elementsFromPoint = original;
+            dragActivity.pointer = null;
+            dragActivity.lastDropAt = 0;
+            jest.useRealTimers();
+        }
+    });
+
+    // Regression: a card dropped into another list is a new component instance,
+    // so it never received a pointerenter. The highlight used to stay off until
+    // the user moved the mouse -- the card visibly un-lit and then came back.
+    // On mount the card now asks the document whether the pointer is on it.
+    it('lights a freshly mounted card when the pointer is already over it', () => {
+        const hadElementsFromPoint = 'elementsFromPoint' in document;
+        const original = (document as any).elementsFromPoint;
+        (document as any).elementsFromPoint = () => {
+            const card = container.querySelector('.kanban-card');
+            return card ? [card] : [];
+        };
+        dragActivity.pointer = { x: 10, y: 10 };
+        dragActivity.lastDropAt = performance.now();
+
+        try {
+            renderCard('body');
+
+            const card = container.querySelector('.kanban-card') as HTMLElement;
+            expect(getComputedStyle(card).backgroundImage).toContain('linear-gradient');
+        } finally {
+            if (hadElementsFromPoint) {
+                (document as any).elementsFromPoint = original;
+            } else {
+                delete (document as any).elementsFromPoint;
+            }
+            dragActivity.pointer = null;
+            dragActivity.lastDropAt = 0;
         }
     });
 });

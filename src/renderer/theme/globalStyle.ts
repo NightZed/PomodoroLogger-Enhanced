@@ -32,12 +32,20 @@ export const GlobalStyle = createGlobalStyle`
         --pl-scrollbar-thumb: rgba(255, 255, 255, 0.25);
         --pl-scrollbar-track: rgba(255, 255, 255, 0.04);
         --pl-mask: rgba(0, 0, 0, 0.65);
+        /* Wash laid over a kanban card on hover (see Kanban/Card). This is the
+           only knob for the hover highlight.
+           Card base #1f1f1f + white overlay: 31 + (255 - 31) * 0.0625 = 45,
+           i.e. the card reads as rgb(45, 45, 45). */
+        --pl-card-hover: rgba(255, 255, 255, 0.0625);
     }
 
     html[data-theme='light'] {
         --pl-scrollbar-thumb: rgba(50, 50, 50, 0.3);
         --pl-scrollbar-track: rgba(0, 0, 0, 0.03);
         --pl-mask: rgba(0, 0, 0, 0.45);
+        /* A white card cannot get brighter, so the light theme darkens it:
+           255 * (1 - 0.0392) = 245, i.e. rgb(245, 245, 245). */
+        --pl-card-hover: rgba(0, 0, 0, 0.0392);
     }
 
     html,

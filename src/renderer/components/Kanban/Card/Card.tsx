@@ -16,8 +16,13 @@ import { formatTimeYmdHm } from '../../Visualization/Timeline';
 import { CreatedTime } from '../style/CreatedTime';
 import { CompletedTime } from './CompletedTime';
 import { t } from '../../../i18n';
+import { dragActivity } from '../dragActivity';
 
-const CardContainer = styled.div<{ $preview?: boolean; $static?: boolean }>`
+const CardContainer = styled.div<{
+    $preview?: boolean;
+    $static?: boolean;
+    $hovered?: boolean;
+}>`
     width: 262px;
     word-break: break-word;
     background-color: var(--pl-bg-elevated);
@@ -26,6 +31,13 @@ const CardContainer = styled.div<{ $preview?: boolean; $static?: boolean }>`
     /* The preview and a card that is not currently registered with dnd (see
        the body of Card) must not advertise a drag they cannot start. */
     cursor: ${({ $preview, $static }) => ($preview || $static ? 'default' : 'grab')};
+
+    /* Hover highlight: a translucent wash over the card's own colour.
+       background-image keeps the theme colour underneath, so the card still
+       reads as elevated instead of being repainted. The colour is
+       --pl-card-hover (theme/globalStyle.ts); tune the alpha there. */
+    background-image: ${({ $hovered }) =>
+        $hovered ? 'linear-gradient(var(--pl-card-hover), var(--pl-card-hover))' : 'none'};
 `;
 
 const CardContent = styled.div`
@@ -219,6 +231,118 @@ export const Card: FC<Props> = React.memo((props: Props) => {
     // exist at all (see the window in List.tsx).
     const dragEnabled =
         !props.preview && !props.isDragDisabled && (props.alwaysDraggable === true || inWindow);
+
+    // Hover highlight.
+    //
+    // Tracked in state instead of a `:hover` rule because dnd moves the card
+    // under the pointer during the drop animation: the browser can drop
+    // `:hover` for those ~100ms and only restore it on the next mouse move,
+    // which reads as "the highlight goes away and comes back". `data-hover-lock`
+    // (set below from the draggable snapshot) makes pointerleave a no-op for as
+    // long as the drag and the drop animation last, so the card stays lit when
+    // the pointer never really left it.
+    const [hovered, setHovered] = React.useState(false);
+    const handlePointerEnter = React.useCallback(() => {
+        setHovered(true);
+    }, []);
+    const handlePointerLeave = React.useCallback(() => {
+        if (cardRef.current?.getAttribute('data-hover-lock') === 'true') {
+            return;
+        }
+        setHovered(false);
+    }, []);
+
+    // `pointerleave` is ignored for the whole drag, so a card that was dragged
+    // out of the list and dropped over empty space keeps the highlight forever
+    // -- nothing will ever send it another leave, because the pointer never
+    // entered it again. Re-check once after the drop animation: the pointer
+    // position is still the one recorded at release.
+    const hoveredRef = React.useRef(hovered);
+    React.useEffect(() => {
+        hoveredRef.current = hovered;
+    }, [hovered]);
+
+    // The browser mirrors hover through its own hit-test, and during dnd's drop
+    // animation the source card's fixed clone sits over the pointer -- the
+    // destination card never enters the hover chain. A manually lit card then
+    // never receives pointerleave, so hovering it briefly and moving away left
+    // the shadow on (staying longer worked, because by then the clone was gone
+    // and the browser had picked the card up). Watch the pointer geometry while
+    // the card is lit instead of trusting `pointerleave`.
+    React.useEffect(() => {
+        if (!hovered) {
+            return;
+        }
+        const onPointerMove = (event: PointerEvent) => {
+            const element = cardRef.current;
+            if (!element || element.getAttribute('data-hover-lock') === 'true') {
+                return;
+            }
+            const rect = element.getBoundingClientRect();
+            const inside =
+                event.clientX >= rect.left &&
+                event.clientX <= rect.right &&
+                event.clientY >= rect.top &&
+                event.clientY <= rect.bottom;
+            if (!inside) {
+                setHovered(false);
+            }
+        };
+        window.addEventListener('pointermove', onPointerMove, { passive: true });
+        return () => window.removeEventListener('pointermove', onPointerMove);
+    }, [hovered]);
+
+    React.useEffect(() => {
+        const onPointerUp = () => {
+            if (!hoveredRef.current) {
+                return;
+            }
+            // 150ms covers dnd's 0.1s drop animation plus a frame; the check
+            // has to run after the card is back in its layout position.
+            window.setTimeout(() => {
+                if (performance.now() - dragActivity.lastDropAt > 500) {
+                    return;
+                }
+                const element = cardRef.current;
+                const pointer = dragActivity.pointer;
+                if (!element || !pointer || typeof document.elementsFromPoint !== 'function') {
+                    return;
+                }
+                const stack = document.elementsFromPoint(pointer.x, pointer.y);
+                if (!stack.some((node) => node === element || element.contains(node))) {
+                    setHovered(false);
+                }
+            }, 150);
+        };
+        window.addEventListener('pointerup', onPointerUp);
+        return () => window.removeEventListener('pointerup', onPointerUp);
+    }, []);
+
+    // A card dragged into another list is a brand-new component: the drag source
+    // was the old instance. Nothing ever sent it a pointerenter, and the browser
+    // only does that once the pointer moves -- so the highlight blinked off and
+    // came back a moment later. Right after a drop, ask the document whether the
+    // pointer is already over this card and light it up without waiting for the
+    // mouse.
+    React.useLayoutEffect(() => {
+        if (performance.now() - dragActivity.lastDropAt > 500) {
+            return;
+        }
+        const element = cardRef.current;
+        const pointer = dragActivity.pointer;
+        if (!element || !pointer || typeof document.elementsFromPoint !== 'function') {
+            return;
+        }
+        // elementsFromPoint, not elementFromPoint: during the drop animation
+        // dnd's fixed-position card can still sit on top of the pointer and
+        // hide the freshly mounted one.
+        const stack = document.elementsFromPoint(pointer.x, pointer.y);
+        if (stack.some((node) => node === element || element.contains(node))) {
+            setHovered(true);
+        }
+        // Mount-only: this exists for the instance that has no hover history.
+    }, []);
+
     const onClick = React.useCallback(
         (e: React.MouseEvent<HTMLDivElement>) => {
             const target = e.nativeEvent.target as HTMLElement;
@@ -432,17 +556,22 @@ export const Card: FC<Props> = React.memo((props: Props) => {
         draggableProps?: Record<string, any>;
         dragHandleProps?: Record<string, any> | null;
         style?: React.CSSProperties;
+        hoverLock?: boolean;
     }) => (
         <CardContainer
             ref={setCardRef}
             $preview={props.preview}
             $static={!dragEnabled}
+            $hovered={hovered || dragProps?.hoverLock === true}
             data-tour={props.dataTour}
             data-card-id={_id}
+            data-hover-lock={dragProps?.hoverLock ? 'true' : undefined}
             {...(dragProps?.draggableProps ?? {})}
             style={dragProps?.style}
             {...(dragProps?.dragHandleProps ?? {})}
             onClick={onClick}
+            onPointerEnter={handlePointerEnter}
+            onPointerLeave={handlePointerLeave}
             className={props.preview ? 'kanban-card-preview' : 'kanban-card'}
         >
             {cardContent}
@@ -468,6 +597,11 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                     draggableProps: provided.draggableProps,
                     dragHandleProps: provided.dragHandleProps,
                     style: dragStyle,
+                    // dnd keeps moving the card under the pointer until the
+                    // drop animation ends. Any pointerleave fired during that
+                    // movement must not switch the highlight off, otherwise it
+                    // stays dark until the mouse moves again.
+                    hoverLock: snapshot.isDragging || snapshot.isDropAnimating,
                 });
             }}
         </Draggable>

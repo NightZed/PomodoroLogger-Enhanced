@@ -142,6 +142,12 @@ export const EditKanbanForm = (props: FormProps) => {
             style={{ minWidth: 300 }}
             width={'60vw'}
             getContainer={getPopupContainer}
+            /* See CardEditor: rc-dialog would focus the element that was
+               active before opening once the close motion ends, and the
+               resulting `:focus-visible` ring on that element (usually the
+               board's settings button, or the Tabs content under the title
+               bar) reads as a blue band / a stuck hover state. */
+            focusable={{ focusTriggerAfterClose: false }}
             forceRender
         >
             <EditorContainer>

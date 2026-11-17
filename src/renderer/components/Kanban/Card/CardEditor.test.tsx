@@ -106,6 +106,34 @@ describe('CardEditor close', () => {
         expect(screen.getByText(/Actual Spent Time/)).toBeTruthy();
         expect(screen.queryByText(/Create a new card/)).toBeNull();
     });
+    it('leaves the focus off the element that opened the editor', async () => {
+        // Regression: rc-dialog's `focusTriggerAfterClose` hands the focus
+        // back once the dialog closes. That element then matches
+        // `:focus-visible` (the close came from Ctrl+Enter) and paints its
+        // focus ring -- a 3px blue outline. On the Tabs content (the click on
+        // a card focuses that full-window box) it showed up as a blue band
+        // under the title bar; on the add-card / board-settings buttons it
+        // looked like a stuck hover state.
+        const trigger = document.createElement('button');
+        document.body.appendChild(trigger);
+        trigger.focus();
+        expect(document.activeElement).toBe(trigger);
+
+        await act(async () => {
+            store.dispatch(actions.setEditCard(true, 'list-1', 'card-1') as any);
+        });
+        const title = await screen.findByLabelText('Title');
+        (title as HTMLInputElement).focus();
+        expect(document.activeElement).toBe(title);
+
+        await act(async () => {
+            fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+        });
+
+        expect({ focusReturnedToTheTrigger: document.activeElement === trigger }).toEqual({
+            focusReturnedToTheTrigger: false,
+        });
+    });
 });
 
 describe('CardEditor delete', () => {

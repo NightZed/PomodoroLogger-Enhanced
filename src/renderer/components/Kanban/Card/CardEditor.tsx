@@ -602,6 +602,20 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
             width={960}
             getContainer={getPopupContainer}
             wrapClassName={CARD_EDITOR_WRAP_CLASS}
+            /* Do not hand the focus back to whatever opened this dialog.
+               rc-dialog's `focusTriggerAfterClose` (on by default) calls
+               `.focus()` on the element that was active before opening, once
+               the close motion ends. That element then matches
+               `:focus-visible` -- the close came from Ctrl+Enter, so the last
+               input modality was the keyboard -- and paints its focus ring.
+               In practice the trigger is the antd Tabs content (clicking a
+               card focuses that full-window box, which starts right under the
+               title bar), so the 3px `colorPrimaryBorder` outline shows up as
+               a blue band under the title bar. For the add-card and
+               board-editor buttons the same ring plus globalStyle's
+               `:focus`-as-hover rule makes them look like they are still
+               hovered. Closing therefore leaves the focus on <body>. */
+            focusable={{ focusTriggerAfterClose: false }}
             // Same as the board editor: mount the dialog contents up front so
             // the first click on a card starts the open animation immediately
             // instead of first paying for the form's initial mount.

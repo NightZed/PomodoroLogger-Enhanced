@@ -146,6 +146,13 @@ const Cards = styled.div`
     overflow-y: overlay;
     overflow-x: visible;
     min-height: 200px;
+    /* A filled list is 270px wide: CardContainer is 262px plus 4px of margin on
+       each side. The body has no in-flow children when the last card leaves, so
+       without a floor it collapses to the ListHead's 250px minimum and the
+       column visibly narrows; it also widens for a moment while a card is
+       dragged over an empty list, because the drop placeholder carries that
+       270px width. Both go away once the body keeps its width. */
+    min-width: 270px;
     max-width: 270px;
     /* The thumb paints itself with box-shadow: inset 0 0 0 10px, i.e. with
        currentColor, so color *is* the scrollbar color here and has to come from

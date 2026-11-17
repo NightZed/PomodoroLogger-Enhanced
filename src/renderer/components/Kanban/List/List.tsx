@@ -79,8 +79,6 @@ const ListHead = styled.div`
     }
 `;
 
-// Using css ::before and ::after will cause dnd component jitter
-//
 // Both placeholders are sticky overlays that make the cards fade out while they
 // scroll underneath the (rounded) top / bottom edge of the list. They are only
 // meant to be visible *over a card*, which means their color has to be the
@@ -93,14 +91,29 @@ const BeforePlaceHolder = styled.div`
     display: block;
     top: -2px;
     width: 100%;
-    height: 0.6rem;
-    margin-bottom: 10px;
-    background: linear-gradient(
-        var(--pl-bg-sunken),
-        rgba(255, 255, 255, 0.001)
-    ); /* transparent keyword is broken in Safari */
+    /* Zero height on purpose. dnd derives an empty droppable's drop position
+       from the content box, which excludes padding but not in-flow siblings.
+       The old 0.6rem + 10px block was invisible to that calculation, so a card
+       dropped into an empty list stopped ~20px above its final position and
+       then shifted down once the drop style was cleared. The same gap now
+       lives on Cards as padding-top, which dnd does account for; the fade is
+       drawn by a pseudo-element and takes no layout space. */
+    height: 0;
     pointer-events: none;
     z-index: 1;
+
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 0.6rem;
+        background: linear-gradient(
+            var(--pl-bg-sunken),
+            rgba(255, 255, 255, 0.001)
+        ); /* transparent keyword is broken in Safari */
+    }
 `;
 
 const AfterPlaceHolder = styled.div`
@@ -122,24 +135,25 @@ const AfterPlaceHolder = styled.div`
 /**
  * Toggled on the scroll container while it scrolls (and for a moment after).
  *
- * It does two jobs:
- *  - it reveals the scrollbar thumb;
- *  - it tells the cards to drop their hover lift -- see the `.pl-list-scrolling`
- *    block in `Card.tsx`.
+ * Its job is to reveal the scrollbar thumb.
  *
  * It is a plain DOM class rather than React state because a wheel gesture fires
  * `scroll` up to 60 times a second, and a state update re-rendered this list
  * (re-running every mounted card's memo comparison, then styled-components'
  * class generation for the column) on every throttled tick, even though the flag
  * itself only changes twice per gesture. Toggling the class costs one style
- * invalidation. The class name is global because the cards are styled in
- * `Card.tsx`, outside this module's styled-components scope.
+ * invalidation.
  */
 const SCROLLING_CLASS = 'pl-list-scrolling';
 
 const Cards = styled.div`
     position: relative;
-    padding: 0;
+    /* The gap the sticky fade used to occupy (see BeforePlaceHolder). Padding
+       is part of the content box, so dnd's empty-list drop position starts
+       where the first card starts instead of 19.6px above it. border-box keeps
+       min/max-height meaning the same as before the padding moved here. */
+    box-sizing: border-box;
+    padding: calc(0.6rem + 10px) 0 0;
     background-color: var(--pl-bg-sunken);
     border-radius: 4px;
     max-height: calc(100vh - 230px);
@@ -414,7 +428,21 @@ export const List: FC<Props> = React.memo((props: Props) => {
     const lastSearchRef = React.useRef(searchReg);
     const sameFilter = lastSearchRef.current === searchReg;
 
-    const visibleCount = sameFilter ? Math.max(renderLimit, keepCount) : renderLimit;
+    // A list that was rendered in full stays in full. `keepCount` only reaches
+    // the last card the previous commit rendered; a card appended at the end
+    // sits one position past it, so the slice would skip the new card for one
+    // commit -- the list shrinks for a frame and then pops back. That is the
+    // flash seen when a card is dropped into an empty list or at the end of a
+    // list: the drop placeholder is gone but the real card is not mounted yet.
+    // Written in the layout effect below, so a discarded render cannot set it.
+    const wasFullyRenderedRef = React.useRef(false);
+    const wasFullyRendered = sameFilter && wasFullyRenderedRef.current;
+
+    const visibleCount = wasFullyRendered
+        ? filteredCards.length
+        : sameFilter
+          ? Math.max(renderLimit, keepCount)
+          : renderLimit;
     const renderedCards = filteredCards.slice(0, visibleCount);
 
     // The refs describe the previous commit, so they are written here rather
@@ -424,6 +452,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
     React.useLayoutEffect(() => {
         lastRenderedRef.current = renderedCards;
         lastSearchRef.current = searchReg;
+        wasFullyRenderedRef.current = renderedCards.length === filteredCards.length;
     });
 
     const [estimatedTimeSum, actualTimeSum] = React.useMemo(

@@ -142,6 +142,101 @@ describe('List progressive card mounting', () => {
         expect(screen.getByText('Card 0')).toBeTruthy();
     });
 
+    // Regression: a card dropped into an empty list, or appended to the end of
+    // a list, used to be missing for one commit. `keepCount` can only reach the
+    // last card the previous commit rendered, and an appended card sits one
+    // position past it, so `slice(0, visibleCount)` skipped the new card -- the
+    // column shrank for a frame (placeholder gone, real card not mounted yet)
+    // and then popped back. That is the flash seen on the first move of a card.
+    it('renders a card appended to the end of a fully rendered list immediately', () => {
+        jest.useFakeTimers();
+        const { ids, cards } = makeCards(2);
+        const base: any = {
+            _id: 'list-1',
+            listId: 'list-1',
+            index: 0,
+            boardId: 'board-1',
+            title: 'List',
+            cards: ids,
+            cardsState: cards,
+            cardView: 'full',
+            setVisibleCards: noop,
+            setEditCard: noop,
+            setSearchReg: noop,
+            setContent: noop,
+            deleteList: noop,
+            renameList: noop,
+            addCard: noop,
+        };
+
+        const { rerender } = render(<List {...base} />);
+        expect(screen.getByText('Card 1')).toBeTruthy();
+
+        rerender(
+            <List
+                {...base}
+                cards={['card-0', 'card-1', 'card-new']}
+                cardsState={{
+                    ...cards,
+                    'card-new': {
+                        _id: 'card-new',
+                        title: 'Card new',
+                        content: 'content new',
+                        sessionIds: [],
+                        spentTimeInHour: { estimated: 1, actual: 0 },
+                        createdTime: 1600000000000,
+                    },
+                }}
+            />
+        );
+
+        // No frame turn: this is the commit the drop produces.
+        expect(screen.getByText('Card new')).toBeTruthy();
+    });
+
+    it('renders the first card of an empty list immediately', () => {
+        jest.useFakeTimers();
+        const { ids, cards } = makeCards(0);
+        const base: any = {
+            _id: 'list-1',
+            listId: 'list-1',
+            index: 0,
+            boardId: 'board-1',
+            title: 'List',
+            cards: ids,
+            cardsState: cards,
+            cardView: 'full',
+            setVisibleCards: noop,
+            setEditCard: noop,
+            setSearchReg: noop,
+            setContent: noop,
+            deleteList: noop,
+            renameList: noop,
+            addCard: noop,
+        };
+
+        const { rerender } = render(<List {...base} />);
+
+        rerender(
+            <List
+                {...base}
+                cards={['card-new']}
+                cardsState={{
+                    'card-new': {
+                        _id: 'card-new',
+                        title: 'Card new',
+                        content: 'content new',
+                        sessionIds: [],
+                        spentTimeInHour: { estimated: 1, actual: 0 },
+                        createdTime: 1600000000000,
+                    },
+                }}
+            />
+        );
+
+        expect(screen.getByText('Card new')).toBeTruthy();
+    });
+
     it('preview ignores the board search and never writes visibleCards', () => {
         const { ids, cards } = makeCards(3);
         const setVisibleCards = jest.fn();

@@ -177,6 +177,20 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
 - `kanban.boards` / `lists` / `cards` 互相用 id 引用，所以整棵树重读时必须一次替换。
   `applyKanbanSnapshot`（`components/Kanban/snapshot.ts`）让三个 reducer 响应同一个 action，`readKanbanSnapshot` 负责读库；导入、「删除所有数据」和看板首次加载都走它。
   分成三次 dispatch 会留下「新 lists + 旧 boards」（删库时 lists 先空、boards 后空）这类中间态，任何沿 `board.lists → lists[id].cards` 走的组件都会在那一帧读到 `undefined`。
+- 长列只窗口化渲染：`components/Kanban/List/List.tsx` 只挂载 `offsets` 上 `scrollTop ± 800px` 的卡片（至少 `WINDOW_SIZE` = 40 张），其余用上下两个 spacer 撑滚动高度。
+  dnd 在 lift 里对每个已注册的 `Draggable` 做 `getBoundingClientRect` + `getComputedStyle`，落位结束时又用 `flushSync` 重渲染它们；500 张实测 lift 约 1s，40 张约 50ms。
+  所以窗口是拖拽性能约束，不是首屏优化——首个 DOM 提交早就不是瓶颈了。
+  `Board.tsx` 的 `onDragStart` / `onDragEnd` 只负责设置 `dragActivity.dragging`，不保留计时输出。
+  窗口内每张卡都注册给 dnd（`Card` 的 `inWindow`），但 markdown 解析另走 `contentLimit`：首帧 8 张、之后每帧 +8。两者不能合并成一个开关——合并后打开看板会先解析 40 份 markdown，用户看到的就是一次顿挫。
+  卡片高度按 `data-card-id` 实测缓存（`getBoundingClientRect().height + 8`，8px 是 `CardContainer` 的 `margin-top`），从没渲染过的卡用 `ESTIMATED_CARD_HEIGHT`（140）兜底，`offsets` 是两者混算。
+  因此没滚动过的区域是估算的：滚进去时实测值替换估算会让 `offsets` 修正一次，可能看到轻微跳动，这不是渲染错误。
+  估算值与右上角的三态视图直接相关：`title` 最矮且最稳定，`preview` 的 markdown 限高 250px，`full` 不限高、卡片高度差异最大。
+  长列表滚动时通常切到 `title` 或 `preview`，估算更准；调 `ESTIMATED_CARD_HEIGHT` 要按实际常用的视图来，不要拿 `full` 的平均高度当基准。
+  拖拽期间 `dragActivity.dragging` 冻结窗口（`onWindowScroll` 直接 return），否则源卡片被卸载会让 dnd 抛 `Cannot find draggable entry`。
+  窗口外没有 DOM，dnd 不认识那些位置：`alwaysDraggable` 的首尾哨兵只在窗口正好包含首/尾时生效；拖到远端前要先把目标区域滚进窗口。
+  卡片很多时的实际操作是：先把卡片拖到另一个短列表，滚动原列表找到插入点，再拖回去。
+  不要为了省这一步把 `WINDOW_SIZE` 调大，那只是把 50ms 换回 1s。
+  详细设计、实测数据和未完成项见 `.scratch/kanban-virtual-list/design.md`。
 - `src/renderer/components/appTabs.ts` 是页面的唯一事实来源；标签栏、Ctrl+Tab 处理和紧凑模式切换全部从 `APP_TABS` / `planTabChange` 推导。
   不要加一份并行的标签列表。
 - 非活动页面不会永远保留：`DestroyOnTimeoutWrapper` 在每页各自的宽限期后丢弃该页子树。

@@ -8,6 +8,7 @@ import { AntdIcon as Icon } from '../../antdIcon';
 import { fatScrollBar } from '../../../style/scrollbar';
 import { isShallowEqualByKeys } from '../../../utils';
 import { KanbanBoard } from '../type';
+import { dragActivity } from '../dragActivity';
 
 const Container = styled.div`
     height: 100%;
@@ -50,6 +51,14 @@ const usefulPropNames = Object.keys(defaultBoard).concat(['lists', 'cards', 'boa
 interface Props extends KanbanBoard, BoardActionTypes, InputProps {}
 export const Board: FC<Props> = React.memo(
     (props: Props) => {
+        const onDragStart = () => {
+            dragActivity.dragging = true;
+        };
+        const onDragEnd = (result: DropResult) => {
+            dragActivity.dragging = false;
+            handleDragEnd(result);
+        };
+
         const handleDragEnd = ({ source, destination, type }: DropResult) => {
             // dropped outside the list
             if (!destination) {
@@ -129,7 +138,7 @@ export const Board: FC<Props> = React.memo(
 
         return (
             <Container>
-                <DragDropContext onDragEnd={handleDragEnd}>
+                <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
                     <Droppable droppableId={props._id} type="COLUMN" direction="horizontal">
                         {lists}
                     </Droppable>

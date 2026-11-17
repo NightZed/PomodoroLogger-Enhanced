@@ -52,14 +52,38 @@ const makeCards = (count: number) => {
 // This test only needs the callbacks to exist.
 const noop: any = jest.fn();
 
-describe('List progressive card mounting', () => {
+describe('List card window', () => {
+    // jsdom has no layout: every rect is 0x0, so the window would cover the
+    // whole list. A fixed reported size is enough for the window arithmetic.
+    let rectSpy: jest.SpyInstance;
+    beforeEach(() => {
+        rectSpy = jest.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+            () =>
+                ({
+                    height: 140,
+                    width: 262,
+                    top: 0,
+                    left: 0,
+                    bottom: 140,
+                    right: 262,
+                    x: 0,
+                    y: 0,
+                    toJSON: () => ({}),
+                }) as DOMRect
+        );
+    });
     afterEach(() => {
+        rectSpy.mockRestore();
         cleanup();
         jest.useRealTimers();
     });
 
-    it('mounts only the first page synchronously', () => {
-        const { ids, cards } = makeCards(20);
+    // Only a window of cards is mounted (see WINDOW_SIZE in List.tsx): dnd
+    // measures every registered draggable on drag start, so a 500-card column
+    // that mounts all of them costs ~1s per drag. The rest of the column is a
+    // spacer.
+    it('mounts a window instead of the whole list', () => {
+        const { ids, cards } = makeCards(100);
         // The unconnected component is normally fed by connect(); this test
         // only needs the subset of action props List actually calls.
         const props: any = {
@@ -80,22 +104,16 @@ describe('List progressive card mounting', () => {
             renameList: noop,
             addCard: noop,
         };
-        const { container } = render(<List {...props} />);
+        render(<List {...props} />);
 
-        // 6 cards for the first frame, not all 20.
-        expect(container.querySelectorAll('.kanban-card')).toHaveLength(6);
+        // The window covers the start of the list and leaves the tail out; the
+        // count itself is an implementation detail, the visible cards are not.
+        expect(screen.getByText('Card 0')).toBeTruthy();
+        expect(screen.getByText('Card 9')).toBeTruthy();
+        expect(screen.queryByText('Card 99')).toBeNull();
     });
 
-    // Regression: dragging a card into a list that had been rendered in full
-    // used to unmount the card that got pushed past `renderLimit` for one
-    // commit. When the user was already pressing that card for the next drag,
-    // dnd's registry had lost the entry and the lift threw
-    // "Cannot find draggable entry with id [...]".
-    it('keeps a rendered card that a newly added card pushes past the page limit', () => {
-        // Fake timers keep the next progressive batch (a requestAnimationFrame
-        // turn) from running, so the assertion sees the commit where
-        // `renderLimit` still lags one card behind.
-        jest.useFakeTimers();
+    it('keeps a rendered card when a new card is inserted above it', () => {
         const { ids, cards } = makeCards(1);
         const base: any = {
             _id: 'list-1',
@@ -116,11 +134,10 @@ describe('List progressive card mounting', () => {
         };
 
         const { rerender } = render(<List {...base} />);
-        // One card means the first page is one card.
         expect(screen.getByText('Card 0')).toBeTruthy();
 
-        // A drop lands a new card at the top, so card-0 moves to index 1 while
-        // `renderLimit` is still 1 until the next frame.
+        // A drop lands a new card at the top; the card that was already on
+        // screen must stay mounted (it is inside the window either way).
         rerender(
             <List
                 {...base}
@@ -143,12 +160,10 @@ describe('List progressive card mounting', () => {
     });
 
     // Regression: a card dropped into an empty list, or appended to the end of
-    // a list, used to be missing for one commit. `keepCount` can only reach the
-    // last card the previous commit rendered, and an appended card sits one
-    // position past it, so `slice(0, visibleCount)` skipped the new card -- the
-    // column shrank for a frame (placeholder gone, real card not mounted yet)
+    // a list, used to be missing for one commit: the drop placeholder was gone
+    // but the real card was not mounted yet, so the column shrank for a frame
     // and then popped back. That is the flash seen on the first move of a card.
-    it('renders a card appended to the end of a fully rendered list immediately', () => {
+    it('renders a card appended to the end immediately', () => {
         jest.useFakeTimers();
         const { ids, cards } = makeCards(2);
         const base: any = {

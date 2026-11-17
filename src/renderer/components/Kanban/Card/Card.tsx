@@ -17,14 +17,15 @@ import { CreatedTime } from '../style/CreatedTime';
 import { CompletedTime } from './CompletedTime';
 import { t } from '../../../i18n';
 
-const CardContainer = styled.div<{ $preview?: boolean }>`
+const CardContainer = styled.div<{ $preview?: boolean; $static?: boolean }>`
     width: 262px;
     word-break: break-word;
     background-color: var(--pl-bg-elevated);
     margin: 8px 4px 0 4px;
     border-radius: 6px;
-    /* The preview has no drag interaction, so it must not advertise one. */
-    cursor: ${({ $preview }) => ($preview ? 'default' : 'grab')};
+    /* The preview and a card that is not currently registered with dnd (see
+       the body of Card) must not advertise a drag they cannot start. */
+    cursor: ${({ $preview, $static }) => ($preview || $static ? 'default' : 'grab')};
 `;
 
 const CardContent = styled.div`
@@ -113,6 +114,26 @@ export interface InputProps {
     preview?: boolean;
     /** Optional `data-tour` anchor (the board's first card). */
     dataTour?: string;
+    /**
+     * This card is inside the mounted window of its list (see List.tsx), so it
+     * is the part of the list the user is looking at: register it with dnd
+     * right away instead of waiting for the lazy visibility observers.
+     */
+    inWindow?: boolean;
+    /**
+     * Render the markdown body now. The list fills a large window over a few
+     * frames (`contentLimit`) so opening a board does not parse every body in
+     * one commit.
+     */
+    renderContent?: boolean;
+    /**
+     * Keep this card registered with dnd. The first and last card of a list use
+     * it as a sentinel: dnd derives "drop at the end" from the last draggable
+     * it knows about, so when the window contains either end the reported index
+     * stays the real one. A window sitting between the two ends has no DOM for
+     * them, so the sentinel cannot help there.
+     */
+    alwaysDraggable?: boolean;
 }
 
 const canObserve = () => typeof IntersectionObserver !== 'undefined';
@@ -184,7 +205,20 @@ export const Card: FC<Props> = React.memo((props: Props) => {
     const cardView = props.cardView ?? 'full';
     const isTitleOnly = cardView === 'title';
     const isFull = cardView === 'full';
-    const shouldRenderContent = useNearViewport(cardRef, props.initiallyVisible === true);
+    // The list hands out `renderContent` in small batches when a window first
+    // mounts, so opening a board paints before all markdown is parsed. The
+    // observer remains the fallback for cards outside that batch.
+    const inWindow = props.inWindow === true;
+    const renderContent = props.renderContent === true;
+    const nearViewport = useNearViewport(cardRef, renderContent || props.initiallyVisible === true);
+    const shouldRenderContent = renderContent || nearViewport;
+
+    // dnd measures every registered draggable on drag start and re-renders all
+    // of them when the drop animation ends, so a 500-card column costs ~1s per
+    // drag. Only the mounted window registers; the DOM outside it does not
+    // exist at all (see the window in List.tsx).
+    const dragEnabled =
+        !props.preview && !props.isDragDisabled && (props.alwaysDraggable === true || inWindow);
     const onClick = React.useCallback(
         (e: React.MouseEvent<HTMLDivElement>) => {
             const target = e.nativeEvent.target as HTMLElement;
@@ -280,6 +314,145 @@ export const Card: FC<Props> = React.memo((props: Props) => {
         [content, shouldRenderContent]
     );
 
+    // dnd re-renders every Draggable between the placeholder and the end of the
+    // list when a drag starts, and it cannot know that most of them did not
+    // change. With 185 cards that is 185 full card renders inside the lift, so
+    // the card does not start following the pointer until they all finish.
+    // Keeping the body as one memoized element makes that render diff only the
+    // container: React receives the exact same child element and skips the
+    // subtree (markdown, badges, dates) entirely.
+    const cardContent = React.useMemo(() => {
+        if (isTitleOnly) {
+            return (
+                <CardContent>
+                    <h3
+                        style={{
+                            margin: 0,
+                            fontSize: 16,
+                            lineHeight: '1.3rem',
+                        }}
+                    >
+                        {props.title}
+                    </h3>
+                    {props.createdTime !== undefined ? (
+                        <CreatedTime>
+                            {t('kanban.card.created')}: {formatTimeYmdHm(props.createdTime)}
+                        </CreatedTime>
+                    ) : undefined}
+                    <CompletedTime
+                        completedTime={props.completedTime}
+                        isInDoneList={props.isInDoneList === true}
+                    />
+                    {renderLabels(props.labels)}
+                    <BadgeHolder className="collapsed">
+                        {props.sessionIds.length > 0 ? (
+                            <PomodoroDot num={props.sessionIds.length} />
+                        ) : undefined}
+                        {props.spentTimeInHour.estimated || props.spentTimeInHour.actual ? (
+                            <TimeBadge
+                                spentTime={props.spentTimeInHour.actual}
+                                leftTime={
+                                    props.spentTimeInHour.estimated - props.spentTimeInHour.actual
+                                }
+                                collapsed={true}
+                            />
+                        ) : undefined}
+                    </BadgeHolder>
+                </CardContent>
+            );
+        }
+
+        return (
+            <CardContent>
+                <h1
+                    style={{
+                        margin: 0,
+                        fontSize: '1.1rem',
+                        lineHeight: '1.3em',
+                    }}
+                >
+                    {props.title}
+                </h1>
+                {props.createdTime !== undefined ? (
+                    <CreatedTime>
+                        {t('kanban.card.created')}: {formatTimeYmdHm(props.createdTime)}
+                    </CreatedTime>
+                ) : undefined}
+                <CompletedTime
+                    completedTime={props.completedTime}
+                    isInDoneList={props.isInDoneList === true}
+                />
+                {renderLabels(props.labels)}
+                {shouldRenderContent ? (
+                    <Markdown
+                        $full={isFull}
+                        dangerouslySetInnerHTML={{
+                            __html: renderedMarkdown,
+                        }}
+                        style={isFull ? undefined : { maxHeight: 250 }}
+                        ref={markdownRef}
+                    />
+                ) : (
+                    <CardPreview>{(props.content ?? '').slice(0, 600)}</CardPreview>
+                )}
+                <Divider style={{ margin: '0 0 4px 0' }} />
+                <BadgeHolder>
+                    {props.sessionIds.length > 0 ? (
+                        <PomodoroDot num={props.sessionIds.length} />
+                    ) : undefined}
+                    {props.spentTimeInHour.estimated || props.spentTimeInHour.actual ? (
+                        <TimeBadge
+                            spentTime={props.spentTimeInHour.actual}
+                            leftTime={
+                                props.spentTimeInHour.estimated === 0
+                                    ? undefined
+                                    : props.spentTimeInHour.estimated - props.spentTimeInHour.actual
+                            }
+                        />
+                    ) : undefined}
+                </BadgeHolder>
+            </CardContent>
+        );
+    }, [
+        isFull,
+        isTitleOnly,
+        props.completedTime,
+        props.content,
+        props.createdTime,
+        props.isInDoneList,
+        props.labels,
+        props.sessionIds,
+        props.spentTimeInHour,
+        props.title,
+        renderedMarkdown,
+        shouldRenderContent,
+    ]);
+
+    const renderCard = (dragProps?: {
+        draggableProps?: Record<string, any>;
+        dragHandleProps?: Record<string, any> | null;
+        style?: React.CSSProperties;
+    }) => (
+        <CardContainer
+            ref={setCardRef}
+            $preview={props.preview}
+            $static={!dragEnabled}
+            data-tour={props.dataTour}
+            data-card-id={_id}
+            {...(dragProps?.draggableProps ?? {})}
+            style={dragProps?.style}
+            {...(dragProps?.dragHandleProps ?? {})}
+            onClick={onClick}
+            className={props.preview ? 'kanban-card-preview' : 'kanban-card'}
+        >
+            {cardContent}
+        </CardContainer>
+    );
+
+    if (!dragEnabled) {
+        return renderCard();
+    }
+
     return (
         <Draggable draggableId={_id} index={index} isDragDisabled={props.isDragDisabled}>
             {(provided, snapshot) => {
@@ -288,116 +461,14 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                 // DROP_ANIMATING when the `transform` transition ends. 0.1s
                 // keeps that event (0s fires none, which leaves the state
                 // machine stuck) while making the card arrive almost at once.
-                // Nothing else about the drag is customised.
                 const dragStyle = snapshot.isDropAnimating
                     ? { ...provided.draggableProps.style, transitionDuration: '0.1s' }
                     : provided.draggableProps.style;
-                return (
-                    <CardContainer
-                        ref={setCardRef}
-                        $preview={props.preview}
-                        data-tour={props.dataTour}
-                        {...provided.draggableProps}
-                        style={dragStyle}
-                        {...provided.dragHandleProps}
-                        onClick={onClick}
-                        className={props.preview ? 'kanban-card-preview' : 'kanban-card'}
-                    >
-                        {isTitleOnly ? (
-                            <CardContent>
-                                <h3
-                                    style={{
-                                        margin: 0,
-                                        fontSize: 16,
-                                        lineHeight: '1.3rem',
-                                    }}
-                                >
-                                    {props.title}
-                                </h3>
-                                {props.createdTime !== undefined ? (
-                                    <CreatedTime>
-                                        {t('kanban.card.created')}:{' '}
-                                        {formatTimeYmdHm(props.createdTime)}
-                                    </CreatedTime>
-                                ) : undefined}
-                                <CompletedTime
-                                    completedTime={props.completedTime}
-                                    isInDoneList={props.isInDoneList === true}
-                                />
-                                {renderLabels(props.labels)}
-                                <BadgeHolder className="collapsed">
-                                    {props.sessionIds.length > 0 ? (
-                                        <PomodoroDot num={props.sessionIds.length} />
-                                    ) : undefined}
-                                    {props.spentTimeInHour.estimated ||
-                                    props.spentTimeInHour.actual ? (
-                                        <TimeBadge
-                                            spentTime={props.spentTimeInHour.actual}
-                                            leftTime={
-                                                props.spentTimeInHour.estimated -
-                                                props.spentTimeInHour.actual
-                                            }
-                                            collapsed={true}
-                                        />
-                                    ) : undefined}
-                                </BadgeHolder>
-                            </CardContent>
-                        ) : (
-                            <CardContent>
-                                <h1
-                                    style={{
-                                        margin: 0,
-                                        fontSize: '1.1rem',
-                                        lineHeight: '1.3em',
-                                    }}
-                                >
-                                    {props.title}
-                                </h1>
-                                {props.createdTime !== undefined ? (
-                                    <CreatedTime>
-                                        {t('kanban.card.created')}:{' '}
-                                        {formatTimeYmdHm(props.createdTime)}
-                                    </CreatedTime>
-                                ) : undefined}
-                                <CompletedTime
-                                    completedTime={props.completedTime}
-                                    isInDoneList={props.isInDoneList === true}
-                                />
-                                {renderLabels(props.labels)}
-                                {shouldRenderContent ? (
-                                    <Markdown
-                                        $full={isFull}
-                                        dangerouslySetInnerHTML={{
-                                            __html: renderedMarkdown,
-                                        }}
-                                        style={isFull ? undefined : { maxHeight: 250 }}
-                                        ref={markdownRef}
-                                    />
-                                ) : (
-                                    <CardPreview>{(props.content ?? '').slice(0, 600)}</CardPreview>
-                                )}
-                                <Divider style={{ margin: '0 0 4px 0' }} />
-                                <BadgeHolder>
-                                    {props.sessionIds.length > 0 ? (
-                                        <PomodoroDot num={props.sessionIds.length} />
-                                    ) : undefined}
-                                    {props.spentTimeInHour.estimated ||
-                                    props.spentTimeInHour.actual ? (
-                                        <TimeBadge
-                                            spentTime={props.spentTimeInHour.actual}
-                                            leftTime={
-                                                props.spentTimeInHour.estimated === 0
-                                                    ? undefined
-                                                    : props.spentTimeInHour.estimated -
-                                                      props.spentTimeInHour.actual
-                                            }
-                                        />
-                                    ) : undefined}
-                                </BadgeHolder>
-                            </CardContent>
-                        )}
-                    </CardContainer>
-                );
+                return renderCard({
+                    draggableProps: provided.draggableProps,
+                    dragHandleProps: provided.dragHandleProps,
+                    style: dragStyle,
+                });
             }}
         </Draggable>
     );

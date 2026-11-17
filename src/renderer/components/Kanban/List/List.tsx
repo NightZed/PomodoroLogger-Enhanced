@@ -15,26 +15,20 @@ import { CardView, List as ListType } from '../type';
 import { mergeRefs } from '../../../utils';
 import { debounce } from 'lodash';
 import { useI18n } from '../../../i18n';
+import { dragActivity } from '../dragActivity';
 
-// First page is deliberately small: each Card is a dnd draggable with markdown
-// and badges. Subsequent turns add a screenful at a time.
-const PROGRESSIVE_INITIAL_CARDS = 6;
-const PROGRESSIVE_CARD_BATCH = 12;
-
-// A frame boundary matters here: the point is to let the browser paint the
-// first page before mounting the next batch. A plain setTimeout can run
-// back-to-back in the same event-loop turn on some platforms.
-const scheduleFrame = (callback: () => void) =>
-    typeof window.requestAnimationFrame === 'function'
-        ? window.requestAnimationFrame(callback)
-        : window.setTimeout(callback, 0);
-const cancelFrame = (handle: number) => {
-    if (typeof window.cancelAnimationFrame === 'function') {
-        window.cancelAnimationFrame(handle);
-    } else {
-        window.clearTimeout(handle);
-    }
-};
+// Windowed rendering: at most WINDOW_SIZE cards are mounted. dnd measures every
+// registered draggable on drag start, so a 500-card column mounted all of them
+// and cost ~1s per drag; the window is ~50ms. Heights are measured as cards
+// render and cached; cards never rendered yet fall back to
+// ESTIMATED_CARD_HEIGHT.
+const WINDOW_SIZE = 40;
+const WINDOW_OVERSCAN = 800;
+const ESTIMATED_CARD_HEIGHT = 140;
+// First window commit: only these cards parse their markdown synchronously;
+// CONTENT_BATCH more join on each following frame.
+const CONTENT_INITIAL = 8;
+const CONTENT_BATCH = 8;
 
 const Container = styled.div`
     padding: 4px;
@@ -79,45 +73,33 @@ const ListHead = styled.div`
     }
 `;
 
-// Both placeholders are sticky overlays that make the cards fade out while they
-// scroll underneath the (rounded) top / bottom edge of the list. They are only
-// meant to be visible *over a card*, which means their color has to be the
-// background color of the list body (`Cards` below) -- with any other color
-// (e.g. `--pl-border`) they show up as a stray shadow / glow band on the empty
-// area of the list, and that band moves around whenever dnd pushes the
-// placeholder element up and down during a drag.
+// Top fade of the list body.
+//
+// It must be an overlay, not a mask: mask/filter/transform on an ancestor
+// change the containing block of dnd's fixed-position drag clone, which drops
+// the dragged card below the list and clips it.
+//
+// It sits next to the scroll container, inside ListBody, not inside Cards:
+// absolutely positioned children of a scroll container scroll with its content.
+// Against ListBody the overlay is fixed to the visible top edge, and it takes
+// no space in Cards' content box, so dnd's measurement is unaffected.
 const BeforePlaceHolder = styled.div`
-    position: sticky;
-    display: block;
-    top: -2px;
-    width: 100%;
-    /* Zero height on purpose. dnd derives an empty droppable's drop position
-       from the content box, which excludes padding but not in-flow siblings.
-       The old 0.6rem + 10px block was invisible to that calculation, so a card
-       dropped into an empty list stopped ~20px above its final position and
-       then shifted down once the drop style was cleared. The same gap now
-       lives on Cards as padding-top, which dnd does account for; the fade is
-       drawn by a pseudo-element and takes no layout space. */
-    height: 0;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 0.6rem;
+    background: linear-gradient(
+        var(--pl-bg-sunken) 0%,
+        rgba(255, 255, 255, 0.001) 100%
+    ); /* transparent keyword is broken in Safari */
     pointer-events: none;
     z-index: 1;
-
-    &::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 0.6rem;
-        background: linear-gradient(
-            var(--pl-bg-sunken),
-            rgba(255, 255, 255, 0.001)
-        ); /* transparent keyword is broken in Safari */
-    }
 `;
 
+// Bottom fade, same length and gradient as the top one. The bottom has no
+// padding to get in the way, so sticky still works there.
 const AfterPlaceHolder = styled.div`
-    content: '';
     margin-top: 20px;
     position: sticky;
     display: block;
@@ -146,12 +128,25 @@ const AfterPlaceHolder = styled.div`
  */
 const SCROLLING_CLASS = 'pl-list-scrolling';
 
+// Positioning frame for the scroll container and the top fade. It is not a
+// scroll container itself, so an absolutely positioned child stays at the top
+// while the cards scroll underneath.
+//
+// 270px is a filled list's width: CardContainer is 262px plus 4px of margin on
+// each side. Fixing it here keeps an empty list at the same width when the last
+// card leaves, and while a card is dragged over it (the drop placeholder
+// carries that width).
+const ListBody = styled.div`
+    position: relative;
+    width: 270px;
+`;
+
 const Cards = styled.div`
     position: relative;
-    /* The gap the sticky fade used to occupy (see BeforePlaceHolder). Padding
-       is part of the content box, so dnd's empty-list drop position starts
-       where the first card starts instead of 19.6px above it. border-box keeps
-       min/max-height meaning the same as before the padding moved here. */
+    /* The gap above the first card. Padding is part of the content box, so
+       dnd's empty-list drop position starts where the first card starts
+       instead of 19.6px above it. border-box keeps min/max-height meaning the
+       same as before the padding moved here. */
     box-sizing: border-box;
     padding: calc(0.6rem + 10px) 0 0;
     background-color: var(--pl-bg-sunken);
@@ -160,14 +155,6 @@ const Cards = styled.div`
     overflow-y: overlay;
     overflow-x: visible;
     min-height: 200px;
-    /* A filled list is 270px wide: CardContainer is 262px plus 4px of margin on
-       each side. The body has no in-flow children when the last card leaves, so
-       without a floor it collapses to the ListHead's 250px minimum and the
-       column visibly narrows; it also widens for a moment while a card is
-       dragged over an empty list, because the drop placeholder carries that
-       270px width. Both go away once the body keeps its width. */
-    min-width: 270px;
-    max-width: 270px;
     /* The thumb paints itself with box-shadow: inset 0 0 0 10px, i.e. with
        currentColor, so color *is* the scrollbar color here and has to come from
        the theme: a fixed dark color is invisible on a dark list body. It stays on
@@ -373,87 +360,116 @@ export const List: FC<Props> = React.memo((props: Props) => {
         [visibleCards, props.cards]
     );
 
-    // Opening a board used to mount every card in one commit. With a long list
-    // (100+ cards) that blocks the first paint even though only the first few
-    // cards are on screen. Mount a small first page synchronously, then append
-    // the rest in short timer turns so the board opens and remains scrollable.
-    // The cap resets on list/search changes, not on reorder, so dragging does
-    // not collapse an already fully rendered list back to the first page.
-    const [renderLimit, setRenderLimit] = React.useState(() =>
-        Math.min(PROGRESSIVE_INITIAL_CARDS, filteredCards.length)
-    );
-    React.useEffect(() => {
-        setRenderLimit(Math.min(PROGRESSIVE_INITIAL_CARDS, filteredCards.length));
-        // Reset only when the list identity or search filter changes. Adding a
-        // card must not send an already fully loaded list back to page one; the
-        // second effect below extends the limit when the array grows.
+    // Windowed rendering: only the cards around the viewport are mounted, the
+    // rest of the column is two spacers. dnd measures every registered
+    // draggable on drag start, so mounting all 500 cost ~1s per drag; the
+    // window keeps that at WINDOW_SIZE (~50ms measured).
+    //
+    // Heights are cached per card as the window renders (see the layout effect
+    // below) and used to build pixel offsets. Cards that were never rendered
+    // fall back to ESTIMATED_CARD_HEIGHT, so scrolling into a new area is
+    // approximate for a moment and settles once those cards mount.
+    const totalCards = filteredCards.length;
+    const [scrollTop, setScrollTop] = React.useState(0);
+    const [viewportHeight, setViewportHeight] = React.useState(600);
+    const [layoutVersion, setLayoutVersion] = React.useState(0);
+    const heightsRef = React.useRef(new Map<string, number>());
+
+    const { offsets, totalHeight } = React.useMemo(() => {
+        const next = new Array<number>(totalCards);
+        let sum = 0;
+        for (let index = 0; index < totalCards; index += 1) {
+            next[index] = sum;
+            sum += heightsRef.current.get(filteredCards[index]) ?? ESTIMATED_CARD_HEIGHT;
+        }
+        return { offsets: next, totalHeight: sum };
+        // `layoutVersion` changes when a measurement lands; `filteredCards`
+        // changes when the list or the search does.
         // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filteredCards, layoutVersion, totalCards]);
+
+    // First index whose offset is at or past `value`.
+    const offsetIndex = (value: number) => {
+        let low = 0;
+        let high = offsets.length;
+        while (low < high) {
+            const middle = (low + high) >> 1;
+            if (offsets[middle] < value) {
+                low = middle + 1;
+            } else {
+                high = middle;
+            }
+        }
+        return low;
+    };
+
+    const firstVisible = offsetIndex(Math.max(0, scrollTop - WINDOW_OVERSCAN));
+    const lastVisible = offsetIndex(scrollTop + viewportHeight + WINDOW_OVERSCAN);
+    const start = Math.max(0, Math.min(firstVisible, Math.max(0, totalCards - WINDOW_SIZE)));
+    const end = Math.min(totalCards, Math.max(start + WINDOW_SIZE, lastVisible));
+    const renderedCards = filteredCards.slice(start, end);
+    const topSpacer = start > 0 ? offsets[start] : 0;
+    const bottomSpacer = end < totalCards ? Math.max(0, totalHeight - offsets[end]) : 0;
+
+    // Parsing the markdown of a whole window in the first commit is what made
+    // opening a board pause (40 cards at once). Only the first CONTENT_INITIAL
+    // cards render their body synchronously; the rest catch up a frame later,
+    // so the board paints first and fills in after. Once the window has been
+    // filled, later scrolls render their cards in full immediately.
+    const [contentLimit, setContentLimit] = React.useState(CONTENT_INITIAL);
+    React.useEffect(() => {
+        setContentLimit(CONTENT_INITIAL);
     }, [_id, searchReg]);
     React.useEffect(() => {
-        if (renderLimit >= filteredCards.length) {
+        if (contentLimit >= renderedCards.length) {
             return;
         }
-
-        const handle = scheduleFrame(() => {
-            setRenderLimit((current) =>
-                Math.min(current + PROGRESSIVE_CARD_BATCH, filteredCards.length)
-            );
+        const handle = requestAnimationFrame(() => {
+            setContentLimit((current) => Math.min(current + CONTENT_BATCH, renderedCards.length));
         });
-        return () => cancelFrame(handle);
-    }, [renderLimit, filteredCards.length]);
+        return () => cancelAnimationFrame(handle);
+    }, [contentLimit, renderedCards.length]);
 
-    // A card that is already on screen must never be dropped by the progressive
-    // window. `filteredCards` can grow while `renderLimit` is still one commit
-    // behind -- the common case is a drop: the moved card lands in the middle,
-    // every card after it shifts down by one, and the last one falls out of
-    // `slice(0, renderLimit)`. Its `Draggable` then unmounts and dnd's registry
-    // loses the entry. If the user is already pressing that card for the next
-    // drag -- which is exactly what dragging quickly after a drop looks like --
-    // the lift throws `Cannot find draggable entry with id [...]`. So the slice
-    // also covers every card rendered by the previous commit that is still in
-    // this list. The ref is written in the layout effect below rather than
-    // during render, so a discarded render cannot widen the window.
-    const lastRenderedRef = React.useRef<string[]>([]);
-    const lastRenderedSet = new Set(lastRenderedRef.current);
-    let keepCount = 0;
-    for (let index = 0; index < filteredCards.length; index += 1) {
-        if (lastRenderedSet.has(filteredCards[index])) {
-            keepCount = index + 1;
+    // The window follows the scroll position, except while a drag is running:
+    // unmounting the source (or a card pressed for the next drag) makes dnd
+    // throw "Cannot find draggable entry".
+    const onWindowScroll = React.useCallback((event: React.UIEvent<HTMLDivElement>) => {
+        if (dragActivity.dragging) {
+            return;
         }
-    }
+        const element = event.currentTarget;
+        setScrollTop(element.scrollTop);
+        setViewportHeight(element.clientHeight);
+    }, []);
 
-    // The previous paint's set only describes this filter. After a search
-    // change it would widen the fresh window (clearing the search would render
-    // the whole column at once), so the window falls back to `renderLimit`.
-    const lastSearchRef = React.useRef(searchReg);
-    const sameFilter = lastSearchRef.current === searchReg;
-
-    // A list that was rendered in full stays in full. `keepCount` only reaches
-    // the last card the previous commit rendered; a card appended at the end
-    // sits one position past it, so the slice would skip the new card for one
-    // commit -- the list shrinks for a frame and then pops back. That is the
-    // flash seen when a card is dropped into an empty list or at the end of a
-    // list: the drop placeholder is gone but the real card is not mounted yet.
-    // Written in the layout effect below, so a discarded render cannot set it.
-    const wasFullyRenderedRef = React.useRef(false);
-    const wasFullyRendered = sameFilter && wasFullyRenderedRef.current;
-
-    const visibleCount = wasFullyRendered
-        ? filteredCards.length
-        : sameFilter
-          ? Math.max(renderLimit, keepCount)
-          : renderLimit;
-    const renderedCards = filteredCards.slice(0, visibleCount);
-
-    // The refs describe the previous commit, so they are written here rather
-    // than during render: a discarded render must not widen the window above,
-    // and the search filter must be compared against the one that produced
-    // `lastRenderedRef`.
+    // Measure the cards that just mounted. The threshold keeps this from
+    // looping: sub-pixel differences are ignored, and the effect only runs when
+    // the window or the data changed.
     React.useLayoutEffect(() => {
-        lastRenderedRef.current = renderedCards;
-        lastSearchRef.current = searchReg;
-        wasFullyRenderedRef.current = renderedCards.length === filteredCards.length;
-    });
+        const container = cardListRef.current;
+        if (!container) {
+            return;
+        }
+        let changed = false;
+        const nodes = container.querySelectorAll<HTMLElement>('[data-card-id]');
+        nodes.forEach((node) => {
+            const id = node.dataset.cardId;
+            if (!id) {
+                return;
+            }
+            // CardContainer has an 8px top margin; dnd lays cards out by
+            // marginBox, so the offset has to include it.
+            const height = node.getBoundingClientRect().height + 8;
+            const previous = heightsRef.current.get(id);
+            if (previous === undefined || Math.abs(previous - height) > 0.5) {
+                heightsRef.current.set(id, height);
+                changed = true;
+            }
+        });
+        if (changed) {
+            setLayoutVersion((version) => version + 1);
+        }
+    }, [start, end, filteredCards]);
 
     const [estimatedTimeSum, actualTimeSum] = React.useMemo(
         () =>
@@ -639,54 +655,84 @@ export const List: FC<Props> = React.memo((props: Props) => {
                                     cardListRef,
                                 ]) as React.RefObject<HTMLDivElement>;
                                 return (
-                                    <Cards ref={mergedRef} {...provided.droppableProps}>
-                                        <BeforePlaceHolder />
-                                        {renderedCards.map((cardId, index) => {
-                                            const card = cardsState[cardId];
-                                            // The card may already be gone while
-                                            // this list is still mounted (e.g.
-                                            // its board was just deleted).
-                                            if (card === undefined) {
-                                                return null;
-                                            }
+                                    <ListBody>
+                                        <Cards
+                                            ref={mergedRef}
+                                            {...provided.droppableProps}
+                                            onScroll={onWindowScroll}
+                                        >
+                                            {topSpacer > 0 ? (
+                                                <div style={{ height: topSpacer }} />
+                                            ) : null}
+                                            {renderedCards.map((cardId, offset) => {
+                                                const index = start + offset;
+                                                const card = cardsState[cardId];
+                                                // The card may already be gone while
+                                                // this list is still mounted (e.g.
+                                                // its board was just deleted).
+                                                if (card === undefined) {
+                                                    return null;
+                                                }
 
-                                            return (
-                                                <Card
-                                                    {...card}
-                                                    boardId={props.boardId}
-                                                    cardId={cardId}
-                                                    index={index}
-                                                    key={cardId}
-                                                    listId={props.listId}
-                                                    isInDoneList={done}
-                                                    isDraggingOver={isDraggingOver}
-                                                    searchReg={searchReg}
-                                                    initiallyVisible={index < 3}
-                                                    isDragDisabled={
-                                                        preview ||
-                                                        visibleCount < filteredCards.length
-                                                    }
-                                                    preview={preview}
-                                                    // The first card of each list
-                                                    // is a tour candidate; the
-                                                    // lookup picks the first
-                                                    // visible one. The preview
-                                                    // renders its own cards.
-                                                    dataTour={
-                                                        !preview && index === 0
-                                                            ? 'kanban-card'
-                                                            : undefined
-                                                    }
-                                                    cardView={preview ? 'full' : props.cardView}
-                                                    setEditCard={props.setEditCard}
-                                                    setSearchReg={props.setSearchReg}
-                                                    setContent={props.setContent}
-                                                />
-                                            );
-                                        })}
-                                        {provided.placeholder}
-                                        <AfterPlaceHolder />
-                                    </Cards>
+                                                return (
+                                                    <Card
+                                                        {...card}
+                                                        boardId={props.boardId}
+                                                        cardId={cardId}
+                                                        index={index}
+                                                        key={cardId}
+                                                        listId={props.listId}
+                                                        isInDoneList={done}
+                                                        isDraggingOver={isDraggingOver}
+                                                        searchReg={searchReg}
+                                                        initiallyVisible={index < 3}
+                                                        isDragDisabled={preview}
+                                                        // Everything rendered here is
+                                                        // inside the mounted window:
+                                                        // register it with dnd. The
+                                                        // body itself is filled in
+                                                        // over the next frames (see
+                                                        // contentLimit).
+                                                        inWindow={true}
+                                                        renderContent={offset < contentLimit}
+                                                        // dnd derives the "drop at the
+                                                        // end" index from the last
+                                                        // draggable it knows about,
+                                                        // and only cards near the
+                                                        // viewport register (see
+                                                        // Card). The first and last
+                                                        // card are always registered
+                                                        // so both ends stay exact.
+                                                        alwaysDraggable={
+                                                            index === 0 ||
+                                                            index === filteredCards.length - 1
+                                                        }
+                                                        preview={preview}
+                                                        // The first card of each list
+                                                        // is a tour candidate; the
+                                                        // lookup picks the first
+                                                        // visible one. The preview
+                                                        // renders its own cards.
+                                                        dataTour={
+                                                            !preview && index === 0
+                                                                ? 'kanban-card'
+                                                                : undefined
+                                                        }
+                                                        cardView={preview ? 'full' : props.cardView}
+                                                        setEditCard={props.setEditCard}
+                                                        setSearchReg={props.setSearchReg}
+                                                        setContent={props.setContent}
+                                                    />
+                                                );
+                                            })}
+                                            {bottomSpacer > 0 ? (
+                                                <div style={{ height: bottomSpacer }} />
+                                            ) : null}
+                                            {provided.placeholder}
+                                            <AfterPlaceHolder />
+                                        </Cards>
+                                        <BeforePlaceHolder />
+                                    </ListBody>
                                 );
                             }}
                         </Droppable>

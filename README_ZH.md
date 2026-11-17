@@ -37,7 +37,7 @@
 
 番茄日志🕢 [^1] ——[番茄钟工作法](https://zh.wikipedia.org/wiki/番茄工作法) [^2] + [看板任务管理](https://en.wikipedia.org/wiki/Kanban_board) [^3] + 桌面活动追踪 + 数据可视化分析 + 跨平台。
 
-[^1]: 本仓库是[原版 Pomodoro Logger](https://github.com/zxch3n/PomodoroLogger) 的增强版，主要加强了**主题**、**卡片编辑**与**历史视图回顾**，并优化了**内存占用与 CPU 占用**。
+[^1]: 本仓库是[原版 Pomodoro Logger](https://github.com/zxch3n/PomodoroLogger) 的增强版，主要加强了**主题**、**卡片编辑**、**数据管理**与**历史视图回顾**，优化了**内存占用与 CPU 占用**，并将依赖进行整体迁移并调整架构。
 
 [^2]: 番茄工作法（英语：Pomodoro Technique）是一种时间管理方法，在1980年代由Francesco Cirillo创立。 该方法使用一个定时器来分割出一个一般为25分钟的工作时间和5分钟的休息时间，而那些时间段被称为pomodoros（或者 tomatos），为意大利语单词pomodoro（番茄）。
 
@@ -52,7 +52,7 @@
 > 下图：看板（图1）与历史视图（图2）——从任务规划到历史回顾。
 
 <p align="center">
-  <img width="800" src="./docs/images/kanban.png" alt="看板页面"/>
+  <img width="800" src="./docs/images/kanban-day.png" alt="看板页面"/>
   <img width="800" src="./docs/images/history-main-view.png" alt="历史视图主界面"/>
 </p>
 
@@ -113,8 +113,8 @@
 > 💡 提示：`In Progress` 中的卡片越少，统计越准确。
 
 <p align="center">
-  <img width="800" src="./docs/images/kanban-board-shadow.png" alt="看板 board 页面"/>
-  <img width="800" src="./docs/images/kanban-shadow.png" alt="看板页面"/>
+  <img width="800" src="./docs/images/kanban-board-night.png" alt="看板 board 页面"/>
+  <img width="800" src="./docs/images/kanban-night.png" alt="看板页面"/>
 </p>
 
 ### 🃏 卡片
@@ -125,7 +125,7 @@
 - **预估耗时**：卡片上可以填写预估耗时，实际投入由番茄钟自动累计。
 
 <p align="center">
-  <img width="800" src="./docs/images/kanban-card-editor-shadow.png" alt="看板卡片编辑页面"/>
+  <img width="800" src="./docs/images/kanban-card-editor-night.png" alt="看板卡片编辑页面"/>
 </p>
 
 <a id="statistics"></a>
@@ -178,7 +178,6 @@
 ### 🖥️ 桌面活动记录
 
 - **应用与标题**：专注期间自动记录当前使用的应用名称与窗口标题；浏览器标题对应当前网页，IDE 标题里则包含项目名或文件路径。
-- **定时截图**（可选）：在设置页打开 `Screenshot` 后，专注期间会按间隔把屏幕截图一并留档，方便事后核对。
 
 ```text
 Pomodoro Technique - Wikipedia - Google Chrome
@@ -192,13 +191,12 @@ pomodoro-logger [C:\code\pomodoro-logger] .\src\renderer\components\src\Applicat
 
 ### 🔒 数据与隐私
 
+- **兼容旧数据**：兼容原始仓库 PomodoroLogger 的应用数据。
 - **本地存储**：所有数据保存在本地。
 - **导出 / 导入 / 删除**：在设置页一键备份、迁移或清空全部数据（应用设置会保留）。
 - **数据目录**：
-  - 安装版中 `db/` 存数据库，`screenshots/` 存定时截图。
-  - 以源码方式运行（`pnpm start`）时，同样的结构位于仓库根目录的 `.local/dev/` 下；该目录已被 git 忽略，可随时删除。
-  - 可在设置页点击 **Open Data Folder** 直接在文件管理器中打开。
-
+  - 安装版中 `db/` 存数据库。
+  - 以源码方式运行时，同样的结构位于仓库根目录的 `.local/dev/` 下。
 
 | 平台    | 数据目录                                |
 | :------ | :-------------------------------------- |
@@ -262,5 +260,7 @@ Ubuntu 22.04 及以上运行 AppImage 需要先安装 `libfuse2`，或加 `--app
 [GPL-3.0 License](./LICENSE)
 
 Copyright © 2019 Zixuan Chen —— 原版作者。
+
+Copyright © 2026 NightZed —— 增强版。
 
 本仓库是 Pomodoro Logger 的 GPL-3.0 修改版，同样以 GPL-3.0 授权发布。

@@ -37,7 +37,7 @@
 
 Pomodoro Logger 🕢 [^1] : [Pomodoro Technique](https://en.wikipedia.org/wiki/Pomodoro_Technique) [^2] + [Kanban task management](https://en.wikipedia.org/wiki/Kanban_board) [^3] + desktop activity tracking + data visualization + cross-platform.
 
-[^1]: This repository is an enhanced edition of the [original Pomodoro Logger](https://github.com/zxch3n/PomodoroLogger), with a focus on **theme**, **card editing** and **history view review**, plus optimizations to **memory usage and CPU usage**.
+[^1]: This repository is an enhanced version of the [original Pomodoro Logger](https://github.com/zxch3n/PomodoroLogger). It primarily improves **themes**, **card editing**, **data management**, and **history views**; optimizes **memory and CPU usage**; and migrates dependencies while adjusting the architecture.
 
 [^2]: The Pomodoro Technique is a time management method developed by Francesco Cirillo in the late 1980s. It uses a kitchen timer to break work into intervals, typically 25 minutes in length, separated by short breaks. Each interval is known as a pomodoro, from the Italian word for tomato.
 
@@ -52,7 +52,7 @@ Pomodoro Logger 🕢 [^1] : [Pomodoro Technique](https://en.wikipedia.org/wiki/P
 > Below: the Kanban (p1) and the History view (p2) — from planning tasks to reviewing your time.
 
 <p align="center">
-  <img width="800" src="./docs/images/kanban.png" alt="Kanban"/>
+  <img width="800" src="./docs/images/kanban-day.png" alt="Kanban"/>
   <img width="800" src="./docs/images/history-main-view.png" alt="History view"/>
 </p>
 
@@ -68,7 +68,7 @@ After creating a task on the Kanban board, select it on the timer page to track 
   <img width="800" src="./docs/images/normal-timer-shadow.png" alt="Normal Mode"/>
 </p>
 
-### Tray / Mini / Small / Night Mode / Transparency / Wallpaper
+### Tray / Mini / Compact / Night Mode / Transparency / Wallpaper
 
 -   **Tray**: closing the main window minimizes the app to the system tray.
 
@@ -113,8 +113,8 @@ The built-in [Kanban board](https://en.wikipedia.org/wiki/Kanban_board) works to
 > 💡 Tip: the fewer cards in `In Progress`, the more accurate your statistics.
 
 <p align="center">
-  <img width="800" src="./docs/images/kanban-board-shadow.png" alt="Kanban board"/>
-  <img width="800" src="./docs/images/kanban-shadow.png" alt="Kanban"/>
+  <img width="800" src="./docs/images/kanban-board-night.png" alt="Kanban board"/>
+  <img width="800" src="./docs/images/kanban-night.png" alt="Kanban"/>
 </p>
 
 ### 🃏 Cards
@@ -125,7 +125,7 @@ The built-in [Kanban board](https://en.wikipedia.org/wiki/Kanban_board) works to
 -   **Estimated time**: set an estimate on a card, and the Pomodoro timer accumulates the actual time spent.
 
 <p align="center">
-  <img width="800" src="./docs/images/kanban-card-editor-shadow.png" alt="kanban Card Editor"/>
+  <img width="800" src="./docs/images/kanban-card-editor-night.png" alt="kanban Card Editor"/>
 </p>
 
 <a id="statistics"></a>
@@ -178,7 +178,6 @@ The **chart** shows the share of time per project / app, and the **word cloud** 
 ### 🖥️ Desktop Activity Tracking
 
 -   **Apps & titles**: during focus sessions the app records the names and window titles of what you are using. A browser title reveals the page you are reading, while an IDE title contains the project name or file path.
--   **Scheduled screenshots** (optional): turn on `Screenshot` in the settings, and the app also keeps periodic screen captures during focus sessions for later review.
 
 ```text
 Pomodoro Technique - Wikipedia - Google Chrome
@@ -192,12 +191,12 @@ These raw records are aggregated into the time proportion chart and word cloud i
 
 ### 🔒 Data & Privacy
 
+-   **Compatible with old data**: Compatible with application data from the original repository PomodoroLogger.
 -   **Local storage**: all data is saved on your own machine.
 -   **Export / import / delete**: back up, migrate, or clear all data (your settings are kept) with one click in the settings.
 -   **Data directory**: 
-    -   in the installed app, `db/` holds the databases and `screenshots/` holds the periodic screenshots. 
-    -   When running from source (`pnpm start`), the same layout lives under `.local/dev/` in the repository root; that folder is ignored by git and can be deleted at any time. 
-    -   Use **Open Data Folder** on the settings page to open it in your file manager.
+    -   in the installed app, `db/` holds the databases. 
+    -   When running from source, the same layout lives under `.local/dev/` in the repository root.
 
 
 | Platform | Data directory                          |
@@ -237,14 +236,14 @@ These raw records are aggregated into the time proportion chart and word cloud i
 Platforms: **Windows 10 / macOS 13+ / Linux**.
 Download: [release page](https://github.com/NightZed/PomodoroLogger-Enhanced/releases).
 
-| Platform | Pick this file |
-| --- | --- |
-| Windows 10+ (x64) | `Pomodoro-Logger-Enhanced-<version>-win-x64-setup.exe` |
-| macOS 13+ (Apple Silicon) | `Pomodoro-Logger-Enhanced-<version>-mac-arm64.dmg` |
-| macOS 13+ (Intel) | `Pomodoro-Logger-Enhanced-<version>-mac-x64.dmg` |
-| Debian / Ubuntu / Mint | `pomodoro-logger-enhanced_<version>_amd64.deb` |
-| Fedora / RHEL / openSUSE | `Pomodoro-Logger-Enhanced-<version>-linux-x86_64.rpm` |
-| Any Linux (no install) | `Pomodoro-Logger-Enhanced-<version>-linux-x86_64.AppImage` |
+| Platform                  | Pick this file                                             |
+| ------------------------- | ---------------------------------------------------------- |
+| Windows 10+ (x64)         | `Pomodoro-Logger-Enhanced-<version>-win-x64-setup.exe`     |
+| macOS 13+ (Apple Silicon) | `Pomodoro-Logger-Enhanced-<version>-mac-arm64.dmg`         |
+| macOS 13+ (Intel)         | `Pomodoro-Logger-Enhanced-<version>-mac-x64.dmg`           |
+| Debian / Ubuntu / Mint    | `pomodoro-logger-enhanced_<version>_amd64.deb`             |
+| Fedora / RHEL / openSUSE  | `Pomodoro-Logger-Enhanced-<version>-linux-x86_64.rpm`      |
+| Any Linux (no install)    | `Pomodoro-Logger-Enhanced-<version>-linux-x86_64.AppImage` |
 
 The `.zip` files (`-mac-arm64.zip`, `-mac-x64.zip`) are only used by the built-in updater.
 On Ubuntu 22.04+ the AppImage needs `libfuse2` (or run it with `--appimage-extract-and-run`).
@@ -262,5 +261,7 @@ Welcome! The development setup, coding conventions, and release process are all 
 [GPL-3.0 License](./LICENSE)
 
 Copyright © 2019 Zixuan Chen —— the original author.
+
+Copyright © 2026 NightZed —— Enhanced edition.
 
 This repository is a GPL-3.0 modified version of Pomodoro Logger, released under GPL-3.0 as well.

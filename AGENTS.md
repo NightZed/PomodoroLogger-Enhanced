@@ -80,6 +80,9 @@ Linux AppImage 固定走新 static runtime（`build.toolsets.appimage: "1.0.3"`�
 runtime 静态链接 FUSE，产物不依赖宿主机的 `libfuse2`；同时 electron-builder 会把全局 `compression: "maximum"` 映射成 zstd 而非 xz，因为旧 FUSE2 runtime（含 appimage.github.io 校验用的那个）只能挂载 zlib/zstd 镜像。
 删掉这个字段会退回 legacy FUSE2 工具集，产物重新依赖 `libfuse2`，且 `maximum` 下 mksquashfs 会用 xz，导致这些环境报 `Squashfs image uses xz compression, this version supports only zlib, zstd`。
 
+Windows 安装包用 `nsis.differentialPackage: "store-asar"`：`app.asar` 在 7z 里以 Store 方式存放，实测安装包从 93.8 MB 涨到 112.4 MB（+19%），换来改一行代码只下载零点几个百分点。
+mac 的 `artifactName` 写死成 `Pomodoro-Logger-Enhanced-`，不要用 `${productName}`：它展开后带空格，上传时 zip 与 blockmap 会分别被改成 `-` 和 `.`（`Pomodoro-Logger-Enhanced-*.zip` 对不上 `Pomodoro.Logger.Enhanced-*.zip.blockmap`），而 updater 拼的是 `<zip>.blockmap`，404 后差分退化成全量下载。
+
 CI（`.github/workflows/test.yml`）在每次 push/PR 上跑 `pnpm lint`、`pnpm typecheck` 和 `pnpm test --ci`；`build.yml` 分平台用 `pnpm exec electron-builder` 打包（老的 `action-electron-builder` 已移除，因为它把 yarn 写死了）。
 发版通过 `Build/release` workflow → semantic-release 手工触发；永远不要手动改 `package.json` 版本号或打 tag。
 

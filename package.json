@@ -65,7 +65,7 @@
                     ]
                 }
             ],
-            "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+            "artifactName": "Pomodoro-Logger-Enhanced-${version}-${os}-${arch}.${ext}",
             "hardenedRuntime": true,
             "gatekeeperAssess": false,
             "entitlements": "build/entitlements.mac.plist",
@@ -126,10 +126,10 @@
             "icon": "build/icon.ico"
         },
         "nsis": {
-            "artifactName": "${productName}-${version}-${os}-${arch}-setup.${ext}",
+            "artifactName": "Pomodoro-Logger-Enhanced-${version}-${os}-${arch}-setup.${ext}",
             "oneClick": false,
             "allowToChangeInstallationDirectory": true,
-            "differentialPackage": false
+            "differentialPackage": "store-asar"
         },
         "linux": {
             "target": [

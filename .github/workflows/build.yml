@@ -215,7 +215,7 @@ jobs:
           fi
           pnpm exec electron-builder --mac --publish always
 
-      - name: Build and release (Windows)
+      - name: Build and release (Windows x64)
         if: startsWith(matrix.os, 'windows')
         shell: pwsh
         env:
@@ -227,7 +227,23 @@ jobs:
             $env:CSC_LINK = $env:WIN_CERT
             $env:CSC_KEY_PASSWORD = $env:WIN_CERT_PASSWORD
           }
-          pnpm exec electron-builder --win --publish always
+          pnpm exec electron-builder --win --x64 --publish always
+
+      # arm64 走独立 channel：生成 latest-arm64.yml，与 x64 的 latest.yml 并存。
+      # nsis.buildUniversalInstaller 已关闭，不再产出合并双架构的 182 MB 安装包。
+      - name: Build and release (Windows arm64)
+        if: startsWith(matrix.os, 'windows')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WIN_CERT: ${{ secrets.windows_certs }}
+          WIN_CERT_PASSWORD: ${{ secrets.windows_certs_password }}
+        run: |
+          if ($env:WIN_CERT) {
+            $env:CSC_LINK = $env:WIN_CERT
+            $env:CSC_KEY_PASSWORD = $env:WIN_CERT_PASSWORD
+          }
+          pnpm exec electron-builder --win --arm64 --publish always --config.publish.channel=latest-arm64
 
       - name: Build and release (Linux)
         if: startsWith(matrix.os, 'ubuntu')

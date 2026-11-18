@@ -122,21 +122,14 @@
             "**/node_modules/get-windows/main"
         ],
         "win": {
-            "target": [
-                {
-                    "target": "nsis",
-                    "arch": [
-                        "x64",
-                        "arm64"
-                    ]
-                }
-            ],
+            "target": "nsis",
             "icon": "build/icon.ico"
         },
         "nsis": {
             "artifactName": "Pomodoro-Logger-Enhanced-${version}-${os}-${arch}-setup.${ext}",
             "oneClick": false,
             "allowToChangeInstallationDirectory": true,
+            "buildUniversalInstaller": false,
             "differentialPackage": false
         },
         "linux": {
@@ -164,7 +157,7 @@
         "name": "NightZed",
         "email": "NightZed@outlook.com"
     },
-    "license": "LGPL-3.0-or-later",
+    "license": "GPL-3.0-or-later",
     "bugs": {
         "url": "https://github.com/NightZed/PomodoroLogger-Enhanced/issues"
     },

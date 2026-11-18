@@ -29,6 +29,15 @@ export class AutoUpdater {
         // Route electron-updater diagnostics through console so failures are traceable.
         autoUpdater.logger = console;
 
+        // Windows 同时发布 x64 与 arm64，两者使用独立的更新清单：
+        // x64 → latest.yml，arm64 → latest-arm64.yml。electron-updater 在
+        // Windows 上不会按 process.arch 选文件（只有 Linux 的 channel 名带
+        // -arm64 后缀），所以必须让 arm64 客户端主动请求另一个 channel。
+        autoUpdater.channel = process.arch === 'arm64' ? 'latest-arm64' : 'latest';
+        // channel setter 会强制把 allowDowngrade 置为 true；恢复默认，
+        // 避免远程清单版本落后时把用户降级。
+        autoUpdater.allowDowngrade = false;
+
         autoUpdater.on('checking-for-update', () => {
             console.log('Checking for update...');
         });

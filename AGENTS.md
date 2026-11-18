@@ -81,7 +81,7 @@ runtime 静态链接 FUSE，产物不依赖宿主机的 `libfuse2`；同时 elec
 删掉这个字段会退回 legacy FUSE2 工具集，产物重新依赖 `libfuse2`，且 `maximum` 下 mksquashfs 会用 xz，导致这些环境报 `Squashfs image uses xz compression, this version supports only zlib, zstd`。
 
 Windows 差分当前关闭（`nsis.differentialPackage: false`），快速开发阶段优先控制安装包体积。开启时用 `"store-asar"`：`app.asar` 在 7z 里以 Store 方式存放，实测安装包从 93.8 MB 涨到 112.4 MB（+19%），换来改一行代码只下载零点几个百分点。
-Windows 同时打 x64 与 arm64（`win.target[0].arch`）。arm64 的 `get-windows` 没有上游预编译，`@electron/rebuild` 会走 node-gyp 从源码编译，依赖 runner 的 VS ARM64 工具集（windows-2022 镜像带 `Microsoft.VisualStudio.Component.VC.Tools.ARM64`）。
+Windows 的 arm64 由 CI 用 `--win --arm64` 单独构建，`win.target` 不写 arch（写了会让本地 `pnpm run dist-win` 也同时触发 arm64 编译）。两个架构各用一条更新通道：CI 分两步构建，x64 生成 `latest.yml`，arm64 用 `--config.publish.channel=latest-arm64` 生成 `latest-arm64.yml`；`src/main/AutoUpdater.ts` 按 `process.arch` 选 channel。`nsis.buildUniversalInstaller` 固定为 false：默认的 universal 包会把两个架构合并成 ~182 MB 的文件，而 `NsisUpdater` 只按扩展名选文件，`latest.yml` 会指向它。arm64 的 `get-windows` 没有上游预编译，`@electron/rebuild` 会走 node-gyp 从源码编译，依赖 runner 的 VS ARM64 工具集（windows-2022 镜像带 `Microsoft.VisualStudio.Component.VC.Tools.ARM64`）。
 mac 的 `artifactName` 写死成 `Pomodoro-Logger-Enhanced-`，不要用 `${productName}`：它展开后带空格，上传时 zip 与 blockmap 会分别被改成 `-` 和 `.`（`Pomodoro-Logger-Enhanced-*.zip` 对不上 `Pomodoro.Logger.Enhanced-*.zip.blockmap`），而 updater 拼的是 `<zip>.blockmap`，404 后差分退化成全量下载。
 
 CI（`.github/workflows/test.yml`）在每次 push/PR 上跑 `pnpm lint`、`pnpm typecheck` 和 `pnpm test --ci`；`build.yml` 分平台用 `pnpm exec electron-builder` 打包（老的 `action-electron-builder` 已移除，因为它把 yarn 写死了）。

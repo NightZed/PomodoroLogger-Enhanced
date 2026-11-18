@@ -80,7 +80,7 @@ Linux AppImage 固定走新 static runtime（`build.toolsets.appimage: "1.0.3"`�
 runtime 静态链接 FUSE，产物不依赖宿主机的 `libfuse2`；同时 electron-builder 会把全局 `compression: "maximum"` 映射成 zstd 而非 xz，因为旧 FUSE2 runtime（含 appimage.github.io 校验用的那个）只能挂载 zlib/zstd 镜像。
 删掉这个字段会退回 legacy FUSE2 工具集，产物重新依赖 `libfuse2`，且 `maximum` 下 mksquashfs 会用 xz，导致这些环境报 `Squashfs image uses xz compression, this version supports only zlib, zstd`。
 
-Windows 安装包用 `nsis.differentialPackage: "store-asar"`：`app.asar` 在 7z 里以 Store 方式存放，实测安装包从 93.8 MB 涨到 112.4 MB（+19%），换来改一行代码只下载零点几个百分点。
+Windows 差分当前关闭（`nsis.differentialPackage: false`），快速开发阶段优先控制安装包体积。开启时用 `"store-asar"`：`app.asar` 在 7z 里以 Store 方式存放，实测安装包从 93.8 MB 涨到 112.4 MB（+19%），换来改一行代码只下载零点几个百分点。
 Windows 同时打 x64 与 arm64（`win.target[0].arch`）。arm64 的 `get-windows` 没有上游预编译，`@electron/rebuild` 会走 node-gyp 从源码编译，依赖 runner 的 VS ARM64 工具集（windows-2022 镜像带 `Microsoft.VisualStudio.Component.VC.Tools.ARM64`）；`.github/workflows/probe-win-arm64.yml` 是手动探针。
 mac 的 `artifactName` 写死成 `Pomodoro-Logger-Enhanced-`，不要用 `${productName}`：它展开后带空格，上传时 zip 与 blockmap 会分别被改成 `-` 和 `.`（`Pomodoro-Logger-Enhanced-*.zip` 对不上 `Pomodoro.Logger.Enhanced-*.zip.blockmap`），而 updater 拼的是 `<zip>.blockmap`，404 后差分退化成全量下载。
 

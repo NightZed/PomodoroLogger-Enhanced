@@ -137,7 +137,7 @@
             "artifactName": "Pomodoro-Logger-Enhanced-${version}-${os}-${arch}-setup.${ext}",
             "oneClick": false,
             "allowToChangeInstallationDirectory": true,
-            "differentialPackage": "store-asar"
+            "differentialPackage": false
         },
         "linux": {
             "target": [

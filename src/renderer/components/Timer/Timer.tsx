@@ -1102,7 +1102,12 @@ class Timer extends Component<Props, State> {
             return undefined;
         }
 
-        return picked ?? this.defaultCardId(boardId);
+        // A DOM event reaches here when a caller forwards a button's `onClick`
+        // unchanged (the mini strip's confirm buttons did): that is not a pick,
+        // so fall back to the default instead of sending the event to the
+        // main process, which rejects a non-string card id.
+        const cardId = typeof picked === 'string' ? picked : undefined;
+        return cardId ?? this.defaultCardId(boardId);
     }
 
     /**
@@ -1645,8 +1650,11 @@ class Timer extends Component<Props, State> {
                         isConfirming={sessionEnding}
                         extendCurrentSession={this.extendCurrentSession}
                         stagedPomodoro={this.stagedSession}
-                        confirm={this.onMaskClick}
-                        confirmAndStartNextSession={this.onMaskButtonClick}
+                        /* Wrapped, not passed straight through: these are
+                           `onClick` handlers, and React would hand the click
+                           event to `onMaskClick` as the picked card id. */
+                        confirm={() => this.onMaskClick()}
+                        confirmAndStartNextSession={() => this.onMaskButtonClick()}
                     />
                 </Layout>
             );

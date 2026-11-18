@@ -95,7 +95,14 @@ jest.mock('./SessionEndingMask', () => ({
     ),
 }));
 jest.mock('../../../components/common/Mini/MiniLogger', () => ({
-    MiniLogger: ({ task, time, isConfirming, expand, confirm }: any) => (
+    MiniLogger: ({
+        task,
+        time,
+        isConfirming,
+        expand,
+        confirm,
+        confirmAndStartNextSession,
+    }: any) => (
         <div
             data-testid="mini-logger"
             data-task={task}
@@ -104,6 +111,7 @@ jest.mock('../../../components/common/Mini/MiniLogger', () => ({
         >
             <button data-testid="mini-expand" onClick={expand} />
             <button data-testid="mini-confirm" onClick={confirm} />
+            <button data-testid="mini-start-next" onClick={confirmAndStartNextSession} />
         </div>
     ),
 }));
@@ -222,6 +230,39 @@ const renderTimer = async (
 const rerenderTimer = async (view: any, props: any) => {
     await act(async () => {
         view.rerender(<Timer {...props} ref={view.ref} />);
+    });
+};
+
+/**
+ * Runs one mini-mode focus session up to its ending mask, so the strip's
+ * confirm buttons have a staged session to save.
+ */
+const stageFinishedFocusSessionInMini = async () => {
+    const view = await renderTimer({ minimize: true });
+
+    await act(async () => {
+        view.ref.current!.onStart();
+    });
+    mockMonitorInstances[0].sessionData = {
+        _id: 'session-1',
+        startTime: Date.now(),
+        apps: {},
+        switchActivities: [],
+        stayTimeInSecond: [],
+    };
+    await act(async () => {
+        await (view.ref.current as any).onFinishButtonClick();
+    });
+
+    return view;
+};
+
+/** Lets the confirmation debounce run and flushes its awaits. */
+const confirmFromMiniStrip = async (button: HTMLElement) => {
+    await act(async () => {
+        fireEvent.click(button);
+        jest.advanceTimersByTime(100);
+        await Promise.resolve();
     });
 };
 
@@ -667,6 +708,35 @@ describe('Timer page', () => {
         cleanup();
         const confirming = await renderTimer({ minimize: true, sessionEnding: true });
         expect(confirming.getByTestId('mini-logger').getAttribute('data-confirm')).toBe('true');
+    });
+
+    // Regression: the strip's confirm buttons bound `onClick` straight to
+    // `onMaskClick`, so React's click event arrived as the picked card id. The
+    // session then failed IPC validation and was never saved (b2f8c0d).
+    it('saves the finished pomodoro when the mini strip confirms it', async () => {
+        const { getByTestId, actions } = await stageFinishedFocusSessionInMini();
+
+        await confirmFromMiniStrip(getByTestId('mini-confirm'));
+
+        const [record, cardId] = actions.timerFinished.mock.calls[0] ?? [];
+        // The failure has to name the culprit: an event object would print as
+        // `object` here, where `no card` is the expected value.
+        expect({
+            record: record?._id,
+            cardId: cardId === undefined ? 'no card' : typeof cardId,
+        }).toEqual({ record: 'session-1', cardId: 'no card' });
+    });
+
+    it('credits no card id when the mini strip starts the next session', async () => {
+        const { getByTestId, actions } = await stageFinishedFocusSessionInMini();
+
+        await confirmFromMiniStrip(getByTestId('mini-start-next'));
+
+        const [record, cardId] = actions.timerFinished.mock.calls[0] ?? [];
+        expect({
+            record: record?._id,
+            cardId: cardId === undefined ? 'no card' : typeof cardId,
+        }).toEqual({ record: 'session-1', cardId: 'no card' });
     });
 
     it('resumes a paused session instead of starting a new one', async () => {

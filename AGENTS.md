@@ -221,6 +221,10 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
   但 `pointerleave` 本身也不可靠：落位动画期间源卡片的 fixed 克隆压在指针上，浏览器不会把目标卡片放进 hover 链，短暂悬停后离开收不到 leave。
   所以亮着的卡片还会在 window 上监听 `pointermove`，用自己 `getBoundingClientRect()` 判断指针是否还在里面；只在 `hovered` 时挂载，最多一张卡。
   侧栏预览卡片（`preview`）同样有悬停高亮，只是不可拖。
+- 预览视图正文上下各有一条 sticky 渐隐带（`style/Markdown`），各占 0.4rem 的**流内**高度。
+  卡片用 `--pl-card-fade-height` 在正文不溢出时把它压成 0：否则从 full 切到 preview 会凭空高约 13px。
+  渐隐的实色端用 `--pl-card-fade` 并跟随悬停底色（`--pl-card-hover-solid`），否则提亮后会在卡片上留下两条旧底色。
+  溢出判定在 `Card.tsx` 的 effect 里读 `scrollHeight > clientHeight`，只在 `content` / `cardView` / `shouldRenderContent` 变化时重测。
 - `src/renderer/components/appTabs.ts` 是页面的唯一事实来源；标签栏、Ctrl+Tab 处理和紧凑模式切换全部从 `APP_TABS` / `planTabChange` 推导。
   不要加一份并行的标签列表。
 - 非活动页面不会永远保留：`DestroyOnTimeoutWrapper` 在每页各自的宽限期后丢弃该页子树。

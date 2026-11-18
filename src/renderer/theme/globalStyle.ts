@@ -37,6 +37,10 @@ export const GlobalStyle = createGlobalStyle`
            Card base #1f1f1f + white overlay: 31 + (255 - 31) * 0.0625 = 45,
            i.e. the card reads as rgb(45, 45, 45). */
         --pl-card-hover: rgba(255, 255, 255, 0.0625);
+        /* The same value as an opaque colour. The preview body's scroll fades
+           paint it over content, so it cannot be translucent. Keep the two in
+           sync when retuning the highlight. */
+        --pl-card-hover-solid: rgb(45, 45, 45);
     }
 
     html[data-theme='light'] {
@@ -46,6 +50,7 @@ export const GlobalStyle = createGlobalStyle`
         /* A white card cannot get brighter, so the light theme darkens it:
            255 * (1 - 0.0392) = 245, i.e. rgb(245, 245, 245). */
         --pl-card-hover: rgba(0, 0, 0, 0.0392);
+        --pl-card-hover-solid: rgb(245, 245, 245);
     }
 
     html,

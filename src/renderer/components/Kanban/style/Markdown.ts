@@ -7,6 +7,14 @@ import { thinScrollBar } from '../../../style/scrollbar';
  * before/after gradients exist to fade content under the scroll edges of the
  * limited-height preview; in full mode they would paint stray bands over the
  * card, so they are hidden.
+ *
+ * `--pl-card-fade-height` lets the card collapse them to 0 when its body does
+ * not actually scroll. They are in-flow (sticky), so on a card whose content
+ * fits they used to add ~13px of empty height -- the card grew when switching
+ * from full to preview -- and once the hover wash brightened the card they left
+ * two strips of the old background colour, which read as a slot with an inner
+ * shadow. Cards set the variable (see CardContainer); every other consumer of
+ * this component keeps the default.
  */
 export const Markdown = styled.div<{ $full?: boolean }>`
     overflow: ${({ $full }) => ($full ? 'visible' : 'auto')};
@@ -23,9 +31,9 @@ export const Markdown = styled.div<{ $full?: boolean }>`
         position: sticky;
         display: ${({ $full }) => ($full ? 'none' : 'block')};
         width: 100%;
-        height: 0.4rem;
+        height: var(--pl-card-fade-height, 0.4rem);
         background: linear-gradient(
-            var(--pl-bg-elevated),
+            var(--pl-card-fade, var(--pl-bg-elevated)),
             rgba(255, 255, 255, 0.001)
         ); /* transparent keyword is broken in Safari */
         pointer-events: none;
@@ -37,10 +45,10 @@ export const Markdown = styled.div<{ $full?: boolean }>`
         position: sticky;
         display: ${({ $full }) => ($full ? 'none' : 'block')};
         width: 100%;
-        height: 0.4rem;
+        height: var(--pl-card-fade-height, 0.4rem);
         background: linear-gradient(
             rgba(255, 255, 255, 0.001),
-            var(--pl-bg-elevated)
+            var(--pl-card-fade, var(--pl-bg-elevated))
         ); /* transparent keyword is broken in Safari */
         pointer-events: none;
     }

@@ -22,6 +22,7 @@ const CardContainer = styled.div<{
     $preview?: boolean;
     $static?: boolean;
     $hovered?: boolean;
+    $bodyScrollable?: boolean;
 }>`
     width: 262px;
     word-break: break-word;
@@ -38,6 +39,21 @@ const CardContainer = styled.div<{
        --pl-card-hover (theme/globalStyle.ts); tune the alpha there. */
     background-image: ${({ $hovered }) =>
         $hovered ? 'linear-gradient(var(--pl-card-hover), var(--pl-card-hover))' : 'none'};
+
+    /* The preview body's scroll fades are opaque at the card edge (see
+       style/Markdown), so they have to be repainted with the colour the hover
+       wash produces. Left on --pl-bg-elevated they drew two strips of the old
+       background over the brightened card, which read as a slot with an inner
+       shadow. */
+    --pl-card-fade: ${({ $hovered }) =>
+        $hovered ? 'var(--pl-card-hover-solid)' : 'var(--pl-bg-elevated)'};
+
+    /* The preview body's fade strips (see style/Markdown) are in-flow and
+       0.4rem tall each, so a card whose content fits grew ~13px when switching
+       from full to preview. Collapsing their height keeps them out of the
+       layout; the variable also lets the card decide without re-rendering the
+       memoized body. */
+    --pl-card-fade-height: ${({ $bodyScrollable }) => ($bodyScrollable ? '0.4rem' : '0')};
 `;
 
 const CardContent = styled.div`
@@ -438,6 +454,21 @@ export const Card: FC<Props> = React.memo((props: Props) => {
         [content, shouldRenderContent]
     );
 
+    // The preview body draws sticky fade strips at both scroll edges (see
+    // style/Markdown). They are in-flow and 0.4rem tall each, so a card whose
+    // content fits grew ~13px when switching from full to preview, and after
+    // the hover wash it showed two strips of the old background colour. Keep
+    // them only while the body actually scrolls.
+    const [bodyScrollable, setBodyScrollable] = React.useState(false);
+    React.useEffect(() => {
+        const element = markdownRef.current;
+        if (!element || isFull) {
+            setBodyScrollable(false);
+            return;
+        }
+        setBodyScrollable(element.scrollHeight > element.clientHeight + 1);
+    }, [content, isFull, shouldRenderContent]);
+
     // dnd re-renders every Draggable between the placeholder and the end of the
     // list when a drag starts, and it cannot know that most of them did not
     // change. With 185 cards that is 185 full card renders inside the lift, so
@@ -563,6 +594,7 @@ export const Card: FC<Props> = React.memo((props: Props) => {
             $preview={props.preview}
             $static={!dragEnabled}
             $hovered={hovered || dragProps?.hoverLock === true}
+            $bodyScrollable={bodyScrollable}
             data-tour={props.dataTour}
             data-card-id={_id}
             data-hover-lock={dragProps?.hoverLock ? 'true' : undefined}

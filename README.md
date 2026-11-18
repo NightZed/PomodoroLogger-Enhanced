@@ -239,6 +239,7 @@ Download: [release page](https://github.com/NightZed/PomodoroLogger-Enhanced/rel
 | Platform                  | Pick this file                                             |
 | ------------------------- | ---------------------------------------------------------- |
 | Windows 10+ (x64)         | `Pomodoro-Logger-Enhanced-<version>-win-x64-setup.exe`     |
+| Windows 11 on ARM         | `Pomodoro-Logger-Enhanced-<version>-win-arm64-setup.exe`   |
 | macOS 13+ (Apple Silicon) | `Pomodoro-Logger-Enhanced-<version>-mac-arm64.dmg`         |
 | macOS 13+ (Intel)         | `Pomodoro-Logger-Enhanced-<version>-mac-x64.dmg`           |
 | Debian / Ubuntu / Mint    | `pomodoro-logger-enhanced_<version>_amd64.deb`             |

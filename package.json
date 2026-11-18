@@ -122,7 +122,15 @@
             "**/node_modules/get-windows/main"
         ],
         "win": {
-            "target": "nsis",
+            "target": [
+                {
+                    "target": "nsis",
+                    "arch": [
+                        "x64",
+                        "arm64"
+                    ]
+                }
+            ],
             "icon": "build/icon.ico"
         },
         "nsis": {

@@ -13,6 +13,7 @@ import { DEFAULT_THEME_ID, ThemeDefinition } from '../../theme/tokens';
 import type { LanguagePreference } from '../../../shared/i18n';
 import type { LogLevel } from '../../../shared/log';
 import { isScreenshotAvailable } from '../../screenshotSupport';
+import { reportDataFailure } from '../../errorReporting';
 
 export const LONG_BREAK_INTERVAL = 4;
 const settingDB = new AsyncDB(dbs.settingDB);
@@ -758,10 +759,24 @@ export const actions = {
             } catch (error) {
                 // The timer still advances -- the focus time was really spent
                 // -- but the session is not in the history and nothing was
-                // credited. Say so instead of failing silently.
+                // credited. Say so instead of failing silently, and leave a
+                // line in data.log: unlike a crash, this report is the only
+                // trace of the lost record (the IPC may have rejected the
+                // payload before the main process ever saw it).
                 feedback.toast({
                     kind: 'error',
                     content: t('timer.saveFailed'),
+                });
+                // A non-string here is the bug class this report exists for
+                // (a DOM event once arrived as the card id): keep both the id
+                // and its runtime type.
+                const reportedCardId: unknown = cardId;
+                reportDataFailure('timer.finished-session', error, {
+                    _id: sessionData._id,
+                    boardId: sessionData.boardId,
+                    cardId: typeof reportedCardId === 'string' ? reportedCardId : 'none',
+                    cardIdType: typeof reportedCardId,
+                    spentTimeInHour: sessionData.spentTimeInHour,
                 });
                 console.error('[timer] finished session was not saved', error);
             }

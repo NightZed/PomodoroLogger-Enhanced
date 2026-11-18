@@ -83,6 +83,12 @@ export enum IpcEventName {
     LogInfo = 'logInfo',
     /** Fire-and-forget renderer crash report, written synchronously. */
     ReportError = 'reportError',
+    /**
+     * Fire-and-forget report of a write/read that lost data (a finished
+     * pomodoro that could not be saved). Written to `data.log`; unlike a crash
+     * report it does not restore the window.
+     */
+    ReportDataFailure = 'reportDataFailure',
     /** Applies a new log level without restarting. */
     SetLogLevel = 'setLogLevel',
     SaveScreenshot = 'saveScreenshot',
@@ -297,6 +303,28 @@ export interface LogInfo {
     sessionId: string;
 }
 
+/**
+ * A renderer-side failure that lost data, e.g. a finished pomodoro the main
+ * process never received because the payload could not cross the IPC
+ * boundary.
+ *
+ * It is not a crash: the window keeps working, the user gets a normal message,
+ * and nothing has to be restored. What it needs is a line in `data.log` with
+ * the ids the user could otherwise not reconstruct.
+ */
+export interface RendererDataFailurePayload {
+    /** Where it happened, e.g. `timer.finished-session`. */
+    scope: string;
+    message: string;
+    /** `key=value` context only the renderer knows (session id, board id, ...). */
+    context?: string;
+    stack?: string;
+    /** ISO timestamp from the renderer, for correlating with its own output. */
+    timestamp: string;
+    /** Occurrences since the app started, see `RendererErrorPayload.count`. */
+    count?: number;
+}
+
 export type ImportResult =
     | { status: 'cancelled' }
     | { status: 'invalid'; issues: ValidationIssue[] }
@@ -372,6 +400,7 @@ export type ExposedAPI = {
     quit(): void;
     restart(): void;
     reportError(payload: RendererErrorPayload): void;
+    reportDataFailure(payload: RendererDataFailurePayload): void;
     setLogLevel(level: LogLevel): void;
     downloadUpdate(): void;
     checkUpdate(): void;

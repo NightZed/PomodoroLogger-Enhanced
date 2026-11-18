@@ -1,6 +1,9 @@
 import { autoUpdater } from 'electron-updater';
 import { AutoUpdater } from './AutoUpdater';
 import { UpdateEventName } from './ipc/type';
+import { logError } from './log';
+
+jest.mock('./log', () => ({ logError: jest.fn() }));
 
 // electron-updater requires `electron`, which is not available in the plain Node
 // environment used by jest, so it is replaced by a plain event emitter.
@@ -90,12 +93,16 @@ describe('AutoUpdater', () => {
         ]);
     });
 
-    it('should only log errors of the automatic background check', () => {
+    it('logs a background check failure without bothering the user', () => {
         const { updater, events } = createUpdater();
 
         updater.checkUpdate();
-        mockUpdater.emit('error', new Error('offline'));
+        const err = new Error('offline');
+        mockUpdater.emit('error', err);
 
+        // Silencing the UI must not silence the diagnosis: a packaged build has
+        // no console, so app.log is the only place the failure is visible.
+        expect(logError).toHaveBeenCalledWith('app', 'updater: check phase failed', err);
         expect(events).toEqual([]);
     });
 

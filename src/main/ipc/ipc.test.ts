@@ -406,6 +406,66 @@ describe('main/ipc', () => {
         });
     });
 
+    describe('data failure reports', () => {
+        const payload = {
+            scope: 'timer.finished-session',
+            message: 'An object could not be cloned.',
+            timestamp: '2026-01-01T00:00:00.000Z',
+            context: '_id=s1 boardId=b1 cardIdType=object',
+            count: 2,
+        };
+
+        function report(value: unknown) {
+            commands['reportDataFailure'](trustedEvent, value);
+        }
+
+        it('writes the lost record to data.log without touching the window', () => {
+            report({ ...payload, stack: 'Error: boom\n    at x' });
+
+            expect(log).toHaveBeenCalledTimes(1);
+            const [scope, level, message, detail] = (log as jest.Mock).mock.calls[0];
+            expect(scope).toBe('data');
+            expect(level).toBe('error');
+            expect(message).toContain(
+                'renderer timer.finished-session: An object could not be cloned. (x2)'
+            );
+            expect(message).toContain('[_id=s1 boardId=b1 cardIdType=object]');
+            expect(detail).toBe('Error: boom\n    at x');
+            // The session is lost, but the app still works: no error page.
+            expect(init.restoreWindowForError).not.toHaveBeenCalled();
+        });
+
+        it('writes a single occurrence without a count suffix', () => {
+            report({ ...payload, count: 1, context: undefined });
+
+            const [, , message] = (log as jest.Mock).mock.calls[0];
+            expect(message).toBe('renderer timer.finished-session: An object could not be cloned.');
+        });
+
+        it('refuses a malformed report without writing anything', () => {
+            const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+            report({ ...payload, scope: undefined });
+            report({ ...payload, message: 'x'.repeat(4097) });
+            report({ ...payload, context: 42 });
+            report({ ...payload, count: 0 });
+
+            expect(log).not.toHaveBeenCalled();
+            expect(consoleError).toHaveBeenCalled();
+        });
+
+        it('drops a report from an untrusted sender', () => {
+            const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+            commands['reportDataFailure'](untrustedEvent, payload);
+
+            expect(log).not.toHaveBeenCalled();
+            expect(consoleWarn).toHaveBeenCalledWith(
+                '[ipc] blocked a command from an untrusted sender'
+            );
+        });
+    });
+
     describe('user file cleanup', () => {
         it('marks the completion of a delete-all in data.log', async () => {
             await handlers['clearUserFiles'](trustedEvent);

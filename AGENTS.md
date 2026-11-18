@@ -145,6 +145,9 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
   拒绝路径的对话框只展示前 20 条（`ValidationResult.issues`），并提供一个 **Open Log Folder** 按钮。
   导入成功后重载 store（`src/renderer/dataReload.ts`）而不是重启；有需要处理的项时打开 `ImportReportDialog`（只显示数量，按钮可打开日志或直接进入数据检查），没有则只 toast。
   删除全部数据同样不再重启：删库后调用 `reloadDataStore()`；`ClearUserFiles` 仍记录「删除全部」的完成。
+- 渲染层的「数据丢失」失败（已结束的番茄没能写进库）走同一个上报模块的 `reportDataFailure` → `IpcEventName.ReportDataFailure`，写进 `data.log`：
+  行内带 `scope`、聚合次数和 `key=value` 上下文（会话 / 看板 / 卡片 id）。它不展开窗口、不弹 notice——界面没坏，但记录已经丢了，日志是唯一事后可查的痕迹。
+  主进程的更新器失败由 `AutoUpdater.reportError` 写 `app.log`：打包版没有 console，只靠通知里的相位无法复盘。
 - 渲染层崩溃经 `IpcEventName.ReportError`（`send`）上报，写进 `crash.log`。
   React 渲染错误显示在整窗的 `src/renderer/components/ErrorScreen.tsx` 上；**应用不再自己重启**，重启是那个页面上的一个按钮。
   `AppErrorBoundary` 必须留在 `app.tsx` 里 `Application` 的*外面*——放在里面的话，它会和它本该替换的那棵树一起卸载。

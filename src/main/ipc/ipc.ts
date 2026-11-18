@@ -14,6 +14,7 @@ import {
     ExportResult,
     ImportResult,
     IpcEventName,
+    RendererDataFailurePayload,
     RendererErrorPayload,
     WindowDragPhase,
     WorkerMessageType,
@@ -61,6 +62,7 @@ import {
     assertBoolean,
     assertDeleteKanbanItemsPayload,
     assertOpenExternalUrl,
+    assertRendererDataFailurePayload,
     assertRendererErrorPayload,
     assertOptionalBoolean,
     assertScreenshotDataUrl,
@@ -337,6 +339,29 @@ export function initialize() {
             }
         },
         [(value) => assertRendererErrorPayload(value)]
+    );
+
+    /**
+     * A renderer-side data failure (e.g. a finished pomodoro that never reached
+     * `recordFinishedSession`). It goes to `data.log`, next to the import and
+     * delete records, and deliberately does not touch the window: the session
+     * was lost, but the app is still usable and the user is already being told
+     * through the feedback layer.
+     */
+    handleCommand(
+        IpcEventName.ReportDataFailure,
+        (payload: RendererDataFailurePayload) => {
+            const occurrences =
+                payload.count !== undefined && payload.count > 1 ? ` (x${payload.count})` : '';
+            const context = payload.context === undefined ? '' : ` [${payload.context}]`;
+            log(
+                'data',
+                'error',
+                `renderer ${payload.scope}: ${payload.message}${occurrences}${context}`,
+                payload.stack
+            );
+        },
+        [(value) => assertRendererDataFailurePayload(value)]
     );
 
     handleCommand(IpcEventName.SetLogLevel, (level: LogLevel) => configureLogging({ level }), [

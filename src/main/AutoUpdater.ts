@@ -2,6 +2,7 @@ import { autoUpdater, UpdateInfo } from 'electron-updater';
 import { GithubOptions } from 'builder-util-runtime';
 import { UpdateErrorPayload, UpdateEventName, UpdatePhase } from './ipc/type';
 import { m } from './i18n';
+import { logError } from './log';
 
 /**
  * Thin wrapper around electron-updater.
@@ -158,6 +159,10 @@ export class AutoUpdater {
     }
 
     private reportError(err: any) {
+        // `console` is gone in a packaged Windows build, so the phase and the
+        // reason have to reach app.log: the UI message only names the phase and
+        // a background check never surfaces at all.
+        logError('app', `updater: ${this.phase} phase failed`, err);
         console.error('[updater] error in', this.phase, 'phase:', err);
 
         if (this.phase === 'check' && !this.manualCheck) {

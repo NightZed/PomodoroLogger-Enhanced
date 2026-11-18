@@ -2,11 +2,19 @@ import * as React from 'react';
 import { Button } from 'antd';
 import { feedback } from './components/feedback';
 import { t } from './i18n';
-import type { RendererErrorPayload } from '../main/ipc/type';
+import type { RendererDataFailurePayload, RendererErrorPayload } from '../main/ipc/type';
 
 /**
  * The renderer's single entry point for reporting an error to the main
- * process, where it is appended to `crash.log`.
+ * process.
+ *
+ * Two destinations:
+ *
+ * - `reportRendererError` appends to `crash.log` -- the window broke or a
+ *   component threw;
+ * - `reportDataFailure` appends to `data.log` -- a write or read lost data
+ *   (a finished pomodoro, a card move) while the window kept working. Its line
+ *   carries the ids the user could otherwise not reconstruct.
  *
  * Reporting is best effort by design: it must never throw, never block
  * rendering and never be the reason a crash is worse than it already is.
@@ -30,6 +38,8 @@ const AGGREGATE_MS = 60 * 1000;
 const MAX_FINGERPRINTS = 50;
 const MAX_MESSAGE = 4096;
 const MAX_STACK = 32 * 1024;
+/** Longest context line; matches the cap in `assertRendererDataFailurePayload`. */
+const MAX_CONTEXT = 1024;
 /** Longest error text the notice shows; `crash.log` keeps the whole message. */
 const MAX_NOTICE_TEXT = 300;
 
@@ -179,6 +189,67 @@ export function reportRendererError(
         }
 
         window.api?.reportError?.(payload);
+    } catch {
+        // Reporting itself must never raise.
+    }
+}
+
+/** Context values are printed as `key=value`; `undefined` entries are skipped. */
+export type DataFailureContext = Record<string, string | number | boolean | undefined>;
+
+function formatContext(context: DataFailureContext): string | undefined {
+    const parts = Object.entries(context)
+        .filter(([, value]) => value !== undefined)
+        .map(([key, value]) => `${key}=${String(value)}`);
+    if (parts.length === 0) {
+        return undefined;
+    }
+
+    const text = parts.join(' ');
+    return text.length > MAX_CONTEXT ? `${text.slice(0, MAX_CONTEXT)}…` : text;
+}
+
+/**
+ * Reports a failure that lost data the user expects to keep -- typically a
+ * finished session the main process never received.
+ *
+ * The line lands in `data.log`, not `crash.log`: nothing broke, but a record
+ * is missing and the ids in `context` are what makes the loss diagnosable.
+ * Repeats share the crash reporter's aggregation, so a disk that keeps failing
+ * leaves one line a minute instead of one per pomodoro.
+ */
+export function reportDataFailure(
+    scope: string,
+    error: unknown,
+    context: DataFailureContext = {}
+): void {
+    try {
+        const message = messageOf(error).slice(0, MAX_MESSAGE);
+        const fingerprint = `data|${scope}|${message}`;
+        const now = Date.now();
+        const record = countOccurrence(fingerprint);
+
+        if (record.lastWritten !== 0 && now - record.lastWritten < AGGREGATE_MS) {
+            return;
+        }
+        record.lastWritten = now;
+
+        const payload: RendererDataFailurePayload = {
+            scope,
+            message,
+            timestamp: new Date().toISOString(),
+            count: record.count,
+        };
+        const stack = stackOf(error);
+        if (stack) {
+            payload.stack = stack.slice(0, MAX_STACK);
+        }
+        const contextText = formatContext(context);
+        if (contextText) {
+            payload.context = contextText;
+        }
+
+        window.api?.reportDataFailure?.(payload);
     } catch {
         // Reporting itself must never raise.
     }

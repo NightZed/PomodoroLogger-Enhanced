@@ -14,6 +14,7 @@ import type {
     ImportResult,
     LogInfo,
     RendererErrorPayload,
+    RendererDataFailurePayload,
     TrayIconPayload,
     UpdateErrorPayload,
     UpdateInfoPayload,
@@ -149,6 +150,8 @@ const api: ExposedAPI = {
     quit: () => send(IpcEventName.Quit),
     restart: () => send(IpcEventName.Restart),
     reportError: (payload: RendererErrorPayload) => send(IpcEventName.ReportError, payload),
+    reportDataFailure: (payload: RendererDataFailurePayload) =>
+        send(IpcEventName.ReportDataFailure, payload),
     setLogLevel: (level: LogLevel) => send(IpcEventName.SetLogLevel, level),
     downloadUpdate: () => send(IpcEventName.DownloadUpdate),
     checkUpdate: () => send(IpcEventName.CheckUpdate),

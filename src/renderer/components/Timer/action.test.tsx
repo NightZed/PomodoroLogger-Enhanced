@@ -447,6 +447,8 @@ describe('On timerFinished', () => {
         const spy = jest
             .spyOn((window as any).api, 'recordFinishedSession')
             .mockRejectedValue(new Error('disk full'));
+        const dataFailure = jest.fn();
+        (window as any).api.reportDataFailure = dataFailure;
         // The failure path logs on purpose; the console gate treats any
         // unexpected output as a test failure, so silence it here only.
         const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -469,8 +471,18 @@ describe('On timerFinished', () => {
             expect(feedback.toast).toHaveBeenCalledWith(
                 expect.objectContaining({ kind: 'error', content: t('timer.saveFailed') })
             );
+            // The lost record has to leave a trace in data.log: the toast is
+            // gone in a second and the database has nothing to read afterwards.
+            expect(dataFailure).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    scope: 'timer.finished-session',
+                    message: 'disk full',
+                    context: expect.stringContaining('_id=_failed'),
+                })
+            );
         } finally {
             spy.mockRestore();
+            delete (window as any).api.reportDataFailure;
             errorSpy.mockRestore();
         }
 

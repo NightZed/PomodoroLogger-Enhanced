@@ -1,4 +1,9 @@
-import type { RendererErrorPayload, TrayIconPayload, TrayMenuItem } from './type';
+import type {
+    RendererDataFailurePayload,
+    RendererErrorPayload,
+    TrayIconPayload,
+    TrayMenuItem,
+} from './type';
 import type { DeleteKanbanItemsPayload } from '../../shared/kanbanDeletion';
 import type { MoveCardPayload } from '../../shared/cardMove';
 import type { MoveCardInBoardPayload } from '../../shared/cardDrag';
@@ -342,6 +347,36 @@ export function assertRendererErrorPayload(value: unknown): RendererErrorPayload
         const count = payload.count;
         if (typeof count !== 'number' || !Number.isInteger(count) || count < 1) {
             throw new TypeError('error report.count must be a positive integer');
+        }
+        result.count = count;
+    }
+
+    return result;
+}
+
+/**
+ * A data-loss report from the renderer. Only the fields the log line needs are
+ * checked: the message is whatever the failing call threw, and the context is
+ * a short `key=value` string the renderer built itself.
+ */
+export function assertRendererDataFailurePayload(value: unknown): RendererDataFailurePayload {
+    const payload = assertPlainObject(value, 'data failure report');
+    const result: RendererDataFailurePayload = {
+        scope: assertString(payload.scope, 'data failure report.scope', 64),
+        message: assertString(payload.message, 'data failure report.message', 4096),
+        timestamp: assertString(payload.timestamp, 'data failure report.timestamp', 64),
+    };
+
+    if (payload.context !== undefined) {
+        result.context = assertString(payload.context, 'data failure report.context', 2048);
+    }
+    if (payload.stack !== undefined) {
+        result.stack = assertString(payload.stack, 'data failure report.stack', 32 * 1024);
+    }
+    if (payload.count !== undefined) {
+        const count = payload.count;
+        if (typeof count !== 'number' || !Number.isInteger(count) || count < 1) {
+            throw new TypeError('data failure report.count must be a positive integer');
         }
         result.count = count;
     }

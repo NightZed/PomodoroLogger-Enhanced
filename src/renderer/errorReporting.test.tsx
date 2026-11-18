@@ -120,3 +120,70 @@ describe('reportRendererError', () => {
         expect(mockNotice).toHaveBeenCalledTimes(2);
     });
 });
+
+describe('reportDataFailure', () => {
+    const mockReportDataFailure = jest.fn();
+
+    beforeEach(() => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-11-14T10:00:00.000Z'));
+        mockNotice.mockReset();
+        mockReportDataFailure.mockReset();
+        (window as any).api = {
+            reportError: mockReportError,
+            reportDataFailure: mockReportDataFailure,
+            openLogDir: jest.fn(),
+        };
+    });
+
+    afterEach(() => {
+        jest.useRealTimers();
+    });
+
+    it('reports the failure with the ids that make it diagnosable', async () => {
+        const reporter = await loadReporter();
+
+        reporter.reportDataFailure('timer.finished-session', new Error('could not be cloned'), {
+            _id: 's1',
+            cardIdType: 'object',
+            boardId: undefined,
+        });
+
+        expect(mockReportDataFailure).toHaveBeenCalledTimes(1);
+        expect(mockReportDataFailure.mock.calls[0][0]).toMatchObject({
+            scope: 'timer.finished-session',
+            message: 'could not be cloned',
+            // `boardId` was undefined, so it is omitted rather than printed.
+            context: '_id=s1 cardIdType=object',
+            count: 1,
+        });
+        // A lost record is not a broken window: no error notice.
+        expect(mockNotice).not.toHaveBeenCalled();
+    });
+
+    it('folds repeated failures into one line and carries the count', async () => {
+        const reporter = await loadReporter();
+
+        for (let i = 0; i < 3; i += 1) {
+            reporter.reportDataFailure('timer.finished-session', new Error('disk full'));
+            jest.advanceTimersByTime(100);
+        }
+
+        expect(mockReportDataFailure).toHaveBeenCalledTimes(1);
+
+        jest.advanceTimersByTime(60_000);
+        reporter.reportDataFailure('timer.finished-session', new Error('disk full'));
+
+        expect(mockReportDataFailure).toHaveBeenCalledTimes(2);
+        expect(mockReportDataFailure.mock.calls[1][0]).toMatchObject({ count: 4 });
+    });
+
+    it('keeps the same message from different scopes apart', async () => {
+        const reporter = await loadReporter();
+
+        reporter.reportDataFailure('timer.finished-session', new Error('boom'));
+        reporter.reportDataFailure('kanban.card-move', new Error('boom'));
+
+        expect(mockReportDataFailure).toHaveBeenCalledTimes(2);
+    });
+});

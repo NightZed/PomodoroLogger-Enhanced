@@ -101,6 +101,12 @@ function countOccurrence(fingerprint: string): FingerprintRecord {
     return record;
 }
 
+const logFolderButton = () => (
+    <Button size="small" onClick={() => window.api?.openLogDir?.()}>
+        {t('crash.logFolder')}
+    </Button>
+);
+
 /**
  * The one-time notice of a still-usable window.
  *
@@ -109,31 +115,20 @@ function countOccurrence(fingerprint: string): FingerprintRecord {
  * caller then leaves the fingerprint un-notified, and a later occurrence still
  * gets its notice.
  */
-function showNotice(fingerprint: string, message: string): boolean {
+function showNotice(
+    fingerprint: string,
+    title: React.ReactNode,
+    description: React.ReactNode
+): boolean {
     try {
         feedback.notice({
             // One slot per fingerprint: a repeat updates the same notice
             // instead of stacking another.
             key: `renderer-error:${fingerprint}`,
             kind: 'error',
-            title: t('crash.noticeTitle'),
-            description: (
-                <div>
-                    <div style={{ wordBreak: 'break-word' }}>
-                        {message.length > MAX_NOTICE_TEXT
-                            ? `${message.slice(0, MAX_NOTICE_TEXT)}…`
-                            : message}
-                    </div>
-                    <div style={{ marginTop: 4, color: 'var(--pl-text-tertiary)' }}>
-                        {t('crash.noticeHint')}
-                    </div>
-                </div>
-            ),
-            actions: (
-                <Button size="small" onClick={() => window.api?.openLogDir?.()}>
-                    {t('crash.logFolder')}
-                </Button>
-            ),
+            title,
+            description,
+            actions: logFolderButton(),
         });
         return true;
     } catch {
@@ -161,7 +156,20 @@ export function reportRendererError(
         const record = countOccurrence(fingerprint);
 
         if (extra.notify === true && !record.notified) {
-            record.notified = showNotice(fingerprint, message);
+            record.notified = showNotice(
+                fingerprint,
+                t('crash.noticeTitle'),
+                <div>
+                    <div style={{ wordBreak: 'break-word' }}>
+                        {message.length > MAX_NOTICE_TEXT
+                            ? `${message.slice(0, MAX_NOTICE_TEXT)}…`
+                            : message}
+                    </div>
+                    <div style={{ marginTop: 4, color: 'var(--pl-text-tertiary)' }}>
+                        {t('crash.noticeHint')}
+                    </div>
+                </div>
+            );
         }
 
         if (record.lastWritten !== 0 && now - record.lastWritten < AGGREGATE_MS) {
@@ -218,16 +226,47 @@ function formatContext(context: DataFailureContext): string | undefined {
  * Repeats share the crash reporter's aggregation, so a disk that keeps failing
  * leaves one line a minute instead of one per pomodoro.
  */
+export interface DataFailureExtra {
+    /**
+     * Show the persistent error notice once per fingerprint. Errors use
+     * `notice` rather than `toast` (see the feedback module): the data is
+     * already gone, and a two-second receipt is missed whenever the window is
+     * mini/tray or the user is away.
+     */
+    notify?: boolean;
+    /**
+     * What was lost, in the user's terms (`timer.saveFailed`); the raw error
+     * text stays in the log. Falls back to the notice's generic body.
+     */
+    description?: React.ReactNode;
+}
+
 export function reportDataFailure(
     scope: string,
     error: unknown,
-    context: DataFailureContext = {}
+    context: DataFailureContext = {},
+    extra: DataFailureExtra = {}
 ): void {
     try {
         const message = messageOf(error).slice(0, MAX_MESSAGE);
         const fingerprint = `data|${scope}|${message}`;
         const now = Date.now();
         const record = countOccurrence(fingerprint);
+
+        if (extra.notify === true && !record.notified) {
+            record.notified = showNotice(
+                fingerprint,
+                t('common.dataNotSaved'),
+                <div>
+                    {extra.description === undefined ? undefined : (
+                        <div style={{ wordBreak: 'break-word' }}>{extra.description}</div>
+                    )}
+                    <div style={{ marginTop: 4, color: 'var(--pl-text-tertiary)' }}>
+                        {t('common.dataNotSavedHint')}
+                    </div>
+                </div>
+            );
+        }
 
         if (record.lastWritten !== 0 && now - record.lastWritten < AGGREGATE_MS) {
             return;

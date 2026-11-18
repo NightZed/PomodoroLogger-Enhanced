@@ -7,8 +7,8 @@ import { applyDataRepair } from '../dataRepair';
 import { applyKanbanSnapshot } from '../snapshot';
 import { uid } from '../../../../utils/uid';
 import { workers } from '../../../workers';
-import { feedback } from '../../feedback';
 import { t } from '../../../i18n';
+import { reportDataFailure } from '../../../errorReporting';
 import type { RootState } from '../../../reducers';
 import { List, ListsState } from '../type';
 
@@ -263,12 +263,17 @@ export const actions = {
             } catch (error) {
                 // Reload rather than try to invert the optimistic splice: the
                 // write may have failed for a reason that also changed other
-                // rows, and the list is the source of truth.
+                // rows, and the list is the source of truth. The card move is
+                // lost, so it gets the same persistent notice as a lost
+                // pomodoro instead of a receipt that disappears in two seconds
+                // (`t('kanban.dragFailed')` already spells out the reload).
                 await (dispatch as any)(actions.fetchLists());
-                feedback.toast({
-                    kind: 'error',
-                    content: t('kanban.dragFailed'),
-                });
+                reportDataFailure(
+                    'kanban.card-move',
+                    error,
+                    { cardId: resolved.cardId, fromListId, toListId },
+                    { notify: true, description: t('kanban.dragFailed') }
+                );
                 console.error(error);
             }
         },

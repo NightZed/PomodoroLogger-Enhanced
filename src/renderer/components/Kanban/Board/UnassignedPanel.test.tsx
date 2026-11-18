@@ -5,7 +5,7 @@ import { feedback } from '../../feedback';
 
 jest.mock('../../feedback', () => ({
     ...jest.requireActual('../../feedback'),
-    feedback: { confirm: jest.fn(), toast: jest.fn(), alert: jest.fn() },
+    feedback: { confirm: jest.fn(), toast: jest.fn(), notice: jest.fn(), alert: jest.fn() },
 }));
 
 // The real picker is a connected dialog; the panel's own logic (selection,
@@ -245,10 +245,13 @@ describe('UnassignedPanel', () => {
         });
 
         expect(chooseRecord).not.toHaveBeenCalled();
-        expect(feedback.toast).toHaveBeenCalledWith({
-            kind: 'error',
-            content: 'That session could not be loaded',
-        });
+        // A lost record is persistent news (the row keeps naming it), so it is
+        // a notice, not a receipt that disappears in two seconds.
+        expect(feedback.notice).toHaveBeenCalledTimes(1);
+        const notice = (feedback.notice as jest.Mock).mock.calls[0][0];
+        expect(notice).toMatchObject({ kind: 'error', title: 'Data was not saved' });
+        const { container } = render(<div>{notice.description}</div>);
+        expect(container.textContent).toContain('That session could not be loaded');
     });
 
     it('shows the empty state when nothing is unassigned', () => {

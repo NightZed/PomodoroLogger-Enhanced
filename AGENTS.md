@@ -111,6 +111,10 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
   新增能力时，类型联合、preload 方法和主进程 handler 要一起改。
 - 应用内所有提示都走 feedback 层（`src/renderer/components/feedback`）：`feedback.toast` / `notice` / `confirm` / `alert`。
   直接 import antd 的 `message` / `notification` 会被 `no-restricted-imports` 拦下。
+  **`kind: 'error'` 只能出现在 `alert` 或 `notice`，不再用 `toast`**：toast 只是操作回执（成功、被拒绝、无变化），2 秒就消失；
+  数据丢失或需要事后排查的错误用 `notice`（持久、无遮罩、可带「打开日志文件夹」），需要用户当场确认的用 `alert`。
+  走 notice 的错误必须先用 `reportDataFailure` / `logError` 落盘，否则按钮指向一个空文件；通知按指纹去重，不堆叠。
+  已知限制：notice 宽 380px，而迷你窗口是 200×90，两者还没做尺寸适配。
   内容型对话框必须用 `AppModal`（`src/renderer/components/AppModal.tsx`），它套了统一的「立即弹出」动效；直接 import antd 的 `Modal` 同样被拦。
   一个对话框在同一个 commit 里关闭、另一个打开时（例如「检查并修复数据」跳转到「校准应用时长」），必须给关闭的那个传 `instant`：
   antd 每个 Modal 自带一层 `rgba(0,0,0,0.45)` 的 mask，两层重叠一帧会把画面压到约 0.70 再回弹，看起来就是闪一下。

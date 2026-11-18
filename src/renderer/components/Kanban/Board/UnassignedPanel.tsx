@@ -7,6 +7,7 @@ import { CardPicker } from '../CardPicker';
 import { PickerFooter } from '../PickerFooter';
 import { feedback } from '../../feedback';
 import { useI18n } from '../../../i18n';
+import { reportDataFailure } from '../../../errorReporting';
 import { PomodoroNumView } from '../../Timer/PomodoroNumView';
 import type { PomodoroRecord } from '../../../monitor/type';
 import type { CardsState } from '../Card/action';
@@ -245,7 +246,15 @@ export const UnassignedPanel = (props: UnassignedPanelProps) => {
     const openSankey = async (id: string): Promise<void> => {
         const record = await props.loadRecord(id);
         if (record === undefined) {
-            feedback.toast({ kind: 'error', content: t('kanban.unassigned.recordMissing') });
+            // The list still names the session but the table does not have it:
+            // a data-integrity problem the user cannot act on, so it goes to
+            // data.log as well as to a notice instead of a vanishing toast.
+            reportDataFailure(
+                'kanban.session-record-missing',
+                new Error('session record not found'),
+                { _id: id },
+                { notify: true, description: t('kanban.unassigned.recordMissing') }
+            );
             return;
         }
         props.chooseRecord(record);

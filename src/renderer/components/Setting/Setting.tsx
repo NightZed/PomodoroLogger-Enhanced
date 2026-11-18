@@ -763,12 +763,19 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 onResult();
             };
             const onError = (payload: UpdateErrorPayload) => {
-                feedback.toast({
-                    kind: 'error',
-                    content: FEEDBACK_MESSAGES.update.checkFailed(
-                        String(payload?.message ?? payload)
-                    ),
-                });
+                // A real failure is announced app-wide by `UpdateController`
+                // (one persistent notice, keyed) and written to app.log by
+                // `AutoUpdater`; repeating it here used to show two messages
+                // for the same event. The "not packaged" skip has no app-wide
+                // channel, so the page explains that one itself.
+                if (payload?.skipped) {
+                    feedback.toast({
+                        kind: 'info',
+                        content: FEEDBACK_MESSAGES.update.checkFailed(
+                            String(payload?.message ?? payload)
+                        ),
+                    });
+                }
                 onResult();
             };
             const current = checkUpdateRef.current;

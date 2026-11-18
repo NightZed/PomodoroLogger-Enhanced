@@ -3,7 +3,6 @@ import { Dispatch } from 'redux';
 import { actions as kanbanActions } from '../Kanban/action';
 import { actions as historyActions } from '../History/action';
 import { applyFinishedSession } from '../Kanban/finishedSession';
-import { feedback } from '../feedback';
 import { t } from '../../i18n';
 import dbs from '../../dbs';
 import { PomodoroRecord } from '../../monitor/type';
@@ -759,25 +758,27 @@ export const actions = {
             } catch (error) {
                 // The timer still advances -- the focus time was really spent
                 // -- but the session is not in the history and nothing was
-                // credited. Say so instead of failing silently, and leave a
-                // line in data.log: unlike a crash, this report is the only
-                // trace of the lost record (the IPC may have rejected the
-                // payload before the main process ever saw it).
-                feedback.toast({
-                    kind: 'error',
-                    content: t('timer.saveFailed'),
-                });
-                // A non-string here is the bug class this report exists for
+                // credited. Leave a line in data.log and a persistent notice:
+                // a toast is gone before a user who is in the mini strip (or
+                // away from the machine) ever sees it, and this record cannot
+                // be recovered afterwards.
+                //
+                // A non-string card id is the bug class this report exists for
                 // (a DOM event once arrived as the card id): keep both the id
                 // and its runtime type.
                 const reportedCardId: unknown = cardId;
-                reportDataFailure('timer.finished-session', error, {
-                    _id: sessionData._id,
-                    boardId: sessionData.boardId,
-                    cardId: typeof reportedCardId === 'string' ? reportedCardId : 'none',
-                    cardIdType: typeof reportedCardId,
-                    spentTimeInHour: sessionData.spentTimeInHour,
-                });
+                reportDataFailure(
+                    'timer.finished-session',
+                    error,
+                    {
+                        _id: sessionData._id,
+                        boardId: sessionData.boardId,
+                        cardId: typeof reportedCardId === 'string' ? reportedCardId : 'none',
+                        cardIdType: typeof reportedCardId,
+                        spentTimeInHour: sessionData.spentTimeInHour,
+                    },
+                    { notify: true, description: t('timer.saveFailed') }
+                );
                 console.error('[timer] finished session was not saved', error);
             }
         },

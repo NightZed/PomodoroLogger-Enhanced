@@ -33,6 +33,9 @@ export const en = {
         reset: 'Reset',
         import: 'Import',
         edit: 'Edit',
+        /** Notice title for a failure that lost data; the specifics go in the body. */
+        dataNotSaved: 'Data was not saved',
+        dataNotSavedHint: 'Details were written to the log file.',
     },
 
     theme: {

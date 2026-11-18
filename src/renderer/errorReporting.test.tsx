@@ -3,6 +3,8 @@
  * whether the notice was shown), so every test loads a fresh copy of the
  * module instead of sharing that map with its neighbours.
  */
+import { renderToStaticMarkup } from 'react-dom/server';
+
 const mockNotice = jest.fn();
 const mockReportError = jest.fn();
 
@@ -185,5 +187,33 @@ describe('reportDataFailure', () => {
         reporter.reportDataFailure('kanban.card-move', new Error('boom'));
 
         expect(mockReportDataFailure).toHaveBeenCalledTimes(2);
+    });
+
+    it('raises the persistent notice once, with the lost-data copy', async () => {
+        const reporter = await loadReporter();
+
+        reporter.reportDataFailure(
+            'timer.finished-session',
+            new Error('boom'),
+            {},
+            { notify: true, description: 'This pomodoro could not be saved.' }
+        );
+
+        expect(mockNotice).toHaveBeenCalledTimes(1);
+        const notice = mockNotice.mock.calls[0][0];
+        expect(notice).toMatchObject({ kind: 'error', title: 'Data was not saved' });
+        expect(renderToStaticMarkup(notice.description)).toContain(
+            'This pomodoro could not be saved.'
+        );
+
+        // A repeat within the aggregation window shares the same slot: the
+        // user sees one notice, not one per pomodoro.
+        reporter.reportDataFailure(
+            'timer.finished-session',
+            new Error('boom'),
+            {},
+            { notify: true }
+        );
+        expect(mockNotice).toHaveBeenCalledTimes(1);
     });
 });

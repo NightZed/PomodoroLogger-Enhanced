@@ -22,6 +22,8 @@ export const zh: CatalogShape<typeof en> = {
         reset: '重置',
         import: '导入',
         edit: '编辑',
+        dataNotSaved: '数据未能保存',
+        dataNotSavedHint: '详细信息已写入日志文件。',
     },
 
     theme: {

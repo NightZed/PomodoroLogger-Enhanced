@@ -23,6 +23,7 @@ import { PomodoroRecord } from '../../monitor/type';
 import dbs from '../../dbs';
 import { feedback } from '../feedback';
 import { Dispatch } from 'redux';
+import { renderToStaticMarkup } from 'react-dom/server';
 
 jest.mock('../feedback', () => ({
     feedback: {
@@ -468,9 +469,13 @@ describe('On timerFinished', () => {
             expect(dispatched.map((action) => action.type)).not.toContain(
                 '[Kanban]APPLY_FINISHED_SESSION'
             );
-            expect(feedback.toast).toHaveBeenCalledWith(
-                expect.objectContaining({ kind: 'error', content: t('timer.saveFailed') })
-            );
+            // A lost record is persistent news: a notice, not a toast that is
+            // gone before a user in the mini strip or away from the machine
+            // ever sees it.
+            expect(feedback.notice).toHaveBeenCalledTimes(1);
+            const notice = (feedback.notice as jest.Mock).mock.calls[0][0];
+            expect(notice).toMatchObject({ kind: 'error', title: 'Data was not saved' });
+            expect(renderToStaticMarkup(notice.description)).toContain(t('timer.saveFailed'));
             // The lost record has to leave a trace in data.log: the toast is
             // gone in a second and the database has nothing to read afterwards.
             expect(dataFailure).toHaveBeenCalledWith(

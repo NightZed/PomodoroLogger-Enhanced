@@ -245,7 +245,6 @@ pomodoro-logger [C:\code\pomodoro-logger] .\src\renderer\components\src\Applicat
 | 任意 Linux（免安装）     | `Pomodoro-Logger-Enhanced-<version>-linux-x86_64.AppImage` |
 
 `.zip`（`-mac-arm64.zip`、`-mac-x64.zip`）仅供应用内自动更新使用。
-Ubuntu 22.04 及以上运行 AppImage 需要先安装 `libfuse2`，或加 `--appimage-extract-and-run` 参数运行。
 
 ## 🤝 参与贡献
 

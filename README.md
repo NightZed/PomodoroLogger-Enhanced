@@ -246,7 +246,6 @@ Download: [release page](https://github.com/NightZed/PomodoroLogger-Enhanced/rel
 | Any Linux (no install)    | `Pomodoro-Logger-Enhanced-<version>-linux-x86_64.AppImage` |
 
 The `.zip` files (`-mac-arm64.zip`, `-mac-x64.zip`) are only used by the built-in updater.
-On Ubuntu 22.04+ the AppImage needs `libfuse2` (or run it with `--appimage-extract-and-run`).
 
 ## 🤝 CONTRIBUTING
 

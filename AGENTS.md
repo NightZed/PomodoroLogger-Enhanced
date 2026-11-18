@@ -76,6 +76,10 @@ pnpm run pack     # electron-builder --dir（单跑 pnpm pack 只会打一个 np
 pnpm run dist-win # 或 dist-mac / dist-linux / dist-all（每个都是独立脚本）
 ```
 
+Linux AppImage 固定走新 static runtime（`build.toolsets.appimage: "1.0.3"`）：
+runtime 静态链接 FUSE，产物不依赖宿主机的 `libfuse2`；同时 electron-builder 会把全局 `compression: "maximum"` 映射成 zstd 而非 xz，因为旧 FUSE2 runtime（含 appimage.github.io 校验用的那个）只能挂载 zlib/zstd 镜像。
+删掉这个字段会退回 legacy FUSE2 工具集，产物重新依赖 `libfuse2`，且 `maximum` 下 mksquashfs 会用 xz，导致这些环境报 `Squashfs image uses xz compression, this version supports only zlib, zstd`。
+
 CI（`.github/workflows/test.yml`）在每次 push/PR 上跑 `pnpm lint`、`pnpm typecheck` 和 `pnpm test --ci`；`build.yml` 分平台用 `pnpm exec electron-builder` 打包（老的 `action-electron-builder` 已移除，因为它把 yarn 写死了）。
 发版通过 `Build/release` workflow → semantic-release 手工触发；永远不要手动改 `package.json` 版本号或打 tag。
 

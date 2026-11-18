@@ -79,6 +79,9 @@
             "output": "release"
         },
         "compression": "maximum",
+        "toolsets": {
+            "appimage": "1.0.3"
+        },
         "asar": true,
         "afterPack": "build/afterPack.js",
         "electronLanguages": [

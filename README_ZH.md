@@ -238,7 +238,7 @@ pomodoro-logger [C:\code\pomodoro-logger] .\src\renderer\components\src\Applicat
 | 平台                     | 下载这个文件                                               |
 | ------------------------ | ---------------------------------------------------------- |
 | Windows 10+（x64）       | `Pomodoro-Logger-Enhanced-<version>-win-x64-setup.exe`     |
-| Windows 11 on ARM（arm64）| `Pomodoro-Logger-Enhanced-<version>-win-arm64-setup.exe`   |
+| Windows 10+（arm64）     | `Pomodoro-Logger-Enhanced-<version>-win-arm64-setup.exe`   |
 | macOS 13+（Apple 芯片）  | `Pomodoro-Logger-Enhanced-<version>-mac-arm64.dmg`         |
 | macOS 13+（Intel 芯片）  | `Pomodoro-Logger-Enhanced-<version>-mac-x64.dmg`           |
 | Debian / Ubuntu / Mint   | `pomodoro-logger-enhanced_<version>_amd64.deb`             |

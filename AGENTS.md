@@ -1,13 +1,69 @@
 # AGENTS.md
 
 写给在本仓库工作的 AI 编码助手。
-本文件是唯一事实来源：`CODEBUDDY.md` 里只有 `@AGENTS.md`，所以改这个文件，不要改那个。
+
+本文件是**唯一事实来源**：`CODEBUDDY.md` 里只有 `@AGENTS.md`，所以改这个文件，不要改那个。
+
+领域细节不在本文件，在 `docs/architecture/`。按「区域索引」取用：动手前先读对应的那份，改完回来核对「硬约束」。
 
 ## 项目
 
 Electron 桌面应用（番茄钟 + 看板 + 桌面活动追踪 + 统计）。
 渲染层是 React 19 + Redux；主进程独占 SQLite（`better-sqlite3`）。
 需要 Node.js 24+ 和 pnpm 11（版本钉在 `packageManager` 里）。
+
+## 硬约束
+
+这些违反会直接导致数据错误、功能损坏或明显卡顿。每条都有一份细节文档记着原因。
+
+**数据与统计**
+
+- 只读扫描禁用 `findSync`；只要 id 用 `idsSync()`，只要部分字段用 `findFieldsSync()`。
+- 会话的 `Σapps` 必须等于 `spentTimeInHour`，不要退回「应用记墙钟、总时长写名义值」。
+- 一个番茄只挂**一张**卡，不要挂到 `focusedList` 的全部卡片。
+- 渲染层不直接碰 SQLite，也不出现 Node 全局——文件系统路径和原生模块属于 `src/main`。
+
+**看板**
+
+- 不要调大 `WINDOW_SIZE`，那只是把 50ms 换回 1s。
+- 卡片悬停高亮不要改回 `:hover`，也不要换回模糊阴影。
+- 列表顶部遮罩**不能用 `mask-image`**，dnd 的拖拽层会被裁剪。
+- `inWindow` 与 `contentLimit` 是两个开关，不要合并。
+
+**设置与渲染**
+
+- 七个滑块一律非受控，拖动值不进 store。
+- 占满窗口的平面保持纯 `background-color`，不要用 `color-mix()`。
+- 不要 import antd 的 `message` / `notification` / `Modal`，走 feedback 层与 `AppModal`。
+- `kind: 'error'` 只能出现在 `alert` 或 `notice`；走 notice 前必须先落盘。
+- `AppErrorBoundary` 必须留在 `Application` 外面；Timer 的内层边界不能被包装组件替代。
+
+**窗口与生命周期**
+
+- 只有「关闭到托盘」算 `tray`；不要改回 `document.visibilityState`。
+- 页面卸载延迟不要缩短，那是行为变更。
+
+**构建与提交**
+
+- 不要加依赖 TS 编译器 API 的 loader（这里没有 ts-loader / ts-jest）。
+- 永远不要手动改 `package.json` 版本号或打 tag。
+- 提交信息用简体中文，类型与 scope 小写。
+
+## 区域索引
+
+| 你在改…                              | 先读                                                             |
+| ------------------------------------ | ---------------------------------------------------------------- |
+| 打包、CI、更新通道、依赖安装         | `docs/architecture/build-release.md`                             |
+| 主进程启动、IPC、preload、弹窗与提示 | `docs/architecture/process-ipc.md`                               |
+| SQLite、repository、迁移             | `docs/architecture/data.md`                                      |
+| 日志、错误上报、崩溃页               | `docs/architecture/diagnostics.md`（文件表在 `docs/logging.md`） |
+| Redux 结构、页面清单、主题、渲染性能 | `docs/architecture/renderer.md`                                  |
+| 窗口档位、托盘、页面卸载、今日统计   | `docs/architecture/window-modes.md`                              |
+| 看板、列表、拖拽、卡片               | `docs/architecture/kanban.md`                                    |
+| 设置页滑块、窗口不透明度             | `docs/architecture/settings.md`                                  |
+| 计时、活动追踪、会话落库、提示音     | `docs/architecture/session.md`                                   |
+| 写测试                               | `docs/testing.md`                                                |
+| 界面文案                             | `docs/i18n.md`                                                   |
 
 ## Shell
 
@@ -76,29 +132,7 @@ pnpm run pack     # electron-builder --dir（单跑 pnpm pack 只会打一个 np
 pnpm run dist-win # 或 dist-mac / dist-linux / dist-all（每个都是独立脚本）
 ```
 
-Linux AppImage 固定走新 static runtime（`build.toolsets.appimage: "1.0.3"`）：
-runtime 静态链接 FUSE，产物不依赖宿主机的 `libfuse2`；同时 electron-builder 会把全局 `compression: "maximum"` 映射成 zstd 而非 xz，因为旧 FUSE2 runtime（含 appimage.github.io 校验用的那个）只能挂载 zlib/zstd 镜像。
-删掉这个字段会退回 legacy FUSE2 工具集，产物重新依赖 `libfuse2`，且 `maximum` 下 mksquashfs 会用 xz，导致这些环境报 `Squashfs image uses xz compression, this version supports only zlib, zstd`。
-
-Windows 差分当前关闭（`nsis.differentialPackage: false`），快速开发阶段优先控制安装包体积。开启时用 `"store-asar"`：`app.asar` 在 7z 里以 Store 方式存放，实测安装包从 93.8 MB 涨到 112.4 MB（+19%），换来改一行代码只下载零点几个百分点。
-Windows 的 arm64 由 CI 用 `--win --arm64` 单独构建，`win.target` 不写 arch（写了会让本地 `pnpm run dist-win` 也同时触发 arm64 编译）。两个架构各用一条更新通道：CI 分两步构建，x64 生成 `latest.yml`，arm64 用 `--config.publish.channel=latest-arm64` 生成 `latest-arm64.yml`；`src/main/AutoUpdater.ts` 按 `process.arch` 选 channel。`nsis.buildUniversalInstaller` 固定为 false：默认的 universal 包会把两个架构合并成 ~182 MB 的文件，而 `NsisUpdater` 只按扩展名选文件，`latest.yml` 会指向它。arm64 的 `get-windows` 没有上游预编译，`@electron/rebuild` 会走 node-gyp 从源码编译，依赖 runner 的 VS ARM64 工具集（windows-2022 镜像带 `Microsoft.VisualStudio.Component.VC.Tools.ARM64`）。
-mac 的 `artifactName` 写死成 `Pomodoro-Logger-Enhanced-`，不要用 `${productName}`：它展开后带空格，上传时 zip 与 blockmap 会分别被改成 `-` 和 `.`（`Pomodoro-Logger-Enhanced-*.zip` 对不上 `Pomodoro.Logger.Enhanced-*.zip.blockmap`），而 updater 拼的是 `<zip>.blockmap`，404 后差分退化成全量下载。
-
-CI（`.github/workflows/test.yml`）在每次 push/PR 上跑 `pnpm lint`、`pnpm typecheck` 和 `pnpm test --ci`；`build.yml` 分平台用 `pnpm exec electron-builder` 打包（老的 `action-electron-builder` 已移除，因为它把 yarn 写死了）。
-发版通过 `Build/release` workflow → semantic-release 手工触发；永远不要手动改 `package.json` 版本号或打 tag。
-
-### 包管理器
-
-pnpm 11，版本钉在 `packageManager`。
-`pnpm-workspace.yaml` 是安装行为的唯一位置：`nodeLinker: hoisted`（electron-builder 需要扁平的 `node_modules`）、`overrides`（取代 yarn 的 `resolutions`）、`allowBuilds`、`patchedDependencies`。
-目前唯一一个 patch 是 `patches/@rc-component__portal@2.2.1.patch`：Portal 的 container effect 无依赖数组且每次渲染无条件 `setState`，平时靠 React 的 eager bail-out 兜底；React 19 在 fiber 还有 pending lanes 时跳过 bail-out，于是拖动任何滑块时（antd Slider 的 tooltip 弹层每帧带着新值重渲染 Portal）每帧一次真实 dispatch 落在 passive flush 里，50 帧后打出一串 `Maximum update depth exceeded`。patch 在值未变化时跳过 setState（用 `git apply` 更新 patch 后要跑 `pnpm install` 重放）。升 antd/@rc-component/* 时先检查该上游是否已修，已修就撤掉 patch。
-pnpm 11 的 `strictDepBuilds` 默认为 `true`，所以一个带未审核安装脚本的依赖会让整个安装以非零码失败——要显式列成 `true` 或 `false`，不要指望只给个警告。
-`electron` 44 和 `better-sqlite3` 13 不带安装脚本：前者在第一次 `electron .` 时下载二进制，后者加载自带的 `prebuilds/`。
-`get-windows` 10 是唯一带真实 `install` 脚本的原生模块（`node-pre-gyp install --fallback-to-build`）：`@electron/rebuild` 在 `pnpm install` 期间用 `binding.gyp` 编译它的 napi addon，所以这一步需要 node-gyp 加一个 Python（CI runner 自带），并且 `get-windows` 必须留在 `allowBuilds` 里。
-打包后的应用加载预构建的 `lib/binding/napi-9-<platform>-<arch>/*.node`（node-pre-gyp 的 `module_path`）；`build/` 被排除在 `build.files` 之外。
-
-`pnpm pack` 是内置命令，**不会**执行 `scripts.pack`；要用 `pnpm run pack`。
-store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且必须和检出目录在同一个盘，否则 pnpm 会静默地复制而不是硬链接。
+打包细节（AppImage runtime、Windows 差分与 arm64 双通道、mac `artifactName`、CI、pnpm 安装脚本）见 `docs/architecture/build-release.md`。
 
 ## 构建工具链约束
 
@@ -109,207 +143,29 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
   只有 `.tsx` 会拿到 React 转换，所以 `.ts` 里的泛型箭头函数不会产生歧义——`preset-react` 要一直限定在 `.tsx`。
 - 原生/纯 ESM 模块（`better-sqlite3`、`get-windows`、`electron-updater`）在主进程构建里是 webpack `externals`，在 Jest 里通过 `jest.config.js` 的 `moduleNameMapper` / `transformIgnorePatterns` 打桩。
 
-## 架构
-
-### 进程与安全模型
-
-- `src/main/main.ts` 同步读取硬件加速设置（在 `app.ready` 之前），然后动态 import `src/main/init.ts`，由它创建无边框/透明 `BrowserWindow`（`sandbox: true`、`contextIsolation: true`、`nodeIntegration: false`）、托盘、关闭到托盘行为、窗口模式处理和自动更新。
-- 渲染层只能通过 `src/main/preload.ts` 触达主进程，它暴露一个很窄的 `window.api`（`ExposedAPI`，定义在 `src/main/ipc/type.ts`）。
-  每个通道名、payload 结构和发送方都在主进程侧校验（`src/main/ipc/ipc.ts` 的 `handleCommand` + `src/main/ipc/validate.ts`）。
-  新增能力时，类型联合、preload 方法和主进程 handler 要一起改。
-- 应用内所有提示都走 feedback 层（`src/renderer/components/feedback`）：`feedback.toast` / `notice` / `confirm` / `alert`。
-  直接 import antd 的 `message` / `notification` 会被 `no-restricted-imports` 拦下。
-  **`kind: 'error'` 只能出现在 `alert` 或 `notice`，不再用 `toast`**：toast 只是操作回执（成功、被拒绝、无变化），2 秒就消失；
-  数据丢失或需要事后排查的错误用 `notice`（持久、无遮罩、可带「打开日志文件夹」），需要用户当场确认的用 `alert`。
-  走 notice 的错误必须先用 `reportDataFailure` / `logError` 落盘，否则按钮指向一个空文件；通知按指纹去重，不堆叠。
-  已知限制：notice 宽 380px，而迷你窗口是 200×90，两者还没做尺寸适配。
-  内容型对话框必须用 `AppModal`（`src/renderer/components/AppModal.tsx`），它套了统一的「立即弹出」动效；直接 import antd 的 `Modal` 同样被拦。
-  一个对话框在同一个 commit 里关闭、另一个打开时（例如「检查并修复数据」跳转到「校准应用时长」），必须给关闭的那个传 `instant`：
-  antd 每个 Modal 自带一层 `rgba(0,0,0,0.45)` 的 mask，两层重叠一帧会把画面压到约 0.70 再回弹，看起来就是闪一下。
-  `instant` 用空 `transitionName` 让 rc-motion 跳过状态机、同帧卸载 mask；普通关闭仍要走那 1ms 淡出，否则面板会在 `display: none` 之前露一帧。
-  同理，任何先 loading 再出内容的对话框都要给两态同一个固定高度，否则打开后会被内容撑大。
-  antd 的点击波纹在 `Application` 里被全局关掉，因为软件渲染（默认）会把那个 2 秒动画变成整窗 60fps 重绘。
-
-### 数据层（单写入者）
-
-- 主进程独占唯一的 SQLite 连接（`src/main/db/index.ts`、`connection.ts`、`schema.ts`、`repository.ts`）。
-  repository 沿用旧的 NeDB API（`find`/`findOne`/`insert`/`update`/`remove`/`count`），这样 action 代码不用重写。
-- 只读扫描不要用 `findSync`：它会把每行的 `doc` 列整段 `JSON.parse`，而 sessions 的 `doc` 含每个应用/标题的明细。只要 id 时用 `idsSync()`，只要部分字段时用 `findFieldsSync(query, fields)`——两者都只 `SELECT` 需要的列，不碰 `doc`。
-  2 万条会话上全量读一次约 1 秒，主进程单线程被占满，窗口会停止重绘（表现是点击按钮后先卡住、转圈和弹窗一起迟到）。
-- 渲染层从不直接碰 SQLite。
-  `src/renderer/dbs.ts` 构造名为 `sessionDB`、`settingDB`、`kanbanDB`、`cardsDB`、`listsDB`、`moveDB` 的 IPC 代理；`src/main/db/ipc.ts` 白名单化数据库名和七个允许的操作。
-  测试则通过 `test/dbBridge.ts` 安装一个真实的内存桥接。
-- 旧 NeDB → SQLite 迁移在 `initializeDatabaseFile()`（`migrate.ts`）里跑，旧的 `.nedb` 文件保持不动，并备份到 `db-bk/pre-sqlite-<ts>`。
-- `NODE_ENV=test` 把数据库切到 `:memory:`，数据目录钉在 `.local/test`（`src/main/config.ts`）；开发运行用 `.local/dev`；生产用 `%APPDATA%\PomodoroLogger`。
-
-### 诊断（日志与崩溃页）
-
-- `src/main/log.ts` 是唯一写日志文件的组件。
-  日志在 `<dataDir>/logs`（生产是 `%APPDATA%\PomodoroLogger\logs`），按 scope 拆分：`app.log`、`active-win.log`、`crash.log`、`data.log`；`migration.log` 由 `migrate.ts` 写一次，也放在同一目录。
-  诊断信息绝不进 `db/`，也绝不进 asar。
-- 级别是 `debug < info < warn < error`（`src/shared/log.ts`）；生产默认 `info`，开发和测试默认 `debug`，`--log-level` / `POMODORO_LOG_LEVEL` 能覆盖已存的设置。
-  `crash` 和 `data` 完全忽略级别（见 `LEVEL_EXEMPT_SCOPES`）。
-  写入是同步的（崩溃报告必须能活过 `app.exit`），并受这些限制：单文件 1 MiB 轮转、相同消息 5 秒窗口、每秒最多 20 行。
-- `ImportData` 在每条退出路径上都把结果写进 `data.log`：JSON 解析器的报错信息；文件被拒时写校验器最多 500 条发现（`ValidationResult.recordedIssues`，按 8 KiB 以下分块）。
-  文件被接受后，`importSummary.ts` 在合并结果上统计卡片不在任何列表、死 move、悬空会话引用、项目已删除、无项目与自动放回，写一行 `import issues ...`，然后每类一个分组块（标题 + 4 空格缩进明细，每类上限 500 条，超出写 `N more not shown`）。
-  时间字段用 `formatTimestamp`（本地墙钟 + 显式 UTC 偏移）。明细按 8 KiB 分块，**不要一行一条**：logger 每秒最多 20 行，逐行会被丢弃。
-  导入不清理任何数据——无效引用原样入库，清理统一交给「检查并修复数据」，所以日志只描述「导入后它在哪里、怎么处理」，不再说「将被丢弃」。
-  拒绝路径的对话框只展示前 20 条（`ValidationResult.issues`），并提供一个 **Open Log Folder** 按钮。
-  导入成功后重载 store（`src/renderer/dataReload.ts`）而不是重启；有需要处理的项时打开 `ImportReportDialog`（只显示数量，按钮可打开日志或直接进入数据检查），没有则只 toast。
-  删除全部数据同样不再重启：删库后调用 `reloadDataStore()`；`ClearUserFiles` 仍记录「删除全部」的完成。
-- 渲染层的「数据丢失」失败（已结束的番茄没能写进库）走同一个上报模块的 `reportDataFailure` → `IpcEventName.ReportDataFailure`，写进 `data.log`：
-  行内带 `scope`、聚合次数和 `key=value` 上下文（会话 / 看板 / 卡片 id）。它不展开窗口、不弹 notice——界面没坏，但记录已经丢了，日志是唯一事后可查的痕迹。
-  主进程的更新器失败由 `AutoUpdater.reportError` 写 `app.log`：打包版没有 console，只靠通知里的相位无法复盘。
-- 渲染层崩溃经 `IpcEventName.ReportError`（`send`）上报，写进 `crash.log`。
-  React 渲染错误显示在整窗的 `src/renderer/components/ErrorScreen.tsx` 上；**应用不再自己重启**，重启是那个页面上的一个按钮。
-  `AppErrorBoundary` 必须留在 `app.tsx` 里 `Application` 的*外面*——放在里面的话，它会和它本该替换的那棵树一起卸载。
-  这个页面自己画拖拽条和窗口按钮，因为无边框窗口没有原生的。
-  开发期在 DevTools 控制台执行 `__plShowErrorScreen()` 可以直接切到这一页（只改 boundary 的 state，不写 `crash.log`）；未捕获的 `window` 错误则弹下面那种错误卡片。
-- `src/renderer/errorReporting.tsx` 是唯一的上报入口，按指纹（`kind|message`）累积：
-  首次立即写一行，此后同一指纹每 60 秒最多再写一行，行内带累计次数 `(x37)`（`RendererErrorPayload.count`）。
-  一个在指针事件里的重复异常（例如鼠标每移动一次抛一次）因此只留每分钟一行，而不是一行一次。
-  界面可用的错误（`window 'error'`、`unhandledrejection`、Timer 页内层边界的 `component`）额外弹**一次** `feedback.notice`
-  （`ReportExtra.notify`）：同一指纹每次启动只弹一次、没有遮罩所以点空白关不掉。
-  卡片的三个动作（复制 / 反馈 / 打开日志）是 `components/ErrorNoticeActions.tsx` 里的图标按钮，文案同时放在 tooltip 和 `aria-label` 里，和 `ErrorScreen` 用同一组 `crash.*` key；antd 把通知放在 z-index 2050、tooltip 放在 1070，所以这几个 tooltip 必须用 `styles.root.zIndex` 抬到卡片之上，否则会被卡片盖住。
-  「反馈」先复制再 `openExternal`：先开浏览器会让窗口失焦，剪贴板写入随后可能被拒绝，issue 就缺了日志信息。
-  整窗的渲染错误已经换成 `ErrorScreen`，不再弹提示。`FeedbackContextBridge` 尚未挂载时（启动早期）视为未提示，下一次仍会弹。
-- 番茄钟页的内层边界就长在 `Timer` 自己身上（`getDerivedStateFromError` + `hasError` + `renderFallback`），**不要**改成包住 `<Timer />` 的包装组件：
-  `Timer.componentWillUnmount` 会 `monitor.discard()`，卸载实例等于丢掉正在跑的番茄和它的截图。
-  只有渲染阶段抛出的后代错误会进 fallback；`Timer.render()` 自身抛出的错误仍走整窗错误页。
-- 开发版的运行时错误有两个遮罩：`ReactRefreshWebpackPlugin` 的和 webpack-dev-server 自带的（`client.overlay` 默认开启，深色面板）。
-  后者已在 `webpack.renderer.dev.config.js` 里关掉，否则关掉第一个之后会露出第二个，看着像同一个错误报了两次。
-- 主进程故障由 `src/main/crashHandlers.ts`（`uncaughtException` / `unhandledRejection`）和 `init.ts` 里的 `installWindowDiagnostics()`（`did-fail-load`、`preload-error`、`unresponsive`、`render-process-gone`、`child-process-gone`）记录。
-
-### CPU 密集任务
-
-- `src/main/worker/fork.ts` 懒加载 fork `worker.js` 做 History 聚合（为词云分词每一个窗口标题）。
-  空闲 60 秒后关掉子进程；窗口**关闭到托盘**时由 `init.ts` 的 `applyTrayState` 调 `releaseWorkerNow` 立即释放（有请求在途就等它落地）。普通最小化不触发——那和正常窗口行为一致，子进程仍走 60 秒空闲退出。
-  `releaseWorkerNow` 只有那一个调用点，页面卸载和子进程释放必须共用同一个托盘判据，不要再各自挂窗口事件。
-  worker 出故障时 `src/main/db/ipc.ts` 回退到进程内聚合。
-- 渲染层剩下的那个 web worker（`src/renderer/workers`）是分词器；`DBWorker` 只是 IPC 代理上的一层薄封装。
-
-### 渲染层状态与 UI
-
-- `src/renderer/store/index.ts` 是朴素 Redux + thunk；`src/renderer/reducers/index.ts` 合并 `timer`、`history`、`kanban`、`story`。
-  每个功能目录（`components/Timer`、`History`、`Kanban`、`UserGuide`）自己持有 `action.ts` + reducer + 测试——按这个模式来，不要加横切的 slice。
-- `kanban.boards` / `lists` / `cards` 互相用 id 引用，所以整棵树重读时必须一次替换。
-  `applyKanbanSnapshot`（`components/Kanban/snapshot.ts`）让三个 reducer 响应同一个 action，`readKanbanSnapshot` 负责读库；导入、「删除所有数据」和看板首次加载都走它。
-  分成三次 dispatch 会留下「新 lists + 旧 boards」（删库时 lists 先空、boards 后空）这类中间态，任何沿 `board.lists → lists[id].cards` 走的组件都会在那一帧读到 `undefined`。
-- 长列只窗口化渲染：`components/Kanban/List/List.tsx` 只挂载 `offsets` 上 `scrollTop ± 800px` 的卡片（至少 `WINDOW_SIZE` = 40 张），其余用上下两个 spacer 撑滚动高度。
-  dnd 在 lift 里对每个已注册的 `Draggable` 做 `getBoundingClientRect` + `getComputedStyle`，落位结束时又用 `flushSync` 重渲染它们；500 张实测 lift 约 1s，40 张约 50ms。
-  所以窗口是拖拽性能约束，不是首屏优化——首个 DOM 提交早就不是瓶颈了。
-  `Board.tsx` 的 `onDragStart` / `onDragEnd` 只负责设置 `dragActivity.dragging`，不保留计时输出。
-  窗口内每张卡都注册给 dnd（`Card` 的 `inWindow`），但 markdown 解析另走 `contentLimit`：首帧 8 张、之后每帧 +8。两者不能合并成一个开关——合并后打开看板会先解析 40 份 markdown，用户看到的就是一次顿挫。
-  卡片高度按 `data-card-id` 实测缓存（`getBoundingClientRect().height + 8`，8px 是 `CardContainer` 的 `margin-top`），从没渲染过的卡用 `ESTIMATED_CARD_HEIGHT`（140）兜底，`offsets` 是两者混算。
-  因此没滚动过的区域是估算的：滚进去时实测值替换估算会让 `offsets` 修正一次，可能看到轻微跳动，这不是渲染错误。
-  估算值与右上角的三态视图直接相关：`title` 最矮且最稳定，`preview` 的 markdown 限高 250px，`full` 不限高、卡片高度差异最大。
-  长列表滚动时通常切到 `title` 或 `preview`，估算更准；调 `ESTIMATED_CARD_HEIGHT` 要按实际常用的视图来，不要拿 `full` 的平均高度当基准。
-  拖拽期间 `dragActivity.dragging` 冻结窗口（`onWindowScroll` 直接 return），否则源卡片被卸载会让 dnd 抛 `Cannot find draggable entry`。
-  窗口外没有 DOM，dnd 不认识那些位置：`alwaysDraggable` 的首尾哨兵只在窗口正好包含首/尾时生效；拖到远端前要先把目标区域滚进窗口。
-  卡片很多时的实际操作是：先把卡片拖到另一个短列表，滚动原列表找到插入点，再拖回去。
-  不要为了省这一步把 `WINDOW_SIZE` 调大，那只是把 50ms 换回 1s。
-  详细设计、实测数据和未完成项见 `.scratch/kanban-virtual-list/design.md`。
-- 卡片的悬停高亮是 React state（`Card.tsx` 的 `hovered` + `data-hover-lock`），**不要改回 `:hover`**：
-  dnd 的落位动画期间卡片会在指针下方移动约 0.1s，浏览器会把 `:hover` 摘掉，而它只在鼠标移动时恢复，
-  表现就是「松手后高亮消失、动一下鼠标才回来」。拖拽中到落位结束一直挂着 `data-hover-lock`，`pointerleave` 在这段时间是空操作。
-  高亮是叠加在卡片底色上的一层半透明色（`background-image: linear-gradient(var(--pl-card-hover), var(--pl-card-hover))`），**不要换回模糊阴影**：
-  整个应用禁用硬件加速（`src/main/main.ts` 的 `disableHardwareAcceleration`），18px 模糊在 CPU 光栅化下是这一列里最贵的一次绘制；
-  而且 `--pl-shadow` 是纯黑（暗 0.45 / 亮 0.15），在两套主题的卡片底色上都几乎看不见。
-  颜色只有一个旋钮 `--pl-card-hover`，定义在 `theme/globalStyle.ts` 的 `:root`（暗）和 `html[data-theme='light']`（亮）；
-  用 `background-image` 叠而不是改 `background-color`，卡片底色才不会被透明色替换掉。
-  跨列表落位后目标列表里的卡片是**新实例**，`pointerenter` 要等鼠标移动才会来：`Card` 在挂载后的 500 ms 内用
-  `dragActivity.pointer`（`Board` 的 passive pointermove 只负责记录坐标）加 `document.elementsFromPoint` 自检一次，
-  命中就立即点亮。用 `elementsFromPoint` 而不是 `elementFromPoint`，因为落位动画期间 dnd 的 fixed 卡片还压在指针上。
-  `pointerleave` 在整个拖拽期间被忽略，所以拖到列表外松手后卡片收不到新的 leave：`pointerup` 后 150 ms 用同一次坐标再校正一次，指针不在卡片上就关掉。
-  但 `pointerleave` 本身也不可靠：落位动画期间源卡片的 fixed 克隆压在指针上，浏览器不会把目标卡片放进 hover 链，短暂悬停后离开收不到 leave。
-  所以亮着的卡片还会在 window 上监听 `pointermove`，用自己 `getBoundingClientRect()` 判断指针是否还在里面；只在 `hovered` 时挂载，最多一张卡。
-  侧栏预览卡片（`preview`）同样有悬停高亮，只是不可拖。
-- 预览视图正文上下各有一条 sticky 渐隐带（`style/Markdown`），各占 0.4rem 的**流内**高度。
-  卡片用 `--pl-card-fade-height` 在正文不溢出时把它压成 0：否则从 full 切到 preview 会凭空高约 13px。
-  渐隐的实色端用 `--pl-card-fade` 并跟随悬停底色（`--pl-card-hover-solid`），否则提亮后会在卡片上留下两条旧底色。
-  溢出判定在 `Card.tsx` 的 effect 里读 `scrollHeight > clientHeight`，只在 `content` / `cardView` / `shouldRenderContent` 变化时重测。
-- `src/renderer/components/appTabs.ts` 是页面的唯一事实来源；标签栏、Ctrl+Tab 处理和紧凑模式切换全部从 `APP_TABS` / `planTabChange` 推导。
-  不要加一份并行的标签列表。
-- 非活动页面不会永远保留：`DestroyOnTimeoutWrapper` 在每页各自的宽限期后丢弃该页子树。
-  规则集中在 `components/pageUnload.ts`（`TAB_UNLOAD_DELAY` / `SHORT_UNLOAD_DELAY` / `deriveWindowMode` / `planPageUnload`），`Application` 只负责推导 `WindowMode` 并把结果交给 wrapper。
-  这些延迟不同是有意的——history 每次 mount 都会重跑整个 `aggHistory` 聚合，kanban 只重读看板行，setting 可能还有导入/导出在飞——所以新页面需要显式加一条，缩短延迟是行为变更，不是白捡的好处。
-  `timer` 永久挂载，因为它持有正在运行的会话。
-  窗口档位有四档：`normal` / `compact` 下页面可见、可交互，走各自的常规宽限；`mini`（90px 条，标签栏隐藏）和 `tray` 下其余页面不可达，统一压到 30 秒。
-  `tray` 的压缩受 `unloadOnCloseToTray` 控制，`mini` 不受——那个开关描述的是托盘。
-  **只有「关闭到托盘」算 `tray`**：状态由主进程的 `closeToTray` / `revealWindow` 设定并经 `WindowEventName.TrayChanged` 下发。普通最小化（`Win+↓`、标题栏按钮）保持原档位，页面不卸载、worker 不提前退出、今日统计不收起。
-  关闭前要让页面先收起、再绘制：标题栏关闭走 `windowHideIntent.ts` 的 `requestClose()`（广播 → 两帧 rAF → 发 close）；`Alt+F4` 由主进程的 `before-input-event` 拦下，转成同一个 `CloseRequested` 事件。系统保留的是窗口最后一帧，先隐藏再收起会把今日统计的图表留在下次恢复里。
-  不要改回 `document.visibilityState`：Windows 上窗口被其他窗口完全遮挡时它同样报 `hidden`，会把「盖住」当成「收进托盘」。
-- 标题栏保留 `-webkit-app-region: drag`，这样普通窗口能拿到原生移动和 Aero Snap，但 Chromium 在滚动容器滚动后会把那块区域裁掉（被裁掉的条带跟着滚动容器的宽度走）。
-  因此任何仍能到达渲染层的标题栏按下事件都必须同时启动 `windowDrag`，否则滚动之后窗口就拖不动了——见 `src/renderer/components/AppTitleBar/dragRegion.ts` 和 `src/main/ipc/windowDrag.ts`。
-- `src/components/**` 是共享的可视化/小部件库（`Visualization/*`、`common/*`），渲染层用相对路径引用它——它不是渲染层自己的组件树。
-- 拖动驱动的设置走两条路之一，新滑块必须明确选边。
-  七个滑块（四个时长、音量、三个不透明度）全部用 `Setting/PreviewSlider.tsx`，一律**非受控**（`defaultValue` + `key` 重新播种），不要再改回受控 `value`：rc-slider 会用 layout effect 把每个新 value 抄进自己的 state，于是每帧变化的 value 每帧加一次嵌套更新，拖到第 50 帧 React 直接抛 `Maximum update depth exceeded`（v1.4 的时长滑块一直带着这个 bug，只是没人拖得那么快）。
-  滑块的 **tooltip 已移除**（实测 A/B：tooltip 弹层链占一次快速拖动主线程时间的 ~93%，见 `PreviewSlider.test` 的 badge 注释），当前值由轨道右端上方、与上方文案齐平的常驻 `KeyBadge`（`Setting/KeyBadge.tsx`，与快捷键表格同一样式）显示：React 渲染提交值（`formatValue` + seed），拖动中 `onChange` 直接写 `textContent`——React 只在它记录的 children 变化时才重写文本节点，所以直写不会被重渲染冲掉；不要给 badge 走 store。badge 用列布局（badge 行右对齐 + slider）而非绝对定位，负 margin 上提到 hint 行；-16px 对「有 hint」与「上方直接是标题」两种上文都安全，因为标题/hint 在左端、badge 在右端，横向天然错开。
-  四个时长和音量的拖动值留在 slider 内部、松手才提交一次。它们必须这样，因为 `Timer/index.tsx` 映射了整个 store，其 `shouldComponentUpdate` 会对四个时长中的任何一个重渲染，所以每事件写一次 store 会让整个番茄钟页面（进度环、`PomodoroNumView` 的 SVG 墙）在一次拖动里重渲染约 100 次。
-  重新播种只在设置被别处改动时发生：`expected` ref 记住刚提交的值，store 回写同一个值不算外部变化，否则松手瞬间重挂载会丢焦点（键盘用户接着按方向键就没反应了）。
-  三个不透明度的值*就是*窗口显示的内容，但它们同样不进 store：拖动经 `onPreview` 折到每帧一次（`Setting/useSliderChange.ts`）后直接写 CSS 变量（`theme/opacity.ts`；`ThemeController` 是 store 侧的写入者，松手 `onCommit` 提交一次后两边写同一个值）。每帧 store 写入会让每个 connect 组件重渲染；一旦快速拖动让渲染跟不上指针，react-redux 给 `useSyncExternalStore` 的 getSnapshot 在 passive flush 里返回新的 props 对象、React 便在 flush 内再次调度渲染，连续 50 次就是控制台里的 `Maximum update depth exceeded`。持久化只发生在提交时（`Timer/action.ts` 的 `persistSettingWithDebounce`）；每次设置写入都会在自己的 WAL 提交里重写整张 `settings` 表，所以每事件持久化就是每个指针事件一次 fsync。
-- 主题：`src/renderer/theme`（tokens + `applyTheme`，CSS 自定义属性 `--pl-*`）通过 `ThemeController` 应用。
-  首次绘制的主题经 `additionalArguments` → `window.api.initialTheme` 跨进程边界传递，这样渲染层不会闪一下错误的主题；动启动主题时两侧都要同步改。
-- 样式用 styled-components（外加少量 `.scss` 全局文件）；不要为组件添加独立 CSS 文件。
-- 占满窗口的平面必须保持纯 `background-color`。
-  实时 resize 每帧都会重绘整个窗口，在那里用 `color-mix()`（把 `themeBackgroundOpacity` 折进颜色最直觉的写法）每次重绘要吃掉四个核里约 10 个点；纯色填充 + 元素自身的 `opacity` 是同样的算术。
-  在 1440x960 窗口上实测 45% → 33%，开不开硬件加速都一样。
-  见 `Application.tsx` 里的图层表。
-- 窗口裁剪容器（`Main`）上的圆角 1px 高亮圈会让每帧多一次全窗口合成 pass，所以渲染层在窗口 resize 期间把圆角和高亮圈都去掉（`WindowEventName.ResizingChanged`，由 `init.ts` 在 120 ms 空闲计时后发出）：软件渲染下，每个呈现帧 8.8 ms → 6.5 ms，3.33 Mpx 下 55 → 37 个 quad。
-  高亮圈画在 Content 之上的专用覆盖层 `WindowRing`（inset box-shadow，z-index 3）而不是真实 border：border 占布局空间，拖拽松手恢复时会把内容整体往内挤 1px；而画在 Main 本体上的 inset shadow 会被 ::before/::after 背景色带盖住（Main 的这两个伪元素已被 3a4526c 的背景色带占用）。
-  没有这个处理，大窗口做不到每个鼠标事件呈现一帧，会明显跟不上光标，也就是关掉硬件加速时那个「拉大卡顿」的报告。
-  触发器是 `resize` 事件而不是 `will-resize`（后者只对用户手势触发，脚本无法验证），代价是程序性 resize 也会触发；一次性 resize 的两步边框变化没有人手拖动遮着，会被看成窗口跳一下（v1.4.0 没有这套机制、不跳）。所以模式切换（`MinimizeWindow` / `CompactWindow`）和最大化按钮在 resize 前先调 `init.ts` 的 `suppressResizingNotification()`（300 ms 抑制窗），这几条路径上圆角全程不动。
-  因此只有用户拖动期间圆角是方的；没在 trace 里量过 `Display::DrawAndSwap` 之前，不要给那个元素加回真实圆角边框或换成占布局的画法，也不要让新的程序性 resize 路径漏掉抑制调用。
-
-### 提示音与桌面通知
-
-- 会话自然结束时（`Timer.onDone`，`shouldRemind` 为真）响两次提示音——立即一次、60 秒后再一次——并按 `desktopNotification` 决定是否发系统通知；手动点 Finish 结束的会话两者都不做。
-- 三种会话各有音源（`workSoundPath` / `shortBreakSoundPath` / `longBreakSoundPath`）和独立开关（`*SoundEnabled`）；路径为 `undefined` = 内置 `src/res/ding.mp3`。「恢复」只清空路径，不删用户的文件。
-- 长休判定与 `getDuration` / `startTimer` 一致：休息结束且 `iBreak % 4 === 0`。音源和音量必须在 `remindUserTimeout` **被调用的那一刻**快照，60 秒后的回调里 `isFocusing` / `iBreak` 已经指向下一场会话。
-- 自定义文件不拷贝，只存绝对路径，经 `sound://local?path=...` 播放：`init.ts` 用 `protocol.handle` + `net.fetch(pathToFileURL(...))`（privileges 带 `stream`，媒体栈需要 Range 请求）。CSP 的 `media-src` 必须含 `sound:`，少写这一项文件会被静默拦掉。
-- 加载失败（文件被删、Chromium 不支持该格式）回退内置铃声并 toast 一次。`src/renderer/sound.ts` 是拼 URL 和播放的唯一入口，设置页的「测试」也走它。
-- 音量用 `PreviewSlider`（松手提交）：Timer 页映射整个 store，拖动时每帧写 store 会让进度环和番茄墙整页重渲染。
-- 所有「打开文件」对话框都走 `src/main/fileDialog.ts` 的 `showOpenFileDialog(options, kind)`：每种用途（`sound` / `wallpaper` / `import`）记住自己的目录，作为下次的 `defaultPath`。
-  三个目录存在 settings 文档的 `fileDialogDirs` 里（不是 `Setting`，渲染层不读）；取消不覆盖，目录不存在时退回系统默认。
-  不要合并成一份记忆：音频、图片和备份通常不在同一个文件夹，共享会让第二个对话框落到上一个用途的目录。
-  新增选择文件的功能不要直接调 `dialog.showOpenDialog`（导出用的 `showSaveDialog` 仍直接调用，它自己给 `defaultPath` 传文件名）。
-
-### 国际化
-
-界面提供英文和简体中文，用的是一个小自研 `t()` 而不是 i18n 库——渲染层没有 Provider，所以裸写的 `render(<Component />)` 测试能继续工作，语言切换也能让被 `React.memo` / `shouldComponentUpdate` 保护的组件重渲染。
-`src/shared/i18n/en.ts` 是 key 树和插值签名的唯一事实来源；`zh.ts` 的类型是 `CatalogShape<typeof en>`，所以缺 key 或参数表不对都会让 `pnpm typecheck` 失败。
-渲染层通过 `useI18n()`（函数组件）或模块级 `t()`（类组件、工具函数、常量表）取文案；主进程有自己的 `m()`，在 `src/main/i18n.ts`。
-`Setting.language`（`'system' | 'en' | 'zh'`）放在 `timer` slice 里，和主题一样经 `additionalArguments` 到达首次绘制。
-要把 `language` 留在 `settingUiStates` / `uiStateNames` / `trayStateKeys` 白名单里。
-见 `docs/i18n.md`。
-
-### 活动追踪与统计
-
-`src/renderer/monitor` 采集活动窗口（`src/main/activeWin.ts` 包装 `get-windows`，懒加载并记录到 `logs/active-win.log`），按应用/按标题把时间聚合成 `PomodoroRecord`，可选截图；番茄结束时由主进程 `recordFinishedSession`（`src/main/db/finishedSession.ts`）在一条事务里写入会话行、看板汇总与卡片归属，失败整笔回滚、不挂卡，渲染层用 `applyFinishedSession` 替换事务返回的行。
-`UsageRecorder` 的采样差分用单调时钟（`performance.now()`），`record.startTime` 仍用墙钟（它决定会话归到哪一天）；单次采样间隔被 `MAX_TICK_MS`（30 s）截断，负差值按 0 处理，所以改系统时钟不会给某个应用凭空加减时间，休眠唤醒也不会把整段挂起记给前台应用。
-会话确认时 `normalizeAppHours`（`src/shared/normalizeAppHours.ts`）把 `apps` 和 `stayTimeInSecond` 按最终 `spentTimeInHour`（含延长）等比缩放，`Σapps === spentTimeInHour` 是一条不变量——不要退回「应用记墙钟、总时长写名义值」，那样每结束一个番茄都会让 History 的树图比总时长徽章多 0.5–1 s，一万个番茄就是一小时以上。
-效率打分在 `src/shared/efficiency/efficiency.ts`；历史聚合在 `src/utils/aggPomodoro.ts` 和 `src/shared/dataMerger`。
-
-存量数据的应用时长校准在 `src/main/db/sessionHours.ts`：扫描用 `json_each` 在 SQLite 里求每条会话的 `apps` 合计，主线程只拿到 `{_id, startTime, spentTimeInHour, appHours}` 四个标量（用 `findFieldsSync` 读 `apps` 会把全库的标题明细都解析一遍）。扫描和写回都按批分页，每批之间 `await` 一次让出事件循环：所有 SQLite 调用都是同步的，整表一次扫完会把 Electron 主进程占满，窗口在扫描期间停止重绘——表现就是「点一下先卡住、转圈等活儿干完了才出现」。批量大小见 `SCAN_BATCH` / `WRITE_BATCH`（3.2k 条会话的实测依据）。修复时主进程重新扫描，不接受渲染层传来的 id 列表——那边拿到的只是快照。三组默认策略：`over`（应用多于总时长）默认勾选，`under`（少于）默认不勾（可能是手工补录），`missing`（没有应用明细）只展示不可修。写回只改 `apps` / `stay_time_in_second` / `doc` 三列，所以会话总时长、日历和项目统计不受影响；每批一个事务，中途失败只留下还没处理的会话，重跑即可（归一化是幂等的）。
-
-番茄的卡片归属是**一番茄一卡**：结束遮罩（`SessionEndingMask`）在 `focusedList` 只有一张卡时自动选它，多张时让用户选一张或选「不挂卡」，然后 `Timer.onSessionConfirmed` 把单个 `cardId` 交给 `timerFinished` → `recordFinishedSession`，只有那张卡的 `actual` 增加。
-不要退回「挂到 `focusedList` 的每一张卡」：那会让卡片时长按列表卡片数放大，而 `dataMerger` 的 `setBoardInfo` 按卡片重算看板时长，导出再导入后 `spentHours` 会变成实际的 N 倍。
-事后改归属（改项目 / 挂卡 / 删除）统一走主进程的 `applySessionEdits` 单事务：卡片按 `board.lists → list.cards` 反查归属，跨看板挂卡整批拒绝，换卡先解绑再挂一次，改项目同时把看板 `spentHours` / `relatedSessions` 转到新板。
-它的返回值必须 `dispatch(applySessionEditsResult)` 写回 store——只写库不更新 `kanban.cards` / `kanban.boards`，界面要等重启才看到新的卡片归属。
-
-### 开发期时间缩放
-
-`src/config.ts` 在非生产环境按 `DEBUG_TIME_SCALE`（120）压缩计时器：写入走 `scaleMs`，读取再展开回名义值，统计数据保持名义值。
-任何新的计时/会话代码都必须经过这些工具函数，否则开发时钟、进度环和历史总计会互相矛盾。
-
 ## 测试约定
 
-- `jest.config.js` 使用 `jsdom`、Babel 转译、`maxWorkers: min(8, cpus)`、`workerIdleMemoryLimit`（worker 空闲超限即重启，防全量跑累积 OOM）、每测试 30 秒超时和 JUnit 输出（`junit.xml`）。
-  `test/setup-env.js` 钉住 `NODE_ENV=test`，并为 antd polyfill `matchMedia`/`MessageChannel`/`ResizeObserver`。
-- `test/` 里的 `setupFilesAfterEnv` 装配提供了 DB 桥接、React act 环境、jsdom 兼容和 console 拦截——新测试自动获得这些。
-- `posttest` 删除 `.local/test`；action 测试跑的是真实 SQLite 事务，所以优先断言 repository 层的结果而不是 mock。
-- **编写或修改任何测试必须符合 `docs/testing.md`**，动手前先读它。硬性判据：只断言外部可观察的行为（落库的行、dispatch 出去的 action、用户看得见的产物），不钉实现细节；mock 只停在 `fs`/`electron`/时钟等外部边界，应用内部跑真实现；失败信息必须指出元凶；不显而易见的测试带 `// Regression:` 注释；不加覆盖率阈值，不用快照。流程（红绿循环、seam、垂直切片）可参考 `/tdd` skill（已随仓库提供）。
-- 改动后的验证按影响面选范围，不要默认全量：局部组件/样式/单文件逻辑只跑受影响的测试文件 + `pnpm typecheck` + `pnpm lint`；动了共享基建（`jest.config.js`、`test/setup-*`、被多处引用或 mock 的模块）或提交前的最终确认才跑 `pnpm test` 全量。新增测试文件会加重全量跑的 worker 内存（见 `workerIdleMemoryLimit`），改完基建后跑一次全量确认稳定。
+写测试前先读 `docs/testing.md`（完整判据在那），但下面五条是高频自检项，不需要翻文档：
+
+- **判据**：把实现重写一遍、只保留外部可观察行为，测试应当仍然通过。它挂了，就说明钉在了实现上。
+  算行为：落库的那一行、IPC payload、dispatch 出去的 action、用户看得见的 role / 文本 / 启用禁用 / 焦点。
+  不算：私有字段、内部调用顺序、`className`、`data-testid`。
+- **mock 只停在边界**：`fs` / `electron` / `get-windows` / `electron-updater` / 时钟 / worker。
+  应用内部一切跑真实现——断言落库的那一行，而不是 repository mock 被调了几次。
+- **失败信息必须指出元凶**：把变化的那部分塞进断言值；`expect(true).toBe(true)` 只说明「某处坏了」。
+- **不显而易见的测试带 `// Regression:`**，写明防的是哪次事故。写之前先回答「什么改动会让它失败」——答不上来就是代理断言（检查代码怎么写，而不是做了什么）。
+- **不加覆盖率阈值，不用快照**。`toMatchSnapshot` 目前是 0，保持这样。
+
+`jest.config.js` 使用 `jsdom`、Babel 转译、`maxWorkers: min(8, cpus)`、`workerIdleMemoryLimit`（worker 空闲超限即重启，防全量跑累积 OOM）、每测试 30 秒超时和 JUnit 输出（`junit.xml`）。
+`test/setup-env.js` 钉住 `NODE_ENV=test`，并为 antd polyfill `matchMedia`/`MessageChannel`/`ResizeObserver`。
+
+`test/` 里的 `setupFilesAfterEnv` 装配提供了 DB 桥接、React act 环境、jsdom 兼容和 console 拦截——新测试自动获得这些。
+
+`posttest` 删除 `.local/test`；action 测试跑的是真实 SQLite 事务，所以优先断言 repository 层的结果而不是 mock。
+
+改动后的验证按影响面选范围，不要默认全量：局部组件/样式/单文件逻辑只跑受影响的测试文件 + `pnpm typecheck` + `pnpm lint`；动了共享基建（`jest.config.js`、`test/setup-*`、被多处引用或 mock 的模块）或提交前的最终确认才跑 `pnpm test` 全量。新增测试文件会加重全量跑的 worker 内存（见 `workerIdleMemoryLimit`），改完基建后跑一次全量确认稳定。
+
+流程（红绿循环、seam、垂直切片）可参考 `/tdd` skill（已随仓库提供）。
 
 ## 约定
 
@@ -320,7 +176,6 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
 - 撤销未推送的提交要重写，而不是 revert：`git reset --soft <base>`（工作可丢弃时用 `git reset --hard`），然后重新提交想要的改动。
   `revert:` 不是 semantic-release 认识的类型，所以 revert 提交会往 changelog 里加一条发版根本不需要的记录，而被它抵消的那条又会留下来，描述一个已经不再发布的功能。
   `git status -sb` 会告诉你这些提交是否还在本地（`ahead N`）；一旦到了 `origin`，就什么都不要重写，改用 revert。
-- 渲染层代码不要出现 Node 全局——文件系统路径和原生模块属于 `src/main`。
 
 ## Agent skills
 
@@ -329,6 +184,8 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
 ### Issue tracker
 
 issue 和 spec 是 `.scratch/<feature-slug>/` 下的 markdown 文件，不是 GitHub Issues。见 `docs/agents/issue-tracker.md`。
+
+`.scratch/` 只放**还没做完的**工作。已经做完、后面的人还会依赖的内容 → `docs/architecture/`（稳定事实）或 `docs/adr/`（决策记录）。
 
 ### Domain docs
 
@@ -339,6 +196,9 @@ issue 和 spec 是 `.scratch/<feature-slug>/` 下的 markdown 文件，不是 Gi
 随着代码的变更，本文档会逐渐偏离实际情况；把它当作需要验证的声明，而不是事实。
 依赖这里写的某条命令、路径或行为之前，先对着 `package.json`、配置文件或源码确认一遍。
 
-某项任务证明这里的说法错了或不完整时（脚本改名了、文件挪走了、行为变了、某个约束解除了），在同一次改动里更新本文件，并在交接时说明。
+某项任务证明这里的说法错了或不完整时（脚本改名了、文件挪走了、行为变了、某个约束解除了），在同一次改动里更新对应文件，并在交接时说明。
 优先改原有条目，而不是在后面补一句关于旧行为的注记。
 保持密集：只写命令、不显然的约束和跨文件架构，不写通用的工程建议。
+
+**改哪个文件**：全局约束、命令、索引 → 本文件；领域细节 → `docs/architecture/` 下对应的那份。
+一份内容只写一次，另一处只放指针。

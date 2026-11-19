@@ -26,6 +26,28 @@ interface State {
 export default class AppErrorBoundary extends React.Component<Props, State> {
     state: State = { error: null, componentStack: null };
 
+    /**
+     * Development-only console entry point for checking the error page.
+     *
+     * The boundary can only be entered by a real render failure, which cannot
+     * be produced from the console; this sets the same state `componentDidCatch`
+     * would. `process.env.NODE_ENV` is substituted at build time, so the
+     * production bundle drops both the hook and its assignments.
+     */
+    componentDidMount(): void {
+        if (process.env.NODE_ENV !== 'production') {
+            (window as any).__plShowErrorScreen = (message = 'UI check'): void => {
+                this.setState({ error: new Error(message), componentStack: null });
+            };
+        }
+    }
+
+    componentWillUnmount(): void {
+        if (process.env.NODE_ENV !== 'production') {
+            delete (window as any).__plShowErrorScreen;
+        }
+    }
+
     static getDerivedStateFromError(error: Error): Partial<State> {
         return { error };
     }

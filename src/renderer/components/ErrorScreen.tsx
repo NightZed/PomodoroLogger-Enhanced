@@ -1,10 +1,20 @@
 import * as React from 'react';
 import styled from 'styled-components';
+import {
+    CheckOutlined,
+    CopyOutlined,
+    FolderOpenOutlined,
+    GithubOutlined,
+    PoweroffOutlined,
+    ReloadOutlined,
+} from '@ant-design/icons';
 import WindowControls from './WindowControls';
 import { t } from '../i18n';
 import { TITLE_BAR_HEIGHT } from './AppTitleBar/tokens';
 import { APP_FONT_FAMILY } from '../theme/tokens';
-import { formatTimestamp } from '../../shared/formatTimestamp';
+import { copyToClipboard } from '../clipboard';
+import { diagnosticsText, DiagnosticsSource } from '../diagnostics';
+import { ISSUES_URL } from '../../shared/links';
 import type { LogInfo } from '../../main/ipc/type';
 
 interface Props {
@@ -84,6 +94,9 @@ const Actions = styled.div`
 `;
 
 const Button = styled.button<{ $primary?: boolean }>`
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     padding: 6px 16px;
     border-radius: 6px;
     border: 1px solid ${({ $primary }) => ($primary ? 'var(--pl-primary)' : 'var(--pl-border)')};
@@ -130,52 +143,6 @@ const Details = styled.details`
     }
 `;
 
-function detailsText(
-    error: Error,
-    componentStack: string | null | undefined,
-    info: LogInfo | undefined
-): string {
-    return [
-        `${error.name}: ${error.message}`,
-        error.stack ?? '',
-        componentStack ? `\nComponent stack:${componentStack}` : '',
-        info ? `\nLog folder: ${info.dir}` : '',
-        info ? `Session: ${info.sessionId}` : '',
-        // Local wall clock plus its UTC offset, the same format the log files
-        // use: a bare Z timestamp makes the reader convert time zones by hand
-        // to correlate the crash with what they were doing.
-        `Time: ${formatTimestamp(new Date())}`,
-        `User agent: ${typeof navigator === 'undefined' ? '' : navigator.userAgent}`,
-    ]
-        .filter((line) => line !== '')
-        .join('\n');
-}
-
-/** Copy via the clipboard API, falling back to a temporary textarea. */
-async function copyToClipboard(text: string): Promise<boolean> {
-    try {
-        await navigator.clipboard.writeText(text);
-        return true;
-    } catch {
-        // file:// pages without focus can reject; use the legacy path.
-    }
-
-    try {
-        const area = document.createElement('textarea');
-        area.value = text;
-        area.setAttribute('readonly', '');
-        area.style.position = 'fixed';
-        area.style.opacity = '0';
-        document.body.appendChild(area);
-        area.select();
-        const ok = document.execCommand('copy');
-        document.body.removeChild(area);
-        return ok;
-    } catch {
-        return false;
-    }
-}
-
 const ErrorScreen: React.FC<Props> = ({ error, componentStack }) => {
     const [info, setInfo] = React.useState<LogInfo>();
     const [copied, setCopied] = React.useState(false);
@@ -195,6 +162,15 @@ const ErrorScreen: React.FC<Props> = ({ error, componentStack }) => {
         };
     }, []);
 
+    const source = (): DiagnosticsSource => ({
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        componentStack,
+    });
+
+    const details = () => diagnosticsText(source(), info);
+
     const restart = () => {
         window.api?.restart?.();
         // In development the main process only logs the restart request, so
@@ -204,11 +180,38 @@ const ErrorScreen: React.FC<Props> = ({ error, componentStack }) => {
         }
     };
 
-    const copy = async () => {
-        if (await copyToClipboard(detailsText(error, componentStack, info))) {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
+    /**
+     * Reads the log location at the moment of copying instead of trusting
+     * `info` from the mount effect: the lookup may still be in flight when the
+     * user clicks, and a report without the log path cannot be matched against
+     * the file it refers to.
+     */
+    const currentInfo = async (): Promise<LogInfo | undefined> => {
+        try {
+            return await window.api?.logInfo?.();
+        } catch {
+            return info;
         }
+    };
+
+    /**
+     * Copies the details and reports whether it worked, so "Report issue" can
+     * hand over the same text before opening the tracker. Opening the browser
+     * takes focus away from this window, and a clipboard write from an
+     * unfocused document can be rejected.
+     */
+    const copyDetails = async (): Promise<boolean> => {
+        if (!(await copyToClipboard(diagnosticsText(source(), await currentInfo())))) {
+            return false;
+        }
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+        return true;
+    };
+
+    const reportIssue = async () => {
+        await copyDetails();
+        window.api?.openExternal?.(ISSUES_URL);
     };
 
     return (
@@ -222,17 +225,44 @@ const ErrorScreen: React.FC<Props> = ({ error, componentStack }) => {
                 <Text>{t('crash.body')}</Text>
                 <Text>{t('crash.hint')}</Text>
                 <Actions>
-                    <Button type="button" $primary onClick={restart}>
-                        {t('crash.restart')}
+                    <Button
+                        type="button"
+                        $primary
+                        aria-label={t('crash.restart')}
+                        onClick={restart}
+                    >
+                        <ReloadOutlined />
+                        <span>{t('crash.restart')}</span>
                     </Button>
-                    <Button type="button" onClick={() => window.api?.quit?.()}>
-                        {t('crash.quit')}
+                    <Button type="button" aria-label={t('crash.feedback')} onClick={reportIssue}>
+                        <GithubOutlined />
+                        <span>{t('crash.feedback')}</span>
                     </Button>
-                    <Button type="button" onClick={copy}>
-                        {copied ? t('crash.copied') : t('crash.copy')}
+                </Actions>
+                <Actions>
+                    <Button
+                        type="button"
+                        aria-label={copied ? t('crash.copied') : t('crash.copy')}
+                        onClick={copyDetails}
+                    >
+                        {copied ? <CheckOutlined /> : <CopyOutlined />}
+                        <span>{copied ? t('crash.copied') : t('crash.copy')}</span>
                     </Button>
-                    <Button type="button" onClick={() => window.api?.openLogDir?.()}>
-                        {t('crash.logFolder')}
+                    <Button
+                        type="button"
+                        aria-label={t('crash.logFolder')}
+                        onClick={() => window.api?.openLogDir?.()}
+                    >
+                        <FolderOpenOutlined />
+                        <span>{t('crash.logFolder')}</span>
+                    </Button>
+                    <Button
+                        type="button"
+                        aria-label={t('crash.quit')}
+                        onClick={() => window.api?.quit?.()}
+                    >
+                        <PoweroffOutlined />
+                        <span>{t('crash.quit')}</span>
                     </Button>
                 </Actions>
                 {info ? (
@@ -244,7 +274,7 @@ const ErrorScreen: React.FC<Props> = ({ error, componentStack }) => {
                 ) : null}
                 <Details>
                     <summary>{t('crash.details')}</summary>
-                    <pre>{detailsText(error, componentStack, info)}</pre>
+                    <pre>{details()}</pre>
                 </Details>
             </Body>
         </Root>

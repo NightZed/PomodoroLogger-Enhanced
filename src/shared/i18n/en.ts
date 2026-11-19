@@ -818,6 +818,7 @@ export const en = {
             'if it keeps happening, open the log folder and attach the files to a bug report.',
         restart: 'Restart',
         quit: 'Quit',
+        feedback: 'Report Issue',
         copy: 'Copy Details',
         copied: 'Copied',
         details: 'Technical Details',

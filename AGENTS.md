@@ -164,11 +164,14 @@ store 位于仓库之外（全局配置，本机在 `E:\pnpm-store`），并且�
   React 渲染错误显示在整窗的 `src/renderer/components/ErrorScreen.tsx` 上；**应用不再自己重启**，重启是那个页面上的一个按钮。
   `AppErrorBoundary` 必须留在 `app.tsx` 里 `Application` 的*外面*——放在里面的话，它会和它本该替换的那棵树一起卸载。
   这个页面自己画拖拽条和窗口按钮，因为无边框窗口没有原生的。
+  开发期在 DevTools 控制台执行 `__plShowErrorScreen()` 可以直接切到这一页（只改 boundary 的 state，不写 `crash.log`）；未捕获的 `window` 错误则弹下面那种错误卡片。
 - `src/renderer/errorReporting.tsx` 是唯一的上报入口，按指纹（`kind|message`）累积：
   首次立即写一行，此后同一指纹每 60 秒最多再写一行，行内带累计次数 `(x37)`（`RendererErrorPayload.count`）。
   一个在指针事件里的重复异常（例如鼠标每移动一次抛一次）因此只留每分钟一行，而不是一行一次。
   界面可用的错误（`window 'error'`、`unhandledrejection`、Timer 页内层边界的 `component`）额外弹**一次** `feedback.notice`
-  （`ReportExtra.notify`）：同一指纹每次启动只弹一次、带「打开日志文件夹」、没有遮罩所以点空白关不掉。
+  （`ReportExtra.notify`）：同一指纹每次启动只弹一次、没有遮罩所以点空白关不掉。
+  卡片的三个动作（复制 / 反馈 / 打开日志）是 `components/ErrorNoticeActions.tsx` 里的图标按钮，文案同时放在 tooltip 和 `aria-label` 里，和 `ErrorScreen` 用同一组 `crash.*` key；antd 把通知放在 z-index 2050、tooltip 放在 1070，所以这几个 tooltip 必须用 `styles.root.zIndex` 抬到卡片之上，否则会被卡片盖住。
+  「反馈」先复制再 `openExternal`：先开浏览器会让窗口失焦，剪贴板写入随后可能被拒绝，issue 就缺了日志信息。
   整窗的渲染错误已经换成 `ErrorScreen`，不再弹提示。`FeedbackContextBridge` 尚未挂载时（启动早期）视为未提示，下一次仍会弹。
 - 番茄钟页的内层边界就长在 `Timer` 自己身上（`getDerivedStateFromError` + `hasError` + `renderFallback`），**不要**改成包住 `<Timer />` 的包装组件：
   `Timer.componentWillUnmount` 会 `monitor.discard()`，卸载实例等于丢掉正在跑的番茄和它的截图。

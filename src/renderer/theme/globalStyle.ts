@@ -728,6 +728,11 @@ export const GlobalStyle = createGlobalStyle`
     html[data-theme] .ant-notification-notice-description {
         color: var(--pl-text-secondary);
     }
+    /* The body of a notice is selectable, its buttons are not: dragging across
+       the footer would otherwise highlight the action labels on the way. */
+    html[data-theme] .ant-notification-notice-actions {
+        user-select: none;
+    }
     /* Error notices are not status updates: they report a failure whose details
        live in the log file, so they carry the kind's accent -- a red edge, a
        tinted surface and a bolder title. The tint is a gradient over the opaque

@@ -8,6 +8,7 @@ import { feedback, FEEDBACK_MESSAGES } from '../feedback';
 import { DistractingListModalButton } from './DistractingList';
 import { isShallowEqualByKeys } from '../../utils';
 import { TITLE_BAR_HEIGHT } from '../AppTitleBar/tokens';
+import { ISSUES_URL } from '../../../shared/links';
 import pkg from '../../../../package.json';
 import type { ExportResult, ImportResult, UpdateErrorPayload } from '../../../main/ipc/type';
 import type { DataIssuesReport, DataRepairResult } from '../../../shared/dataRepair';
@@ -1687,9 +1688,7 @@ function fileNameOf(filePath: string): string {
 }
 
 function openIssuePage() {
-    window.api.openExternal(
-        'https://github.com/NightZed/PomodoroLogger-Enhanced/issues/new/choose'
-    );
+    window.api.openExternal(ISSUES_URL);
 }
 
 function openGithubPage() {

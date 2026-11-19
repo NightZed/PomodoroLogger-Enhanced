@@ -733,6 +733,7 @@ export const zh: CatalogShape<typeof en> = {
             '如果反复出现，请打开日志文件夹，把文件附加到问题反馈中。',
         restart: '重启',
         quit: '退出',
+        feedback: '反馈问题',
         copy: '复制详情',
         copied: '已复制',
         details: '技术细节',

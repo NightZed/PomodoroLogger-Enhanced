@@ -4,6 +4,7 @@
  * module instead of sharing that map with its neighbours.
  */
 import { renderToStaticMarkup } from 'react-dom/server';
+import type { ReactNode } from 'react';
 
 const mockNotice = jest.fn();
 const mockReportError = jest.fn();
@@ -14,10 +15,11 @@ jest.mock('./components/feedback', () => ({
     },
 }));
 
-// Only `Button` is used, and the real antd is expensive to require once per
-// isolated module registry.
+// Only the notice actions use antd, and the real library is expensive to
+// require once per isolated module registry.
 jest.mock('antd', () => ({
     Button: () => null,
+    Tooltip: ({ children }: { children: ReactNode }) => children,
 }));
 
 async function loadReporter(): Promise<typeof import('./errorReporting')> {

@@ -1,7 +1,8 @@
 import * as React from 'react';
-import { Button } from 'antd';
+import ErrorNoticeActions from './components/ErrorNoticeActions';
 import { feedback } from './components/feedback';
 import { t } from './i18n';
+import type { DiagnosticsSource } from './diagnostics';
 import type { RendererDataFailurePayload, RendererErrorPayload } from '../main/ipc/type';
 
 /**
@@ -101,14 +102,12 @@ function countOccurrence(fingerprint: string): FingerprintRecord {
     return record;
 }
 
-const logFolderButton = () => (
-    <Button size="small" onClick={() => window.api?.openLogDir?.()}>
-        {t('crash.logFolder')}
-    </Button>
-);
-
 /**
  * The one-time notice of a still-usable window.
+ *
+ * `source` describes the failure for the notice's copy/report buttons; it
+ * carries the untruncated message, unlike the description, which is clamped
+ * for the screen.
  *
  * Returns false when the feedback bridge is not mounted yet (the antd `App`
  * lives inside `<Application />`, so an error during startup has none): the
@@ -118,7 +117,8 @@ const logFolderButton = () => (
 function showNotice(
     fingerprint: string,
     title: React.ReactNode,
-    description: React.ReactNode
+    description: React.ReactNode,
+    source: DiagnosticsSource
 ): boolean {
     try {
         feedback.notice({
@@ -128,7 +128,7 @@ function showNotice(
             kind: 'error',
             title,
             description,
-            actions: logFolderButton(),
+            actions: <ErrorNoticeActions source={source} />,
         });
         return true;
     } catch {
@@ -168,7 +168,13 @@ export function reportRendererError(
                     <div style={{ marginTop: 4, color: 'var(--pl-text-tertiary)' }}>
                         {t('crash.noticeHint')}
                     </div>
-                </div>
+                </div>,
+                {
+                    message,
+                    name: error instanceof Error ? error.name : undefined,
+                    stack: stackOf(error),
+                    componentStack: extra.componentStack,
+                }
             );
         }
 
@@ -252,6 +258,7 @@ export function reportDataFailure(
         const fingerprint = `data|${scope}|${message}`;
         const now = Date.now();
         const record = countOccurrence(fingerprint);
+        const contextText = formatContext(context);
 
         if (extra.notify === true && !record.notified) {
             record.notified = showNotice(
@@ -264,7 +271,8 @@ export function reportDataFailure(
                     <div style={{ marginTop: 4, color: 'var(--pl-text-tertiary)' }}>
                         {t('common.dataNotSavedHint')}
                     </div>
-                </div>
+                </div>,
+                { message, scope, context: contextText }
             );
         }
 
@@ -283,7 +291,6 @@ export function reportDataFailure(
         if (stack) {
             payload.stack = stack.slice(0, MAX_STACK);
         }
-        const contextText = formatContext(context);
         if (contextText) {
             payload.context = contextText;
         }

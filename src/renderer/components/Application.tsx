@@ -33,7 +33,12 @@ import { APP_FONT_FAMILY } from '../theme/tokens';
 import { useThemeTokens } from '../theme/useThemeTokens';
 import { useI18n } from '../i18n';
 import { FeedbackContextBridge } from './feedback/Feedback';
-import { setWindowAttentionFlags } from './feedback/attention';
+import {
+    planWindowAttention,
+    setWindowAttentionFlags,
+    setWindowAttentionHandler,
+} from './feedback/attention';
+import type { AttentionKind } from './feedback/attention';
 
 /**
  * Window layer stack, bottom to top, and the setting that sizes each layer:
@@ -334,7 +339,33 @@ class Application extends React.Component<Props, State> {
             this.setState({ maximized });
             this.props.setInTray(inTray);
         });
+
+        // Registered here rather than in the feedback layer: that module must
+        // not import `Timer/action` (it would close a cycle through
+        // `errorReporting`), and this component already owns both the flags and
+        // the thunks.
+        setWindowAttentionHandler(this.onWindowAttention);
     }
+
+    /**
+     * A feedback surface that the current window cannot show asks for the
+     * window first. The decision table is `attention.ts`; this is only the
+     * execution: the store has to move with the window, or the resize would
+     * leave the mini layout (and its hidden modal root) in place.
+     */
+    private onWindowAttention = (kind: AttentionKind): void => {
+        const { inTray, minimize, compact } = this.props;
+        const action = planWindowAttention({ inTray, minimize, compact }, kind);
+        if (action === 'none') {
+            return;
+        }
+
+        if (action === 'normal' && minimize) {
+            this.props.setMinimize(false);
+        }
+
+        window.api?.showWindowForAttention?.(action);
+    };
 
     /**
      * The one tab-switching routine: the title bar (its clicks and its
@@ -419,6 +450,7 @@ class Application extends React.Component<Props, State> {
     };
 
     componentWillUnmount() {
+        setWindowAttentionHandler(undefined);
         this.unsubscribeWindowMaximized?.();
         this.unsubscribeWindowMaximized = undefined;
         this.unsubscribeWindowResizing?.();

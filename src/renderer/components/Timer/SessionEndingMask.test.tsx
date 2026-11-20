@@ -238,12 +238,18 @@ describe('TimerMask mount point', () => {
     });
 });
 
+/**
+ * Structural proxies, not behaviour: jsdom computes no stacking, so "which one
+ * paints on top" cannot be asserted here. These two guard the fix itself --
+ * the menus being mounted inside the mask; visibility still needs a manual
+ * check, and the order it relies on is pinned by `layers.test.ts`.
+ */
 describe('TimerMask select menus', () => {
     afterEach(cleanup);
 
-    // Regression: f7077c8 把遮罩搬进应用级层并把 z-index 提到 1100，而 antd
-    // 把下拉菜单挂到共享 popup layer（1050），从项目名打开的选择框因此画在
-    // 遮罩下面。jsdom 不做层叠计算，这里断言菜单是遮罩的子节点：为它定层。
+    // Regression: f7077c8 moved the mask into the app-level layer and raised
+    // it to 1100, while antd mounts select menus in the shared popup layer
+    // (1050). The project menu therefore painted underneath the mask.
     it('mounts the project menu inside the mask', () => {
         const view = renderMask({}, { boardId: 'b1' });
 

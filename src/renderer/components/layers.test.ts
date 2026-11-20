@@ -28,9 +28,19 @@ describe('LAYER', () => {
         expect(ordered).toEqual(byValue);
     });
 
-    // The antd values are mirrors, not choices. If antd moves its base, the
-    // order above silently becomes wrong; this assertion is what notices.
+    // Regression: the mirrors used to be plain numbers inside each component,
+    // so nothing noticed when antd moved its base -- the order above would then
+    // be chosen against a stale value. Only the base is mirrored here: the
+    // offsets each antd component adds (Select +50, tooltip +70, notification
+    // +1000+50) are not, so a change to those will not fail this test.
     it('mirrors the antd base the app layers are chosen against', () => {
-        expect(theme.getDesignToken().zIndexPopupBase).toBe(LAYER.modal);
+        const base = theme.getDesignToken().zIndexPopupBase;
+
+        // Both sides are in the asserted value, so the diff names the one that
+        // moved instead of only printing two numbers.
+        expect({ antd: base, layer: LAYER.modal }).toEqual({
+            antd: LAYER.modal,
+            layer: LAYER.modal,
+        });
     });
 });

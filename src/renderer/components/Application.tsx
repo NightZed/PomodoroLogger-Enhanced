@@ -339,12 +339,6 @@ class Application extends React.Component<Props, State> {
             this.setState({ maximized });
             this.props.setInTray(inTray);
         });
-
-        // Registered here rather than in the feedback layer: that module must
-        // not import `Timer/action` (it would close a cycle through
-        // `errorReporting`), and this component already owns both the flags and
-        // the thunks.
-        setWindowAttentionHandler(this.onWindowAttention);
     }
 
     /**
@@ -485,6 +479,11 @@ class Application extends React.Component<Props, State> {
         // wraps it, and the feedback functions run outside React). This render
         // is the one place that already derives the mode, so publish it there.
         setWindowAttentionFlags({ inTray, minimize, compact });
+        // The handler is (re)registered on every render, not in
+        // `componentDidMount`: a feedback surface can be raised before that
+        // hook runs (an early error), and it must still be able to recover the
+        // window. Registering here cannot close a cycle through `Timer/action`.
+        setWindowAttentionHandler(this.onWindowAttention);
         const unloadOptions = { currentTab, unloadOnCloseToTray };
         const kanbanPlan = planPageUnload('kanban', mode, unloadOptions);
         const historyPlan = planPageUnload('history', mode, unloadOptions);

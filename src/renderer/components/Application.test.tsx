@@ -81,6 +81,7 @@ jest.mock('../workers', () => ({
 import { rootReducer, RootState } from '../reducers';
 import { setCompact, setMinimize, setUnloadOnCloseToTray } from './Timer/action';
 import { feedback } from './feedback';
+import { requestWindowAttention } from './feedback/attention';
 import ConnectedApplication from './Application';
 
 let windowMaximizedListener: ((maximized: boolean) => void) | undefined;
@@ -112,6 +113,7 @@ let windowTrayListener: ((inTray: boolean) => void) | undefined;
     windowAction: jest.fn(),
     windowDrag: jest.fn(),
     windowState: jest.fn().mockResolvedValue({ maximized: false, inTray: false }),
+    showWindowForAttention: jest.fn(),
 };
 
 /** Fires the pushed window-state event exactly like the preload bridge does. */
@@ -371,6 +373,22 @@ describe('Application page switching', () => {
         // unmounting it dropped the progress/downloaded events, which the main
         // process pushes once and never replays.
         expect(mockUpdateControllerMounts).toHaveBeenCalled();
+    });
+
+    it('recovers the window when an error notice cannot be shown in the mini strip', async () => {
+        await act(async () => {
+            store.dispatch(setMinimize(true));
+        });
+
+        act(() => {
+            requestWindowAttention('error');
+        });
+
+        // `normal` resizes the strip; the store is moved in the same handler,
+        // or the resize would leave the mini layout (and its hidden modal root)
+        // behind.
+        expect((window as any).api.showWindowForAttention).toHaveBeenCalledWith('normal');
+        expect(state().minimize).toBe(false);
     });
 
     it('ignores document visibility, so a merely covered window keeps its pages', async () => {

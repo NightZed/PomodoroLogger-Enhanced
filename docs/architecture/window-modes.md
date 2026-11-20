@@ -94,6 +94,8 @@ planPageUnload(page, mode, { currentTab, unloadOnCloseToTray }): {
 
 托盘只有两个通道：变成确认用水果的托盘图标，和受 `desktopNotification` 控制的原生通知。遮罩不出现、窗口也不回来，用户可以在托盘菜单点 Start，先确认这次会话再开始下一次。
 
+主进程的 `FocusOnWindow` 也会再判一次 `isWindowInTray()`：渲染层的 `inTray` 副本可能落后一次推送，而「不该把窗口拉回来」这个方向不能赌它已经同步。
+
 迷你、紧凑、普通保持原行为：迷你走 `MiniLogger` 的确认态，其余走 `TimerMask`。
 
 ## 未确认的会话阻止退出
@@ -109,6 +111,7 @@ win.webContents.send(WindowEventName.QuitBlocked);
 渲染层收到 `QuitBlocked` 后把 mini / compact 复位成普通窗口，结束遮罩因此可见。处理完不自动退出。
 
 - 所有退出入口必须走 `app.quit()`：`app.exit()` 完全跳过 `before-quit`。Ctrl+Q 和托盘「退出」原来都是 `app.exit()`，拦不住。
+- `win` 的 `close` 处理器会在 `before-quit` 放行时置 `quitting`，否则 `app.quit()` 关闭窗口会让它再走一遍 `closeToTray`，退出被吞掉、窗口反而进了托盘。
 - 窗口已销毁时不拦。`InstallUpdate` 先清 `win` 引用再交给 electron-updater，拦了会得到一个没有窗口、也退不掉的进程。
 - Timer 卸载时把标志置回 false：崩溃页替换掉页面之后，用户仍必须能退出。
 

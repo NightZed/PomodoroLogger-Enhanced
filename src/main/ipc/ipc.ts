@@ -241,17 +241,21 @@ export function handleCommand(
 export function initialize() {
     initializeDbIpc(isTrustedSender);
     handle(IpcEventName.ActiveWin, activeWin);
-    handle(IpcEventName.FocusOnWindow, () => {
-        // A window in the tray stays there: the confirming tray icon and the
-        // system notification are its channels (see `onDone`). The renderer
-        // already checks `inTray` before asking, but its copy can lag one push
-        // behind, and this is the decision that must not.
-        if (isWindowInTray()) {
-            return;
-        }
+    handle(
+        IpcEventName.FocusOnWindow,
+        (revealFromTray = false) => {
+            // A window in the tray stays there unless the caller says the
+            // reveal is intended (the "open the window when a session ends"
+            // setting). The renderer's `inTray` copy can lag one push behind,
+            // and "do not pull the window back" must not depend on it.
+            if (!revealFromTray && isWindowInTray()) {
+                return;
+            }
 
-        revealWindow();
-    });
+            revealWindow();
+        },
+        [(value) => assertOptionalBoolean(value, 'reveal from tray')]
+    );
     /**
      * A feedback surface could not show itself in the current window shape.
      *

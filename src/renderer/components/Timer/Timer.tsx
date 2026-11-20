@@ -1020,13 +1020,13 @@ class Timer extends Component<Props, State> {
         // flips it) only runs on confirm.
         this.resetStat({ confirming: true, isFocusing: this.props.timer.isFocusing });
         if (shouldRemind) {
-            // A window in the tray stays there. The confirming tray icon and
-            // the optional system notification already tell the user the
-            // session ended, and pulling the whole window up would interrupt
-            // whatever they moved on to; the tray menu's Start entries confirm
-            // the staged session without restoring it (see `trayMenuItems`).
-            if (!this.props.timer.inTray) {
-                this.focusOnCurrentWindow();
+            // A window in the tray stays there unless the user asked to be
+            // brought back (the setting is off by default). With it on this is
+            // exactly the tray's "Open" entry: the window returns in the shape
+            // it was closed with, and the main process also has to be told the
+            // reveal is intended, or its tray guard would refuse it.
+            if (!this.props.timer.inTray || this.props.timer.openWindowOnSessionEnd) {
+                this.focusOnCurrentWindow(this.props.timer.openWindowOnSessionEnd);
             }
             this.remindUserTimeout(0);
             this.remindUserTimeout(60 * 1000);
@@ -1211,8 +1211,13 @@ class Timer extends Component<Props, State> {
         50
     );
 
-    private focusOnCurrentWindow() {
-        window.api.focusOnWindow();
+    /**
+     * `revealFromTray` carries the user's "open the window when a session
+     * ends" setting. The main process refuses to pull a tray window forward
+     * without it: its own `inTray` is the reliable copy.
+     */
+    private focusOnCurrentWindow(revealFromTray = false) {
+        window.api.focusOnWindow(revealFromTray);
     }
 
     /**

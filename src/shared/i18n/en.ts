@@ -741,6 +741,11 @@ export const en = {
             returnToTimerOnSessionEnd: 'Return to the Timer When a Session Ends',
             returnToTimerOnSessionEndHint:
                 'When off, the ending prompt appears over the current page without switching pages.',
+            openWindowOnSessionEnd: 'Open the Window When a Session Ends',
+            openWindowOnSessionEndHint:
+                'Brings the window back and shows the confirmation when a focus or break ' +
+                'session ends while it is in the tray. When off, only the tray icon and the ' +
+                'desktop notification announce it.',
         },
         about: {
             hint: 'A time logger that meets the Pomodoro technique and a kanban board.',

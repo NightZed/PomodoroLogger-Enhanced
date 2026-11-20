@@ -174,6 +174,7 @@ const baseTimer = {
     minFinishDuration: 0,
     warnBeforeFocusStart: false,
     returnToTimerOnSessionEnd: true,
+    openWindowOnSessionEnd: false,
     screenShotInterval: undefined,
     workSoundPath: undefined as string | undefined,
     workSoundEnabled: true,
@@ -872,6 +873,25 @@ describe('Timer page', () => {
         expect(api.notify).toHaveBeenCalled();
         expect(actions.setSessionEnding).toHaveBeenCalledWith(true);
         expect(api.focusOnWindow).not.toHaveBeenCalled();
+    });
+
+    it('opens the window after a session in the tray when the setting is on', async () => {
+        await renderTimer({
+            isFocusing: false,
+            isRunning: true,
+            targetTime: Date.now() + 1,
+            inTray: true,
+            openWindowOnSessionEnd: true,
+        });
+
+        await act(async () => {
+            jest.advanceTimersByTime(1000);
+        });
+
+        // Same as the tray's Open entry: the window comes back in the shape it
+        // was closed with, so the main process has to be told the reveal is
+        // intended (`true`), not left to its tray guard.
+        expect(api.focusOnWindow).toHaveBeenCalledWith(true);
     });
 
     it('tells the main process a finished session is waiting for confirmation', async () => {

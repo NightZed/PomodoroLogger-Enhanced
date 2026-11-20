@@ -498,6 +498,7 @@ const settingUiStates = [
     'desktopNotification',
     'warnBeforeFocusStart',
     'returnToTimerOnSessionEnd',
+    'openWindowOnSessionEnd',
     'useHardwareAcceleration',
     'unloadOnCloseToTray',
     'compactAlwaysOnTop',
@@ -1451,6 +1452,21 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                         checked={props.returnToTimerOnSessionEnd}
                                         aria-label={t(
                                             'settings.notification.returnToTimerOnSessionEnd'
+                                        )}
+                                        style={{ margin: 8 }}
+                                    />
+                                </Field>
+
+                                <Field>
+                                    <h4>{t('settings.notification.openWindowOnSessionEnd')}</h4>
+                                    <Hint>
+                                        {t('settings.notification.openWindowOnSessionEndHint')}
+                                    </Hint>
+                                    <Switch
+                                        onChange={(value) => props.setOpenWindowOnSessionEnd(value)}
+                                        checked={props.openWindowOnSessionEnd}
+                                        aria-label={t(
+                                            'settings.notification.openWindowOnSessionEnd'
                                         )}
                                         style={{ margin: 8 }}
                                     />

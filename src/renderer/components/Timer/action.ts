@@ -126,6 +126,14 @@ export interface Setting {
      * keeps an open board/card editor and a drag in progress intact.
      */
     returnToTimerOnSessionEnd: boolean;
+    /**
+     * When on, a session that ends while the window is in the tray brings the
+     * window back -- the same thing the tray's "Open" entry does, so it returns
+     * in the shape it was closed with (mini, compact or normal). Off by
+     * default: a switch to the tray means the user moved on, and the confirming
+     * tray icon plus the desktop notification already announce the end.
+     */
+    openWindowOnSessionEnd: boolean;
     startOnBoot: boolean;
     useHardwareAcceleration: boolean;
     /**
@@ -285,6 +293,7 @@ export const defaultState: TimerState = {
     desktopNotification: true,
     warnBeforeFocusStart: true,
     returnToTimerOnSessionEnd: true,
+    openWindowOnSessionEnd: false,
     calendarBaseColor: '#aceebb',
     themeId: DEFAULT_THEME_ID,
     followSystemTheme: false,
@@ -418,6 +427,9 @@ export const setWarnBeforeFocusStart = createAction<boolean>('[Timer]SET_WARN_BE
 export const setReturnToTimerOnSessionEnd = createAction<boolean>(
     '[Setting]SET_RETURN_TO_TIMER_ON_SESSION_END'
 );
+export const setOpenWindowOnSessionEnd = createAction<boolean>(
+    '[Setting]SET_OPEN_WINDOW_ON_SESSION_END'
+);
 export const setCalendarBaseColor = createAction<string>('[Timer]SET_CALENDAR_BASE_COLOR');
 export const switchFocusRestMode = createAction('[Timer]SWITCH_FOCUS_MODE');
 export const setThemeId = createAction<string>('[Setting]SET_THEME_ID');
@@ -469,6 +481,7 @@ export const actions = {
             ['desktopNotification', setDesktopNotification],
             ['warnBeforeFocusStart', setWarnBeforeFocusStart],
             ['returnToTimerOnSessionEnd', setReturnToTimerOnSessionEnd],
+            ['openWindowOnSessionEnd', setOpenWindowOnSessionEnd],
             ['startOnBoot', setStartOnBoot],
             ['useHardwareAcceleration', setUseHardwareAcceleration],
             ['unloadOnCloseToTray', setUnloadOnCloseToTray],
@@ -657,6 +670,14 @@ export const actions = {
                 { upsert: true }
             );
         },
+    setOpenWindowOnSessionEnd: (openWindowOnSessionEnd: boolean) => async (dispatch: Dispatch) => {
+        dispatch(setOpenWindowOnSessionEnd(openWindowOnSessionEnd));
+        await settingDB.update(
+            { name: 'setting' },
+            { $set: { openWindowOnSessionEnd } },
+            { upsert: true }
+        );
+    },
     /**
      * Reminder sounds. The file is written as given -- the app never copies it
      * -- and an empty value unsets the key, so "no custom file" is absence
@@ -947,6 +968,10 @@ export const reducer = createReducer<TimerState>(defaultState, (builder) => {
         .addCase(setReturnToTimerOnSessionEnd, (state, { payload }) => ({
             ...state,
             returnToTimerOnSessionEnd: payload,
+        }))
+        .addCase(setOpenWindowOnSessionEnd, (state, { payload }) => ({
+            ...state,
+            openWindowOnSessionEnd: payload,
         }))
         .addCase(setUseHardwareAcceleration, (state, { payload }) => ({
             ...state,

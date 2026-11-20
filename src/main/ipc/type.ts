@@ -398,7 +398,7 @@ export type ExposedAPI = {
     [IpcEventName.CompactWindow](on: boolean, alwaysOnTop?: boolean): Promise<void>;
     [IpcEventName.OpenDevTools](): Promise<void>;
     [IpcEventName.Notify](title: string, body: string): Promise<void>;
-    [IpcEventName.FocusOnWindow](): Promise<void>;
+    [IpcEventName.FocusOnWindow](revealFromTray?: boolean): Promise<void>;
     [IpcEventName.DesktopSource](): Promise<DesktopSourceInfo | undefined>;
     [IpcEventName.OpenDataDir](): Promise<void>;
     [IpcEventName.OpenLogDir](): Promise<void>;

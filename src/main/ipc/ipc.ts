@@ -31,7 +31,6 @@ import {
     isWindowInTray,
     revealWindow,
     rebuildTrayMenu,
-    restoreWindowForError,
     setMenuItems,
     setSkipTaskbar,
     suppressResizingNotification,
@@ -247,6 +246,30 @@ export function initialize() {
         // restores it first (see init.ts `revealWindow`).
         revealWindow();
     });
+    /**
+     * A feedback surface could not show itself in the current window shape.
+     *
+     * The renderer decides what it needs (`attention.ts`) because only it
+     * knows the store flags; this side only moves the window. `revealWindow`
+     * also clears the tray state, which the pages read for their unload grace
+     * -- showing the window without that would leave them behaving as if they
+     * were still hidden.
+     */
+    handle(
+        IpcEventName.ShowWindowForAttention,
+        (action) => {
+            if (!win) {
+                return;
+            }
+
+            revealWindow();
+            if (action === 'normal') {
+                win.setContentSize(1440, 960);
+                keepWindowOnScreen();
+            }
+        },
+        [(value) => assertOneOf(value, 'attention action', ['normal', 'focus'] as const)]
+    );
     handleCommand(IpcEventName.OpenExternal, (url: string) => openExternalUrl(url), [
         (value) => assertOpenExternalUrl(value),
     ]);
@@ -330,13 +353,10 @@ export function initialize() {
                 detail || undefined
             );
 
-            try {
-                // A crash can happen in mini/compact/maximized mode, where the
-                // error page would be invisible or clipped.
-                restoreWindowForError();
-            } catch (error) {
-                logError('crash', 'main: could not restore the window for the error page', error);
-            }
+            // The window is deliberately left alone here: the renderer decides
+            // whether this failure needs the window back (`attention.ts`), and
+            // a nested boundary's notice has to obey the same table as every
+            // other feedback surface.
         },
         [(value) => assertRendererErrorPayload(value)]
     );

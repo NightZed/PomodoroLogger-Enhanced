@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import AppErrorBoundary from './AppErrorBoundary';
+import { setWindowAttentionFlags } from './feedback/attention';
 import { t } from '../i18n';
 
 const reportError = jest.fn();
@@ -8,6 +9,7 @@ const restart = jest.fn();
 const quit = jest.fn();
 const openLogDir = jest.fn(() => Promise.resolve());
 const logInfo = jest.fn(() => Promise.resolve({ dir: '/tmp/logs', sessionId: 'abc123' }));
+const showWindowForAttention = jest.fn();
 
 function Boom(): React.ReactElement {
     throw new Error('kaboom');
@@ -30,7 +32,15 @@ describe('AppErrorBoundary', () => {
         consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
         jest.useFakeTimers();
         originalApi = (window as any).api;
-        (window as any).api = { reportError, restart, quit, openLogDir, logInfo };
+        (window as any).api = {
+            reportError,
+            restart,
+            quit,
+            openLogDir,
+            logInfo,
+            showWindowForAttention,
+        };
+        setWindowAttentionFlags({ inTray: false, minimize: false, compact: false });
     });
 
     afterEach(() => {
@@ -51,6 +61,21 @@ describe('AppErrorBoundary', () => {
             message: 'kaboom',
         });
         expect(reportError.mock.calls[0][0].stack).toContain('kaboom');
+    });
+
+    it('asks for a normal window when the crash page cannot fit the mini strip', () => {
+        setWindowAttentionFlags({ inTray: false, minimize: true, compact: false });
+
+        mount();
+
+        // `normal` is what makes the main process resize the 200x90 strip.
+        expect(showWindowForAttention).toHaveBeenCalledWith('normal');
+    });
+
+    it('only focuses a normal window instead of resizing it', () => {
+        mount();
+
+        expect(showWindowForAttention).toHaveBeenCalledWith('focus');
     });
 
     it('never restarts the app by itself', () => {

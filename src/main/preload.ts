@@ -135,6 +135,8 @@ const api: ExposedAPI = {
     [IpcEventName.OpenDevTools]: () => invoke<void>(IpcEventName.OpenDevTools),
     [IpcEventName.Notify]: (title, body) => invoke<void>(IpcEventName.Notify, title, body),
     [IpcEventName.FocusOnWindow]: () => invoke<void>(IpcEventName.FocusOnWindow),
+    [IpcEventName.ShowWindowForAttention]: (action) =>
+        invoke<void>(IpcEventName.ShowWindowForAttention, action),
     [IpcEventName.DesktopSource]: () =>
         invoke<DesktopSourceInfo | undefined>(IpcEventName.DesktopSource),
     [IpcEventName.OpenDataDir]: () => invoke<void>(IpcEventName.OpenDataDir),

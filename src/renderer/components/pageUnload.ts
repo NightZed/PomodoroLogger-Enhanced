@@ -1,20 +1,14 @@
 import type { tabType } from './Timer/action';
+import type { WindowMode } from '../../shared/windowMode';
 
 /**
  * How the window is presented, as far as page unloading is concerned.
  *
- * The four values are not independent flags: `minimize` and `compact` are
- * mutually exclusive in the store (see `setMinimize` / `setCompact` in
- * `Timer/action.ts`), and `tray` wins over both because a window that was
- * closed to the tray is not coming back for a while no matter which shape it
- * had. Closing the 90px mini strip, for instance, goes through the same close
- * path: the store still says `minimize: true`, but the user is not looking.
- *
- * `tray` is the CLOSE path only. A plain minimize (`Win+Down`, the caption
- * button) leaves `inTray` false and the pages on their normal schedule -- the
- * user is coming straight back and expects the page they left untouched.
+ * The type lives in `shared/windowMode.ts` because the main process needs the
+ * same four values to decide what a dialog may change. The precedence rules
+ * are documented there.
  */
-export type WindowMode = 'normal' | 'compact' | 'mini' | 'tray';
+export type { WindowMode };
 
 /** Every page that can be unloaded. The Timer page never is; see below. */
 export type PageKey = Exclude<tabType, 'timer'>;

@@ -1,8 +1,18 @@
 import * as React from 'react';
+import { useDispatch } from 'react-redux';
+import type { ThunkDispatch } from 'redux-thunk';
 import { App as AntdApp, Checkbox, Popconfirm } from 'antd';
 import { dialogMotionProps } from '../AppModal';
 import { getPopupContainer } from '../popupLayer';
+import { RootState } from '../../reducers';
+import { actions as timerActions } from '../Timer/action';
 import { FEEDBACK_MESSAGES } from './messages';
+import {
+    getWindowAttentionFlags,
+    planWindowAttention,
+    requestWindowAttention,
+    setWindowAttentionHandler,
+} from './attention';
 import { t } from '../../i18n';
 import {
     FEEDBACK_ICON_COLORS,
@@ -57,6 +67,32 @@ let feedbackAppApi: FeedbackAppApi | undefined;
 
 export const FeedbackContextBridge: React.FC = () => {
     feedbackAppApi = AntdApp.useApp();
+    const dispatch = useDispatch<ThunkDispatch<RootState, unknown, any>>();
+
+    React.useEffect(() => {
+        // A dialog that a mini or tray window cannot show brings the window
+        // back first; see `attention.ts` for the decision table. The flags are
+        // read at call time, not at registration time: the window mode changes
+        // while this component stays mounted.
+        setWindowAttentionHandler((kind) => {
+            const flags = getWindowAttentionFlags();
+            const action = planWindowAttention(flags, kind);
+            if (action === 'none') {
+                return;
+            }
+
+            if (action === 'normal' && flags.minimize) {
+                // The store and the window have to move together: the resize
+                // alone would leave the mini layout (and its hidden modal root)
+                // in place.
+                dispatch(timerActions.setMinimize(false));
+            }
+
+            window.api?.showWindowForAttention?.(action);
+        });
+        return () => setWindowAttentionHandler(undefined);
+    }, [dispatch]);
+
     return null;
 };
 
@@ -106,6 +142,12 @@ export const notice = ({
     placement = 'topRight',
     onClose,
 }: NoticeOptions): void => {
+    if (kind === 'error') {
+        // Only errors earn a window change: they carry the log location the
+        // user has to act on, and a notice is wider than the mini strip.
+        requestWindowAttention('error');
+    }
+
     getFeedbackAppApi().notification.open({
         key,
         // `theme/globalStyle.ts` colors an error notice by this class. The
@@ -180,6 +222,9 @@ export const confirm = ({
     onOk,
     onCancel,
 }: ConfirmOptions) => {
+    // A mini window hides this dialog entirely; see `attention.ts`.
+    requestWindowAttention('confirm');
+
     return getFeedbackAppApi().modal.confirm({
         ...dialogMotionProps,
         className: dialogClassName(kind),
@@ -207,6 +252,9 @@ export const alert = ({
     actions,
     onOk,
 }: AlertOptions) => {
+    // Same reason as `confirm`: the mini window cannot show it.
+    requestWindowAttention('confirm');
+
     return getFeedbackAppApi().modal.info({
         ...dialogMotionProps,
         className: dialogClassName(kind),

@@ -7,6 +7,7 @@ import type { DbName, HistoryData } from '../db/types';
 import type { AggPomodoroInfo } from '../../renderer/components/History/op';
 import type { Language, LanguagePreference } from '../../shared/i18n';
 import type { LogLevel } from '../../shared/log';
+import type { WindowAttentionAction } from '../../shared/windowMode';
 import type { DeleteKanbanItemsPayload, KanbanDeletionResult } from '../../shared/kanbanDeletion';
 import type { CardMoveResult, MoveCardPayload } from '../../shared/cardMove';
 import type { MoveCardInBoardPayload } from '../../shared/cardDrag';
@@ -73,6 +74,8 @@ export enum IpcEventName {
     OpenDevTools = 'openDevTools',
     Notify = 'notify',
     FocusOnWindow = 'focusOnWindow',
+    /** Brings the window back for a dialog it could not show; see `attention.ts`. */
+    ShowWindowForAttention = 'showWindowForAttention',
     DesktopSource = 'desktopSource',
     OpenExternal = 'openExternal',
     /** Opens the database/screenshot folder in the OS file manager. */
@@ -409,6 +412,12 @@ export type ExposedAPI = {
     openExternal(url: string): void;
     setNativeTheme(source: NativeThemeSource): void;
     setLanguage(language: Language): void;
+    /**
+     * Recovers the window from the mini strip or the tray so a dialog can be
+     * seen. `normal` restores 1440x960; `focus` keeps the size (a compact or
+     * user-sized window was closed with its own dimensions).
+     */
+    [IpcEventName.ShowWindowForAttention](action: WindowAttentionAction): Promise<void>;
 
     saveScreenshot(dataUrl: string): Promise<string>;
     deleteScreenshots(paths: string[]): Promise<void>;

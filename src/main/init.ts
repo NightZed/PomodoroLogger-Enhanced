@@ -388,38 +388,6 @@ function installWindowDiagnostics(window: BrowserWindow): void {
     });
 }
 
-/**
- * Puts the window back into a state where the renderer's error page is
- * readable. A crash can happen in mini (200x90) or compact mode, while
- * maximized, always-on-top or hidden in the tray: in any of those the page
- * would be invisible, clipped or unreachable.
- */
-export function restoreWindowForError(): void {
-    if (!win || win.isDestroyed()) {
-        return;
-    }
-
-    if (win.isMinimized()) {
-        win.restore();
-    }
-    if (win.isMaximized()) {
-        win.unmaximize();
-    }
-
-    win.setAlwaysOnTop(false);
-    win.setSkipTaskbar(false);
-    skipTaskbarWanted = false;
-    forcedSkipTaskbar = false;
-
-    const [width, height] = win.getContentSize();
-    if (width < 900 || height < 640) {
-        win.setContentSize(900, 640);
-    }
-
-    win.show();
-    win.focus();
-}
-
 // In development, isolate userData to prevent locking conflicts with installed / production app
 if (process.env.NODE_ENV !== 'production') {
     const devUserData = path.join(app.getPath('appData'), `${build.productName}-Dev`);

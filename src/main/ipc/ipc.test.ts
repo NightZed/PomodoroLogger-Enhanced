@@ -21,7 +21,6 @@ jest.mock('../init', () => ({
     win: undefined,
     isWindowInTray: jest.fn(() => false),
     revealWindow: jest.fn(),
-    restoreWindowForError: jest.fn(),
     setMenuItems: jest.fn(),
     setSkipTaskbar: jest.fn(),
     suppressResizingNotification: jest.fn(),
@@ -342,7 +341,7 @@ describe('main/ipc', () => {
             commands['reportError'](trustedEvent, value);
         }
 
-        it('writes the report to crash.log and makes the window readable again', () => {
+        it('writes the report to crash.log without touching the window', () => {
             report({ ...payload, scope: 'timer', stack: 'Error: boom\n    at x', tab: 'timer' });
 
             expect(log).toHaveBeenCalledTimes(1);
@@ -351,7 +350,9 @@ describe('main/ipc', () => {
             expect(level).toBe('error');
             expect(message).toContain('renderer react (timer): boom');
             expect(message).toContain('tab=timer');
-            expect(init.restoreWindowForError).toHaveBeenCalled();
+            // Whether the window has to come back depends on the window mode,
+            // which only the renderer knows (`attention.ts`).
+            expect(init.revealWindow).not.toHaveBeenCalled();
         });
 
         it('prints how many occurrences an aggregated report stands for', () => {
@@ -372,7 +373,7 @@ describe('main/ipc', () => {
             report({ ...payload, count: 0 });
 
             expect(log).not.toHaveBeenCalled();
-            expect(init.restoreWindowForError).not.toHaveBeenCalled();
+            expect(init.revealWindow).not.toHaveBeenCalled();
             expect(consoleError).toHaveBeenCalled();
         });
 
@@ -432,7 +433,7 @@ describe('main/ipc', () => {
             expect(message).toContain('[_id=s1 boardId=b1 cardIdType=object]');
             expect(detail).toBe('Error: boom\n    at x');
             // The session is lost, but the app still works: no error page.
-            expect(init.restoreWindowForError).not.toHaveBeenCalled();
+            expect(init.revealWindow).not.toHaveBeenCalled();
         });
 
         it('writes a single occurrence without a count suffix', () => {

@@ -1,7 +1,7 @@
 import * as React from 'react';
 import ErrorScreen from './ErrorScreen';
 import { reportRendererError } from '../errorReporting';
-
+import { getWindowAttentionFlags, planWindowAttention } from './feedback/attention';
 interface Props {
     children: React.ReactNode;
 }
@@ -55,6 +55,19 @@ export default class AppErrorBoundary extends React.Component<Props, State> {
     componentDidCatch(error: Error, info: React.ErrorInfo): void {
         removeSplash();
         this.setState({ componentStack: info.componentStack ?? null });
+
+        // This boundary replaces the whole window, so the page has to fit it.
+        // A mini strip or a compact window cannot show it; a normal window
+        // already can and must keep its size (it may be maximized). The
+        // feedback bridge is unmounted at this point, so this goes straight to
+        // the main process instead of through `requestWindowAttention`.
+        const action = planWindowAttention(getWindowAttentionFlags(), 'fullscreen');
+        if (action !== 'none') {
+            // The preload bridge may be unavailable (a browser, a broken
+            // preload): the error page itself must still render.
+            window.api?.showWindowForAttention?.(action);
+        }
+
         reportRendererError('react', error, { componentStack: info.componentStack });
     }
 

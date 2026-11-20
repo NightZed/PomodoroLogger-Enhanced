@@ -33,6 +33,7 @@ import { APP_FONT_FAMILY } from '../theme/tokens';
 import { useThemeTokens } from '../theme/useThemeTokens';
 import { useI18n } from '../i18n';
 import { FeedbackContextBridge } from './feedback/Feedback';
+import { setWindowAttentionFlags } from './feedback/attention';
 
 /**
  * Window layer stack, bottom to top, and the setting that sizes each layer:
@@ -447,6 +448,11 @@ class Application extends React.Component<Props, State> {
         // the tray -- revealing it brings the page back through `mounted`, and
         // `DestroyOnTimeoutWrapper` restores it in the same commit.
         const mode = deriveWindowMode({ inTray, minimize, compact });
+        // The feedback layer and `AppErrorBoundary` have to know what the
+        // window looks like, and neither can read the store (the boundary
+        // wraps it, and the feedback functions run outside React). This render
+        // is the one place that already derives the mode, so publish it there.
+        setWindowAttentionFlags({ inTray, minimize, compact });
         const unloadOptions = { currentTab, unloadOnCloseToTray };
         const kanbanPlan = planPageUnload('kanban', mode, unloadOptions);
         const historyPlan = planPageUnload('history', mode, unloadOptions);

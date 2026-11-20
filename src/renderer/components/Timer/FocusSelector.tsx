@@ -17,6 +17,13 @@ interface Props {
     id?: string;
     /** Called after a pick, so the mask can go back to the name heading. */
     onSelected?: (id?: string) => void;
+    /**
+     * Where the option list mounts. Left out on the Timer page, which keeps the
+     * shared popup layer from the global ConfigProvider. The session mask
+     * points it at the mask itself: the mask is a higher layer than that popup
+     * layer, so the list would otherwise paint underneath it.
+     */
+    getPopupContainer?: () => HTMLElement;
 }
 
 const FocusSelectorInner: FunctionComponent<Props> = (props: Props) => {
@@ -83,6 +90,7 @@ const FocusSelectorInner: FunctionComponent<Props> = (props: Props) => {
                 placeholder={t('timer.focusSelector.placeholder')}
                 onChange={onChange}
                 id={props.id ?? 'focus-selector'}
+                getPopupContainer={props.getPopupContainer}
             >
                 {options}
                 <Option

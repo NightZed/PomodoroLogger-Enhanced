@@ -13,6 +13,7 @@ import type { ListsState } from '../Kanban/type';
 import { PomodoroRecord } from '../../monitor/type';
 import { NIGHT_THEME_ID } from '../../theme/tokens';
 import { getSessionMaskContainer } from '../popupLayer';
+import { LAYER } from '../layers';
 import { t } from '../../i18n';
 
 const { Option } = Select;
@@ -39,11 +40,11 @@ const Mask = styled.div<{ $nightTheme: boolean }>`
             : 'color-mix(in srgb, #dd5339 max(var(--pl-theme-bg-opacity), 60%), transparent)'};
     text-align: center;
     color: white !important;
-    /* Above every antd dialog (1000): the finished session has to be confirmed
-       before anything else on screen can be used. See
+    /* Above every antd dialog (LAYER.modal): the finished session has to be
+       confirmed before anything else on screen can be used. See
        SESSION_MASK_LAYER_ID for why the mask no longer lives in the Timer
-       page's own pane. */
-    z-index: 1100;
+       page's own pane. The stacking order is in layers.ts. */
+    z-index: ${LAYER.sessionMask};
     display: flex;
     justify-content: center;
     align-items: center;
@@ -225,6 +226,17 @@ const TimerMaskInner = (props: MaskProps) => {
     // which is also what an empty focused list yields.
     const [chosenCardId, setChosenCardId] = React.useState<string | undefined>(undefined);
 
+    /**
+     * Where the mask's select menus mount. antd's default is the shared popup
+     * layer (`getPopupContainer` in popupLayer.ts), which paints at 1050 --
+     * below this mask's 1100, so the menu would be hidden behind it. Putting
+     * the menu in the mask keeps it in the mask's own stacking context: it is
+     * above the mask's background whatever that layer ends up being, and it
+     * hides together with the mask.
+     */
+    const maskRef = React.useRef<HTMLDivElement>(null);
+    const getMaskPopupContainer = React.useCallback(() => maskRef.current ?? document.body, []);
+
     // Starts empty (not `props.showMask`): a mask that is already up on the
     // first render still has to pick its defaults, exactly like one that opens
     // later.
@@ -325,6 +337,7 @@ const TimerMaskInner = (props: MaskProps) => {
     return (
         <SessionMaskPortal>
             <Mask
+                ref={maskRef}
                 $nightTheme={props.nightTheme}
                 role="group"
                 aria-label={t('timer.maskLabel')}
@@ -340,6 +353,7 @@ const TimerMaskInner = (props: MaskProps) => {
                                         <FocusSelector
                                             width={props.compact ? 200 : 240}
                                             id="focus-selector-mask"
+                                            getPopupContainer={getMaskPopupContainer}
                                             onSelected={() => setEditing(false)}
                                         />
                                         {locked ? (
@@ -360,6 +374,7 @@ const TimerMaskInner = (props: MaskProps) => {
                                                     value={chosenCardId ?? ''}
                                                     style={{ width: props.compact ? 200 : 240 }}
                                                     aria-label={t('timer.session.cardSelector')}
+                                                    getPopupContainer={getMaskPopupContainer}
                                                     onChange={(cardId: string) => {
                                                         setChosenCardId(cardId || undefined);
                                                         // Picking closes the edit state,

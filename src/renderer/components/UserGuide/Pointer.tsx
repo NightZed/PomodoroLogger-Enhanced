@@ -2,6 +2,7 @@ import React, { FC, useCallback, useEffect, useState } from 'react';
 import PointerIcon from '../../../res/pointer-left.svg';
 import styled, { keyframes } from 'styled-components';
 import { TargetRect, getTargetRectBySelector, waitForTargetBySelector } from './utils';
+import { LAYER } from '../layers';
 
 const animation = keyframes`
   0% {
@@ -104,7 +105,7 @@ export const Pointer: FC<PointerProps> = (props: PointerProps) => {
                 left: x,
                 top: y,
                 display: show ? undefined : 'none',
-                zIndex: 2003,
+                zIndex: LAYER.guidePointer,
                 transform: `rotate(${direction}rad)`,
                 transition: 'transform 0.3s',
                 pointerEvents: 'none',

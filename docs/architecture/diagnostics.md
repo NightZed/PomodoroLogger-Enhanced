@@ -75,7 +75,7 @@ React 渲染错误显示在整窗的 `src/renderer/components/ErrorScreen.tsx` �
 
 卡片的三个动作（复制 / 反馈 / 打开日志）是 `components/ErrorNoticeActions.tsx` 里的图标按钮，文案同时放在 tooltip 和 `aria-label` 里，和 `ErrorScreen` 用同一组 `crash.*` key。
 
-antd 把通知放在 z-index 2050、tooltip 放在 1070，所以这几个 tooltip 必须用 `styles.root.zIndex` 抬到卡片之上，否则会被卡片盖住。
+antd 把通知放在 `LAYER.notice`（2050）、tooltip 放在 `LAYER.popup` 一带（1070），所以这几个 tooltip 必须用 `styles.root.zIndex` 设成 `LAYER.noticeTooltip`（2060）抬到卡片之上，否则会被卡片盖住。层序表在 `src/renderer/components/layers.ts`。
 
 「反馈」先复制再 `openExternal`：先开浏览器会让窗口失焦，剪贴板写入随后可能被拒绝，issue 就缺了日志信息。
 

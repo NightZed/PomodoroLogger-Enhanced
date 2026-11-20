@@ -17,14 +17,15 @@ import { formatTimeYmdHms } from './Timeline';
 import { EChartsOption } from 'echarts';
 import { ThemeTokens } from '../../theme/tokens';
 import { useThemeTokens } from '../../theme/useThemeTokens';
+import { LAYER } from '../layers';
 
 const FullscreenStyled = styled.div`
     padding: 20px;
     position: fixed;
-    /* Above every dialog (antd Modal wraps sit at 1000) and below the pickers
-       (1100): the chart is opened from inside the History day editor and the
-       board's unassigned panel, and those stay mounted underneath it. */
-    z-index: 1050;
+    /* Above every dialog (LAYER.modal) and below the pickers (LAYER.picker):
+       the chart is opened from inside the History day editor and the board's
+       unassigned panel, and those stay mounted underneath it. */
+    z-index: ${LAYER.fullscreenView};
     left: 0;
     top: 0;
     overflow: auto;

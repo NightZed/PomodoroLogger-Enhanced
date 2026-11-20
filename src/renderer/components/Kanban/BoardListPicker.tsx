@@ -6,6 +6,7 @@ import { DAY_EDITOR_WIDTH } from '../dialogLayout';
 import { ProjectPickerBody } from './ProjectPicker';
 import { ListPickerBody } from './ListPickerBody';
 import type { RootState } from '../../reducers';
+import { LAYER } from '../layers';
 
 export interface BoardListPickerProps {
     open: boolean;
@@ -64,7 +65,7 @@ const BoardListPickerInner = (props: Props) => {
                     : t('kanban.cardMove.listTitle', board?.name ?? '')
             }
             onCancel={onProjectStep ? props.onClose : () => setStep('project')}
-            zIndex={1100}
+            zIndex={LAYER.picker}
             width={DAY_EDITOR_WIDTH}
             footer={null}
             destroyOnHidden

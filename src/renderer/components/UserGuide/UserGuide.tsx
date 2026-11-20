@@ -12,6 +12,7 @@ import { Button } from 'antd';
 import { AntdIcon as Icon } from '../antdIcon';
 import { findVisibleTarget, TargetRect } from './utils';
 import { useI18n } from '../../i18n';
+import { LAYER } from '../layers';
 
 const Mask = styled.div`
     top: 0;
@@ -20,6 +21,10 @@ const Mask = styled.div`
     background-color: var(--pl-mask);
     width: 100vw;
     height: 100vh;
+    /* Left out of LAYER on purpose: this is the fallback for mask-only tour
+       steps, and 100 already covers the page it dims. Raising it to
+       LAYER.guide would also cover antd dialogs, which the spotlight steps
+       do not. */
     z-index: 100;
 `;
 
@@ -218,7 +223,7 @@ const UserGuideInner: React.FC<UserGuideProps> = (props: UserGuideProps) => {
                         danger={true}
                         style={{
                             position: 'fixed',
-                            zIndex: 2000,
+                            zIndex: LAYER.guide,
                             top: 16,
                             right: 16,
                         }}

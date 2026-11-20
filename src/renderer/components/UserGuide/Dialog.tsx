@@ -3,9 +3,10 @@ import styled from 'styled-components';
 import { Position } from './type';
 import { Button, Checkbox, Divider } from 'antd';
 import { useI18n } from '../../i18n';
+import { LAYER } from '../layers';
 
 const Container = styled.div`
-    z-index: 2001;
+    z-index: ${LAYER.guideDialog};
     position: fixed;
 `;
 

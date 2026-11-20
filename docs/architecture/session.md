@@ -38,6 +38,10 @@
 
 遮罩用 portal 挂到 `Application` 的 `SESSION_MASK_LAYER_ID` 层，不随当前页面隐藏：它必须盖住整个窗口，而页面 pane 在非激活时是 `display: none`。因此「会话结束回到番茄钟页」只是偏好（`returnToTimerOnSessionEnd`，默认开），不再是为了让遮罩可见——那次强制切页会打断正在编辑的看板/卡片和进行中的拖拽。
 
+全窗口浮层的顺序集中在 `src/renderer/components/layers.ts`（`LAYER`，带顺序断言 `layers.test.ts`）：新增一层先在那里定位，不要在组件里就地写数字。
+
+**遮罩里的下拉菜单必须挂到遮罩自己身上。** 遮罩在 `LAYER.sessionMask`（1100），而 antd 默认把 Select 菜单放进共享 popup 层（`LAYER.popup`，1050）；遮罩搬到应用级层后两者同处 `Content` 的堆叠上下文，菜单会画在遮罩下面。遮罩里的两个 Select（项目、卡片）都把 `getPopupContainer` 指回遮罩，菜单因此落在遮罩自己的层里，随遮罩一起显示、一起隐藏，不需要再抬高任何共享层级。
+
 **不要退回「挂到 `focusedList` 的每一张卡」**：那会让卡片时长按列表卡片数放大，而 `dataMerger` 的 `setBoardInfo` 按卡片重算看板时长，导出再导入后 `spentHours` 会变成实际的 N 倍。
 
 事后改归属（改项目 / 挂卡 / 删除）统一走主进程的 `applySessionEdits` 单事务：

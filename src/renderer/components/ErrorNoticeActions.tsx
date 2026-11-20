@@ -7,17 +7,10 @@ import { diagnosticsText, DiagnosticsSource } from '../diagnostics';
 import { ISSUES_URL } from '../../shared/links';
 import type { LogInfo } from '../../main/ipc/type';
 import { getPopupContainer } from './popupLayer';
+import { LAYER } from './layers';
 
 /** How long a button keeps the "Copied" check mark. */
 const COPIED_MS = 2000;
-
-/**
- * antd stacks a notification at z-index 2050 but a tooltip at 1070, so the
- * tooltip of a notice action would render *behind* the card it belongs to.
- * Lift only these three above the card instead of changing the global layer
- * order.
- */
-const TOOLTIP_Z_INDEX = 2060;
 
 async function readLogInfo(): Promise<LogInfo | undefined> {
     try {
@@ -82,10 +75,14 @@ const ErrorNoticeActions: React.FC<Props> = ({ source }) => {
 
     return (
         <>
+            {/* A notice sits at `LAYER.notice` but its tooltips default to
+                `LAYER.popup`, so these would render *behind* the card they
+                belong to. Lift only these three above the card instead of
+                changing the global layer order. */}
             <Tooltip
                 title={copyLabel}
                 placement="bottom"
-                styles={{ root: { zIndex: TOOLTIP_Z_INDEX } }}
+                styles={{ root: { zIndex: LAYER.noticeTooltip } }}
                 getPopupContainer={getPopupContainer}
             >
                 <Button
@@ -99,7 +96,7 @@ const ErrorNoticeActions: React.FC<Props> = ({ source }) => {
             <Tooltip
                 title={reportLabel}
                 placement="bottom"
-                styles={{ root: { zIndex: TOOLTIP_Z_INDEX } }}
+                styles={{ root: { zIndex: LAYER.noticeTooltip } }}
                 getPopupContainer={getPopupContainer}
             >
                 <Button
@@ -116,7 +113,7 @@ const ErrorNoticeActions: React.FC<Props> = ({ source }) => {
             <Tooltip
                 title={logLabel}
                 placement="bottom"
-                styles={{ root: { zIndex: TOOLTIP_Z_INDEX } }}
+                styles={{ root: { zIndex: LAYER.noticeTooltip } }}
                 getPopupContainer={getPopupContainer}
             >
                 <Button

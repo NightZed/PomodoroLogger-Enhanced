@@ -238,6 +238,42 @@ describe('TimerMask mount point', () => {
     });
 });
 
+describe('TimerMask select menus', () => {
+    afterEach(cleanup);
+
+    // Regression: f7077c8 把遮罩搬进应用级层并把 z-index 提到 1100，而 antd
+    // 把下拉菜单挂到共享 popup layer（1050），从项目名打开的选择框因此画在
+    // 遮罩下面。jsdom 不做层叠计算，这里断言菜单是遮罩的子节点：为它定层。
+    it('mounts the project menu inside the mask', () => {
+        const view = renderMask({}, { boardId: 'b1' });
+
+        fireEvent.click(view.getByText('Project One'));
+        fireEvent.mouseDown(view.getByRole('combobox'));
+
+        const mask = view.getByRole('group', { name: 'Session ending' });
+        expect(mask.contains(view.getByText('Project Two'))).toBe(true);
+    });
+
+    it('mounts the card menu inside the mask', () => {
+        const view = renderMask(
+            {},
+            {},
+            {
+                lists: {
+                    l1: { _id: 'l1', title: 'Todo', cards: ['c1', 'c2'] },
+                    l2: { _id: 'l2', title: 'Doing', cards: [] },
+                },
+            }
+        );
+
+        fireEvent.click(view.getByRole('button', { name: 'Card One' }));
+        fireEvent.mouseDown(cardSelector(view));
+
+        const mask = view.getByRole('group', { name: 'Session ending' });
+        expect(mask.contains(view.getByText('Card Two'))).toBe(true);
+    });
+});
+
 describe('TimerMask card attribution', () => {
     afterEach(cleanup);
 

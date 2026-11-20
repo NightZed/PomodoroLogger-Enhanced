@@ -1,5 +1,6 @@
 import React, { FC, useCallback, useEffect, useState } from 'react';
 import { TargetRect, getTargetRectBySelector, waitForTargetBySelector } from './utils';
+import { LAYER } from '../layers';
 
 export interface SpotlightProps {
     targetSelector: string;
@@ -95,7 +96,7 @@ export const Spotlight: FC<SpotlightProps> = (props: SpotlightProps) => {
                     width: '100vw',
                     height: '100vh',
                     backgroundColor: 'var(--pl-mask)',
-                    zIndex: 2000,
+                    zIndex: LAYER.guide,
                 }}
             />
         );
@@ -114,7 +115,7 @@ export const Spotlight: FC<SpotlightProps> = (props: SpotlightProps) => {
         top: y,
         width: w,
         height: h,
-        zIndex: 2002,
+        zIndex: LAYER.guideHole,
         backgroundColor: 'transparent',
         // Demo steps (clickThrough=false): intercept clicks so the tour never
         // triggers the real action behind the hole (timer start, mode switch...).
@@ -129,7 +130,7 @@ export const Spotlight: FC<SpotlightProps> = (props: SpotlightProps) => {
     const panel = (style: React.CSSProperties): React.CSSProperties => ({
         position: 'fixed',
         backgroundColor: 'var(--pl-mask)',
-        zIndex: 2000,
+        zIndex: LAYER.guide,
         ...style,
     });
 

@@ -8,6 +8,7 @@ import { DAY_EDITOR_WIDTH, DIALOG_BODY_MAX_HEIGHT } from '../dialogLayout';
 import { PickerFooter } from './PickerFooter';
 import type { RootState } from '../../reducers';
 import type { KanbanBoard } from './type';
+import { LAYER } from '../layers';
 
 const { Option } = Select;
 
@@ -232,7 +233,7 @@ const ProjectPickerInner = (props: ProjectPickerProps) => {
             open={props.open}
             title={t('kanban.projectPicker.title')}
             onCancel={props.onClose}
-            zIndex={props.zIndex ?? 1100}
+            zIndex={props.zIndex ?? LAYER.picker}
             width={DAY_EDITOR_WIDTH}
             footer={null}
             /* Starting clean is the point: a stale search term from last time

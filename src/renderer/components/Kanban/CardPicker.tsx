@@ -6,6 +6,7 @@ import { AppModal } from '../AppModal';
 import { useI18n } from '../../i18n';
 import { DAY_EDITOR_WIDTH, DIALOG_BODY_MAX_HEIGHT } from '../dialogLayout';
 import type { RootState } from '../../reducers';
+import { LAYER } from '../layers';
 
 export interface CardPickerProps {
     open: boolean;
@@ -16,8 +17,9 @@ export interface CardPickerProps {
     onPick: (cardId?: string) => void;
     onClose: () => void;
     /**
-     * The Timer's ending mask is a full-viewport fixed layer at z-index 1000;
-     * a dialog opened from it has to sit above that, or it renders behind it.
+     * The Timer's ending mask is a full-viewport fixed layer at
+     * `LAYER.sessionMask`; a dialog opened from it has to sit above that, or it
+     * renders behind it. See `LAYER` for the full order.
      */
     zIndex?: number;
 }
@@ -153,7 +155,7 @@ const CardPickerInner = (props: Props) => {
             open={props.open}
             title={t('kanban.cardPicker.title', board?.name ?? '')}
             onCancel={props.onClose}
-            zIndex={props.zIndex ?? 1100}
+            zIndex={props.zIndex ?? LAYER.picker}
             /* Same frame as the project picker: the two are one click apart in
                the History day editor. */
             width={DAY_EDITOR_WIDTH}

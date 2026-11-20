@@ -73,7 +73,12 @@ module.exports = tseslint.config(
                 'warn',
                 {
                     argsIgnorePattern: '^_',
-                    varsIgnorePattern: '^_',
+                    // `React` is used implicitly: `tsconfig.json` compiles JSX
+                    // with the classic transform, so every element needs the
+                    // binding in scope, but this rule cannot see through JSX.
+                    // A file whose only React use is JSX (a test rendering
+                    // markup) was therefore reported as unused.
+                    varsIgnorePattern: '^_|^React$',
                     caughtErrors: 'none'
                 }
             ],

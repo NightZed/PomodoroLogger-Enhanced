@@ -265,6 +265,10 @@ export function namedSessionAction(
 export interface TrayState extends SessionState {
     /** The ending mask is up: a finished session awaits confirmation. */
     sessionEnding: boolean;
+    /** Focus length in seconds; caps the minimum in `finishLabel`. */
+    focusDuration: number;
+    /** Configured minimum finish duration in seconds (`Setting.minFinishDuration`). */
+    minFinishDuration: number;
 }
 
 /** Identity of a tray entry; the owner maps it to the click handler. */
@@ -305,6 +309,14 @@ export function trayMenuItems(timer: TrayState): TrayMenuItem[] {
     // `Timer.confirmMaskAndStart`).
     const mayStart = !hasSession(timer) || timer.sessionEnding;
 
+    // Naming the minimum is what replaces a disabled-looking entry: the native
+    // Windows menu has no tooltip, so the reason has to live in the label. It
+    // stays the same for the whole session (no per-tick rebuild) and the entry
+    // remains clickable -- clicking too early is answered by the page's toast.
+    const finishMinutes = Math.round(
+        effectiveMinFinishDuration(timer.minFinishDuration, timer.focusDuration) / 60
+    );
+
     return [
         { key: 'startFocusing', label: t('timer.tray.startFocusing'), enabled: mayStart },
         { key: 'startBreak', label: t('timer.tray.startBreak'), enabled: mayStart },
@@ -315,7 +327,14 @@ export function trayMenuItems(timer: TrayState): TrayMenuItem[] {
             // the ghost session the mask exists to prevent.
             enabled: liveSession,
         },
-        { key: 'finish', label: t('timer.tray.finish'), enabled: liveSession },
+        {
+            key: 'finish',
+            label:
+                finishMinutes > 0
+                    ? t('timer.tray.finishWithMinimum', finishMinutes)
+                    : t('timer.tray.finish'),
+            enabled: liveSession,
+        },
         {
             key: 'stop',
             // Also disabled under the mask: the record is already written down

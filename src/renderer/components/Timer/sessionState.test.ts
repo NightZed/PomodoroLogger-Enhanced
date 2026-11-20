@@ -21,6 +21,8 @@ const state = (over: Partial<TrayState> = {}): TrayState => ({
     isFocusing: true,
     targetTime: undefined,
     sessionEnding: false,
+    focusDuration: 25 * 60,
+    minFinishDuration: 10 * 60,
     ...over,
 });
 
@@ -336,6 +338,22 @@ describe('trayMenuItems', () => {
         // Starting something else stays deliberate: the session owns itself.
         expect(menu.startFocusing.enabled).toBe(false);
         expect(menu.startBreak.enabled).toBe(false);
+    });
+
+    it('names the minimum focus length in the Finish entry', () => {
+        // The native Windows menu has no tooltip, so the reason an early
+        // Finish does nothing has to live in the label. The fixture language
+        // is pinned to `en-US` by `test/setup-env.js`.
+        expect(menuOf(state()).finish.label).toBe('Finish (10min)');
+        expect(menuOf(state({ focusDuration: 5 * 60 })).finish.label).toBe('Finish (5min)');
+        expect(menuOf(state({ minFinishDuration: 0 })).finish.label).toBe('Finish');
+    });
+
+    it('keeps the Finish entry clickable so the page can explain the refusal', () => {
+        // Greying it out would need a per-minute rebuild to know when it
+        // becomes available, and a dead entry cannot explain itself.
+        const menu = menuOf(state({ isRunning: true, minFinishDuration: 10 * 60 }));
+        expect(menu.finish.enabled).toBe(true);
     });
 
     it('keeps the Start entries under the ending mask and greys the rest', () => {

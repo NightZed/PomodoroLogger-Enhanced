@@ -117,6 +117,12 @@ export const zh: CatalogShape<typeof en> = {
             pause: '暂停',
             continue: '继续',
             finish: '结束',
+            /**
+             * The Finish entry names the minimum it enforces. Parentheses stay
+             * ASCII so the native menu does not get wider than it has to, and
+             * a `0` minimum falls back to the plain `finish` label.
+             */
+            finishWithMinimum: (minutes: number): string => `结束(${minutes}min)`,
             stop: '停止',
         },
         warning: {

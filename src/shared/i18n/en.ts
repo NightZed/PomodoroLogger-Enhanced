@@ -135,6 +135,8 @@ export const en = {
             pause: 'Pause',
             continue: 'Continue',
             finish: 'Finish',
+            /** See `zh.timer.tray.finishWithMinimum`. */
+            finishWithMinimum: (minutes: number): string => `Finish (${minutes}min)`,
             stop: 'Stop',
         },
         warning: {

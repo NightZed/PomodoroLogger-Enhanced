@@ -530,6 +530,9 @@ class Timer extends Component<Props, State> {
             'isFocusing',
             'targetTime',
             'sessionEnding',
+            // The Finish entry names the minimum it enforces.
+            'focusDuration',
+            'minFinishDuration',
             'language',
         ];
         if (!isShallowEqualByKeys(prevProps.timer, this.props.timer, trayStateKeys)) {

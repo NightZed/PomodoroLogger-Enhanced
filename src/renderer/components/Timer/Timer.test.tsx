@@ -843,6 +843,26 @@ describe('Timer page', () => {
         expect(api.focusOnWindow).toHaveBeenCalled();
     });
 
+    it('leaves a window in the tray where it is when the session ends', async () => {
+        const { actions } = await renderTimer({
+            isFocusing: false,
+            isRunning: true,
+            targetTime: Date.now() + 1,
+            inTray: true,
+        });
+
+        await act(async () => {
+            jest.advanceTimersByTime(1000);
+        });
+
+        // The confirming disc and the system notification are the only
+        // channels a tray window has; bringing the window back would interrupt
+        // the app the user switched to.
+        expect(api.notify).toHaveBeenCalled();
+        expect(actions.setSessionEnding).toHaveBeenCalledWith(true);
+        expect(api.focusOnWindow).not.toHaveBeenCalled();
+    });
+
     it('plays the short break sound at the configured volume when a break ends', async () => {
         await renderTimer({
             // The store raises the ending flag when the session finishes; the

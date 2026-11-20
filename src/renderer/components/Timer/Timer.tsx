@@ -1001,7 +1001,14 @@ class Timer extends Component<Props, State> {
         // flips it) only runs on confirm.
         this.resetStat({ confirming: true, isFocusing: this.props.timer.isFocusing });
         if (shouldRemind) {
-            this.focusOnCurrentWindow();
+            // A window in the tray stays there. The confirming tray icon and
+            // the optional system notification already tell the user the
+            // session ended, and pulling the whole window up would interrupt
+            // whatever they moved on to; the tray menu's Start entries confirm
+            // the staged session without restoring it (see `trayMenuItems`).
+            if (!this.props.timer.inTray) {
+                this.focusOnCurrentWindow();
+            }
             this.remindUserTimeout(0);
             this.remindUserTimeout(60 * 1000);
         }

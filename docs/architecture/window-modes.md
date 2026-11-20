@@ -70,6 +70,48 @@ planPageUnload(page, mode, { currentTab, unloadOnCloseToTray }): {
 
 窗口可见、页面可交互。压缩宽限会让「看板 → 计时器 → 看板」每次都付一次 `fetchBoards`，是可感知的退化。
 
+## 弹窗与窗口档位
+
+迷你条隐藏整个 `.ant-modal-root`，notice 的 260px 最小宽度也放不进 200px 窗口。弹窗出现前要把窗口恢复成能显示它的形状，判定集中在 `components/feedback/attention.ts` 的 `planWindowAttention`：
+
+| 弹窗 | normal | compact | mini | tray |
+| --- | --- | --- | --- | --- |
+| toast | 不动 | 不动 | 不动 | 不动 |
+| 普通 notice | 不动 | 不动 | 不动 | 不动 |
+| 错误 notice / confirm / alert | 不动 | 不动 | 1440×960 | 原尺寸 + 聚焦 |
+| 全屏报错（`ErrorScreen`） | 只聚焦 | 1440×960 | 1440×960 | 原尺寸 + 聚焦 |
+
+- `normal` 是主进程把窗口设为 1440×960 并 `keepWindowOnScreen`；`focus` 只 restore / show / focus，尺寸不变——紧凑窗口和用户调过大小的窗口都按关闭时的尺寸回来。
+- 迷你还要 `setMinimize(false)`：只改窗口尺寸会留下迷你布局和 `display: none` 的弹窗根节点，弹窗仍然看不见。
+- 恢复后留在普通窗口，不回迷你 / 托盘。
+- 判定的输入是 store 的三个标志。`AppErrorBoundary` 包在 store 外面，所以渲染层每帧用 `setWindowAttentionFlags` 发布一份快照给它；主进程的 `ShowWindowForAttention` 只执行动作，不做判断。
+
+`toast` 和普通 notice 不动，是有意的：它们是回执和状态，为了它们把窗口从迷你或托盘拉出来会让这两个档位没法用。
+
+## 会话结束：托盘不弹窗口
+
+`Timer.onDone` 在 `inTray` 为 true 时跳过 `focusOnCurrentWindow()`（`focusOnWindow` 会走 `revealWindow`，把整扇窗口拉回前台）。
+
+托盘只有两个通道：变成确认用水果的托盘图标，和受 `desktopNotification` 控制的原生通知。遮罩不出现、窗口也不回来，用户可以在托盘菜单点 Start，先确认这次会话再开始下一次。
+
+迷你、紧凑、普通保持原行为：迷你走 `MiniLogger` 的确认态，其余走 `TimerMask`。
+
+## 未确认的会话阻止退出
+
+会话结束到确认之间，记录只在内存里（`Timer.stagedSession`），`onSessionConfirmed` 才写库。渲染层用 `SetUnconfirmedSession` 把这个标志同步给主进程，`before-quit` 里 `shouldBlockQuit` 为真时：
+
+```ts
+event.preventDefault();
+revealWindow();
+win.webContents.send(WindowEventName.QuitBlocked);
+```
+
+渲染层收到 `QuitBlocked` 后把 mini / compact 复位成普通窗口，结束遮罩因此可见。处理完不自动退出。
+
+- 所有退出入口必须走 `app.quit()`：`app.exit()` 完全跳过 `before-quit`。Ctrl+Q 和托盘「退出」原来都是 `app.exit()`，拦不住。
+- 窗口已销毁时不拦。`InstallUpdate` 先清 `win` 引用再交给 electron-updater，拦了会得到一个没有窗口、也退不掉的进程。
+- Timer 卸载时把标志置回 false：崩溃页替换掉页面之后，用户仍必须能退出。
+
 ## 今日统计面板
 
 规则：`deriveWindowMode(...)` 从 `normal` 变成任何其他值，且 `more === true` → 收起。

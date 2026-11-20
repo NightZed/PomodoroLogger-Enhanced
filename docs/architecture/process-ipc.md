@@ -34,7 +34,7 @@
 
 走 notice 的错误必须先用 `reportDataFailure` / `logError` 落盘，否则按钮指向一个空文件。通知按指纹去重，不堆叠。
 
-**已知限制**：notice 宽 380px，而迷你窗口是 200×90，两者还没做尺寸适配。
+**弹窗与窗口档位**：迷你会隐藏整个 `.ant-modal-root`，notice 的 260px 最小宽度也放不进 200px 窗口。所以 `confirm` / `alert` / 错误 notice 在迷你与托盘下会先把窗口恢复成能显示它的形状；`toast` 和普通 notice 一律不动。判定表在 `feedback/attention.ts`，窗口动作走 `ShowWindowForAttention`，档位语义见 `window-modes.md`。不要在调用点另行判断。
 
 ### 对话框
 

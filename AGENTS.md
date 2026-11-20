@@ -42,6 +42,8 @@ Electron 桌面应用（番茄钟 + 看板 + 桌面活动追踪 + 统计）。
 
 - 只有「关闭到托盘」算 `tray`；不要改回 `document.visibilityState`。
 - 页面卸载延迟不要缩短，那是行为变更。
+- 弹窗动不动窗口由 `feedback/attention.ts` 一张表决定：toast 和普通 notice 不动；confirm / alert / 错误 notice 在 mini、tray 恢复；全屏报错连 compact 一起恢复。不要在调用点另判。
+- 有未确认的番茄钟时退出必须被拒（`before-quit`）。所有退出入口走 `app.quit()`，`app.exit()` 会跳过拦截。托盘里会话结束不拉窗口。
 
 **构建与提交**
 

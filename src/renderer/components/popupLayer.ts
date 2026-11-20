@@ -24,6 +24,27 @@ export function getPopupContainer(): HTMLElement {
 }
 
 /**
+ * Mount point of the session-ending mask.
+ *
+ * The mask has to cover the window no matter which page is on screen: while it
+ * is up the finished session is waiting for its confirmation, and the pages
+ * must not be switched away from it (see `TimerState.sessionEnding`). It used
+ * to live inside the Timer page, which meant it could only be seen after
+ * forcing the window back to that page -- that page switch is what interrupted
+ * an open board or card editor and a drag in progress.
+ *
+ * A container of its own (rather than the popup layer) keeps the mask above
+ * every dialog: antd appends its modal roots to the popup layer in the order
+ * they open, so a dialog opened after the mask would otherwise paint over it.
+ */
+export const SESSION_MASK_LAYER_ID = 'pl-session-mask-layer';
+
+/** Resolves the mask layer; `<body>` covers a render before `Application` did. */
+export function getSessionMaskContainer(): HTMLElement {
+    return document.getElementById(SESSION_MASK_LAYER_ID) || document.body;
+}
+
+/**
  * Is a modal dialog actually open right now?
  *
  * "Open" cannot mean "a `.ant-modal-root` exists": antd 3 keeps a closed

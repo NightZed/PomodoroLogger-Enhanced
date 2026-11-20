@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { createStore } from 'redux';
 import { TimerMask } from './SessionEndingMask';
+import { SESSION_MASK_LAYER_ID } from '../popupLayer';
 import { DAY_THEME_ID } from '../../theme/tokens';
 
 jest.mock('./action', () => ({
@@ -214,6 +215,26 @@ describe('TimerMask', () => {
         expect(view.getByText('Break')).toBeTruthy();
         expect(view.getByRole('button', { name: /Start Focusing/ })).toBeTruthy();
         expect(view.queryByTitle('Extend 5 minutes')).toBeNull();
+    });
+});
+
+describe('TimerMask mount point', () => {
+    afterEach(cleanup);
+
+    // Regression: the mask used to render inside the Timer page's pane, so a
+    // finished session could only be seen after forcing the window back to
+    // that page. That page switch closed an open card editor and interrupted a
+    // drag, leaving dnd's pointer-events:none styles behind.
+    it('renders into the app-level mask layer instead of the page', () => {
+        const layer = document.createElement('div');
+        layer.id = SESSION_MASK_LAYER_ID;
+        document.body.appendChild(layer);
+
+        const view = renderMask();
+        const mask = view.getByRole('group', { name: 'Session ending' });
+
+        expect(layer.contains(mask)).toBe(true);
+        layer.remove();
     });
 });
 

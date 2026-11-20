@@ -25,7 +25,7 @@ import { ConnectedPomodoroSankey } from './Visualization/PomodoroSankey';
 import AppTitleBar from './AppTitleBar/AppTitleBar';
 import { titleBarBandHeight } from './AppTitleBar/tokens';
 import { nextTabKey, planTabChange } from './appTabs';
-import { getPopupContainer, POPUP_CONTAINER_ID } from './popupLayer';
+import { getPopupContainer, POPUP_CONTAINER_ID, SESSION_MASK_LAYER_ID } from './popupLayer';
 import { App as AntdApp, ConfigProvider, theme as antdTheme } from 'antd';
 import enUS from 'antd/locale/en_US';
 import zhCN from 'antd/locale/zh_CN';
@@ -466,6 +466,10 @@ class Application extends React.Component<Props, State> {
                         layer so those surfaces fade with the page instead of
                         escaping to <body>, see popupLayer.ts. */}
                     <div id={POPUP_CONTAINER_ID} />
+                    {/* The session-ending mask mounts here, outside any page
+                        pane: it must be visible wherever the user is, and it
+                        sits above the popups above (see `SESSION_MASK_LAYER_ID`). */}
+                    <div id={SESSION_MASK_LAYER_ID} />
                     <AppTitleBar
                         currentTab={currentTab}
                         minimize={minimize}

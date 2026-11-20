@@ -3,6 +3,7 @@ import { LONG_BREAK_INTERVAL } from './action';
 import { FocusSelector } from './FocusSelector';
 import { PomodoroNumView } from './PomodoroNumView';
 import React from 'react';
+import { createPortal } from 'react-dom';
 import styled from 'styled-components';
 import { connect } from 'react-redux';
 import { RootState } from '../../reducers';
@@ -11,6 +12,7 @@ import type { CardsState } from '../Kanban/Card/action';
 import type { ListsState } from '../Kanban/type';
 import { PomodoroRecord } from '../../monitor/type';
 import { NIGHT_THEME_ID } from '../../theme/tokens';
+import { getSessionMaskContainer } from '../popupLayer';
 import { t } from '../../i18n';
 
 const { Option } = Select;
@@ -37,7 +39,11 @@ const Mask = styled.div<{ $nightTheme: boolean }>`
             : 'color-mix(in srgb, #dd5339 max(var(--pl-theme-bg-opacity), 60%), transparent)'};
     text-align: center;
     color: white !important;
-    z-index: 1000;
+    /* Above every antd dialog (1000): the finished session has to be confirmed
+       before anything else on screen can be used. See
+       SESSION_MASK_LAYER_ID for why the mask no longer lives in the Timer
+       page's own pane. */
+    z-index: 1100;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -164,6 +170,27 @@ export interface MaskProps extends InputProps {
     compact: boolean;
     nightTheme: boolean;
 }
+
+/**
+ * Mounts the mask in the app-level layer instead of the Timer page's pane.
+ *
+ * A pane that is not the active tab is `display: none`, so the mask used to be
+ * invisible until the window was forced back to the Timer page -- and that
+ * forced page switch is what dropped the user out of an open editor or an
+ * interrupted drag (see `SESSION_MASK_LAYER_ID`).
+ *
+ * The container is looked up in an effect: `Application` renders the node in
+ * the same commit as this component, so it is not in the document while the
+ * first render runs.
+ */
+const SessionMaskPortal: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const [container, setContainer] = React.useState<HTMLElement>();
+    React.useEffect(() => {
+        setContainer(getSessionMaskContainer());
+    }, []);
+
+    return container === undefined ? null : createPortal(children, container);
+};
 
 const TimerMaskInner = (props: MaskProps) => {
     const { extendCurrentSession } = props;
@@ -296,7 +323,7 @@ const TimerMaskInner = (props: MaskProps) => {
     ) : undefined;
 
     return (
-        <>
+        <SessionMaskPortal>
             <Mask
                 $nightTheme={props.nightTheme}
                 role="group"
@@ -423,7 +450,7 @@ const TimerMaskInner = (props: MaskProps) => {
                     </ButtonContainer>
                 ) : undefined}
             </Mask>
-        </>
+        </SessionMaskPortal>
     );
 };
 

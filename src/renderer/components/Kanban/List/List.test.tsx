@@ -113,6 +113,88 @@ describe('List card window', () => {
         expect(screen.queryByText('Card 99')).toBeNull();
     });
 
+    // Regression: a column that is laid out but invisible (its page sits
+    // behind an inactive tab, the window is in mini mode) reported every card
+    // as 0 high. The 8px margin was cached as if it were a measurement, the
+    // corrected offsets moved the window onto cards that were equally
+    // invisible, and that pass asked for another one. The chain reached
+    // React's nested-update limit and the whole page died with "Maximum
+    // update depth exceeded" (#185) after a tab switch.
+    it('keeps the window unchanged while the column has no layout height', () => {
+        const { ids, cards } = makeCards(400);
+        const props: any = {
+            _id: 'list-1',
+            listId: 'list-1',
+            index: 0,
+            boardId: 'board-1',
+            title: 'List',
+            cards: ids,
+            cardsState: cards,
+            cardView: 'preview',
+            searchReg: undefined,
+            setVisibleCards: noop,
+            setEditCard: noop,
+            setSearchReg: noop,
+            setContent: noop,
+            deleteList: noop,
+            renameList: noop,
+            addCard: noop,
+        };
+        render(<List {...props} />);
+
+        const scroller = document.querySelector('[data-pl-scroller]') as HTMLElement;
+        expect(scroller).toBeTruthy();
+        const mountedWhileVisible = document.querySelectorAll('[data-card-id]').length;
+
+        // The page is switched away: nothing has a box any more.
+        rectSpy.mockImplementation(
+            () =>
+                ({
+                    height: 0,
+                    width: 0,
+                    top: 0,
+                    left: 0,
+                    bottom: 0,
+                    right: 0,
+                    x: 0,
+                    y: 0,
+                    toJSON: () => ({}),
+                }) as DOMRect
+        );
+
+        const scrollTo = (top: number) => {
+            Object.defineProperty(scroller, 'scrollTop', { configurable: true, value: top });
+            fireEvent.scroll(scroller);
+        };
+
+        act(() => scrollTo(3000));
+
+        // The 8px readings would have shrunk `offsets`, so the window would
+        // have grown towards the end of the list even though nothing became
+        // visible. The same number of mounted cards is the proof that the
+        // hidden pass wrote nothing.
+        expect(document.querySelectorAll('[data-card-id]').length).toBe(mountedWhileVisible);
+
+        // Coming back must not show anything the hidden pass invented.
+        rectSpy.mockImplementation(
+            () =>
+                ({
+                    height: 140,
+                    width: 262,
+                    top: 0,
+                    left: 0,
+                    bottom: 140,
+                    right: 262,
+                    x: 0,
+                    y: 0,
+                    toJSON: () => ({}),
+                }) as DOMRect
+        );
+        act(() => scrollTo(3001));
+
+        expect(screen.queryByText('Card 399')).toBeNull();
+    });
+
     it('keeps a rendered card when a new card is inserted above it', () => {
         const { ids, cards } = makeCards(1);
         const base: any = {

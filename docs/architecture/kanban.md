@@ -54,6 +54,8 @@ height = element.getBoundingClientRect().height + 8; // 8px 是 CardContainer �
 - 阈值 0.5px，子像素差异不触发更新；
 - 只有窗口或数据变化时测量（依赖 `[start, end, filteredCards]`），滚动不每帧测量；
 - 从未渲染过的卡片用 `ESTIMATED_CARD_HEIGHT` 兜底。
+- **容器没有布局高度时整段跳过**（页面在非激活 tab 后面、迷你窗口）。此时每张卡都量到 0，把 8px 边距当成测量值写进缓存会让 `offsets` 变短、窗口扩张到更多卡片、再量还是 0，这条链会撞上 React 的嵌套更新上限（`Maximum update depth exceeded`，#185），整页被错误边界替换。跳过不丢信息：缓存里留的是可见时测到的真实高度。
+- 一次手势最多连锁 `MAX_MEASURE_PASSES`（8）次测量更新。正常一两轮收敛；上限只是保证病态布局不会把嵌套更新推到 React 的 50 次。
 
 因此 `offsets` 是「实测 + 估算」混算。**没滚动过的区域是估算的**：滚进去时实测值替换估算，`offsets` 会修正一次，可能看到轻微跳动。这不是渲染错误，是可变高度虚拟化的固有代价。
 

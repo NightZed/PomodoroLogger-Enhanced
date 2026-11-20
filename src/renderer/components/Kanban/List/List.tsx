@@ -29,6 +29,14 @@ const ESTIMATED_CARD_HEIGHT = 140;
 // CONTENT_BATCH more join on each following frame.
 const CONTENT_INITIAL = 8;
 const CONTENT_BATCH = 8;
+// Upper bound on measurement passes one chain may run. A pass can move the
+// window (the corrected offsets change `start`/`end`), which mounts cards that
+// need measuring themselves; normally that settles in one or two passes. A
+// layout that keeps reporting a different height on every read would keep the
+// chain going, and React aborts the whole tree ("Maximum update depth
+// exceeded", error #185) once it reaches 50 synchronous updates. Stop well
+// short of that -- the next scroll starts a fresh chain.
+const MAX_MEASURE_PASSES = 8;
 
 const Container = styled.div`
     padding: 4px;
@@ -382,6 +390,8 @@ export const List: FC<Props> = React.memo((props: Props) => {
     const [viewportHeight, setViewportHeight] = React.useState(600);
     const [layoutVersion, setLayoutVersion] = React.useState(0);
     const heightsRef = React.useRef(new Map<string, number>());
+    /** Passes the current scroll gesture has already chained, see `MAX_MEASURE_PASSES`. */
+    const measurePassesRef = React.useRef(0);
 
     const { offsets, totalHeight } = React.useMemo(() => {
         const next = new Array<number>(totalCards);
@@ -446,6 +456,8 @@ export const List: FC<Props> = React.memo((props: Props) => {
             return;
         }
         const element = event.currentTarget;
+        // A new gesture may chain measurement passes again.
+        measurePassesRef.current = 0;
         setScrollTop(element.scrollTop);
         setViewportHeight(element.clientHeight);
     }, []);
@@ -458,6 +470,19 @@ export const List: FC<Props> = React.memo((props: Props) => {
         if (!container) {
             return;
         }
+
+        // Nothing inside is laid out: the page sits behind an inactive tab
+        // pane, the window is in mini mode, etc. Every card then reports a 0
+        // height, and the 8px margin would be cached as if it were a
+        // measurement. That corrupts `offsets` and changes `layoutVersion`,
+        // which moves the window onto cards that are equally invisible and
+        // asks for one more pass -- the chain that ends at React's
+        // nested-update limit. The cache keeps the heights measured while the
+        // list was visible, so skipping loses nothing.
+        if (container.getBoundingClientRect().height === 0) {
+            return;
+        }
+
         let changed = false;
         const nodes = container.querySelectorAll<HTMLElement>('[data-card-id]');
         nodes.forEach((node) => {
@@ -474,7 +499,8 @@ export const List: FC<Props> = React.memo((props: Props) => {
                 changed = true;
             }
         });
-        if (changed) {
+        if (changed && measurePassesRef.current < MAX_MEASURE_PASSES) {
+            measurePassesRef.current += 1;
             setLayoutVersion((version) => version + 1);
         }
     }, [start, end, filteredCards]);

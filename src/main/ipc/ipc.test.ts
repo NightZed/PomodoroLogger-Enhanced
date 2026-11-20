@@ -56,7 +56,13 @@ import { readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
 import { initialize, handleCommand, isTrustedSender } from './ipc';
-import { setMenuItems, setSkipTaskbar, suppressResizingNotification } from '../init';
+import {
+    isWindowInTray,
+    revealWindow,
+    setMenuItems,
+    setSkipTaskbar,
+    suppressResizingNotification,
+} from '../init';
 import { clearUserFiles, saveScreenshot } from '../userFiles';
 import { startWindowDrag, stopWindowDrag } from './windowDrag';
 import { readAllData } from '../io/read';
@@ -129,6 +135,36 @@ describe('main/ipc', () => {
 
         init.win = undefined;
         expect(isTrustedSender(trustedEvent)).toBe(false);
+    });
+
+    describe('window attention', () => {
+        it('resizes the window to the normal size for a dialog', async () => {
+            await handlers['showWindowForAttention'](trustedEvent, 'normal');
+
+            expect(revealWindow).toHaveBeenCalled();
+            expect(mockWin.setContentSize).toHaveBeenCalledWith(1440, 960);
+        });
+
+        it('keeps the size when it only brings the window forward', async () => {
+            await handlers['showWindowForAttention'](trustedEvent, 'focus');
+
+            expect(revealWindow).toHaveBeenCalled();
+            // A compact or user-sized window was closed with its own
+            // dimensions; bringing it back must not resize it.
+            expect(mockWin.setContentSize).not.toHaveBeenCalled();
+        });
+
+        it('leaves a tray window alone unless the reveal is intended', async () => {
+            (isWindowInTray as jest.Mock).mockReturnValue(true);
+
+            await handlers['focusOnWindow'](trustedEvent, false);
+            expect(revealWindow).not.toHaveBeenCalled();
+
+            await handlers['focusOnWindow'](trustedEvent, true);
+            expect(revealWindow).toHaveBeenCalled();
+
+            (isWindowInTray as jest.Mock).mockReturnValue(false);
+        });
     });
 
     it('rejects request channels for untrusted senders', async () => {

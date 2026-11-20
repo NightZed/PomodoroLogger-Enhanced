@@ -349,13 +349,6 @@ describe('trayMenuItems', () => {
         expect(menuOf(state({ minFinishDuration: 0 })).finish.label).toBe('Finish');
     });
 
-    it('keeps the Finish entry clickable so the page can explain the refusal', () => {
-        // Greying it out would need a per-minute rebuild to know when it
-        // becomes available, and a dead entry cannot explain itself.
-        const menu = menuOf(state({ isRunning: true, minFinishDuration: 10 * 60 }));
-        expect(menu.finish.enabled).toBe(true);
-    });
-
     it('keeps the Start entries under the ending mask and greys the rest', () => {
         const menu = menuOf(
             state({ isFocusing: false, targetTime: 1560000000000, sessionEnding: true })

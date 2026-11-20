@@ -369,9 +369,10 @@ describe('Application page switching', () => {
             store.dispatch(setMinimize(true));
         });
 
-        // It renders nothing, so leaving it mounted costs nothing -- while
-        // unmounting it dropped the progress/downloaded events, which the main
-        // process pushes once and never replays.
+        // It renders null, so "mounted" is the only observable proxy for "its
+        // update subscriptions are alive"; unmounting it in mini mode dropped
+        // the progress/downloaded events, which the main process pushes once
+        // and never replays.
         expect(mockUpdateControllerMounts).toHaveBeenCalled();
     });
 

@@ -168,6 +168,7 @@ const baseTimer = {
     longBreakDuration: 15 * 60,
     minFinishDuration: 0,
     warnBeforeFocusStart: false,
+    returnToTimerOnSessionEnd: true,
     screenShotInterval: undefined,
     workSoundPath: undefined as string | undefined,
     workSoundEnabled: true,
@@ -779,6 +780,26 @@ describe('Timer page', () => {
             false,
             true
         );
+    });
+
+    // Regression: finishing a session used to switch to the Timer page
+    // unconditionally, dropping the user out of an open board editor and
+    // leaving a drag half-finished. The mask is app-level now, so staying put
+    // is safe.
+    it('stays on the current page when the return-to-timer setting is off', async () => {
+        const { ref, actions } = await renderTimer({
+            returnToTimerOnSessionEnd: false,
+            isFocusing: false,
+            isRunning: true,
+        });
+
+        await act(async () => {
+            await (ref.current as any).onFinishButtonClick();
+        });
+
+        expect(actions.setSessionEnding).toHaveBeenCalledWith(true);
+        expect(actions.pauseTimer).toHaveBeenCalled();
+        expect(actions.changeAppTab).not.toHaveBeenCalled();
     });
 
     it('refuses to finish a focus session below the configured minimum', async () => {

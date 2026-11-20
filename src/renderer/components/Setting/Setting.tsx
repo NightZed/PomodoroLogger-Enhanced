@@ -497,6 +497,7 @@ const settingUiStates = [
     'soundVolume',
     'desktopNotification',
     'warnBeforeFocusStart',
+    'returnToTimerOnSessionEnd',
     'useHardwareAcceleration',
     'unloadOnCloseToTray',
     'compactAlwaysOnTop',
@@ -1436,6 +1437,23 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                     <Hint>
                                         {t('settings.notification.desktopNotificationHint')}
                                     </Hint>
+                                </Field>
+
+                                <Field>
+                                    <h4>{t('settings.notification.returnToTimerOnSessionEnd')}</h4>
+                                    <Hint>
+                                        {t('settings.notification.returnToTimerOnSessionEndHint')}
+                                    </Hint>
+                                    <Switch
+                                        onChange={(value) =>
+                                            props.setReturnToTimerOnSessionEnd(value)
+                                        }
+                                        checked={props.returnToTimerOnSessionEnd}
+                                        aria-label={t(
+                                            'settings.notification.returnToTimerOnSessionEnd'
+                                        )}
+                                        style={{ margin: 8 }}
+                                    />
                                 </Field>
                             </>
                         )}

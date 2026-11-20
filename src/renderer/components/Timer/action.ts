@@ -118,6 +118,14 @@ export interface Setting {
      * the "Don't remind me again" check box or in the settings.
      */
     warnBeforeFocusStart: boolean;
+    /**
+     * When on, finishing a session brings the window back to the Timer page.
+     * On by default, as it has always behaved. Turning it off leaves the user
+     * where they are: the ending mask mounts in the app-level layer, so it is
+     * visible on every page without a page switch -- and staying put is what
+     * keeps an open board/card editor and a drag in progress intact.
+     */
+    returnToTimerOnSessionEnd: boolean;
     startOnBoot: boolean;
     useHardwareAcceleration: boolean;
     /**
@@ -276,6 +284,7 @@ export const defaultState: TimerState = {
     soundVolume: 0.5,
     desktopNotification: true,
     warnBeforeFocusStart: true,
+    returnToTimerOnSessionEnd: true,
     calendarBaseColor: '#aceebb',
     themeId: DEFAULT_THEME_ID,
     followSystemTheme: false,
@@ -406,6 +415,9 @@ export const setLongBreakSoundEnabled = createAction<boolean>(
 export const setSoundVolume = createAction<number>('[Setting]SET_SOUND_VOLUME');
 export const setDesktopNotification = createAction<boolean>('[Setting]SET_DESKTOP_NOTIFICATION');
 export const setWarnBeforeFocusStart = createAction<boolean>('[Timer]SET_WARN_BEFORE_FOCUS_START');
+export const setReturnToTimerOnSessionEnd = createAction<boolean>(
+    '[Setting]SET_RETURN_TO_TIMER_ON_SESSION_END'
+);
 export const setCalendarBaseColor = createAction<string>('[Timer]SET_CALENDAR_BASE_COLOR');
 export const switchFocusRestMode = createAction('[Timer]SWITCH_FOCUS_MODE');
 export const setThemeId = createAction<string>('[Setting]SET_THEME_ID');
@@ -456,6 +468,7 @@ export const actions = {
             ['soundVolume', setSoundVolume],
             ['desktopNotification', setDesktopNotification],
             ['warnBeforeFocusStart', setWarnBeforeFocusStart],
+            ['returnToTimerOnSessionEnd', setReturnToTimerOnSessionEnd],
             ['startOnBoot', setStartOnBoot],
             ['useHardwareAcceleration', setUseHardwareAcceleration],
             ['unloadOnCloseToTray', setUnloadOnCloseToTray],
@@ -635,6 +648,15 @@ export const actions = {
             { upsert: true }
         );
     },
+    setReturnToTimerOnSessionEnd:
+        (returnToTimerOnSessionEnd: boolean) => async (dispatch: Dispatch) => {
+            dispatch(setReturnToTimerOnSessionEnd(returnToTimerOnSessionEnd));
+            await settingDB.update(
+                { name: 'setting' },
+                { $set: { returnToTimerOnSessionEnd } },
+                { upsert: true }
+            );
+        },
     /**
      * Reminder sounds. The file is written as given -- the app never copies it
      * -- and an empty value unsets the key, so "no custom file" is absence
@@ -921,6 +943,10 @@ export const reducer = createReducer<TimerState>(defaultState, (builder) => {
         .addCase(setWarnBeforeFocusStart, (state, { payload }) => ({
             ...state,
             warnBeforeFocusStart: payload,
+        }))
+        .addCase(setReturnToTimerOnSessionEnd, (state, { payload }) => ({
+            ...state,
+            returnToTimerOnSessionEnd: payload,
         }))
         .addCase(setUseHardwareAcceleration, (state, { payload }) => ({
             ...state,

@@ -672,6 +672,8 @@ export const zh: CatalogShape<typeof en> = {
             desktop: '桌面',
             desktopNotification: '桌面通知',
             desktopNotificationHint: '每次会话结束都显示系统通知。',
+            returnToTimerOnSessionEnd: '会话结束时返回番茄钟页面',
+            returnToTimerOnSessionEndHint: '关闭后，结束提示会浮在当前页面上，不切换页面。',
         },
         about: {
             hint: '一款结合番茄工作法和看板任务管理的时间记录工具。',

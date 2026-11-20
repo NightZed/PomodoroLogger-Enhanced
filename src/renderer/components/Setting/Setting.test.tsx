@@ -175,6 +175,7 @@ const props = (): any => ({
     soundVolume: 0.5,
     desktopNotification: true,
     warnBeforeFocusStart: false,
+    returnToTimerOnSessionEnd: true,
     useHardwareAcceleration: true,
     unloadOnCloseToTray: false,
     compactAlwaysOnTop: false,
@@ -197,6 +198,7 @@ const props = (): any => ({
     setAutoUpdate: jest.fn(),
     setScreenShotInterval: jest.fn(),
     setWarnBeforeFocusStart: jest.fn(),
+    setReturnToTimerOnSessionEnd: jest.fn(),
     setUseHardwareAcceleration: jest.fn(),
     setUnloadOnCloseToTray: jest.fn(),
     setCompactAlwaysOnTop: jest.fn(),
@@ -630,6 +632,22 @@ describe('Setting language option', () => {
 
         fireEvent.click(screen.getByRole('button', { name: 'Follow system' }));
         expect(languageProps.setLanguage).toHaveBeenCalledWith('system');
+    });
+});
+
+describe('Setting return-to-timer option', () => {
+    it('offers the toggle in the notification section and reports the choice', () => {
+        const returnProps = props();
+        render(<Setting {...returnProps} />);
+
+        const nav = screen.getByRole('navigation', { name: 'Settings sections' });
+        fireEvent.click(within(nav).getByRole('button', { name: /Notifications/ }));
+
+        fireEvent.click(
+            screen.getByRole('switch', { name: 'Return to the Timer When a Session Ends' })
+        );
+
+        expect(returnProps.setReturnToTimerOnSessionEnd).toHaveBeenCalledWith(false);
     });
 });
 

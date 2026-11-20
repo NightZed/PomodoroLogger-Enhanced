@@ -988,7 +988,13 @@ class Timer extends Component<Props, State> {
         // switched either, so this cannot live in the component.
         this.props.setSessionEnding(true);
         this.props.pauseTimer();
-        this.props.changeAppTab('timer');
+        // The mask mounts in the app-level layer (see `SESSION_MASK_LAYER_ID`),
+        // so it is visible wherever the user is. That makes this page switch a
+        // preference rather than a requirement -- and skipping it is what keeps
+        // an open board/card editor and a drag in progress intact.
+        if (this.props.timer.returnToTimerOnSessionEnd) {
+            this.props.changeAppTab('timer');
+        }
         // Leave the confirming disc (session color + fruit) on the tray, not
         // the app icon -- mirroring MiniLogger's confirming dial. `isFocusing`
         // is still the session that just ended here: `timerFinished` (which

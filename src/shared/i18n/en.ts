@@ -736,6 +736,9 @@ export const en = {
             desktop: 'Desktop',
             desktopNotification: 'Desktop Notification',
             desktopNotificationHint: 'Shows a system notification every time a session finishes.',
+            returnToTimerOnSessionEnd: 'Return to the Timer When a Session Ends',
+            returnToTimerOnSessionEndHint:
+                'When off, the ending prompt appears over the current page without switching pages.',
         },
         about: {
             hint: 'A time logger that meets the Pomodoro technique and a kanban board.',

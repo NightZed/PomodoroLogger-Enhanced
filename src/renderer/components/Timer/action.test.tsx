@@ -188,6 +188,8 @@ describe('Reducer', () => {
         expect(state.screenShotInterval).toBe(91111);
         await actions.setWarnBeforeFocusStart(false)(dispatch);
         expect(state.warnBeforeFocusStart).toBeFalsy();
+        await actions.setReturnToTimerOnSessionEnd(false)(dispatch);
+        expect(state.returnToTimerOnSessionEnd).toBeFalsy();
         await dispatch(actions.startTimer());
         expect(state.targetTime).not.toBeUndefined();
         expect(state.isRunning).toBeTruthy();
@@ -218,6 +220,7 @@ describe('Reducer', () => {
             'longBreakDuration',
             'minFinishDuration',
             'warnBeforeFocusStart',
+            'returnToTimerOnSessionEnd',
         ];
         for (const setting of settings) {
             // @ts-ignore

@@ -36,6 +36,8 @@
 
 结束遮罩（`SessionEndingMask`）在 `focusedList` 只有一张卡时自动选它，多张时让用户选一张或选「不挂卡」，然后 `Timer.onSessionConfirmed` 把单个 `cardId` 交给 `timerFinished` → `recordFinishedSession`，只有那张卡的 `actual` 增加。
 
+遮罩用 portal 挂到 `Application` 的 `SESSION_MASK_LAYER_ID` 层，不随当前页面隐藏：它必须盖住整个窗口，而页面 pane 在非激活时是 `display: none`。因此「会话结束回到番茄钟页」只是偏好（`returnToTimerOnSessionEnd`，默认开），不再是为了让遮罩可见——那次强制切页会打断正在编辑的看板/卡片和进行中的拖拽。
+
 **不要退回「挂到 `focusedList` 的每一张卡」**：那会让卡片时长按列表卡片数放大，而 `dataMerger` 的 `setBoardInfo` 按卡片重算看板时长，导出再导入后 `spentHours` 会变成实际的 N 倍。
 
 事后改归属（改项目 / 挂卡 / 删除）统一走主进程的 `applySessionEdits` 单事务：

@@ -48,6 +48,7 @@ Electron 桌面应用（番茄钟 + 看板 + 桌面活动追踪 + 统计）。
 - 不要加依赖 TS 编译器 API 的 loader（这里没有 ts-loader / ts-jest）。
 - 永远不要手动改 `package.json` 版本号或打 tag。
 - 提交信息用简体中文，类型与 scope 小写。
+- 提交前跑 `pnpm typecheck && pnpm lint`，约 11 秒。
 
 ## 区域索引
 

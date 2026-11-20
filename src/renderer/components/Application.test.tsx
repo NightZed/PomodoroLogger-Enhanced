@@ -33,7 +33,14 @@ jest.mock('./Kanban', () => {
 jest.mock('./History', () => ({ __esModule: true, default: () => null }));
 jest.mock('./Setting', () => ({ __esModule: true, default: () => null }));
 jest.mock('./UserGuide/UserGuide', () => ({ __esModule: true, UserGuide: () => null }));
-jest.mock('./UpdateController', () => ({ __esModule: true, UpdateController: () => null }));
+const mockUpdateControllerMounts = jest.fn();
+jest.mock('./UpdateController', () => ({
+    __esModule: true,
+    UpdateController: () => {
+        mockUpdateControllerMounts();
+        return null;
+    },
+}));
 jest.mock('./Kanban/Card/CardEditor', () => ({ __esModule: true, CardInDetail: () => null }));
 jest.mock('./Visualization/PomodoroSankey', () => ({
     __esModule: true,
@@ -351,6 +358,19 @@ describe('Application page switching', () => {
                 store.dispatch(setMinimize(false));
             });
         }
+    });
+
+    it('keeps the update listener mounted while the window is the mini strip', async () => {
+        mockUpdateControllerMounts.mockClear();
+
+        await act(async () => {
+            store.dispatch(setMinimize(true));
+        });
+
+        // It renders nothing, so leaving it mounted costs nothing -- while
+        // unmounting it dropped the progress/downloaded events, which the main
+        // process pushes once and never replays.
+        expect(mockUpdateControllerMounts).toHaveBeenCalled();
     });
 
     it('ignores document visibility, so a merely covered window keeps its pages', async () => {

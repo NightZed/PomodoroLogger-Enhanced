@@ -511,10 +511,14 @@ class Application extends React.Component<Props, State> {
                             </DestroyOnTimeoutWrapper>
                         }
                     />
+                    {/* Stays mounted in every mode: it only subscribes to the
+                        update events and renders nothing, and unmounting it in
+                        mini mode dropped those events (the main process pushes
+                        them once, it does not replay them). */}
+                    <UpdateController />
                     {!minimize && (
                         <>
                             <UserGuide />
-                            <UpdateController />
                             <CardInDetail />
                             <ConnectedPomodoroSankey />
                         </>

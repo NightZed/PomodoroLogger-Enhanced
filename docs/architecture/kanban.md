@@ -90,6 +90,8 @@ export const dragActivity = { dragging: false };
 
 用模块级可变对象而不是 React state/context，是因为 `setDragging(true)` 会让 500 个 `Card` 重渲染一次，本身就是几百毫秒的卡顿。
 
+页面被切走（切标签、迷你窗口、托盘）会隐藏 `TabPane`，dnd 拿不到落点，`onDragEnd` 不会跑，它注入的 `pointer-events: none` 会一直留在卡片上——回来时卡片既拖不动，光标也退回默认箭头。`Kanban` 因此在 `currentTab` 离开看板而 `dragging` 仍为 true 时调用 `dragActivity.reset()` 并递增 `Board` 的 key，下一次进入看板时 `DragDropContext` 是新建的。
+
 窗口化之后不再按视口给卡片禁用位移过渡。窗口只有 40 张，混用两种过渡长度会让同一批被挤开的卡片速度不一致：视口内的走 200ms，视口外的瞬移，跨边界时还会中途切换，表现成相邻两张卡一前一后、互相覆盖。
 
 ## 顶部 / 底部淡出

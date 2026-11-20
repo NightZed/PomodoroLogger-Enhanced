@@ -1,8 +1,21 @@
-import React from 'react';
 import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { Kanban } from './Kanban';
+import { dragActivity } from './dragActivity';
 
-jest.mock('./Board', () => ({ __esModule: true, default: () => <div data-testid="board" /> }));
+jest.mock('./Board', () => {
+    const React = require('react');
+    const BoardStub = () => {
+        // Counts mounts, not renders: the point is whether the board is
+        // rebuilt (see the drag-safety test below).
+        React.useEffect(() => {
+            const g = global as any;
+            g.__boardMounts = (g.__boardMounts ?? 0) + 1;
+        }, []);
+        return <div data-testid="board" />;
+    };
+
+    return { __esModule: true, default: BoardStub };
+});
 jest.mock('./Board/Overview', () => ({
     Overview: ({ showConfigById, showTable, showHidden }: any) => (
         <div data-testid="overview" data-table={String(showTable)} data-hidden={String(showHidden)}>
@@ -136,6 +149,8 @@ describe('Kanban page', () => {
         delete (global as any).__formProps;
         delete (global as any).__hotkeys;
         delete (global as any).__searchProps;
+        delete (global as any).__boardMounts;
+        dragActivity.dragging = false;
         jest.clearAllTimers();
     });
 
@@ -353,6 +368,28 @@ describe('Kanban page', () => {
 
         expect(actions.setSearchReg).toHaveBeenCalledWith(undefined);
         expect((global as any).__searchProps.enabled).toBe(false);
+    });
+
+    // Regression: a drag still running when the page was switched away never
+    // reached dnd's onDragEnd, so its pointer-events: none styles stayed on
+    // every card -- the pointer fell back to the default cursor and dragging
+    // was dead until the board was remounted by hand (leave and re-enter).
+    it('drops a drag lost to a page switch and rebuilds the board', () => {
+        dragActivity.dragging = true;
+        const { props, rerender } = renderKanban({
+            kanban: {
+                chosenBoardId: 'b1',
+                configuringBoardId: undefined,
+                sortedBy: 'recent',
+                sortDirection: 'asc',
+            },
+        });
+        const mounts = (global as any).__boardMounts;
+
+        rerender(<Kanban {...props} currentTab="timer" />);
+
+        expect(dragActivity.dragging).toBe(false);
+        expect((global as any).__boardMounts).toBe(mounts + 1);
     });
 });
 

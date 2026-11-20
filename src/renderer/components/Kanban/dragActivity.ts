@@ -27,4 +27,17 @@ export const dragActivity = {
 
     /** `performance.now()` of the last drop, so the check above only runs then. */
     lastDropAt: 0,
+
+    /**
+     * Clears the flag after a drag that never reached `onDragEnd`.
+     *
+     * Hiding the board's pane mid-drag (a page switch, the mini window, the
+     * tray) takes the drop target away from dnd: its `onDragEnd` never runs, so
+     * the `pointer-events: none` styles it injects for the drag stay on every
+     * card and the board reads as un-draggable once it is back on screen.
+     * `Kanban` calls this before remounting the board for exactly that case.
+     */
+    reset() {
+        this.dragging = false;
+    },
 };

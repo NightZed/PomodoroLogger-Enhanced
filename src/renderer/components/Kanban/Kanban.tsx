@@ -28,6 +28,7 @@ import { getBoardSearchTags } from './boardTags';
 import { PomodoroRecord } from '../../monitor/type';
 import { CardView } from './type';
 import { debounce } from 'lodash';
+import { dragActivity } from './dragActivity';
 import { useI18n } from '../../i18n';
 import type { PlainMessageKey } from '../../../shared/i18n';
 import type { SessionEditsResult } from '../../../shared/sessionEdits';
@@ -225,6 +226,11 @@ export const Kanban: FunctionComponent<Props> = React.memo(
         const [showHidden, setShowHidden] = useState(false);
         const [editingBoardId, setEditingBoardId] = useState<string | undefined>('');
         const [unassignedOpen, setUnassignedOpen] = useState(false);
+        /**
+         * Bumped when the page is left during a drag, so the board below is
+         * remounted and dnd starts over with a clean context. See the effect.
+         */
+        const [dragEpoch, setDragEpoch] = useState(0);
         // Sessions of the chosen board that no card counts. Read here so the
         // header button and the panel share one query.
         const {
@@ -287,6 +293,19 @@ export const Kanban: FunctionComponent<Props> = React.memo(
             search.cancel();
             setSearchReg(undefined);
         }, [currentTab, setSearchReg, search]);
+        React.useEffect(() => {
+            if (currentTab === 'kanban' || !dragActivity.dragging) {
+                return;
+            }
+
+            // Leaving the page hides this pane, which takes the drop target
+            // away from dnd: `onDragEnd` never runs, so the `pointer-events:
+            // none` styles it injects for the drag stay on every card and the
+            // board is inert when the page comes back. Remounting the board
+            // (its key below) throws that half-finished session away.
+            dragActivity.reset();
+            setDragEpoch((epoch) => epoch + 1);
+        }, [currentTab]);
         const valueHandler: (values: FormValue) => void = ({ name, description, hidden }) => {
             if (editingBoardId === undefined) {
                 props.addBoard(uid(), name, description);
@@ -668,7 +687,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                     {props.kanban.chosenBoardId === undefined ? null : (
                         <Board
                             boardId={props.kanban.chosenBoardId}
-                            key={props.kanban.chosenBoardId}
+                            key={`${props.kanban.chosenBoardId}:${dragEpoch}`}
                         />
                     )}
                 </Content>

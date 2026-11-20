@@ -81,18 +81,35 @@ Electron 桌面应用（番茄钟 + 看板 + 桌面活动追踪 + 统计）。
 进程/内存检查放这里而不是 bash：`ps -W` 不报告内存和 CPU，`tasklist` 的输出又依赖控制台代码页。
 
 ```powershell
-# 会话/进程树，按本检出目录过滤，避免误伤其他 Electron 应用
+# 查看会话/进程树。CommandLine 过滤只用来缩小查看范围——不要拿它决定杀谁，见下。
 Get-CimInstance Win32_Process |
   Where-Object { $_.CommandLine -match [regex]::Escape('PomodoroLogger-Enhanced') } |
-  Select-Object ProcessId, ParentProcessId, Name
+  Select-Object ProcessId, ParentProcessId, Name, ExecutablePath
 
+# 只能看内存：所有 Electron 应用的进程名都叫 electron，不能用来判断归属。
 Get-Process -Name electron |
   Select-Object Id, @{n='WS_MB';e={[math]::Round($_.WorkingSet64/1MB,1)}},
                    @{n='Private_MB';e={[math]::Round($_.PrivateMemorySize64/1MB,1)}}
 
-taskkill /PID <pid> /T /F      # Electron 子进程不会随父进程一起退出
 Get-NetTCPConnection -LocalPort 2003 -State Listen | Select-Object OwningProcess
 ```
+
+**结束进程只认 PID 树，不按仓库名匹配命令行。**
+`CommandLine -match 'PomodoroLogger-Enhanced'` 会命中在同一目录下启动的所有 node 进程——语言服务、WezTerm 的 think 面板、编辑器插件都在其中——`taskkill /T` 还会带走它们的子进程。按仓库名筛出 node 再 `/T` 杀掉，等于清空这个项目的工作环境。
+
+- 自己启动的进程：启动时留下 `$proc.Id`，或用后台任务的 TaskStop 结束整棵树。
+- 找 Electron 残留：按可执行文件路径精确匹配，确认父链后再杀。
+
+```powershell
+$electron = Join-Path $PWD 'node_modules/electron/dist/electron.exe'
+Get-CimInstance Win32_Process |
+  Where-Object { $_.ExecutablePath -eq $electron } |
+  Select-Object ProcessId, ParentProcessId, CommandLine
+
+taskkill /PID <pid> /T /F      # Electron 子进程不会随父进程一起退出
+```
+
+- 其余 node 进程默认不动；确认是本检出启动的，才按 PID 结束。
 
 ## 常用命令
 

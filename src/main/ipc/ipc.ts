@@ -242,8 +242,14 @@ export function initialize() {
     initializeDbIpc(isTrustedSender);
     handle(IpcEventName.ActiveWin, activeWin);
     handle(IpcEventName.FocusOnWindow, () => {
-        // Works while the window sits minimized in the tray as well: reveal
-        // restores it first (see init.ts `revealWindow`).
+        // A window in the tray stays there: the confirming tray icon and the
+        // system notification are its channels (see `onDone`). The renderer
+        // already checks `inTray` before asking, but its copy can lag one push
+        // behind, and this is the decision that must not.
+        if (isWindowInTray()) {
+            return;
+        }
+
         revealWindow();
     });
     /**

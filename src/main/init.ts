@@ -603,6 +603,13 @@ const createWindow = async () => {
     // Closing sends the window to the tray instead of destroying it: minimize
     // on Windows (not hide -- see why above), plain hide on the other platforms.
     win.on('close', (event) => {
+        if (quitting) {
+            // `app.quit()` is already under way. Sending the window to the
+            // tray here would cancel it -- `close` cancels a quit just like it
+            // cancels a user close.
+            return;
+        }
+
         if (win) {
             event.preventDefault();
             closeToTray();
@@ -945,15 +952,24 @@ app.on('window-all-closed', () => {
  */
 let unconfirmedSession = false;
 
+/**
+ * A quit is going through, so the `close` handler must not send the window to
+ * the tray. `close` cancels a quit exactly like it cancels a user click on the
+ * caption button, which is why the tray Quit / Ctrl+Q used `app.exit()` before:
+ * it skipped this hook and everything else.
+ */
+let quitting = false;
+
 app.on('before-quit', (event) => {
     const windowAlive = Boolean(win && !win.isDestroyed());
-    if (!shouldBlockQuit(unconfirmedSession, windowAlive)) {
+    if (shouldBlockQuit(unconfirmedSession, windowAlive)) {
+        event.preventDefault();
+        revealWindow();
+        win?.webContents.send(WindowEventName.QuitBlocked);
         return;
     }
 
-    event.preventDefault();
-    revealWindow();
-    win?.webContents.send(WindowEventName.QuitBlocked);
+    quitting = true;
 });
 app.on('activate', () => {
     if (!win) {

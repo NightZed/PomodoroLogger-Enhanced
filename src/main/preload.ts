@@ -150,6 +150,7 @@ const api: ExposedAPI = {
     [IpcEventName.WindowState]: () => invoke<WindowState>(IpcEventName.WindowState),
 
     quit: () => send(IpcEventName.Quit),
+    setUnconfirmedSession: (has: boolean) => send(IpcEventName.SetUnconfirmedSession, has),
     restart: () => send(IpcEventName.Restart),
     reportError: (payload: RendererErrorPayload) => send(IpcEventName.ReportError, payload),
     reportDataFailure: (payload: RendererDataFailurePayload) =>
@@ -188,6 +189,7 @@ const api: ExposedAPI = {
         subscribe(WindowEventName.TrayChanged, listener),
     onWindowCloseRequested: (listener: () => void) =>
         subscribe(WindowEventName.CloseRequested, listener),
+    onWindowQuitBlocked: (listener: () => void) => subscribe(WindowEventName.QuitBlocked, listener),
     onTrayAction: (listener: (key: TrayActionKey) => void) =>
         subscribe(TrayEventName.Action, listener),
 };

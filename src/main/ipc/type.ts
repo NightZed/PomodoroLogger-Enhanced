@@ -105,6 +105,12 @@ export enum IpcEventName {
     WindowDrag = 'windowDrag',
     /** Window state, asked once when the renderer mounts (see `WindowState`). */
     WindowState = 'windowState',
+    /**
+     * Tracks whether a finished pomodoro is still waiting for its confirmation:
+     * the app refuses to quit while it is, because the staged record is not
+     * written to the database until then.
+     */
+    SetUnconfirmedSession = 'setUnconfirmedSession',
 }
 
 /**
@@ -166,6 +172,8 @@ export enum WindowEventName {
      * the next restore (see `windowHideIntent.ts`).
      */
     CloseRequested = 'window-close-requested',
+    /** Quit was refused because a finished pomodoro still awaits confirmation. */
+    QuitBlocked = 'window-quit-blocked',
     /**
      * The user is dragging an edge (true) or stopped more than
      * `RESIZE_IDLE_MS` ago (false). Pushed, not polled: the renderer switches
@@ -418,6 +426,14 @@ export type ExposedAPI = {
      * user-sized window was closed with its own dimensions).
      */
     [IpcEventName.ShowWindowForAttention](action: WindowAttentionAction): Promise<void>;
+    /**
+     * The one piece of state the quit guard needs from the renderer. `true`
+     * while a finished session sits in memory waiting for the ending mask to be
+     * confirmed; writing that record only happens on confirmation.
+     */
+    setUnconfirmedSession(has: boolean): void;
+    /** Quit was refused; the renderer brings the ending mask to the front. */
+    onWindowQuitBlocked(listener: () => void): () => void;
 
     saveScreenshot(dataUrl: string): Promise<string>;
     deleteScreenshots(paths: string[]): Promise<void>;

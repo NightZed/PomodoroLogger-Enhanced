@@ -31,7 +31,8 @@ import { encodeBuildInfo } from './ipc/buildInfo';
 import { languageFromLocale, isLanguagePreference } from '../shared/i18n';
 import type { LanguagePreference } from '../shared/i18n';
 import { m } from './i18n';
-import { assertTrayIconPayload } from './ipc/validate';
+import { assertBoolean, assertTrayIconPayload } from './ipc/validate';
+import { shouldBlockQuit } from './quitGuard';
 import { stopWindowDrag } from './ipc/windowDrag';
 import { initActiveWin } from './activeWin';
 import { openExternalUrl } from './openExternal';
@@ -614,9 +615,23 @@ const createWindow = async () => {
             return;
         }
 
-        win = undefined;
-        app.exit();
+        // Through `app.quit()` so `before-quit` can refuse while a finished
+        // session is still waiting for its confirmation; `app.exit()` skips
+        // that hook entirely. The window reference stays: the refusal has to
+        // be able to bring the ending mask back.
+        app.quit();
     });
+    /**
+     * The renderer is the only side that knows whether a finished pomodoro is
+     * still staged in memory; the quit guard reads it in `before-quit`.
+     */
+    handleCommand(
+        IpcEventName.SetUnconfirmedSession,
+        (has: boolean) => {
+            unconfirmedSession = has;
+        },
+        [(value) => assertBoolean(value, 'unconfirmed session')]
+    );
 
     handleCommand(IpcEventName.Restart, restart);
 
@@ -906,8 +921,9 @@ export function setMenuItems(items: TrayMenuItem[]) {
             label: m('native.tray.quit'),
             type: 'normal',
             click: () => {
-                win = undefined;
-                app.exit();
+                // Same path as Ctrl+Q: `before-quit` refuses while a finished
+                // session is unconfirmed, and that refusal needs the window.
+                app.quit();
             },
         }
     );
@@ -917,6 +933,27 @@ export function setMenuItems(items: TrayMenuItem[]) {
 app.on('window-all-closed', () => {
     win = undefined;
     app.exit();
+});
+
+/**
+ * Set by the renderer while a finished pomodoro waits for its confirmation.
+ *
+ * The staged record is only written on confirmation (see `Timer`'s
+ * `onSessionConfirmed`), so quitting before that loses the session the user
+ * just earned. The tray icon announces the wait; this refuses the quit and
+ * brings the ending mask back instead.
+ */
+let unconfirmedSession = false;
+
+app.on('before-quit', (event) => {
+    const windowAlive = Boolean(win && !win.isDestroyed());
+    if (!shouldBlockQuit(unconfirmedSession, windowAlive)) {
+        return;
+    }
+
+    event.preventDefault();
+    revealWindow();
+    win?.webContents.send(WindowEventName.QuitBlocked);
 });
 app.on('activate', () => {
     if (!win) {

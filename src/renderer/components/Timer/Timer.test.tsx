@@ -118,12 +118,17 @@ jest.mock('../../../components/common/Mini/MiniLogger', () => ({
 
 const api = {
     onTrayAction: jest.fn(),
+    onWindowQuitBlocked: jest.fn(),
     setTrayMenu: jest.fn(),
     setTrayImage: jest.fn(),
+    setUnconfirmedSession: jest.fn(),
     notify: jest.fn(),
     focusOnWindow: jest.fn(),
     platform: 'win32',
 };
+
+/** The listener the main process would call when it refuses a quit. */
+let quitBlockedListener: (() => void) | undefined;
 
 interface PlayedAudio {
     src: string;
@@ -275,10 +280,16 @@ describe('Timer page', () => {
         (getTodaySessions as jest.Mock).mockResolvedValue([]);
         (setTrayImageWithMadeIcon as jest.Mock).mockClear();
         api.onTrayAction.mockReturnValue(jest.fn());
+        api.onWindowQuitBlocked.mockImplementation((listener: () => void) => {
+            quitBlockedListener = listener;
+            return jest.fn();
+        });
         api.setTrayMenu.mockClear();
         api.setTrayImage.mockClear();
+        api.setUnconfirmedSession.mockClear();
         api.notify.mockClear();
         api.focusOnWindow.mockClear();
+        quitBlockedListener = undefined;
         played = [];
         playbackFails = false;
         originalAudio = window.Audio;
@@ -861,6 +872,53 @@ describe('Timer page', () => {
         expect(api.notify).toHaveBeenCalled();
         expect(actions.setSessionEnding).toHaveBeenCalledWith(true);
         expect(api.focusOnWindow).not.toHaveBeenCalled();
+    });
+
+    it('tells the main process a finished session is waiting for confirmation', async () => {
+        const view = await renderTimer({ sessionEnding: false });
+        api.setUnconfirmedSession.mockClear();
+
+        await rerenderTimer(view, {
+            ...view.props,
+            timer: { ...view.props.timer, sessionEnding: true },
+        });
+
+        // The staged record only reaches SQLite on confirmation; the quit guard
+        // needs to know it is still in memory.
+        expect(api.setUnconfirmedSession).toHaveBeenCalledWith(true);
+    });
+
+    it('clears the quit guard when the page unmounts', async () => {
+        const view = await renderTimer({ sessionEnding: true });
+        api.setUnconfirmedSession.mockClear();
+
+        await act(async () => {
+            view.unmount();
+        });
+
+        // A boundary that replaced this page has nothing left to confirm, and a
+        // crash page must still be able to quit.
+        expect(api.setUnconfirmedSession).toHaveBeenCalledWith(false);
+    });
+
+    it('turns a mini strip into the normal layout when a quit is refused', async () => {
+        const { actions } = await renderTimer({ minimize: true });
+
+        act(() => {
+            quitBlockedListener?.();
+        });
+
+        expect(actions.setMinimize).toHaveBeenCalledWith(false);
+    });
+
+    it('turns a compact window into the normal layout when a quit is refused', async () => {
+        const { actions } = await renderTimer({ compact: true });
+
+        act(() => {
+            quitBlockedListener?.();
+        });
+
+        expect(actions.setCompact).toHaveBeenCalledWith(false);
     });
 
     it('plays the short break sound at the configured volume when a break ends', async () => {

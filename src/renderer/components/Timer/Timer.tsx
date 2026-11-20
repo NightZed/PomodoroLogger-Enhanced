@@ -334,6 +334,9 @@ class Timer extends Component<Props, State> {
     private unsubscribeTrayAction?: () => void;
     /** Unsubscribe for the "window is about to be closed" announcement. */
     private unsubscribeHideIntent?: () => void;
+
+    /** Main process refused a quit because a finished session is unconfirmed. */
+    private unsubscribeQuitBlocked?: () => void;
     /** The "your sound cannot be played" toast is shown once per run. */
     private soundFailureShown = false;
 
@@ -373,6 +376,10 @@ class Timer extends Component<Props, State> {
         // so the frame the system keeps for the next restore has no charts in
         // it. See `windowHideIntent.ts`.
         this.unsubscribeHideIntent = subscribeWindowHideIntent(this.closeStatsPanel);
+        this.unsubscribeQuitBlocked = window.api.onWindowQuitBlocked(this.onQuitBlocked);
+        // The staged record only reaches SQLite on confirmation, so the main
+        // process has to refuse a quit while the ending mask is up.
+        this.syncUnconfirmedSession(this.props.timer.sessionEnding);
         this.interval = setInterval(this.updateLeftTime, 500);
         this.updateLeftTime();
         this.selfRef.current!.addEventListener('resize', this.onResize);
@@ -519,6 +526,10 @@ class Timer extends Component<Props, State> {
     }
 
     componentDidUpdate(prevProps: Props): void {
+        if (prevProps.timer.sessionEnding !== this.props.timer.sessionEnding) {
+            this.syncUnconfirmedSession(this.props.timer.sessionEnding);
+        }
+
         // The tray menu says which actions are available, so it has to be
         // rebuilt when that changes. Only the fields `trayMenuItems` reads are
         // compared: rebuilding on anything else would call into the main
@@ -594,6 +605,11 @@ class Timer extends Component<Props, State> {
         this.unsubscribeTrayAction = undefined;
         this.unsubscribeHideIntent?.();
         this.unsubscribeHideIntent = undefined;
+        this.unsubscribeQuitBlocked?.();
+        this.unsubscribeQuitBlocked = undefined;
+        // Nothing is left to confirm once this page is gone; not clearing the
+        // flag would leave every later quit refused.
+        this.syncUnconfirmedSession(false);
         if (this.monitor) {
             // A staged session (ending mask still up) has already snapshotted
             // the record -- and a click on the mask may be pending its
@@ -1198,6 +1214,33 @@ class Timer extends Component<Props, State> {
     private focusOnCurrentWindow() {
         window.api.focusOnWindow();
     }
+
+    /**
+     * Keeps the main process's quit guard in step with the ending mask.
+     *
+     * The masked session lives only in this component (`stagedSession`), so the
+     * main process cannot derive it on its own; it refuses a quit while the
+     * flag is set and asks for the mask to be brought forward. Cleared on
+     * unmount as well: a boundary that replaced this page has nothing left to
+     * confirm, and a crash page must still be able to quit.
+     */
+    private syncUnconfirmedSession = (has: boolean) => {
+        window.api.setUnconfirmedSession(has);
+    };
+
+    /**
+     * Quit was refused while a finished pomodoro is unconfirmed. The main
+     * process restored and focused the window; this turns the mini strip or the
+     * compact window into the layout the ending mask is designed for.
+     */
+    private onQuitBlocked = () => {
+        if (this.props.timer.minimize) {
+            this.props.setMinimize(false);
+        }
+        if (this.props.timer.compact) {
+            this.props.setCompact(false);
+        }
+    };
 
     toggleMode = () => {
         // In compact mode the charts (800px wide) cannot fit the window, so

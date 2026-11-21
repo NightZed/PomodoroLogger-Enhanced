@@ -294,14 +294,6 @@ export const GlobalStyle = createGlobalStyle`
         .ant-popconfirm-title {
             color: var(--pl-text);
         }
-        /* ---------- tooltip ---------- */
-        .ant-tooltip-inner {
-            background-color: #434343;
-            color: var(--pl-text);
-        }
-        .ant-tooltip-arrow::before {
-            background-color: #434343;
-        }
 
         /* ---------- dropdown / menu ---------- */
         .ant-dropdown-menu,
@@ -648,6 +640,33 @@ export const GlobalStyle = createGlobalStyle`
         .ant-notification-notice-close:hover {
             color: var(--pl-text);
         }
+    }
+
+    /* ---------- tooltip ---------- */
+    /* Same surface as the treemap's tooltip (--pl-bg-elevated / --pl-text /
+       --pl-shadow) in both themes. antd's spotlight bubble is nearly black in
+       light mode and a slightly lighter grey in dark mode; neither matches a
+       card-colored hint.
+
+       v6 renamed the inner node from '-inner' to '-container', so the old
+       dark-only override silently stopped matching. Keep this outside the
+       theme blocks: the variables already follow the active theme. */
+    html[data-theme] .ant-tooltip-container {
+        background-color: var(--pl-bg-elevated);
+        color: var(--pl-text);
+        box-shadow: 0 2px 8px var(--pl-shadow);
+    }
+    html[data-theme] .ant-tooltip {
+        --ant-tooltip-arrow-background-color: var(--pl-bg-elevated);
+    }
+
+    /* Hints are meant to feel instant. antd's zoom-big-fast adds ~100ms of
+       zoom and fade on top of the enter delay; a 0s duration still fires
+       animationend, so rc-motion finishes the transition immediately. */
+    html[data-theme] .ant-tooltip.ant-zoom-big-fast-enter,
+    html[data-theme] .ant-tooltip.ant-zoom-big-fast-appear,
+    html[data-theme] .ant-tooltip.ant-zoom-big-fast-leave {
+        animation-duration: 0s !important;
     }
 
     /* Timer/Progress.tsx renders antd's Circle directly instead of going

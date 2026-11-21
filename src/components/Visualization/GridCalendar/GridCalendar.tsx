@@ -240,14 +240,14 @@ export const GridCalendar = React.memo((props: Props) => {
     const Tooltip = (
         <div
             style={{
-                /* Same surface as antd's Tooltip. The calendar keeps its own
-                   overlay because 53 weeks x 7 days would mean 371 Tooltip
-                   instances; only the look has to match. */
-                backgroundColor: token.colorBgSpotlight,
-                color: token.colorTextLightSolid,
+                /* Same surface as the treemap's tooltip. The calendar keeps
+                   its own overlay because 53 weeks x 7 days would mean 371
+                   Tooltip instances; only the look has to match. */
+                backgroundColor: 'var(--pl-bg-elevated)',
+                color: 'var(--pl-text)',
                 fontSize: token.fontSize,
                 lineHeight: token.lineHeight,
-                boxShadow: token.boxShadowSecondary,
+                boxShadow: '0 2px 8px var(--pl-shadow)',
                 wordBreak: 'keep-all',
                 position: 'absolute',
                 transition: 'all 0.1s',

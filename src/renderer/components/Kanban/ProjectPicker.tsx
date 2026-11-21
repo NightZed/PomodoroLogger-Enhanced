@@ -6,6 +6,7 @@ import { AppModal } from '../AppModal';
 import { useI18n } from '../../i18n';
 import { DAY_EDITOR_WIDTH, DIALOG_BODY_MAX_HEIGHT } from '../dialogLayout';
 import { PickerFooter } from './PickerFooter';
+import { Hint } from '../../../components/common/Hint/Hint';
 import type { RootState } from '../../reducers';
 import type { KanbanBoard } from './type';
 import { LAYER } from '../layers';
@@ -186,21 +187,21 @@ const ProjectPickerBodyInner = (props: BodyProps) => {
             ) : (
                 <Grid role="listbox" aria-label={t('kanban.projectPicker.title')}>
                     {boards.map((board) => (
-                        <BoardOption
-                            key={board._id}
-                            type="button"
-                            role="option"
-                            aria-selected={board._id === props.value}
-                            $selected={board._id === props.value}
-                            $hidden={!!board.hidden}
-                            title={board.name}
-                            onClick={() => props.onPick(board._id)}
-                        >
-                            <BoardName>{board.name}</BoardName>
-                            {board.hidden ? (
-                                <HiddenTag>{t('kanban.projectPicker.hidden')}</HiddenTag>
-                            ) : undefined}
-                        </BoardOption>
+                        <Hint key={board._id} label={board.name}>
+                            <BoardOption
+                                type="button"
+                                role="option"
+                                aria-selected={board._id === props.value}
+                                $selected={board._id === props.value}
+                                $hidden={!!board.hidden}
+                                onClick={() => props.onPick(board._id)}
+                            >
+                                <BoardName>{board.name}</BoardName>
+                                {board.hidden ? (
+                                    <HiddenTag>{t('kanban.projectPicker.hidden')}</HiddenTag>
+                                ) : undefined}
+                            </BoardOption>
+                        </Hint>
                     ))}
                 </Grid>
             )}

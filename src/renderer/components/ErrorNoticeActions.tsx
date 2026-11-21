@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { Button, Tooltip } from 'antd';
+import { Button } from 'antd';
+import { Hint } from '../../components/common/Hint/Hint';
 import { CheckOutlined, CopyOutlined, FolderOpenOutlined, GithubOutlined } from '@ant-design/icons';
 import { t } from '../i18n';
 import { copyToClipboard } from '../clipboard';
@@ -79,10 +80,10 @@ const ErrorNoticeActions: React.FC<Props> = ({ source }) => {
                 `LAYER.popup`, so these would render *behind* the card they
                 belong to. Lift only these three above the card instead of
                 changing the global layer order. */}
-            <Tooltip
-                title={copyLabel}
+            <Hint
+                label={copyLabel}
                 placement="bottom"
-                styles={{ root: { zIndex: LAYER.noticeTooltip } }}
+                zIndex={LAYER.noticeTooltip}
                 getPopupContainer={getPopupContainer}
             >
                 <Button
@@ -92,11 +93,11 @@ const ErrorNoticeActions: React.FC<Props> = ({ source }) => {
                     icon={flashed === 'copy' ? <CheckOutlined /> : <CopyOutlined />}
                     onClick={() => void copy('copy')}
                 />
-            </Tooltip>
-            <Tooltip
-                title={reportLabel}
+            </Hint>
+            <Hint
+                label={reportLabel}
                 placement="bottom"
-                styles={{ root: { zIndex: LAYER.noticeTooltip } }}
+                zIndex={LAYER.noticeTooltip}
                 getPopupContainer={getPopupContainer}
             >
                 <Button
@@ -109,11 +110,11 @@ const ErrorNoticeActions: React.FC<Props> = ({ source }) => {
                         window.api?.openExternal?.(ISSUES_URL);
                     }}
                 />
-            </Tooltip>
-            <Tooltip
-                title={logLabel}
+            </Hint>
+            <Hint
+                label={logLabel}
                 placement="bottom"
-                styles={{ root: { zIndex: LAYER.noticeTooltip } }}
+                zIndex={LAYER.noticeTooltip}
                 getPopupContainer={getPopupContainer}
             >
                 <Button
@@ -123,7 +124,7 @@ const ErrorNoticeActions: React.FC<Props> = ({ source }) => {
                     icon={<FolderOpenOutlined />}
                     onClick={() => window.api?.openLogDir?.()}
                 />
-            </Tooltip>
+            </Hint>
         </>
     );
 };

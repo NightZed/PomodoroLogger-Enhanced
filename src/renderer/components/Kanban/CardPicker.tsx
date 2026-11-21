@@ -7,6 +7,7 @@ import { useI18n } from '../../i18n';
 import { DAY_EDITOR_WIDTH, DIALOG_BODY_MAX_HEIGHT } from '../dialogLayout';
 import type { RootState } from '../../reducers';
 import { LAYER } from '../layers';
+import { Hint } from '../../../components/common/Hint/Hint';
 
 export interface CardPickerProps {
     open: boolean;
@@ -171,17 +172,17 @@ const CardPickerInner = (props: Props) => {
                                 <ColumnTitle>{column.list.title}</ColumnTitle>
                                 <ColumnBody role="listbox" aria-label={column.list.title}>
                                     {column.cards.map((card) => (
-                                        <CardOption
-                                            key={card._id}
-                                            type="button"
-                                            role="option"
-                                            aria-selected={card._id === props.value}
-                                            $selected={card._id === props.value}
-                                            title={card.title}
-                                            onClick={() => props.onPick(card._id)}
-                                        >
-                                            {card.title || t('kanban.cardPicker.untitled')}
-                                        </CardOption>
+                                        <Hint key={card._id} label={card.title}>
+                                            <CardOption
+                                                type="button"
+                                                role="option"
+                                                aria-selected={card._id === props.value}
+                                                $selected={card._id === props.value}
+                                                onClick={() => props.onPick(card._id)}
+                                            >
+                                                {card.title || t('kanban.cardPicker.untitled')}
+                                            </CardOption>
+                                        </Hint>
                                     ))}
                                 </ColumnBody>
                             </Column>

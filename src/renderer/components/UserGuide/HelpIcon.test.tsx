@@ -27,9 +27,9 @@ describe('UserGuide HelpIcon', () => {
     });
 
     it('starts the named tour when clicked', () => {
-        const { getByTitle, dispatch } = renderIcon();
+        const { getByRole, dispatch } = renderIcon();
 
-        fireEvent.click(getByTitle('Start guide'));
+        fireEvent.click(getByRole('button', { name: 'Start guide' }));
 
         expect(dispatch).toHaveBeenCalledWith(actions.startHelpByStoryName('allStories'));
     });
@@ -39,26 +39,26 @@ describe('UserGuide HelpIcon', () => {
             'pl-tour-progress',
             JSON.stringify({ stepId: 'timer.pause', name: 'allStories' })
         );
-        const { getByTitle, dispatch } = renderIcon({ resume: true });
+        const { getByRole, dispatch } = renderIcon({ resume: true });
 
-        fireEvent.click(getByTitle('Resume guide'));
+        fireEvent.click(getByRole('button', { name: 'Resume guide' }));
 
         expect(dispatch).toHaveBeenCalledWith(actions.resumeByStepId('allStories', 'timer.pause'));
     });
 
     it('starts from the beginning when no step was saved', () => {
-        const { getByTitle, dispatch } = renderIcon({ resume: true });
+        const { getByRole, dispatch } = renderIcon({ resume: true });
 
-        fireEvent.click(getByTitle('Resume guide'));
+        fireEvent.click(getByRole('button', { name: 'Resume guide' }));
 
         expect(dispatch).toHaveBeenCalledWith(actions.startHelpByStoryName('allStories'));
     });
 
     it('ignores a corrupt saved progress entry', () => {
         window.localStorage.setItem('pl-tour-progress', '{ not json');
-        const { getByTitle, dispatch } = renderIcon({ resume: true });
+        const { getByRole, dispatch } = renderIcon({ resume: true });
 
-        fireEvent.click(getByTitle('Resume guide'));
+        fireEvent.click(getByRole('button', { name: 'Resume guide' }));
 
         expect(dispatch).toHaveBeenCalledWith(actions.startHelpByStoryName('allStories'));
     });

@@ -4,6 +4,7 @@ import { uid } from '../../../utils/uid';
 import styled from 'styled-components';
 import { useThemeTokens } from '../../../renderer/theme/useThemeTokens';
 import { useI18n } from '../../../renderer/i18n';
+import { Hint } from '../../common/Hint/Hint';
 
 const AnimeSvg = styled.svg`
     transition: transform 0.25s;
@@ -82,7 +83,9 @@ export interface AccuracyReadoutProps {
  */
 export const AccuracyReadout = (props: AccuracyReadoutProps) => (
     <AccuracySlot>
-        <AccuracyGrade title={props.title}>{props.value}</AccuracyGrade>
+        <Hint label={props.title}>
+            <AccuracyGrade>{props.value}</AccuracyGrade>
+        </Hint>
     </AccuracySlot>
 );
 

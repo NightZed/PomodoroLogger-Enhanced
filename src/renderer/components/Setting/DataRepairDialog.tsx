@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Button, Checkbox } from 'antd';
+import { Hint } from '../../../components/common/Hint/Hint';
 import styled from 'styled-components';
 import { AppModal } from '../AppModal';
 import { feedback } from '../feedback';
@@ -358,9 +359,9 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
                         onChange={() => toggle(cardKey(card._id))}
                     />
                     <RowBody>
-                        <RowTitle title={card.title}>
-                            {card.title || t('dataRepair.untitled')}
-                        </RowTitle>
+                        <Hint label={card.title}>
+                            <RowTitle>{card.title || t('dataRepair.untitled')}</RowTitle>
+                        </Hint>
                         <RowMeta>{cardMeta(card, t)}</RowMeta>
                     </RowBody>
                     <Button size="small" onClick={() => setRestoreIds([card._id])}>
@@ -592,7 +593,9 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
                                         onChange={() => toggle(`list:${list._id}`)}
                                     />
                                     <RowBody>
-                                        <RowTitle title={list.title}>{list.title}</RowTitle>
+                                        <Hint label={list.title}>
+                                            <RowTitle>{list.title}</RowTitle>
+                                        </Hint>
                                         <RowMeta>{list._id}</RowMeta>
                                     </RowBody>
                                 </Row>

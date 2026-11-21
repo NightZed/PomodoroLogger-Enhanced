@@ -7,6 +7,7 @@ import { CardPicker } from '../CardPicker';
 import { PickerFooter } from '../PickerFooter';
 import { feedback } from '../../feedback';
 import { useI18n } from '../../../i18n';
+import { Hint } from '../../../../components/common/Hint/Hint';
 import { reportDataFailure } from '../../../errorReporting';
 import { PomodoroNumView } from '../../Timer/PomodoroNumView';
 import type { PomodoroRecord } from '../../../monitor/type';
@@ -50,7 +51,7 @@ const Body = styled.div`
     height: ${DIALOG_BODY_MAX_HEIGHT};
 `;
 
-const Hint = styled.p`
+const PanelHint = styled.p`
     flex: none;
     margin: 0 0 12px;
     font-size: 12px;
@@ -325,7 +326,7 @@ export const UnassignedPanel = (props: UnassignedPanelProps) => {
                 footer={null}
             >
                 <Body>
-                    <Hint>{t('kanban.unassigned.hint')}</Hint>
+                    <PanelHint>{t('kanban.unassigned.hint')}</PanelHint>
                     {props.rows.length === 0 ? (
                         <Empty>{t('kanban.unassigned.empty')}</Empty>
                     ) : (
@@ -372,20 +373,23 @@ export const UnassignedPanel = (props: UnassignedPanelProps) => {
                                         <Cell>{dayTimeLabel(row.startTime)}</Cell>
                                         <Cell>{row.spentTimeInHour.toFixed(2)}h</Cell>
                                         <Cell>
-                                            <LinkButton
-                                                type="button"
-                                                title={
+                                            <Hint
+                                                label={
                                                     cardIdOf(row._id) === undefined
                                                         ? t('kanban.unassigned.noCard')
                                                         : cardTitle(cardIdOf(row._id)!)
                                                 }
-                                                disabled={isDeleted(row._id)}
-                                                onClick={() => setPickerFor([row._id])}
                                             >
-                                                {cardIdOf(row._id) === undefined
-                                                    ? t('kanban.unassigned.noCard')
-                                                    : cardTitle(cardIdOf(row._id)!)}
-                                            </LinkButton>
+                                                <LinkButton
+                                                    type="button"
+                                                    disabled={isDeleted(row._id)}
+                                                    onClick={() => setPickerFor([row._id])}
+                                                >
+                                                    {cardIdOf(row._id) === undefined
+                                                        ? t('kanban.unassigned.noCard')
+                                                        : cardTitle(cardIdOf(row._id)!)}
+                                                </LinkButton>
+                                            </Hint>
                                         </Cell>
                                         <Button
                                             size="small"
@@ -400,9 +404,9 @@ export const UnassignedPanel = (props: UnassignedPanelProps) => {
                                 ))}
                             </List>
                             {props.total > props.rows.length ? (
-                                <Hint>
+                                <PanelHint>
                                     {t('kanban.unassigned.more', props.total - props.rows.length)}
-                                </Hint>
+                                </PanelHint>
                             ) : undefined}
                         </>
                     )}

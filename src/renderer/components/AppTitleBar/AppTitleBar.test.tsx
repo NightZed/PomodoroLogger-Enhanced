@@ -52,11 +52,11 @@ const tabButton = (container: HTMLElement, key: string) =>
 /** The declared pages, in order, read off the rendered tab bar. */
 const declaredTabs = (container: HTMLElement) =>
     tabNodes(container).map((tab) => {
-        const label = tab.querySelector('[title]');
+        const label = tab.querySelector('[data-tour]');
         const button = tab.querySelector('[role="tab"]');
         return {
             key: tab.getAttribute('data-node-key'),
-            title: label?.getAttribute('title'),
+            title: (label ?? button)?.textContent?.trim(),
             tourKey: label?.getAttribute('data-tour') ?? undefined,
             disabled: button?.getAttribute('aria-disabled') === 'true',
         };

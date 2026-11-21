@@ -8,6 +8,7 @@ import { DAY_EDITOR_WIDTH, DIALOG_BODY_MAX_HEIGHT } from '../dialogLayout';
 import { feedback } from '../feedback';
 import { CardPicker } from '../Kanban/CardPicker';
 import { PickerFooter } from '../Kanban/PickerFooter';
+import { Hint } from '../../../components/common/Hint/Hint';
 import { ProjectPicker } from '../Kanban/ProjectPicker';
 import { useI18n } from '../../i18n';
 import { formatTimeYMD } from '../Visualization/Timeline';
@@ -483,42 +484,47 @@ const SessionDayEditorInner = (props: Props) => {
                                     <Cell>{timeLabel(row.startTime)}</Cell>
                                     <Cell>{row.spentTimeInHour.toFixed(2)}h</Cell>
                                     <Cell>
-                                        <LinkButton
-                                            type="button"
-                                            title={boardTitle(row.boardId)}
-                                            onClick={() =>
-                                                setPicker({ kind: 'project', rowIds: [row._id] })
-                                            }
-                                        >
-                                            {boardTitle(row.boardId)}
-                                        </LinkButton>
+                                        <Hint label={boardTitle(row.boardId)}>
+                                            <LinkButton
+                                                type="button"
+                                                onClick={() =>
+                                                    setPicker({
+                                                        kind: 'project',
+                                                        rowIds: [row._id],
+                                                    })
+                                                }
+                                            >
+                                                {boardTitle(row.boardId)}
+                                            </LinkButton>
+                                        </Hint>
                                     </Cell>
                                     <Cell>
-                                        <LinkButton
-                                            type="button"
-                                            title={cardTitle(row.cardId)}
-                                            onClick={() => {
-                                                // A card belongs to a board: without a
-                                                // project there is nothing to pick from,
-                                                // so send the user to the project first.
-                                                setPicker(
-                                                    row.boardId === undefined
-                                                        ? { kind: 'project', rowIds: [row._id] }
-                                                        : { kind: 'card', rowIds: [row._id] }
-                                                );
-                                            }}
-                                        >
-                                            {row.cardId === undefined
-                                                ? t('history.sessionEditor.unassignedCard')
-                                                : row.originalCardIds.length > 1 &&
-                                                    row.cardId === row.originalCardIds[0]
-                                                  ? t(
-                                                        'history.sessionEditor.cardMore',
-                                                        cardTitle(row.cardId),
-                                                        row.originalCardIds.length - 1
-                                                    )
-                                                  : cardTitle(row.cardId)}
-                                        </LinkButton>
+                                        <Hint label={cardTitle(row.cardId)}>
+                                            <LinkButton
+                                                type="button"
+                                                onClick={() => {
+                                                    // A card belongs to a board: without a
+                                                    // project there is nothing to pick from,
+                                                    // so send the user to the project first.
+                                                    setPicker(
+                                                        row.boardId === undefined
+                                                            ? { kind: 'project', rowIds: [row._id] }
+                                                            : { kind: 'card', rowIds: [row._id] }
+                                                    );
+                                                }}
+                                            >
+                                                {row.cardId === undefined
+                                                    ? t('history.sessionEditor.unassignedCard')
+                                                    : row.originalCardIds.length > 1 &&
+                                                        row.cardId === row.originalCardIds[0]
+                                                      ? t(
+                                                            'history.sessionEditor.cardMore',
+                                                            cardTitle(row.cardId),
+                                                            row.originalCardIds.length - 1
+                                                        )
+                                                      : cardTitle(row.cardId)}
+                                            </LinkButton>
+                                        </Hint>
                                     </Cell>
                                     <Button
                                         size="small"

@@ -566,107 +566,112 @@ export class MiniLogger extends React.Component<Props> {
         }
         const showSecondHand = handAngle !== undefined;
         const ringDim = isPausedWithSession ? 0.45 : 1;
+        const stateLabel = this.getTimerStateLabel();
         return (
-            <svg
-                className={`timer-svg${isPausedWithSession ? ' is-paused' : ''}`}
-                viewBox="0 0 100 100"
-                width="30"
-                height="30"
-            >
-                {/* Native SVG <title>: the same browser tooltip mechanism the
-                    buttons in this row get from their title attributes. */}
-                <title>{this.getTimerStateLabel()}</title>
-                <circle cx="50" cy="50" r="36" fill={stateColor} />
-                {Array(18)
-                    .fill(0)
-                    .map((_, i) => (
-                        <g
-                            key={i}
-                            transform={`translate(50 50) rotate(${20 * i}) translate(-50 -50)`}
-                        >
-                            {/* Static in every state: progress while running,
+            <Hint label={stateLabel} placement="bottom">
+                <svg
+                    className={`timer-svg${isPausedWithSession ? ' is-paused' : ''}`}
+                    viewBox="0 0 100 100"
+                    width="30"
+                    height="30"
+                    role="img"
+                    aria-label={stateLabel}
+                >
+                    <circle cx="50" cy="50" r="36" fill={stateColor} />
+                    {Array(18)
+                        .fill(0)
+                        .map((_, i) => (
+                            <g
+                                key={i}
+                                transform={`translate(50 50) rotate(${20 * i}) translate(-50 -50)`}
+                            >
+                                {/* Static in every state: progress while running,
                                 dim base while confirming (the single
                                 ConfirmSweep below carries the motion). */}
-                            <Line
+                                <Line
+                                    y1="0"
+                                    y2="12"
+                                    x1="50"
+                                    x2="50"
+                                    style={{
+                                        stroke: isConfirming
+                                            ? 'rgb(99, 99, 99)'
+                                            : (i / 18) * 100 < percentage
+                                              ? 'rgb(200, 200, 200)'
+                                              : 'rgb(99,99,99)',
+                                        strokeWidth: 12,
+                                    }}
+                                />
+                            </g>
+                        ))}
+                    {isConfirming && (
+                        <ConfirmSweep
+                            $frozen={this.state.confirmSweepFrozen}
+                            className="timer-confirm"
+                        >
+                            {/* One bright tick on a 1s/round rotation: the chase
+                            read without eighteen simultaneous animations. */}
+                            <line
                                 y1="0"
                                 y2="12"
                                 x1="50"
                                 x2="50"
-                                style={{
-                                    stroke: isConfirming
-                                        ? 'rgb(99, 99, 99)'
-                                        : (i / 18) * 100 < percentage
-                                          ? 'rgb(200, 200, 200)'
-                                          : 'rgb(99,99,99)',
-                                    strokeWidth: 12,
-                                }}
+                                stroke="rgb(230, 230, 230, 0.5)"
+                                strokeWidth={12}
                             />
-                        </g>
-                    ))}
-                {isConfirming && (
-                    <ConfirmSweep $frozen={this.state.confirmSweepFrozen} className="timer-confirm">
-                        {/* One bright tick on a 1s/round rotation: the chase
-                            read without eighteen simultaneous animations. */}
-                        <line
-                            y1="0"
-                            y2="12"
-                            x1="50"
-                            x2="50"
-                            stroke="rgb(230, 230, 230, 0.5)"
-                            strokeWidth={12}
-                        />
-                    </ConfirmSweep>
-                )}
-                <text x="50" y="64" textAnchor="middle" fontSize="40" style={{ fill: '#fff' }}>
-                    {isConfirming ? (isFocusing ? '🍅' : '🍇') : time}
-                </text>
-                {showSecondHand && (
-                    <SecondHand
-                        $hidden={isPausedWithSession}
-                        className="timer-orbit"
-                        style={{
-                            // Cumulative clockwise angle (see above): never
-                            // decreases, so the transition always ticks forward
-                            // 6deg per second -- no wrap sweep, no backwards walk.
-                            // `transform-box: view-box` keeps the origin at the
-                            // dial centre in Chromium/Electron.
-                            transform: `rotate(${handAngle as number}deg)`,
-                        }}
-                    >
-                        {/* Slim tick riding the outer gap (just outside the
+                        </ConfirmSweep>
+                    )}
+                    <text x="50" y="64" textAnchor="middle" fontSize="40" style={{ fill: '#fff' }}>
+                        {isConfirming ? (isFocusing ? '🍅' : '🍇') : time}
+                    </text>
+                    {showSecondHand && (
+                        <SecondHand
+                            $hidden={isPausedWithSession}
+                            className="timer-orbit"
+                            style={{
+                                // Cumulative clockwise angle (see above): never
+                                // decreases, so the transition always ticks forward
+                                // 6deg per second -- no wrap sweep, no backwards walk.
+                                // `transform-box: view-box` keeps the origin at the
+                                // dial centre in Chromium/Electron.
+                                transform: `rotate(${handAngle as number}deg)`,
+                            }}
+                        >
+                            {/* Slim tick riding the outer gap (just outside the
                             18-tick ring): slightly longer than a progress tick
                             (16 vs 12) but narrower (6 vs 12), so it reads as a
                             second hand while the progress ticks stay static and
                             readable. Hidden (opacity 0) while paused so only
                             the pause badge shows. */}
-                        <rect
-                            x="47"
-                            y="0"
-                            width="8"
-                            height="12"
-                            rx="3"
-                            fill="rgba(255, 255, 255, 0.95)"
-                        />
-                    </SecondHand>
-                )}
-                {isPausedWithSession && (
-                    <g className="timer-paused-badge">
-                        {/* Lower-right pill + twin bars: offset from centre so
+                            <rect
+                                x="47"
+                                y="0"
+                                width="8"
+                                height="12"
+                                rx="3"
+                                fill="rgba(255, 255, 255, 0.95)"
+                            />
+                        </SecondHand>
+                    )}
+                    {isPausedWithSession && (
+                        <g className="timer-paused-badge">
+                            {/* Lower-right pill + twin bars: offset from centre so
                             the time text stays fully visible at 30px. */}
-                        <rect
-                            x="58"
-                            y="62"
-                            width="30"
-                            height="26"
-                            rx="13"
-                            fill="rgba(0, 0, 0, 0.72)"
-                            opacity={ringDim}
-                        />
-                        <rect x="66" y="68" width="5" height="14" rx="2" fill="#fff" />
-                        <rect x="75" y="68" width="5" height="14" rx="2" fill="#fff" />
-                    </g>
-                )}
-            </svg>
+                            <rect
+                                x="58"
+                                y="62"
+                                width="30"
+                                height="26"
+                                rx="13"
+                                fill="rgba(0, 0, 0, 0.72)"
+                                opacity={ringDim}
+                            />
+                            <rect x="66" y="68" width="5" height="14" rx="2" fill="#fff" />
+                            <rect x="75" y="68" width="5" height="14" rx="2" fill="#fff" />
+                        </g>
+                    )}
+                </svg>
+            </Hint>
         );
     }
 

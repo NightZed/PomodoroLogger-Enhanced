@@ -4,6 +4,7 @@ import * as React from 'react';
 import styled from 'styled-components';
 import { tabType } from '../Timer/action';
 import { APP_TABS } from '../appTabs';
+import { Hint } from '../../../components/common/Hint/Hint';
 import WindowControls from '../WindowControls';
 import { isDragSurface } from './dragRegion';
 import { COMPACT_TITLE_BAR_HEIGHT, TITLE_BAR_HEIGHT } from './tokens';
@@ -284,19 +285,20 @@ const AppTitleBar: React.FC<Props> = ({
     }, [endWindowDrag]);
 
     const tab = (title: string, icon: string, tourKey?: string) => (
-        <span
-            title={title}
-            data-tour={tourKey}
-            style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '100%',
-            }}
-        >
-            <Icon type={icon} />
-            {!compact && title}
-        </span>
+        <Hint label={title}>
+            <span
+                data-tour={tourKey}
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '100%',
+                }}
+            >
+                <Icon type={icon} />
+                {!compact && title}
+            </span>
+        </Hint>
     );
 
     /**

@@ -7,6 +7,7 @@ import { getPopupContainer } from '../../popupLayer';
 import { CardLabel } from '../type';
 import { getLabelSuggestions } from './labelSuggestion';
 import { useI18n } from '../../../i18n';
+import { Hint } from '../../../../components/common/Hint/Hint';
 
 export const LABEL_COLORS = [
     '#61bd4f',
@@ -621,19 +622,24 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                         }
                     >
                         <LabelChip $color={label.color}>
-                            <ChipName title={label.name}>{label.name}</ChipName>
-                            <ChipRemove
-                                title={t('kanban.labelEditor.remove')}
-                                onClick={(event) => {
-                                    // Keep the press from reaching the Popover
-                                    // trigger: it would reopen the editor this
-                                    // removal is about to close.
-                                    event.stopPropagation();
-                                    removeLabel(index);
-                                }}
-                            >
-                                &times;
-                            </ChipRemove>
+                            <Hint label={label.name}>
+                                <ChipName aria-label={label.name}>{label.name}</ChipName>
+                            </Hint>
+                            <Hint label={t('kanban.labelEditor.remove')}>
+                                <ChipRemove
+                                    role="button"
+                                    aria-label={t('kanban.labelEditor.remove')}
+                                    onClick={(event) => {
+                                        // Keep the press from reaching the Popover
+                                        // trigger: it would reopen the editor this
+                                        // removal is about to close.
+                                        event.stopPropagation();
+                                        removeLabel(index);
+                                    }}
+                                >
+                                    &times;
+                                </ChipRemove>
+                            </Hint>
                         </LabelChip>
                     </Popover>
                 ))}

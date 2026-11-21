@@ -134,12 +134,12 @@ describe('MiniLogger two-row mini layout', () => {
         expect(rendered[3].disabled).toBe(false);
     });
 
-    it('exposes the timer state via the SVG title', () => {
+    it('exposes the timer state through the dial accessible name', () => {
         const stateLabel = (props: Partial<typeof baseProps>) => {
             const { container } = renderMini(props);
-            const title = container.querySelector('title');
-            expect(title).not.toBeNull();
-            return title?.textContent ?? '';
+            const dial = container.querySelector('svg.timer-svg');
+            expect(dial).not.toBeNull();
+            return dial?.getAttribute('aria-label') ?? '';
         };
         expect(stateLabel({})).toContain('Working');
         expect(stateLabel({ isFocusing: false })).toContain('Breaking');

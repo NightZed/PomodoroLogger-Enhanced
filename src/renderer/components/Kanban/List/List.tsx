@@ -5,8 +5,9 @@ import React, { FC, useRef, useState } from 'react';
 import { ListActionTypes } from './action';
 import styled from 'styled-components';
 import { Card } from '../Card';
-import { Button, Dropdown, Input, Tooltip } from 'antd';
+import { Button, Dropdown, Input } from 'antd';
 import type { MenuProps } from 'antd';
+import { Hint } from '../../../../components/common/Hint/Hint';
 import { AntdIcon as Icon, IconComponent } from '../../antdIcon';
 import { feedback, FEEDBACK_MESSAGES } from '../../feedback';
 import { KanbanActionTypes } from '../action';
@@ -662,18 +663,18 @@ export const List: FC<Props> = React.memo((props: Props) => {
                                     </span>
                                     <div className="list-head-icon">
                                         {focused ? (
-                                            <Tooltip title={t('kanban.list.focused')}>
+                                            <Hint label={t('kanban.list.focused')}>
                                                 <span style={{ color: 'red', marginRight: 8 }}>
                                                     <IconComponent component={FocusIcon} />
                                                 </span>
-                                            </Tooltip>
+                                            </Hint>
                                         ) : undefined}
                                         {done ? (
-                                            <Tooltip title={t('kanban.list.done')}>
+                                            <Hint label={t('kanban.list.done')}>
                                                 <span style={{ color: 'green', marginRight: 8 }}>
                                                     <IconComponent component={DoneIcon} />
                                                 </span>
-                                            </Tooltip>
+                                            </Hint>
                                         ) : undefined}
                                         <Dropdown menu={menu} trigger={['click']}>
                                             <Icon type="menu" aria-label={t('kanban.list.menu')} />

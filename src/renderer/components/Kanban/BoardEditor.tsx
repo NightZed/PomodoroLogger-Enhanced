@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
-import { Button, Form, Input, Tabs, Tooltip } from 'antd';
+import { Button, Form, Input, Tabs } from 'antd';
+import { Hint } from '../../../components/common/Hint/Hint';
 import type { RuleObject } from 'antd/es/form';
 import styled from 'styled-components';
 import { feedback, FEEDBACK_MESSAGES } from '../feedback';
@@ -238,7 +239,7 @@ export const EditKanbanForm = (props: FormProps) => {
                                         "hide", a hidden one offers "show". The
                                         explicit `aria-label` keeps the icon's own
                                         name ("eye-invisible") out of it. */}
-                                    <Tooltip title={t('kanban.boardEditor.hiddenHint')}>
+                                    <Hint label={t('kanban.boardEditor.hiddenHint')}>
                                         <Button
                                             icon={<Icon type={hidden ? 'eye' : 'eye-invisible'} />}
                                             aria-label={visibilityLabel}
@@ -246,7 +247,7 @@ export const EditKanbanForm = (props: FormProps) => {
                                         >
                                             {visibilityLabel}
                                         </Button>
-                                    </Tooltip>
+                                    </Hint>
                                 </ActionRow>
                             </Form.Item>
                             <DistractingListModalButton boardId={boardId} />

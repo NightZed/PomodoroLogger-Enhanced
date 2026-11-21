@@ -25,6 +25,7 @@ import { KanbanBoard, ListsState } from '../type';
 import { memorizeDispatchToProps } from '../../../utils';
 import { PlayPauseButton } from './PlayPauseButton';
 import { Pin } from '../../../../components/common/Pin/Pin';
+import { Hint } from '../../../../components/common/Hint/Hint';
 
 const BriefCard = styled.div<{ $dimmed?: boolean }>`
     word-break: break-word;
@@ -169,7 +170,7 @@ const Content = styled.div`
  * The card keeps exactly one line for its description. It used to render the
  * whole Markdown body, so a long description made one card taller than its
  * neighbours; the grid is meant to be scanned, and the full text is still one
- * hover away (the native `title`, same as the card's title).
+ * hover away (a Hint, same as the card's title).
  *
  * The whole body is still rendered, but every block is folded into the single
  * row so the line fills up with the opening words of the description instead
@@ -477,9 +478,9 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
             <Header>
                 <div className="header-left">
                     <h1>
-                        <span className="brief-title" title={name}>
-                            {name}
-                        </span>
+                        <Hint label={name}>
+                            <span className="brief-title">{name}</span>
+                        </Hint>
                         <Pin
                             isPin={!!props.pin}
                             onClick={onPinClick}
@@ -514,10 +515,9 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
             <Content>
                 {/* Always rendered: the row is part of the card's fixed
                     height, so boards with and without a description line up. */}
-                <BriefDescription
-                    title={descriptionText || undefined}
-                    dangerouslySetInnerHTML={{ __html: descriptionHtml ?? '' }}
-                />
+                <Hint label={descriptionText || undefined} maxWidth={400}>
+                    <BriefDescription dangerouslySetInnerHTML={{ __html: descriptionHtml ?? '' }} />
+                </Hint>
                 <ListsCountBar
                     boardId={props._id}
                     height={props.createdTime !== undefined ? 26 : 40}

@@ -151,8 +151,8 @@ describe('LabelEditor chip editing', () => {
         document.body.innerHTML = '';
     });
 
-    const chipName = () => container.querySelector('span[title="bug"]');
-    const chipRemove = () => container.querySelector('span[title="Remove label"]');
+    const chipName = () => container.querySelector('span[aria-label="bug"]');
+    const chipRemove = () => container.querySelector('[aria-label="Remove label"]');
 
     it('opens the edit popover from the chip, prefilled with the label', () => {
         fireEvent.click(chipName() as Element);
@@ -276,7 +276,7 @@ describe('LabelEditor direct commit on suggestion pick', () => {
             />,
             { container }
         );
-        fireEvent.click(container.querySelector('span[title="bug"]') as Element);
+        fireEvent.click(container.querySelector('span[aria-label="bug"]') as Element);
 
         const editInput = document.querySelector('.ant-popover input') as HTMLInputElement;
         fireEvent.change(editInput, { target: { value: 'feature' } });

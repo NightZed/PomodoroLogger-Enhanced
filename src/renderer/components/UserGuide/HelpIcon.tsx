@@ -5,6 +5,7 @@ import { Dispatch } from 'redux';
 import { Button } from 'antd';
 import { AntdIcon as Icon } from '../antdIcon';
 import { useI18n } from '../../i18n';
+import { Hint } from '../../../components/common/Hint/Hint';
 
 interface InputProps {
     storyName: string;
@@ -24,13 +25,15 @@ interface Props {
 const HelpIconBase: FC<Props> = (props: Props) => {
     const { t } = useI18n();
     return (
-        <Button
-            icon={<Icon type={'question'} />}
-            onClick={props.resume ? props.resumeStory : props.showStory}
-            shape={'circle'}
-            style={props.style}
-            title={props.resume ? t('tour.resumeGuide') : t('tour.startGuide')}
-        />
+        <Hint label={props.resume ? t('tour.resumeGuide') : t('tour.startGuide')}>
+            <Button
+                icon={<Icon type={'question'} />}
+                onClick={props.resume ? props.resumeStory : props.showStory}
+                shape={'circle'}
+                aria-label={props.resume ? t('tour.resumeGuide') : t('tour.startGuide')}
+                style={props.style}
+            />
+        </Hint>
     );
 };
 

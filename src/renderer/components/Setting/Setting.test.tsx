@@ -982,12 +982,13 @@ describe('notification sounds', () => {
         expect(p.setWorkSoundPath).not.toHaveBeenCalled();
     });
 
-    it('shows the file name of a chosen sound', () => {
+    it('shows the full path as a tooltip over the sound name', async () => {
         render(<Setting {...{ ...props(), workSoundPath: 'C:\\sounds\\rain.mp3' }} />);
         openNotifications();
 
-        const name = screen.getByText('rain.mp3');
-        expect(name.getAttribute('title')).toBe('C:\\sounds\\rain.mp3');
+        fireEvent.mouseEnter(screen.getByText('rain.mp3'));
+
+        expect(await screen.findByText('C:\\sounds\\rain.mp3')).toBeTruthy();
     });
 
     it('saves the volume when the drag ends', () => {

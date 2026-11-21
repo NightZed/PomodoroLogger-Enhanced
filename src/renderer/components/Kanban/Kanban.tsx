@@ -2,7 +2,8 @@ import React, { FunctionComponent, useCallback, useEffect, useState } from 'reac
 import { KanbanActionTypes } from './action';
 import { KanbanState, uiStateNames } from './reducer';
 import { BoardActionTypes, getCardView } from './Board/action';
-import { Button, Form, Layout, Segmented, Select, Tooltip } from 'antd';
+import { Button, Form, Layout, Segmented, Select } from 'antd';
+import { Hint } from '../../../components/common/Hint/Hint';
 import { AntdIcon as Icon, IconComponent } from '../antdIcon';
 import { feedback, FEEDBACK_MESSAGES } from '../feedback';
 import Board from './Board';
@@ -510,8 +511,8 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                 <Option value="spent">{t('kanban.page.sortSpent')}</Option>
                                 <Option value="remaining">{t('kanban.page.sortRemaining')}</Option>
                             </Select>
-                            <Tooltip
-                                title={
+                            <Hint
+                                label={
                                     props.kanban.sortDirection === 'asc'
                                         ? t('kanban.page.ascending')
                                         : t('kanban.page.descending')
@@ -531,7 +532,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                         type={props.kanban.sortDirection === 'asc' ? 'up' : 'down'}
                                     />
                                 </Button>
-                            </Tooltip>
+                            </Hint>
                         </>
                     )}
                     <div className="header-right">
@@ -560,7 +561,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                             }
                                         />
                                     </HeaderSegmented>
-                                    <Tooltip title={t('kanban.unassigned.button', unassignedTotal)}>
+                                    <Hint label={t('kanban.unassigned.button', unassignedTotal)}>
                                         <Button
                                             style={{
                                                 marginRight: 4,
@@ -578,7 +579,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                             <Icon type={'inbox'} />
                                             {unassignedTotal}
                                         </Button>
-                                    </Tooltip>
+                                    </Hint>
                                     <PlayPauseButton
                                         showPlay={
                                             !(props.isFocusingOnChosenBoard && props.isTimerRunning)

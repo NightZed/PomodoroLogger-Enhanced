@@ -3,6 +3,7 @@ import { TimerActionTypes, TimerState } from '../Timer/action';
 import styled from 'styled-components';
 import { GithubOutlined } from '@ant-design/icons';
 import { Button, Switch } from 'antd';
+import { Hint } from '../../../components/common/Hint/Hint';
 import { deleteAllUserData } from '../../monitor/sessionManager';
 import { feedback, FEEDBACK_MESSAGES } from '../feedback';
 import { DistractingListModalButton } from './DistractingList';
@@ -161,7 +162,7 @@ const ShortcutKeys = styled.div`
     flex: 0 0 190px;
 `;
 
-const Hint = styled.p`
+const FieldHint = styled.p`
     margin: 0 0 16px;
     font-size: 13px;
     color: var(--pl-text-secondary);
@@ -415,9 +416,11 @@ const SoundOption: React.FunctionComponent<SoundOptionProps> = ({
                     {t('settings.notification.restoreSound')}
                 </Button>
             </SoundRow>
-            <SoundFile $disabled={disabled} title={path}>
-                {path ? soundName(path) : t('settings.notification.defaultSound')}
-            </SoundFile>
+            <Hint label={path || undefined}>
+                <SoundFile $disabled={disabled}>
+                    {path ? soundName(path) : t('settings.notification.defaultSound')}
+                </SoundFile>
+            </Hint>
         </SoundBlock>
     );
 };
@@ -1180,7 +1183,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
 
                                 <Field>
                                     <h4>{t('settings.timer.minFinish')}</h4>
-                                    <Hint>{t('settings.timer.minFinishHint')}</Hint>
+                                    <FieldHint>{t('settings.timer.minFinishHint')}</FieldHint>
                                     <SliderContainer>
                                         <PreviewSlider
                                             marks={minFinishMarks(minFinishMaxMinutes)}
@@ -1223,39 +1226,43 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                                       ? t('theme.night')
                                                       : theme.name;
                                             return (
-                                                <ThemeButton
+                                                <Hint
                                                     key={theme.id}
-                                                    $active={
-                                                        !props.followSystemTheme &&
-                                                        props.themeId === theme.id
-                                                    }
-                                                    onClick={() => onSelectTheme(theme.id)}
-                                                    title={t(
+                                                    label={t(
                                                         'settings.appearance.switchToTheme',
                                                         name
                                                     )}
                                                 >
-                                                    <Swatches>
-                                                        <i
-                                                            style={{
-                                                                backgroundColor: theme.tokens.bg,
-                                                            }}
-                                                        />
-                                                        <i
-                                                            style={{
-                                                                backgroundColor:
-                                                                    theme.tokens.bgElevated,
-                                                            }}
-                                                        />
-                                                        <i
-                                                            style={{
-                                                                backgroundColor:
-                                                                    theme.tokens.primary,
-                                                            }}
-                                                        />
-                                                    </Swatches>
-                                                    {name}
-                                                </ThemeButton>
+                                                    <ThemeButton
+                                                        $active={
+                                                            !props.followSystemTheme &&
+                                                            props.themeId === theme.id
+                                                        }
+                                                        onClick={() => onSelectTheme(theme.id)}
+                                                    >
+                                                        <Swatches>
+                                                            <i
+                                                                style={{
+                                                                    backgroundColor:
+                                                                        theme.tokens.bg,
+                                                                }}
+                                                            />
+                                                            <i
+                                                                style={{
+                                                                    backgroundColor:
+                                                                        theme.tokens.bgElevated,
+                                                                }}
+                                                            />
+                                                            <i
+                                                                style={{
+                                                                    backgroundColor:
+                                                                        theme.tokens.primary,
+                                                                }}
+                                                            />
+                                                        </Swatches>
+                                                        {name}
+                                                    </ThemeButton>
+                                                </Hint>
                                             );
                                         })}
                                     </ThemeOptions>
@@ -1271,7 +1278,9 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
 
                                 <Field>
                                     <h4>{t('settings.appearance.contentOpacity')}</h4>
-                                    <Hint>{t('settings.appearance.contentOpacityHint')}</Hint>
+                                    <FieldHint>
+                                        {t('settings.appearance.contentOpacityHint')}
+                                    </FieldHint>
                                     <SliderContainer>
                                         <PreviewSlider
                                             marks={opacityMarks}
@@ -1288,7 +1297,9 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
 
                                 <Field>
                                     <h4>{t('settings.appearance.backgroundOpacity')}</h4>
-                                    <Hint>{t('settings.appearance.backgroundOpacityHint')}</Hint>
+                                    <FieldHint>
+                                        {t('settings.appearance.backgroundOpacityHint')}
+                                    </FieldHint>
                                     <SliderContainer>
                                         <PreviewSlider
                                             marks={themeBackgroundOpacityMarks}
@@ -1354,7 +1365,9 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                 {screenshotAvailable && (
                                     <Field>
                                         <h4>{t('settings.notification.screenshot')}</h4>
-                                        <Hint>{t('settings.notification.screenshotHint')}</Hint>
+                                        <FieldHint>
+                                            {t('settings.notification.screenshotHint')}
+                                        </FieldHint>
                                         <Switch
                                             onChange={switchScreenshot}
                                             checked={!!props.screenShotInterval}
@@ -1365,7 +1378,9 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
 
                                 <Field>
                                     <h4>{t('settings.notification.focusStartWarning')}</h4>
-                                    <Hint>{t('settings.notification.focusStartWarningHint')}</Hint>
+                                    <FieldHint>
+                                        {t('settings.notification.focusStartWarningHint')}
+                                    </FieldHint>
                                     <Switch
                                         onChange={onToggleFocusStartWarning}
                                         checked={props.warnBeforeFocusStart}
@@ -1435,16 +1450,16 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                             )}
                                         />
                                     </SoundRow>
-                                    <Hint>
+                                    <FieldHint>
                                         {t('settings.notification.desktopNotificationHint')}
-                                    </Hint>
+                                    </FieldHint>
                                 </Field>
 
                                 <Field>
                                     <h4>{t('settings.notification.returnToTimerOnSessionEnd')}</h4>
-                                    <Hint>
+                                    <FieldHint>
                                         {t('settings.notification.returnToTimerOnSessionEndHint')}
-                                    </Hint>
+                                    </FieldHint>
                                     <Switch
                                         onChange={(value) =>
                                             props.setReturnToTimerOnSessionEnd(value)
@@ -1459,9 +1474,9 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
 
                                 <Field>
                                     <h4>{t('settings.notification.openWindowOnSessionEnd')}</h4>
-                                    <Hint>
+                                    <FieldHint>
                                         {t('settings.notification.openWindowOnSessionEndHint')}
-                                    </Hint>
+                                    </FieldHint>
                                     <Switch
                                         onChange={(value) => props.setOpenWindowOnSessionEnd(value)}
                                         checked={props.openWindowOnSessionEnd}
@@ -1477,7 +1492,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                         {section === 'shortcuts' && (
                             <Field>
                                 <h4>{t('settings.shortcuts.title')}</h4>
-                                <Hint>{t('settings.shortcuts.disclaimer')}</Hint>
+                                <FieldHint>{t('settings.shortcuts.disclaimer')}</FieldHint>
                                 {SHORTCUTS.map((group) => (
                                     <ShortcutGroup key={group.groupKey}>
                                         <h5>{t(group.groupKey)}</h5>
@@ -1498,7 +1513,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                             <>
                                 <Field>
                                     <h4>{t('settings.system.language')}</h4>
-                                    <Hint>{t('settings.system.languageHint')}</Hint>
+                                    <FieldHint>{t('settings.system.languageHint')}</FieldHint>
                                     <ThemeOptions
                                         role="group"
                                         aria-label={t('settings.system.language')}
@@ -1520,7 +1535,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                 <Field>
                                     <h4>{t('settings.system.logging')}</h4>
                                     <SettingLabel>{t('settings.system.logLevel')}</SettingLabel>
-                                    <Hint>{t('settings.system.logLevelHint')}</Hint>
+                                    <FieldHint>{t('settings.system.logLevelHint')}</FieldHint>
                                     <ThemeOptions
                                         role="group"
                                         aria-label={t('settings.system.logLevel')}
@@ -1569,7 +1584,9 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                     <SettingLabel>
                                         {t('settings.system.hardwareAcceleration')}
                                     </SettingLabel>
-                                    <Hint>{t('settings.system.hardwareAccelerationHint')}</Hint>
+                                    <FieldHint>
+                                        {t('settings.system.hardwareAccelerationHint')}
+                                    </FieldHint>
                                     <Switch
                                         onChange={setUseHardwareAcceleration}
                                         checked={props.useHardwareAcceleration}
@@ -1581,7 +1598,9 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                     <SettingLabel>
                                         {t('settings.system.unloadOnCloseToTray')}
                                     </SettingLabel>
-                                    <Hint>{t('settings.system.unloadOnCloseToTrayHint')}</Hint>
+                                    <FieldHint>
+                                        {t('settings.system.unloadOnCloseToTrayHint')}
+                                    </FieldHint>
                                     <Switch
                                         onChange={setUnloadOnCloseToTray}
                                         checked={props.unloadOnCloseToTray}
@@ -1635,7 +1654,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                         {section === 'about' && (
                             <Field>
                                 <h4>{t('app.title')}</h4>
-                                <Hint>{t('settings.about.hint')}</Hint>
+                                <FieldHint>{t('settings.about.hint')}</FieldHint>
                                 <ButtonWrapper>
                                     <Button onClick={openIssuePage}>
                                         {t('settings.about.feedback')}
@@ -1647,11 +1666,9 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 </Pane>
                 <Footer>
                     {t('settings.footer.openSource')}
-                    <StyledIcon
-                        onClick={openGithubPage}
-                        aria-label="GitHub"
-                        title={t('settings.about.githubTitle')}
-                    />
+                    <Hint label={t('settings.about.githubTitle')}>
+                        <StyledIcon onClick={openGithubPage} aria-label="GitHub" />
+                    </Hint>
                     {t('settings.footer.version', pkg.version)}
                 </Footer>
                 <DataRepairDialog

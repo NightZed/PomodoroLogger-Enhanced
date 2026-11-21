@@ -5,6 +5,7 @@ import { connect } from 'react-redux';
 import { useI18n } from '../../i18n';
 import { DIALOG_BODY_MAX_HEIGHT } from '../dialogLayout';
 import { PickerFooter } from './PickerFooter';
+import { Hint } from '../../../components/common/Hint/Hint';
 import type { RootState } from '../../reducers';
 
 export interface ListPickerBodyProps {
@@ -92,7 +93,7 @@ const Hints = styled.div`
     padding-top: 8px;
 `;
 
-const Hint = styled.div`
+const FooterHint = styled.div`
     font-size: 12px;
     line-height: 1.6;
     color: var(--pl-text-secondary);
@@ -152,39 +153,39 @@ const ListPickerBodyInner = (props: Props) => {
         <Body>
             <Columns role="listbox" aria-label={t('kanban.cardMove.listTitle', board?.name ?? '')}>
                 {options.map((option) => (
-                    <ListOption
-                        key={option.list._id}
-                        type="button"
-                        role="option"
-                        aria-selected={option.list._id === selected}
-                        $selected={option.list._id === selected}
-                        $disabled={option.disabled}
-                        disabled={option.disabled}
-                        title={option.list.title}
-                        onClick={() => setPicked(option.list._id)}
-                    >
-                        <ListTitle>
-                            {option.list.title}
-                            {option.focused ? ' ★' : ''}
-                            {option.done ? ' ✓' : ''}
-                        </ListTitle>
-                        <ListMeta $selected={option.list._id === selected}>
-                            {t('kanban.list.cardCount', option.count)}
-                        </ListMeta>
-                    </ListOption>
+                    <Hint key={option.list._id} label={option.list.title}>
+                        <ListOption
+                            type="button"
+                            role="option"
+                            aria-selected={option.list._id === selected}
+                            $selected={option.list._id === selected}
+                            $disabled={option.disabled}
+                            disabled={option.disabled}
+                            onClick={() => setPicked(option.list._id)}
+                        >
+                            <ListTitle>
+                                {option.list.title}
+                                {option.focused ? ' ★' : ''}
+                                {option.done ? ' ✓' : ''}
+                            </ListTitle>
+                            <ListMeta $selected={option.list._id === selected}>
+                                {t('kanban.list.cardCount', option.count)}
+                            </ListMeta>
+                        </ListOption>
+                    </Hint>
                 ))}
             </Columns>
             {card !== undefined ? (
                 <Hints>
-                    <Hint>{t('kanban.cardMove.sessions', sessionCount)}</Hint>
+                    <FooterHint>{t('kanban.cardMove.sessions', sessionCount)}</FooterHint>
                     {sharedCount > 0 ? (
-                        <Hint>{t('kanban.cardMove.shared', sharedCount)}</Hint>
+                        <FooterHint>{t('kanban.cardMove.shared', sharedCount)}</FooterHint>
                     ) : undefined}
-                    <Hint>{t('kanban.cardMove.irreversible')}</Hint>
+                    <FooterHint>{t('kanban.cardMove.irreversible')}</FooterHint>
                 </Hints>
             ) : (
                 <Hints>
-                    <Hint>{t('kanban.cardMove.irreversible')}</Hint>
+                    <FooterHint>{t('kanban.cardMove.irreversible')}</FooterHint>
                 </Hints>
             )}
             <PickerFooter>

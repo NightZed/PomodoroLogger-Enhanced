@@ -45,7 +45,7 @@ Status: open（只剩 5 处 SVG 内部 `<title>` 待定）
 
 ### 番茄圆点与分段控件
 
-`PomodoroDot` 的 SVG `<title>` 换成 `Hint`，并补 `role="img"` / `aria-label`。看板总览的「活跃 / 已隐藏 / 看板 / 表格」原来用 antd `Segmented` 自带的 `tooltip`（默认进入延迟），改成 `Hint` 包 label。
+`PomodoroDot`（看板卡片的棕色圆点）与 `PomodoroNumView`（计时器下方、历史日编辑、管理弹窗、未挂卡弹窗里的红色番茄）的 SVG `<title>` 都换成了 `Hint`，并补 `role="img"` / `aria-label`。看板总览的「活跃 / 已隐藏 / 看板 / 表格」原来用 antd `Segmented` 自带的 `tooltip`（默认进入延迟），改成 `Hint` 包 label。
 
 ### 提示去重
 
@@ -58,13 +58,12 @@ Status: open（只剩 5 处 SVG 内部 `<title>` 待定）
 
 `GridCalendar` 的格子提示是手写气泡，保留共享浮层（53 周 × 7 天，371 个 Tooltip 实例会明显增加挂载成本），只把颜色、字号、圆角、阴影换成同一组变量。
 
-## 待定：SVG 内部 `<title>`（4 处）
+## 待定：SVG 内部 `<title>`（3 处）
 
 | 文件 | 处数 | 问题 |
 | --- | --- | --- |
 | `src/components/Visualization/Badge/Badge.tsx` | 2 | 已花 / 剩余两个分区提示，一个 Hint 表达不了 |
 | `src/components/Visualization/Bar/Bar.tsx` | 1 | 每列一个提示，包外层后只剩一个 |
-| `src/renderer/components/Timer/PomodoroNumView.tsx` | 1 | 图形内部 |
 
 ## 风险
 

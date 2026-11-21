@@ -4,6 +4,7 @@ import { PomodoroRecord } from '../../monitor/type';
 import styled, { keyframes } from 'styled-components';
 import { to2digits } from '../../utils';
 import { uid } from '../../../utils/uid';
+import { Hint } from '../../../components/common/Hint/Hint';
 
 const SvgDot = styled.svg`
     transition: transform 0.1s cubic-bezier(0.17, 0.67, 0.96, 0.59);
@@ -149,53 +150,52 @@ export class PomodoroNumView extends React.PureComponent<Props> {
             }
         }
         const chooseThis = this.props.chooseRecord ? () => this.props.chooseRecord!(v) : undefined;
+        const label =
+            (isNew ? '[New]' : getTime(v.startTime)) +
+            (v.efficiency != null ? ` Efficiency: ${Math.round(v.efficiency * 100)}%` : '');
         return (
-            <Svg
-                key={v._id + (isNew ? 'new' : '')}
-                width="1em"
-                height="1em"
-                fill="currentColor"
-                focusable="false"
-                viewBox="0 0 100 100"
-                style={{
-                    margin: '0 0.1rem',
-                    transition: 'transform 0.2s',
-                    transitionTimingFunction: 'ease',
-                    cursor: 'pointer',
-                    transform:
-                        animation && transform[index]
-                            ? `translate(${transform[index].x}px, ${transform[index].y}px)`
-                            : undefined,
-                }}
-            >
-                <defs>
+            <Hint key={v._id + (isNew ? 'new' : '')} label={label}>
+                <Svg
+                    width="1em"
+                    height="1em"
+                    fill="currentColor"
+                    focusable="false"
+                    role="img"
+                    aria-label={label}
+                    viewBox="0 0 100 100"
+                    style={{
+                        margin: '0 0.1rem',
+                        transition: 'transform 0.2s',
+                        transitionTimingFunction: 'ease',
+                        cursor: 'pointer',
+                        transform:
+                            animation && transform[index]
+                                ? `translate(${transform[index].x}px, ${transform[index].y}px)`
+                                : undefined,
+                    }}
+                >
+                    <defs>
+                        <circle
+                            r={v.efficiency != null ? (1 - v.efficiency) * 48 : 0}
+                            cx={50}
+                            cy={50}
+                            id={`dmusk${this.key + v._id}`}
+                        />
+                    </defs>
+                    <mask id={`musk${this.key + v._id}`}>
+                        <rect id="bg" x="0" y="0" width="100%" height="100%" fill="white" />
+                        <use xlinkHref={`#dmusk${this.key + v._id}`} fill="Black" />
+                    </mask>
                     <circle
-                        r={v.efficiency != null ? (1 - v.efficiency) * 48 : 0}
+                        r={50}
                         cx={50}
                         cy={50}
-                        id={`dmusk${this.key + v._id}`}
+                        color={color}
+                        mask={`url(#musk${this.key + v._id})`}
+                        onClick={chooseThis}
                     />
-                </defs>
-                <mask id={`musk${this.key + v._id}`}>
-                    <rect id="bg" x="0" y="0" width="100%" height="100%" fill="white" />
-                    <use xlinkHref={`#dmusk${this.key + v._id}`} fill="Black" />
-                </mask>
-                <circle
-                    r={50}
-                    cx={50}
-                    cy={50}
-                    color={color}
-                    mask={`url(#musk${this.key + v._id})`}
-                    onClick={chooseThis}
-                >
-                    <title>
-                        {(isNew ? '[New]' : getTime(v.startTime)) +
-                            (v.efficiency != null
-                                ? ` Efficiency: ${Math.round(v.efficiency * 100)}%`
-                                : '')}
-                    </title>
-                </circle>
-            </Svg>
+                </Svg>
+            </Hint>
         );
     };
 

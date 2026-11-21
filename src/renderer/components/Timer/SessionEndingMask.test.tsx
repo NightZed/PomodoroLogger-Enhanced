@@ -203,8 +203,8 @@ describe('TimerMask', () => {
         const extendCurrentSession = jest.fn();
         const view = renderMask({ extendCurrentSession });
 
-        fireEvent.click(view.getByTitle('Extend 5 minutes'));
-        fireEvent.click(view.getByTitle('Extend 10 minutes'));
+        fireEvent.click(view.getByRole('button', { name: 'Extend 5 minutes' }));
+        fireEvent.click(view.getByRole('button', { name: 'Extend 10 minutes' }));
 
         expect(extendCurrentSession.mock.calls).toEqual([[5], [10]]);
     });

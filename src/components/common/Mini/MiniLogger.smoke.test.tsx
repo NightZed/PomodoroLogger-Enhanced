@@ -86,7 +86,7 @@ describe('MiniLogger two-row mini layout', () => {
                 swap: icons.includes('anticon-swap'),
                 check: icons.includes('anticon-check'),
                 finish: buttons(left as HTMLElement).some(
-                    (button) => button.getAttribute('title') === 'Finish'
+                    (button) => button.getAttribute('aria-label') === 'Finish'
                 ),
             };
         };
@@ -128,13 +128,13 @@ describe('MiniLogger two-row mini layout', () => {
         const rendered = buttons(container);
         // left: Start Next Session + Finish; right: Stop + Expand (never hidden)
         expect(rendered).toHaveLength(4);
-        expect(rendered[2].getAttribute('title')).toBe('Stop');
+        expect(rendered[2].getAttribute('aria-label')).toBe('Stop');
         expect(rendered[2].disabled).toBe(true);
-        expect(rendered[3].getAttribute('title')).toBe('Expand (F12)');
+        expect(rendered[3].getAttribute('aria-label')).toBe('Expand (F12)');
         expect(rendered[3].disabled).toBe(false);
     });
 
-    it('exposes the timer state via a native SVG title, like the buttons', () => {
+    it('exposes the timer state via the SVG title', () => {
         const stateLabel = (props: Partial<typeof baseProps>) => {
             const { container } = renderMini(props);
             const title = container.querySelector('title');

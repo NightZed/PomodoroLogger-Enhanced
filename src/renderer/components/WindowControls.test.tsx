@@ -34,7 +34,7 @@ describe('WindowControls (frameless caption buttons)', () => {
         const { container } = render(<WindowControls />);
         const rendered = buttons(container);
         expect(rendered).toHaveLength(3);
-        expect(rendered.map((b) => b.getAttribute('title'))).toEqual([
+        expect(rendered.map((b) => b.getAttribute('aria-label'))).toEqual([
             'Minimize',
             'Maximize',
             'Close',
@@ -101,7 +101,7 @@ describe('WindowControls (frameless caption buttons)', () => {
 
         const { container } = render(<WindowControls maximized />);
         const rendered = buttons(container);
-        expect(rendered.map((b) => b.getAttribute('title'))).toEqual([
+        expect(rendered.map((b) => b.getAttribute('aria-label'))).toEqual([
             'Minimize',
             'Restore Down',
             'Close',

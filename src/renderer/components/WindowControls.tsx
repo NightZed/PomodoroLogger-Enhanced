@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { COMPACT_TITLE_BAR_HEIGHT, TITLE_BAR_HEIGHT } from './AppTitleBar/tokens';
 import { t } from '../i18n';
 import { requestClose } from './windowHideIntent';
+import { Hint } from '../../components/common/Hint/Hint';
 
 /**
  * Caption buttons (minimize / maximize / close) for the frameless window
@@ -88,38 +89,52 @@ const WindowControls: FC<Props> = ({
     return (
         <Controls $compact={compact}>
             {compact && onToggleAlwaysOnTop ? (
-                <button
-                    type="button"
-                    title={
+                <Hint
+                    label={
                         alwaysOnTop ? t('window.alwaysOnTopDisable') : t('window.alwaysOnTopEnable')
                     }
-                    onClick={onToggleAlwaysOnTop}
-                    className={alwaysOnTop ? 'always-on-top-active' : undefined}
                 >
-                    <Icon type="pushpin" />
-                </button>
+                    <button
+                        type="button"
+                        aria-label={
+                            alwaysOnTop
+                                ? t('window.alwaysOnTopDisable')
+                                : t('window.alwaysOnTopEnable')
+                        }
+                        onClick={onToggleAlwaysOnTop}
+                        className={alwaysOnTop ? 'always-on-top-active' : undefined}
+                    >
+                        <Icon type="pushpin" />
+                    </button>
+                </Hint>
             ) : undefined}
-            <button type="button" title={t('window.minimize')} onClick={call('minimize')}>
-                <Icon type="minus" />
-            </button>
+            <Hint label={t('window.minimize')}>
+                <button type="button" aria-label={t('window.minimize')} onClick={call('minimize')}>
+                    <Icon type="minus" />
+                </button>
+            </Hint>
             {/* antd 3 has no `restore` icon type: `switcher` draws the standard
                 restore-down glyph (a window with another window's corner behind
                 it), `border` the single empty frame of maximize. */}
-            <button
-                type="button"
-                title={maximized ? t('window.restore') : t('window.maximize')}
-                onClick={call('maximize')}
-            >
-                <Icon type={maximized ? 'switcher' : 'border'} />
-            </button>
-            <button
-                type="button"
-                className="win-close"
-                title={t('window.close')}
-                onClick={call('close')}
-            >
-                <Icon type="close" />
-            </button>
+            <Hint label={maximized ? t('window.restore') : t('window.maximize')}>
+                <button
+                    type="button"
+                    aria-label={maximized ? t('window.restore') : t('window.maximize')}
+                    onClick={call('maximize')}
+                >
+                    <Icon type={maximized ? 'switcher' : 'border'} />
+                </button>
+            </Hint>
+            <Hint label={t('window.close')}>
+                <button
+                    type="button"
+                    className="win-close"
+                    aria-label={t('window.close')}
+                    onClick={call('close')}
+                >
+                    <Icon type="close" />
+                </button>
+            </Hint>
         </Controls>
     );
 };

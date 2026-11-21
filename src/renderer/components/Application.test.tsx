@@ -449,19 +449,21 @@ describe('Application page switching', () => {
         // always-on-top pin in compact mode, and the window mode leaks in from
         // the persisted settings (the suite stores them in the DB).
         const captionButton = () =>
-            Array.from(captionButtons()).find((b) => /^(Maximize|Restore Down)$/.test(b.title));
+            Array.from(captionButtons()).find((b) =>
+                /^(Maximize|Restore Down)$/.test(b.getAttribute('aria-label') ?? '')
+            );
 
-        expect(captionButton()?.title).toBe('Maximize');
+        expect(captionButton()?.getAttribute('aria-label')).toBe('Maximize');
 
         act(() => {
             fireWindowMaximized(true);
         });
-        expect(captionButton()?.title).toBe('Restore Down');
+        expect(captionButton()?.getAttribute('aria-label')).toBe('Restore Down');
 
         act(() => {
             fireWindowMaximized(false);
         });
-        expect(captionButton()?.title).toBe('Maximize');
+        expect(captionButton()?.getAttribute('aria-label')).toBe('Maximize');
     });
 
     it('mounts feedback modals in the shared popup layer using the app context', () => {

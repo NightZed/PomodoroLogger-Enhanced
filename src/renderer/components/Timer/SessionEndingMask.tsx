@@ -10,6 +10,7 @@ import { RootState } from '../../reducers';
 import type { KanbanBoardState } from '../Kanban/Board/action';
 import type { CardsState } from '../Kanban/Card/action';
 import type { ListsState } from '../Kanban/type';
+import { Hint } from '../../../components/common/Hint/Hint';
 import { PomodoroRecord } from '../../monitor/type';
 import { NIGHT_THEME_ID } from '../../theme/tokens';
 import { getSessionMaskContainer } from '../popupLayer';
@@ -325,9 +326,11 @@ const TimerMaskInner = (props: MaskProps) => {
                 <CardPlaceholder>{t('timer.session.noCard')}</CardPlaceholder>
             ) : (
                 <>
-                    <CardName type="button" title={cardName} onClick={() => setEditing(true)}>
-                        {cardName}
-                    </CardName>
+                    <Hint label={cardName}>
+                        <CardName type="button" onClick={() => setEditing(true)}>
+                            {cardName}
+                        </CardName>
+                    </Hint>
                     <CardCount>{t('timer.session.cardCount', candidates.length)}</CardCount>
                 </>
             )}
@@ -448,20 +451,24 @@ const TimerMaskInner = (props: MaskProps) => {
                 </MaskInnerContainer>
                 {props.isFocusing ? (
                     <ButtonContainer>
-                        <Button
-                            style={{ margin: 4 }}
-                            title={t('timer.session.extend5')}
-                            onClick={extend5}
-                        >
-                            +5
-                        </Button>
-                        <Button
-                            style={{ margin: 4 }}
-                            title={t('timer.session.extend10')}
-                            onClick={extend10}
-                        >
-                            +10
-                        </Button>
+                        <Hint label={t('timer.session.extend5')}>
+                            <Button
+                                style={{ margin: 4 }}
+                                aria-label={t('timer.session.extend5')}
+                                onClick={extend5}
+                            >
+                                +5
+                            </Button>
+                        </Hint>
+                        <Hint label={t('timer.session.extend10')}>
+                            <Button
+                                style={{ margin: 4 }}
+                                aria-label={t('timer.session.extend10')}
+                                onClick={extend10}
+                            >
+                                +10
+                            </Button>
+                        </Hint>
                     </ButtonContainer>
                 ) : undefined}
             </Mask>

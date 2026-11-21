@@ -4,6 +4,7 @@ import React from 'react';
 import styled, { keyframes } from 'styled-components';
 import { PomodoroRecord } from '../../../renderer/monitor/type';
 import { t } from '../../../renderer/i18n';
+import { Hint } from '../Hint/Hint';
 
 const confirmSpin = keyframes`
     from {
@@ -377,59 +378,71 @@ export class MiniLogger extends React.Component<Props> {
 
         const left = isConfirming ? (
             <>
-                <Button
-                    type="text"
-                    size="small"
-                    icon={<Icon type="caret-right" />}
-                    onClick={confirmAndStartNextSession}
-                    title={t('timer.mini.startNext')}
-                />
-                <Button
-                    type="text"
-                    size="small"
-                    icon={<Icon type="check" />}
-                    title={t('timer.mini.finish')}
-                    onClick={this.props.confirm}
-                />
+                <Hint label={t('timer.mini.startNext')}>
+                    <Button
+                        aria-label={t('timer.mini.startNext')}
+                        type="text"
+                        size="small"
+                        icon={<Icon type="caret-right" />}
+                        onClick={confirmAndStartNextSession}
+                    />
+                </Hint>
+                <Hint label={t('timer.mini.finish')}>
+                    <Button
+                        aria-label={t('timer.mini.finish')}
+                        type="text"
+                        size="small"
+                        icon={<Icon type="check" />}
+                        onClick={this.props.confirm}
+                    />
+                </Hint>
             </>
         ) : (
             <>
                 {isRunning ? (
-                    <Button
-                        type="text"
-                        size="small"
-                        icon={<Icon type="pause" />}
-                        title={t('timer.controls.pause')}
-                        onClick={pause}
-                    />
+                    <Hint label={t('timer.controls.pause')}>
+                        <Button
+                            aria-label={t('timer.controls.pause')}
+                            type="text"
+                            size="small"
+                            icon={<Icon type="pause" />}
+                            onClick={pause}
+                        />
+                    </Hint>
                 ) : (
-                    <Button
-                        type="text"
-                        size="small"
-                        icon={<Icon type="caret-right" />}
-                        title={t('timer.controls.start')}
-                        onClick={play}
-                    />
+                    <Hint label={t('timer.controls.start')}>
+                        <Button
+                            aria-label={t('timer.controls.start')}
+                            type="text"
+                            size="small"
+                            icon={<Icon type="caret-right" />}
+                            onClick={play}
+                        />
+                    </Hint>
                 )}
                 {/* `hasSession`, not `percentage`: see its documentation -- the
                     percentage is throttled, so it cannot tell "no session" from
                     "a session that has not reached 2% yet". */}
                 {hasSession ? (
-                    <Button
-                        type="text"
-                        size="small"
-                        icon={<Icon type="check" />}
-                        title={t('timer.controls.finish')}
-                        onClick={this.props.finish}
-                    />
+                    <Hint label={t('timer.controls.finish')}>
+                        <Button
+                            aria-label={t('timer.controls.finish')}
+                            type="text"
+                            size="small"
+                            icon={<Icon type="check" />}
+                            onClick={this.props.finish}
+                        />
+                    </Hint>
                 ) : (
-                    <Button
-                        type="text"
-                        size="small"
-                        icon={<Icon type="swap" />}
-                        title={t('timer.controls.switchMode')}
-                        onClick={this.props.switch}
-                    />
+                    <Hint label={t('timer.controls.switchMode')}>
+                        <Button
+                            aria-label={t('timer.controls.switchMode')}
+                            type="text"
+                            size="small"
+                            icon={<Icon type="swap" />}
+                            onClick={this.props.switch}
+                        />
+                    </Hint>
                 )}
             </>
         );
@@ -438,45 +451,53 @@ export class MiniLogger extends React.Component<Props> {
             isConfirming && isFocusing ? (
                 // A focus session just ended: offer the extend options.
                 <>
-                    <Button
-                        type="text"
-                        size="small"
-                        className="btn-extend"
-                        onClick={this.extend5Minutes}
-                        title={t('timer.session.extend5')}
-                    >
-                        +5
-                    </Button>
-                    <Button
-                        type="text"
-                        size="small"
-                        className="btn-extend"
-                        onClick={this.extend10Minutes}
-                        title={t('timer.session.extend10')}
-                    >
-                        +10
-                    </Button>
+                    <Hint label={t('timer.session.extend5')}>
+                        <Button
+                            aria-label={t('timer.session.extend5')}
+                            type="text"
+                            size="small"
+                            className="btn-extend"
+                            onClick={this.extend5Minutes}
+                        >
+                            +5
+                        </Button>
+                    </Hint>
+                    <Hint label={t('timer.session.extend10')}>
+                        <Button
+                            aria-label={t('timer.session.extend10')}
+                            type="text"
+                            size="small"
+                            className="btn-extend"
+                            onClick={this.extend10Minutes}
+                        >
+                            +10
+                        </Button>
+                    </Hint>
                 </>
             ) : (
                 // Normal mode, or a rest session just ended: the right side
                 // always stays filled. Stopping is not allowed while waiting
                 // for confirmation, but leaving mini mode still works.
                 <>
-                    <Button
-                        type="text"
-                        size="small"
-                        icon={<Icon type="close" />}
-                        title={t('timer.controls.stop')}
-                        onClick={this.props.stop}
-                        disabled={isConfirming}
-                    />
-                    <Button
-                        type="text"
-                        size="small"
-                        icon={<Icon type="fullscreen" />}
-                        title={t('timer.mini.expand')}
-                        onClick={this.props.expand}
-                    />
+                    <Hint label={t('timer.controls.stop')}>
+                        <Button
+                            aria-label={t('timer.controls.stop')}
+                            type="text"
+                            size="small"
+                            icon={<Icon type="close" />}
+                            onClick={this.props.stop}
+                            disabled={isConfirming}
+                        />
+                    </Hint>
+                    <Hint label={t('timer.mini.expand')}>
+                        <Button
+                            aria-label={t('timer.mini.expand')}
+                            type="text"
+                            size="small"
+                            icon={<Icon type="fullscreen" />}
+                            onClick={this.props.expand}
+                        />
+                    </Hint>
                 </>
             );
 
@@ -654,9 +675,9 @@ export class MiniLogger extends React.Component<Props> {
         return (
             <StyledLogger style={style}>
                 <div className="task-row">
-                    <div className="task" title={task || undefined}>
-                        {task || t('timer.mini.noProject')}
-                    </div>
+                    <Hint label={task || undefined}>
+                        <div className="task">{task || t('timer.mini.noProject')}</div>
+                    </Hint>
                 </div>
                 {this.getControlRow()}
             </StyledLogger>

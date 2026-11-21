@@ -1,4 +1,4 @@
-import { Button, Divider, Tooltip } from 'antd';
+import { Button, Divider } from 'antd';
 import { AntdIcon as Icon, IconComponent } from '../antdIcon';
 import { debounce } from 'lodash';
 import React, { Component } from 'react';
@@ -53,6 +53,7 @@ import {
 import { TimerMask } from './SessionEndingMask';
 import { nextMacroTask, waitUntil } from './wait';
 import { WorkRestIcon } from './WorkRestIcon';
+import { Hint } from '../../../components/common/Hint/Hint';
 
 const KanbanName = styled.h1`
     position: relative;
@@ -1768,8 +1769,8 @@ class Timer extends Component<Props, State> {
                         </MySider>
                     ))}
                 <TimerLayout $compact={compact} ref={this.mainDiv}>
-                    <Tooltip
-                        title={compact ? t('timer.controls.normal') : t('timer.controls.compact')}
+                    <Hint
+                        label={compact ? t('timer.controls.normal') : t('timer.controls.compact')}
                         placement="bottom"
                     >
                         <Button
@@ -1787,8 +1788,8 @@ class Timer extends Component<Props, State> {
                         >
                             <CompactModeIcon $compact={compact} />
                         </Button>
-                    </Tooltip>
-                    <Tooltip title={t('timer.controls.minimize')} placement="bottom">
+                    </Hint>
+                    <Hint label={t('timer.controls.minimize')} placement="bottom">
                         <Button
                             icon={<Icon type={'fullscreen-exit'} />}
                             onClick={this.minimize}
@@ -1801,7 +1802,7 @@ class Timer extends Component<Props, State> {
                                 right: 14,
                             }}
                         />
-                    </Tooltip>
+                    </Hint>
                     {!compact && (
                         <HelpIcon
                             storyName={'allStories'}
@@ -1847,14 +1848,14 @@ class Timer extends Component<Props, State> {
                         </ProgressContainer>
 
                         <ThemeToggleRow $compact={compact}>
-                            <Tooltip title={t('timer.controls.switchTheme')}>
+                            <Hint label={t('timer.controls.switchTheme')}>
                                 <ThemeToggle
                                     type="bulb"
                                     onClick={this.toggleTheme}
                                     role="button"
                                     aria-label={t('timer.controls.switchTheme')}
                                 />
-                            </Tooltip>
+                            </Hint>
                         </ThemeToggleRow>
 
                         <div
@@ -1868,36 +1869,36 @@ class Timer extends Component<Props, State> {
                         <ButtonRow>
                             <div id="start-timer-button" style={{ lineHeight: 0 }}>
                                 {isRunning ? (
-                                    <Tooltip title={t('timer.controls.pause')}>
+                                    <Hint label={t('timer.controls.pause')}>
                                         <Button
                                             icon={<Icon type="pause" />}
                                             shape={'circle'}
                                             aria-label={t('timer.controls.pause')}
                                             onClick={this.onPauseResumeOrStart}
                                         />
-                                    </Tooltip>
+                                    </Hint>
                                 ) : (
-                                    <Tooltip title={t('timer.controls.start')}>
+                                    <Hint label={t('timer.controls.start')}>
                                         <Button
                                             icon={<Icon type="caret-right" />}
                                             shape={'circle'}
                                             aria-label={t('timer.controls.start')}
                                             onClick={this.onPauseResumeOrStart}
                                         />
-                                    </Tooltip>
+                                    </Hint>
                                 )}
                             </div>
                             {hasActiveSession ? (
-                                <Tooltip title={t('timer.controls.finish')}>
+                                <Hint label={t('timer.controls.finish')}>
                                     <Button
                                         icon={<Icon type="check" />}
                                         shape={'circle'}
                                         aria-label={t('timer.controls.finish')}
                                         onClick={this.onFinishButtonClick}
                                     />
-                                </Tooltip>
+                                </Hint>
                             ) : (
-                                <Tooltip title={t('timer.controls.switchMode')}>
+                                <Hint label={t('timer.controls.switchMode')}>
                                     <Button
                                         id="mode-switching-button"
                                         icon={<Icon type="swap" />}
@@ -1905,20 +1906,20 @@ class Timer extends Component<Props, State> {
                                         aria-label={t('timer.controls.switchMode')}
                                         onClick={this.switchMode}
                                     />
-                                </Tooltip>
+                                </Hint>
                             )}
                             <div id="stop-timer-button" style={{ lineHeight: 0 }}>
-                                <Tooltip title={t('timer.controls.stop')}>
+                                <Hint label={t('timer.controls.stop')}>
                                     <Button
                                         shape="circle"
                                         icon={<Icon type="close" />}
                                         aria-label={t('timer.controls.stop')}
                                         onClick={this.onStop}
                                     />
-                                </Tooltip>
+                                </Hint>
                             </div>
                             {this.state.pomodorosToday.length ? (
-                                <Tooltip title={t('timer.controls.todayStats')}>
+                                <Hint label={t('timer.controls.todayStats')}>
                                     <Button
                                         id="more-timer-button"
                                         icon={<Icon type="bar-chart" />}
@@ -1926,12 +1927,12 @@ class Timer extends Component<Props, State> {
                                         aria-label={t('timer.controls.todayStats')}
                                         onClick={this.toggleMode}
                                     />
-                                </Tooltip>
+                                </Hint>
                             ) : undefined}
                         </ButtonRow>
 
                         <MoreInfo>
-                            <Tooltip title={t('timer.stats.pomodorosToday')}>
+                            <Hint label={t('timer.stats.pomodorosToday')}>
                                 <PomodoroNumView
                                     pomodoros={this.state.pomodorosToday}
                                     showNum={false}
@@ -1939,7 +1940,7 @@ class Timer extends Component<Props, State> {
                                     compact={compact}
                                     chooseRecord={this.props.setChosenRecord}
                                 />
-                            </Tooltip>
+                            </Hint>
                         </MoreInfo>
 
                         {more ? (

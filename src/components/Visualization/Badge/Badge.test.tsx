@@ -12,8 +12,29 @@ const transforms = (container: HTMLElement) =>
         path.getAttribute('transform')
     );
 
+const texts = (container: HTMLElement) =>
+    Array.from(container.querySelectorAll('text')).map((node) => node.firstChild?.textContent);
+
 describe('TimeBadge hover detail', () => {
     afterEach(cleanup);
+
+    // Regression: dropping a half by pixel width hid the spent time as soon as
+    // the remaining estimate was long, which is exactly when the card's "how
+    // much went in" figure matters. jsdom has no clipping, so the clip paths'
+    // translation is the only observable form of "this half was slid away".
+    it('keeps both halves when the estimate dwarfs the spent time', () => {
+        const { container } = render(<TimeBadge spentTime={0.5} leftTime={22} />);
+
+        expect(transforms(container)).toEqual(['translate(0 0)', 'translate(0 0)']);
+        expect(texts(container)).toEqual(expect.arrayContaining(['00h 30m', '22h 00m']));
+    });
+
+    it('still drops the remaining half when there is nothing left', () => {
+        const { container } = render(<TimeBadge spentTime={2} leftTime={0} />);
+
+        expect(transforms(container)).toEqual(['translate(168 0)', 'translate(168 0)']);
+        expect(texts(container)).toContain('02h 00m');
+    });
 
     it('only reveals the spent/left detail after the pointer dwells', () => {
         jest.useFakeTimers();

@@ -229,11 +229,17 @@ export const TimeBadge = React.memo((props: TimeBadgeProps) => {
         },
         []
     );
+    // A half is dropped only when it has no data at all. The old rule keyed on
+    // pixel width: whenever the remaining estimate was long enough to squeeze
+    // the spent half below 53px, the whole badge slid to the remaining half and
+    // the project's actual invested time disappeared -- even though that half
+    // still has its 50px floor, and `formatTime`'s longest output (seven
+    // characters, ~47px with the 4px inset) fits in it.
     let state = clipState;
-    if (estimatedWidth < 53) {
-        state = 'spent';
-    } else if (spentWidth < 53) {
+    if (spentTime === 0 && leftTime !== 0) {
         state = 'left';
+    } else if (leftTime === 0 && spentTime !== 0) {
+        state = 'spent';
     }
 
     let transform = `translate(0 0)`;

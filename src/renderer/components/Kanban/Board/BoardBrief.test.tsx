@@ -6,6 +6,9 @@ import { BoardBrief, TREND_HOVER_DELAY_MS, TREND_UNMOUNT_DELAY_MS } from './Boar
 import { actions } from './action';
 import { actions as kanbanActions } from '../action';
 import { actions as timerActions } from '../../Timer/action';
+import { aggregateBoardRows } from './tableAggregation';
+import { accuracyGrade } from './accuracy';
+import { t } from '../../../i18n';
 
 jest.mock('./PlayPauseButton', () => ({
     PlayPauseButton: ({ onClick, showPlay }: any) => (
@@ -20,11 +23,12 @@ jest.mock('../../Visualization/ProjectTrend', () => ({
 }));
 jest.mock('../../Visualization/Bar', () => ({ ListsCountBar: () => null }));
 jest.mock('../../../../components/Visualization/Badge/Badge', () => ({
+    // The readout renders for real: its grade is what the user sees, and the
+    // tooltip is the only handle the test needs. Only TimeBadge is replaced,
+    // because its hours live inside an SVG.
+    ...jest.requireActual('../../../../components/Visualization/Badge/Badge'),
     TimeBadge: ({ spentTime, leftTime }: any) => (
         <span data-testid="time-badge">{`spent-${spentTime}-left-${leftTime}`}</span>
-    ),
-    Badge: ({ value, color }: any) => (
-        <span data-testid="accuracy-badge">{`${value}-${color}`}</span>
     ),
 }));
 jest.mock('../../../../components/common/Pin/Pin', () => ({
@@ -108,10 +112,10 @@ describe('BoardBrief', () => {
     afterEach(cleanup);
 
     it('shows the board total and its remaining estimate', () => {
-        const { getByTestId, container } = renderBrief();
+        const { getByTestId, getByTitle, container } = renderBrief();
 
         expect(getByTestId('time-badge').textContent).toBe('spent-3-left-1');
-        expect(getByTestId('accuracy-badge').textContent).toBe('Bad-#ff350e');
+        expect(getByTitle(t('kanban.brief.accuracy')).textContent).toBe('A-');
         expect(container.querySelector('strong')?.textContent).toBe('bold');
     });
 
@@ -124,25 +128,67 @@ describe('BoardBrief', () => {
         expect(getByTestId('time-badge').textContent).toBe('spent-5-left-1');
     });
 
+    // 5 grades over the existing error brackets; the brackets themselves are
+    // unchanged, so the letters must move together with the numbers below.
     it.each([
-        ['Perfect', { estimated: 2, actual: 2 }],
-        ['Good', { estimated: 16, actual: 15 }],
-        ['Fair', { estimated: 16, actual: 14 }],
-        ['Poor', { estimated: 5, actual: 4 }],
-        ['Bad', { estimated: 10, actual: 2 }],
-    ])('rates a done card with %s accuracy', (label, done) => {
-        const { getByTestId } = renderBrief({ done });
+        ['SSS', { estimated: 2, actual: 2 }],
+        ['S', { estimated: 16, actual: 15 }],
+        ['A+', { estimated: 16, actual: 14 }],
+        ['A', { estimated: 5, actual: 4 }],
+        ['A-', { estimated: 10, actual: 2 }],
+    ])('grades a done card %s', (text, done) => {
+        const { getByTitle } = renderBrief({ done });
 
-        expect(getByTestId('accuracy-badge').textContent).toContain(label);
+        expect(getByTitle(t('kanban.brief.accuracy')).textContent).toBe(text);
     });
 
     it('hides the accuracy badge when a done card has no time', () => {
-        const { queryByTestId, getByTestId } = renderBrief({
+        const { queryByTitle, getByTestId } = renderBrief({
             done: { estimated: 0, actual: 0 },
         });
 
-        expect(queryByTestId('accuracy-badge')).toBeNull();
+        expect(queryByTitle(t('kanban.brief.accuracy'))).toBeNull();
         expect(getByTestId('time-badge').textContent).toBe('spent-3-left-1');
+    });
+
+    // Regression: the card and the table column each carried their own copy of
+    // the error formula, so the same board could be graded from one mean and
+    // sorted by another. The second done card has no times: it is rated as 0
+    // but still widens the denominator, which is the case where a second
+    // formula or a different denominator drifts first.
+    it('grades the same mean error the table aggregates', () => {
+        const listsWithTwoDone = {
+            todo: { _id: 'todo', title: 'Todo', cards: ['todo-card'] },
+            done: { _id: 'done', title: 'Done', cards: ['done-a', 'done-b'] },
+        };
+        const cardsById = {
+            'todo-card': { _id: 'todo-card', spentTimeInHour: { estimated: 2, actual: 1 } },
+            'done-a': { _id: 'done-a', spentTimeInHour: { estimated: 3, actual: 2 } },
+            'done-b': { _id: 'done-b', spentTimeInHour: { estimated: 0, actual: 0 } },
+        };
+        const store = createStore((value: any) => value, {
+            kanban: { boards: { b1: board() }, lists: listsWithTwoDone, cards: cardsById },
+            timer: { boardId: 'b1', isRunning: false, isFocusing: true, timerManager: undefined },
+        });
+        const { getByTitle } = render(
+            <Provider store={store}>
+                <BoardBrief boardId="b1" onSettingClick={jest.fn()} />
+            </Provider>
+        );
+
+        const [row] = aggregateBoardRows(
+            { b1: board() } as any,
+            listsWithTwoDone as any,
+            cardsById as any
+        );
+        const meanError = row.meanPercentageError as number;
+
+        // Both sides in the value: a failure shows the mean the table
+        // aggregated next to the grade the card rendered.
+        expect({
+            grade: getByTitle(t('kanban.brief.accuracy')).textContent,
+            meanError,
+        }).toEqual({ grade: accuracyGrade(meanError), meanError });
     });
 
     it('mounts the trend chart after the pointer dwells and keeps it for later hovers', () => {

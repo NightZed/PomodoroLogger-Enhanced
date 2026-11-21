@@ -370,11 +370,6 @@ export const en = {
             namePlaceholder: 'Label name',
         },
         brief: {
-            perfect: 'Perfect',
-            good: 'Good',
-            fair: 'Fair',
-            poor: 'Poor',
-            bad: 'Bad',
             accuracy: 'Estimate accuracy',
         },
         defaultList: {

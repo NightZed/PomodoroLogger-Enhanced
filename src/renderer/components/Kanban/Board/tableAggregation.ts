@@ -1,6 +1,7 @@
 import type { KanbanBoardState } from './action';
 import type { CardsState } from '../Card/action';
 import type { Card, ListsState } from '../type';
+import { cardPercentageError } from './accuracy';
 
 export interface AggBoardInfo {
     _id: string;
@@ -44,11 +45,8 @@ export const aggregateBoardRows = (
 
         const [estimatedLeftTimeSum, errorSum, n] = cards.reduce(
             (l: number[], { card, isDone }) => {
-                let err = 0;
+                const err = cardPercentageError(card, isDone) ?? 0;
                 const { actual, estimated } = card.spentTimeInHour;
-                if (isDone && actual !== 0 && estimated !== 0) {
-                    err = (Math.abs(estimated - actual) / actual) * 100;
-                }
 
                 return [
                     l[0] + (isDone ? 0 : Math.max(0, estimated - actual)),

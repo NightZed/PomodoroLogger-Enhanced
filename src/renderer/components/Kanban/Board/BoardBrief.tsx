@@ -10,7 +10,8 @@ import { CardsState } from '../Card/action';
 import { Button, Divider } from 'antd';
 import { AntdIcon as Icon } from '../../antdIcon';
 import { feedback, FEEDBACK_MESSAGES } from '../../feedback';
-import { Badge, TimeBadge } from '../../../../components/Visualization/Badge/Badge';
+import { AccuracyReadout, TimeBadge } from '../../../../components/Visualization/Badge/Badge';
+import { accuracyGrade, cardPercentageError } from './accuracy';
 import formatMarkdown from '../Card/formatMarkdown';
 import { IdTrend } from '../../Visualization/ProjectTrend';
 import { formatTimeYmdHm } from '../../Visualization/Timeline';
@@ -313,14 +314,13 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
                 }
 
                 const { actual, estimated } = card.spentTimeInHour;
-                let err = 0;
-                if (isDone && actual !== 0 && estimated !== 0) {
-                    err = (Math.abs(estimated - actual) / actual) * 100;
+                const err = cardPercentageError(card, isDone);
+                if (err !== undefined) {
+                    errorSum_ += err;
                     showErr_ = true;
                 }
 
                 estimatedLeft += isDone ? 0 : Math.max(0, estimated - actual);
-                errorSum_ += err;
                 if (isDone) {
                     doneCount += 1;
                 }
@@ -346,24 +346,10 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
     );
 
     const avgErr = errorSum / n;
-    let acc;
-    let accColor;
-    if (avgErr < 5) {
-        acc = t('kanban.brief.perfect');
-        accColor = 'green';
-    } else if (avgErr < 10) {
-        acc = t('kanban.brief.good');
-        accColor = 'green';
-    } else if (avgErr < 20) {
-        acc = t('kanban.brief.fair');
-        accColor = '#ffe313';
-    } else if (avgErr < 30) {
-        acc = t('kanban.brief.poor');
-        accColor = '#ffa027';
-    } else {
-        acc = t('kanban.brief.bad');
-        accColor = '#ff350e';
-    }
+    // A letter grade rather than the number: the card only needs the rating,
+    // and the table already prints the percentage. Both come from the same
+    // mean, computed in `accuracy.ts`.
+    const accGrade = accuracyGrade(avgErr);
 
     const onSettingClick = (event: any) => {
         event.preventDefault();
@@ -468,12 +454,7 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
                     <TimeBadge spentTime={actualTimeSum} leftTime={estimatedLeftTimeSum} />
                 ) : undefined}
                 {showErr ? (
-                    <Badge
-                        type={'accuracy'}
-                        value={acc}
-                        color={accColor}
-                        title={t('kanban.brief.accuracy')}
-                    />
+                    <AccuracyReadout value={accGrade} title={t('kanban.brief.accuracy')} />
                 ) : undefined}
             </BadgeHolder>
         </BriefCard>

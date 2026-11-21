@@ -346,11 +346,6 @@ export const zh: CatalogShape<typeof en> = {
             namePlaceholder: '标签名称',
         },
         brief: {
-            perfect: '完美',
-            good: '良好',
-            fair: '一般',
-            poor: '较差',
-            bad: '很差',
             accuracy: '预估准确度',
         },
         defaultList: {

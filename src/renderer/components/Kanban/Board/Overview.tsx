@@ -12,6 +12,7 @@ import { BoardBrief } from './BoardBrief';
 import { actions, SortDirection, SortType } from '../action';
 import { KanbanBoard, ListsState } from '../type';
 import { AggBoardInfo, aggregateBoardRows } from './tableAggregation';
+import { formatPercentageError } from './accuracy';
 import { useI18n } from '../../../i18n';
 
 const Container = styled.div``;
@@ -118,7 +119,7 @@ const columns = [
                 return ``;
             }
 
-            return `${text.toFixed(2)}%`;
+            return formatPercentageError(text);
         },
         sorter: (a: AggBoardInfo, b: AggBoardInfo) => {
             const va = a.meanPercentageError === undefined ? 1e8 : a.meanPercentageError;

@@ -21,82 +21,70 @@ const AnimeSvg = styled.svg`
     }
 `;
 
-export interface Props {
-    type: string;
-    color?: string;
+const AccuracySlot = styled.span`
+    /* Takes whatever the two fixed-width SVGs leave over and centers the grade
+       in it, so the letter sits in the middle of the empty space instead of
+       hugging the card edge. */
+    flex: 1 1 auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+`;
+
+/* Exam-paper red pen: the grade is written and then circled. The ring is a
+   pseudo-element so it never takes part in layout -- the badge row stays 20px
+   tall and the ring is free to sit slightly outside the text. */
+const CIRCLED_GRADE_COLOR = '#e53935';
+
+const AccuracyGrade = styled.span`
+    position: relative;
+    display: inline-block;
+    padding: 0 6px;
+    /* Matches the hour readout inside TimeBadge: same text color, size and
+       weight, so the grade reads as part of the same row rather than a
+       separate widget. */
+    line-height: 16px;
+    font-size: 12px;
+    font-style: italic;
+    font-weight: 600;
+    color: var(--pl-text);
+    white-space: nowrap;
+    cursor: default;
+
+    /* An ellipse rather than a circle: the grade is two or three characters
+       wide, and a circle would have to either clip them or push the letters
+       below the neighbouring hour text. Sizes stay under the 54px the row has
+       left over, so a circled "SSS" never reaches the time badge. */
+    &::after {
+        content: '';
+        position: absolute;
+        inset: -3px -5px;
+        border: 2px solid ${CIRCLED_GRADE_COLOR};
+        border-radius: 50%;
+        pointer-events: none;
+    }
+`;
+
+export interface AccuracyReadoutProps {
+    /** Grade letter, e.g. `A+`. */
     value: string;
     title?: string;
 }
 
-export const Badge = (props: Props) => {
-    const { color = '#32d31f', type, value, title } = props;
-    const textSize = Math.floor(props.type.length * 6.5 + 10);
-    const timeSize = Math.floor(value.length * 6.5 + 10);
-    const idA = `${type.length},${value.length}a`;
-    const idB = `${type.length},${value.length}b`;
-    return (
-        <svg width={textSize + timeSize} height="20" style={{ margin: '1px 4px 1px 4px' }}>
-            <title>{title}</title>
-            <linearGradient id={idB} x2="0" y2="100%">
-                <stop offset="0" stopColor="#bbb" stopOpacity=".1" />
-                <stop offset="1" stopOpacity=".1" />
-            </linearGradient>
-            <clipPath id={idA}>
-                <rect width={textSize + timeSize} height="20" rx="3" fill="#fff" />
-            </clipPath>
-            <g clipPath={`url(#${idA})`}>
-                <path fill="#555" d={`M0 0h${textSize}v20H0z`} />
-                <path fill={color} d={`M${textSize} 0h${timeSize}v20H${textSize}z`} />
-                <path fill={`url(#${idB})`} d={`M0 0h${textSize + timeSize}v20H0z`} />
-            </g>
-            <g
-                fill="#fff"
-                textAnchor="middle"
-                fontFamily="DejaVu Sans,Verdana,Geneva,sans-serif"
-                fontSize="110"
-            >
-                {/* tslint:disable-next-line:max-line-length */}
-                <text
-                    x={(textSize / 2) * 10}
-                    y="150"
-                    fill="#010101"
-                    fillOpacity=".3"
-                    transform="scale(.1)"
-                    textLength={textSize * 10 - 100}
-                >
-                    {type}
-                </text>
-                <text
-                    x={(textSize / 2) * 10}
-                    y="140"
-                    transform="scale(.1)"
-                    textLength={textSize * 10 - 100}
-                >
-                    {type}
-                </text>
-                {/* tslint:disable-next-line:max-line-length */}
-                <text
-                    x={10 * textSize + timeSize * 5}
-                    y="150"
-                    fill="#010101"
-                    fillOpacity=".3"
-                    transform="scale(.1)"
-                    textLength={timeSize * 10 - 100}
-                >
-                    {value}
-                </text>
-                <text
-                    x={textSize * 10 + timeSize * 5}
-                    y="140"
-                    transform="scale(.1)"
-                    textLength={timeSize * 10 - 100}
-                >
-                    {value}
-                </text>
-            </g>
-        </svg>
-    );
-};
+/**
+ * The board overview's estimate-accuracy readout. It used to be a two-segment
+ * shields-style chip (grey `accuracy` label + colored value + gloss): at 93px
+ * it did not fit next to the pomodoro dot and time badge, so it wrapped onto a
+ * line of its own, and its saturated fill plus English label read as a foreign
+ * element inside the card. It is now a plain grade letter in the card's own
+ * text color, circled in red pen like a marked exam; the tooltip is the only
+ * place the label survives.
+ */
+export const AccuracyReadout = (props: AccuracyReadoutProps) => (
+    <AccuracySlot>
+        <AccuracyGrade title={props.title}>{props.value}</AccuracyGrade>
+    </AccuracySlot>
+);
 
 interface TimeBadgeProps {
     spentTime?: number;

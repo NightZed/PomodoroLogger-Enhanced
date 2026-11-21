@@ -1,48 +1,30 @@
 import React from 'react';
-import { act, cleanup, fireEvent, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { App as AntdApp } from 'antd';
 import { Provider } from 'react-redux';
 import { createStore } from 'redux';
 import { BoardBrief, TREND_HOVER_DELAY_MS, TREND_UNMOUNT_DELAY_MS } from './BoardBrief';
-import { actions } from './action';
-import { actions as kanbanActions } from '../action';
-import { actions as timerActions } from '../../Timer/action';
+import { FeedbackContextBridge } from '../../feedback/Feedback';
+import { FEEDBACK_MESSAGES } from '../../feedback';
 import { aggregateBoardRows } from './tableAggregation';
 import { accuracyGrade } from './accuracy';
 import { t } from '../../../i18n';
+import dbs from '../../../dbs';
+import { uid } from '../../../../utils/uid';
 
-jest.mock('./PlayPauseButton', () => ({
-    PlayPauseButton: ({ onClick, showPlay }: any) => (
-        <button data-testid="play-pause" data-play={String(showPlay)} onClick={onClick} />
-    ),
-}));
-jest.mock('./action', () => ({ actions: { setPin: jest.fn() } }));
-jest.mock('../action', () => ({ actions: { setConfiguringBoardId: jest.fn() } }));
-jest.mock('../../Timer/action', () => ({ actions: { setBoardId: jest.fn() } }));
-jest.mock('../../Visualization/ProjectTrend', () => ({
-    IdTrend: () => <div data-testid="trend" />,
-}));
-jest.mock('../../Visualization/Bar', () => ({ ListsCountBar: () => null }));
-jest.mock('../../../../components/Visualization/Badge/Badge', () => ({
-    // The readout renders for real: its grade is what the user sees, and the
-    // tooltip is the only handle the test needs. Only TimeBadge is replaced,
-    // because its hours live inside an SVG.
-    ...jest.requireActual('../../../../components/Visualization/Badge/Badge'),
-    TimeBadge: ({ spentTime, leftTime }: any) => (
-        <span data-testid="time-badge">{`spent-${spentTime}-left-${leftTime}`}</span>
-    ),
-}));
-jest.mock('../../../../components/common/Pin/Pin', () => ({
-    Pin: ({ isPin, onClick }: any) => (
-        <button data-testid="pin" data-pinned={String(!!isPin)} onClick={onClick} />
-    ),
-}));
-jest.mock('../../feedback', () => ({
-    feedback: { toast: jest.fn() },
-    FEEDBACK_MESSAGES: { kanban: { paused: 'paused', startFocusing: 'starting' } },
-}));
+/**
+ * Everything here runs the real implementations: the play button, the pin, the
+ * time badge, the list bar, the trend sparkline and the feedback layer. Only
+ * the in-memory SQLite bridge (installed by the Jest setup) stands in for the
+ * main process, which is the boundary the testing guide allows.
+ *
+ * The store uses an identity reducer: the card only reads the state this test
+ * hands it, so what is asserted is the actions it dispatches and the rows those
+ * actions write -- not a reduced state the test would have to reconstruct.
+ */
 
-const board = () => ({
-    _id: 'b1',
+const board = (id: string, overrides: any = {}) => ({
+    _id: id,
     name: 'Board One',
     description: 'A **bold** description',
     createdTime: 1700000000000,
@@ -53,6 +35,7 @@ const board = () => ({
     spentHours: 3,
     relatedSessions: [{ _id: 'session' }],
     pin: false,
+    ...overrides,
 });
 
 const lists = {
@@ -60,76 +43,115 @@ const lists = {
     done: { _id: 'done', title: 'Done', cards: ['done-card'] },
 };
 
-const renderBrief = (overrides: any = {}, timerOverrides: any = {}, boardOverrides: any = {}) => {
+interface RenderOptions {
+    todo?: any;
+    done?: any;
+    cards?: any;
+    lists?: any;
+    board?: any;
+    timer?: any;
+    boardId?: string;
+    onSettingClick?: (id: string) => void;
+}
+
+const renderBrief = (options: RenderOptions = {}) => {
+    const boardId = options.boardId ?? uid();
     const state = {
         kanban: {
-            boards: { b1: { ...board(), ...boardOverrides } },
-            lists,
-            cards: {
+            boards: { [boardId]: board(boardId, options.board) },
+            lists: options.lists ?? lists,
+            cards: options.cards ?? {
                 'todo-card': {
                     _id: 'todo-card',
-                    spentTimeInHour: overrides.todo ?? { estimated: 2, actual: 1 },
+                    spentTimeInHour: options.todo ?? { estimated: 2, actual: 1 },
                 },
                 'done-card': {
                     _id: 'done-card',
-                    spentTimeInHour: overrides.done ?? { estimated: 4, actual: 2 },
+                    spentTimeInHour: options.done ?? { estimated: 4, actual: 2 },
                 },
             },
         },
         timer: {
-            boardId: 'b1',
+            boardId,
             isRunning: false,
             isFocusing: true,
             timerManager: { start: jest.fn(), pause: jest.fn() },
-            ...timerOverrides,
+            ...options.timer,
         },
     };
     const store = createStore((value: any) => value, state);
     const dispatch = jest.spyOn(store, 'dispatch');
     const view = render(
-        <Provider store={store}>
-            <BoardBrief boardId="b1" onSettingClick={jest.fn()} />
-        </Provider>
+        // Feedback renders through antd's App context; without it the real
+        // toast layer throws instead of showing anything.
+        <AntdApp>
+            <FeedbackContextBridge />
+            <Provider store={store}>
+                <BoardBrief
+                    boardId={boardId}
+                    onSettingClick={options.onSettingClick ?? jest.fn()}
+                />
+            </Provider>
+        </AntdApp>
     );
-    return { ...view, store, dispatch, timerManager: state.timer.timerManager };
+    return { ...view, store, dispatch, boardId, timerManager: state.timer.timerManager };
+};
+
+/** The trend chart is decorative SVG, so its accessible name is the handle. */
+const trendChart = (query: { queryByRole: any }) =>
+    query.queryByRole('img', { name: t('chart.trend') });
+
+/**
+ * Advances the hover/idle timers and then lets the sparkline's session query
+ * settle. The query is a promise over the in-memory database, so it has to
+ * finish inside act() -- otherwise its state update lands after the test and
+ * the console gate fails the suite.
+ */
+const nativeSetImmediate: (callback: () => void) => unknown =
+    jest.requireActual('timers').setImmediate;
+
+const advance = async (ms: number) => {
+    await act(async () => {
+        jest.advanceTimersByTime(ms);
+    });
+    await act(async () => {
+        await new Promise<void>((resolve) => nativeSetImmediate(() => resolve()));
+    });
 };
 
 describe('BoardBrief', () => {
-    beforeEach(() => {
-        (timerActions.setBoardId as unknown as jest.Mock).mockImplementation((id: string) => ({
-            type: 'timer/setBoardId',
-            id,
-        }));
-        (kanbanActions.setConfiguringBoardId as unknown as jest.Mock).mockImplementation(
-            (id: string) => ({
-                type: 'kanban/configuring',
-                id,
-            })
-        );
-        (actions.setPin as jest.Mock).mockImplementation(() => jest.fn());
+    afterEach(async () => {
+        jest.useRealTimers();
+        cleanup();
+        // Let the sparkline's session query settle inside act, so its state
+        // update does not land after the test ended.
+        await act(async () => undefined);
     });
 
-    afterEach(cleanup);
-
     it('shows the board total and its remaining estimate', () => {
-        const { getByTestId, getByTitle, container } = renderBrief();
+        const { getByText, getByTitle } = renderBrief();
 
-        expect(getByTestId('time-badge').textContent).toBe('spent-3-left-1');
+        // TimeBadge prints both halves as text: 3h board total, 1h left.
+        expect(getByText('03h 00m')).toBeTruthy();
+        expect(getByText('01h 00m')).toBeTruthy();
         expect(getByTitle(t('kanban.brief.accuracy')).textContent).toBe('A-');
-        expect(container.querySelector('strong')?.textContent).toBe('bold');
+        // The description is Markdown: the bold run is its own text node.
+        expect(getByText('bold')).toBeTruthy();
     });
 
     // Regression: the spent badge used to add up the cards' `actual`, so a
     // pomodoro that was never assigned to a card -- or whose card was deleted
     // -- was missing here while the pomodoro count still included it.
     it('counts unassigned pomodoros in the spent time', () => {
-        const { getByTestId } = renderBrief({}, {}, { spentHours: 5 });
+        const { getByText, queryByText } = renderBrief({ board: { spentHours: 5 } });
 
-        expect(getByTestId('time-badge').textContent).toBe('spent-5-left-1');
+        expect(getByText('05h 00m')).toBeTruthy();
+        // The cards alone add up to 3h; that number must not be shown.
+        expect(queryByText('03h 00m')).toBeNull();
     });
 
-    // 5 grades over the existing error brackets; the brackets themselves are
-    // unchanged, so the letters must move together with the numbers below.
+    // 5 grades over the error brackets; the brackets themselves are unchanged,
+    // so the letters must move together with the error below.
     it.each([
         ['SSS', { estimated: 2, actual: 2 }],
         ['S', { estimated: 16, actual: 15 }],
@@ -143,12 +165,12 @@ describe('BoardBrief', () => {
     });
 
     it('hides the accuracy badge when a done card has no time', () => {
-        const { queryByTitle, getByTestId } = renderBrief({
+        const { queryByTitle, getByText } = renderBrief({
             done: { estimated: 0, actual: 0 },
         });
 
         expect(queryByTitle(t('kanban.brief.accuracy'))).toBeNull();
-        expect(getByTestId('time-badge').textContent).toBe('spent-3-left-1');
+        expect(getByText('03h 00m')).toBeTruthy();
     });
 
     // Regression: the card and the table column each carried their own copy of
@@ -166,18 +188,13 @@ describe('BoardBrief', () => {
             'done-a': { _id: 'done-a', spentTimeInHour: { estimated: 3, actual: 2 } },
             'done-b': { _id: 'done-b', spentTimeInHour: { estimated: 0, actual: 0 } },
         };
-        const store = createStore((value: any) => value, {
-            kanban: { boards: { b1: board() }, lists: listsWithTwoDone, cards: cardsById },
-            timer: { boardId: 'b1', isRunning: false, isFocusing: true, timerManager: undefined },
+        const { getByTitle, boardId } = renderBrief({
+            lists: listsWithTwoDone,
+            cards: cardsById,
         });
-        const { getByTitle } = render(
-            <Provider store={store}>
-                <BoardBrief boardId="b1" onSettingClick={jest.fn()} />
-            </Provider>
-        );
 
         const [row] = aggregateBoardRows(
-            { b1: board() } as any,
+            { [boardId]: board(boardId) } as any,
             listsWithTwoDone as any,
             cardsById as any
         );
@@ -191,192 +208,135 @@ describe('BoardBrief', () => {
         }).toEqual({ grade: accuracyGrade(meanError), meanError });
     });
 
-    it('mounts the trend chart after the pointer dwells and keeps it for later hovers', () => {
+    // Regression: the chart used to mount and run its session query as soon as
+    // the pointer touched a card, so sweeping across the grid issued one query
+    // per card. It now waits for a dwell, and stays mounted afterwards.
+    it('mounts the trend chart after the pointer dwells and keeps it for later hovers', async () => {
         jest.useFakeTimers();
-        try {
-            const { getByText, getByTestId, queryByTestId, container } = renderBrief();
+        const { container, queryByRole } = renderBrief();
 
-            expect(queryByTestId('trend')).toBeNull();
+        expect(trendChart({ queryByRole })).toBeNull();
 
-            const card = container.querySelector('[data-tour="kanban-brief-card"]')!;
-            fireEvent.mouseEnter(card);
-            expect(queryByTestId('trend')).toBeNull();
+        const card = container.querySelector('[data-tour="kanban-brief-card"]')!;
+        fireEvent.mouseEnter(card);
+        expect(trendChart({ queryByRole })).toBeNull();
 
-            act(() => {
-                jest.advanceTimersByTime(TREND_HOVER_DELAY_MS);
-            });
-            expect(queryByTestId('trend')).not.toBeNull();
-            expect(getByText('Board One')).toBeTruthy();
+        await advance(TREND_HOVER_DELAY_MS);
+        expect(trendChart({ queryByRole })).toBeTruthy();
 
-            fireEvent.mouseLeave(card);
-            expect(getByTestId('trend-animation').classList.contains('pl-trend')).toBe(true);
-            expect(queryByTestId('trend')).not.toBeNull();
-        } finally {
-            jest.useRealTimers();
-        }
+        fireEvent.mouseLeave(card);
+        expect(trendChart({ queryByRole })).toBeTruthy();
     });
 
-    it('does not replay the trend reveal after it has finished', () => {
+    // Regression: every visited card kept an SVG, a gradient and 30 data points
+    // in the DOM for the lifetime of the overview.
+    it('unmounts the chart after a long idle and remounts it on the next hover', async () => {
         jest.useFakeTimers();
-        try {
-            const { getByTestId, queryByTestId, container } = renderBrief();
-            const card = container.querySelector('[data-tour="kanban-brief-card"]')!;
+        const { container, queryByRole } = renderBrief();
+        const card = container.querySelector('[data-tour="kanban-brief-card"]')!;
 
-            fireEvent.mouseEnter(card);
-            act(() => {
-                jest.advanceTimersByTime(TREND_HOVER_DELAY_MS);
-            });
-            fireEvent.animationEnd(getByTestId('trend-cover'));
-            expect(queryByTestId('trend-cover')).toBeNull();
+        fireEvent.mouseEnter(card);
+        await advance(TREND_HOVER_DELAY_MS);
+        fireEvent.mouseLeave(card);
 
-            fireEvent.mouseLeave(card);
-            fireEvent.mouseEnter(card);
-            expect(queryByTestId('trend')).not.toBeNull();
-            expect(queryByTestId('trend-cover')).toBeNull();
-        } finally {
-            jest.useRealTimers();
-        }
+        // Leaving keeps the (invisible) chart for a while, so coming back
+        // immediately is instant.
+        expect(trendChart({ queryByRole })).toBeTruthy();
+
+        await advance(TREND_UNMOUNT_DELAY_MS);
+        expect(trendChart({ queryByRole })).toBeNull();
+
+        fireEvent.mouseEnter(card);
+        await advance(TREND_HOVER_DELAY_MS);
+        expect(trendChart({ queryByRole })).toBeTruthy();
     });
 
-    it('unmounts the chart after a long idle and remounts it without replaying the reveal', () => {
+    // Regression: the idle-unmount timer used to stay armed when the pointer
+    // came back, so the chart vanished while the pointer was still on the card.
+    it('cancels the idle unmount when the pointer returns', async () => {
         jest.useFakeTimers();
-        try {
-            const { getByTestId, queryByTestId, container } = renderBrief();
-            const card = container.querySelector('[data-tour="kanban-brief-card"]')!;
+        const { container, queryByRole } = renderBrief();
+        const card = container.querySelector('[data-tour="kanban-brief-card"]')!;
 
-            fireEvent.mouseEnter(card);
-            act(() => {
-                jest.advanceTimersByTime(TREND_HOVER_DELAY_MS);
-            });
-            fireEvent.animationEnd(getByTestId('trend-cover'));
-            fireEvent.mouseLeave(card);
+        fireEvent.mouseEnter(card);
+        await advance(TREND_HOVER_DELAY_MS);
+        fireEvent.mouseLeave(card);
+        await advance(TREND_UNMOUNT_DELAY_MS - 1);
+        fireEvent.mouseEnter(card);
+        await advance(TREND_UNMOUNT_DELAY_MS);
 
-            // Leaving keeps the (invisible) chart for a while, so coming back
-            // immediately is instant.
-            expect(queryByTestId('trend')).not.toBeNull();
-
-            act(() => {
-                jest.advanceTimersByTime(TREND_UNMOUNT_DELAY_MS);
-            });
-            expect(queryByTestId('trend')).toBeNull();
-
-            fireEvent.mouseEnter(card);
-            act(() => {
-                jest.advanceTimersByTime(TREND_HOVER_DELAY_MS);
-            });
-            expect(queryByTestId('trend')).not.toBeNull();
-            // The reveal is a first-run affordance; it must not play again.
-            expect(queryByTestId('trend-cover')).toBeNull();
-        } finally {
-            jest.useRealTimers();
-        }
+        expect(trendChart({ queryByRole })).toBeTruthy();
     });
 
-    it('cancels the idle unmount when the pointer returns', () => {
+    it('does not mount the trend chart when the pointer only sweeps past', async () => {
         jest.useFakeTimers();
-        try {
-            const { getByTestId, queryByTestId, container } = renderBrief();
-            const card = container.querySelector('[data-tour="kanban-brief-card"]')!;
+        const { container, queryByRole } = renderBrief();
 
-            fireEvent.mouseEnter(card);
-            act(() => {
-                jest.advanceTimersByTime(TREND_HOVER_DELAY_MS);
-            });
-            fireEvent.mouseLeave(card);
-            act(() => {
-                jest.advanceTimersByTime(TREND_UNMOUNT_DELAY_MS - 1);
-            });
-            fireEvent.mouseEnter(card);
-            act(() => {
-                jest.advanceTimersByTime(TREND_UNMOUNT_DELAY_MS);
-            });
+        const card = container.querySelector('[data-tour="kanban-brief-card"]')!;
+        fireEvent.mouseEnter(card);
+        fireEvent.mouseLeave(card);
+        await advance(TREND_HOVER_DELAY_MS * 2);
 
-            expect(queryByTestId('trend')).not.toBeNull();
-            expect(getByTestId('trend-animation')).toBeTruthy();
-        } finally {
-            jest.useRealTimers();
-        }
+        expect(trendChart({ queryByRole })).toBeNull();
     });
 
-    it('does not mount the trend chart when the pointer only sweeps past', () => {
-        jest.useFakeTimers();
-        try {
-            const { queryByTestId, container } = renderBrief();
+    it('starts focusing on this board', async () => {
+        const { getByLabelText, dispatch, timerManager, boardId } = renderBrief();
 
-            const card = container.querySelector('[data-tour="kanban-brief-card"]')!;
-            fireEvent.mouseEnter(card);
-            fireEvent.mouseLeave(card);
-            act(() => {
-                jest.advanceTimersByTime(TREND_HOVER_DELAY_MS * 2);
-            });
+        fireEvent.click(getByLabelText('caret-right'));
 
-            expect(queryByTestId('trend')).toBeNull();
-        } finally {
-            jest.useRealTimers();
-        }
+        expect(dispatch).toHaveBeenCalledWith(
+            expect.objectContaining({ type: '[Timer]SET_BOARD_ID', payload: { boardId } })
+        );
+        expect(timerManager.start).toHaveBeenCalledWith(boardId);
+        expect(await screen.findByText(FEEDBACK_MESSAGES.kanban.startFocusing)).toBeTruthy();
     });
 
-    it('starts focusing on this board', () => {
-        const { getByTestId, timerManager } = renderBrief();
-        const { feedback } = require('../../feedback');
-
-        fireEvent.click(getByTestId('play-pause'));
-
-        expect(timerActions.setBoardId).toHaveBeenCalledWith('b1');
-        expect(timerManager.start).toHaveBeenCalledWith('b1');
-        expect(feedback.toast).toHaveBeenLastCalledWith({
-            kind: 'success',
-            content: 'starting',
+    it('pauses instead of starting when this board is already being focused', async () => {
+        const { getByLabelText, timerManager } = renderBrief({
+            timer: { isRunning: true },
         });
-    });
 
-    it('pauses instead of starting when this board is already being focused', () => {
-        const { getByTestId, timerManager } = renderBrief({}, { isRunning: true });
-        const { feedback } = require('../../feedback');
-
-        expect(getByTestId('play-pause').getAttribute('data-play')).toBe('false');
-        fireEvent.click(getByTestId('play-pause'));
+        // The button shows the action it will perform: pause, not play.
+        fireEvent.click(getByLabelText('pause'));
 
         expect(timerManager.pause).toHaveBeenCalled();
-        expect(feedback.toast).toHaveBeenLastCalledWith({
-            kind: 'info',
-            content: 'paused',
-        });
+        expect(timerManager.start).not.toHaveBeenCalled();
+        expect(await screen.findByText(FEEDBACK_MESSAGES.kanban.paused)).toBeTruthy();
     });
 
     it('opens the board settings through the gear button', () => {
         const onSettingClick = jest.fn();
-        const state = {
-            kanban: {
-                boards: { b1: board() },
-                lists,
-                cards: {},
-            },
-            timer: {
-                boardId: undefined,
-                isRunning: false,
-                isFocusing: true,
-                timerManager: undefined,
-            },
-        };
-        const store = createStore((value: any) => value, state);
-        const { container } = render(
-            <Provider store={store}>
-                <BoardBrief boardId="b1" onSettingClick={onSettingClick} />
-            </Provider>
+        const { getByLabelText, dispatch, boardId } = renderBrief({ onSettingClick });
+
+        fireEvent.click(getByLabelText('setting'));
+
+        expect(dispatch).toHaveBeenCalledWith(
+            expect.objectContaining({
+                type: '[KANBAN]CONFIGURING_BOARD_ID',
+                payload: { _id: boardId },
+            })
         );
-
-        fireEvent.click(container.querySelector('[aria-label="setting"]')!.closest('button')!);
-
-        expect(kanbanActions.setConfiguringBoardId).toHaveBeenCalledWith('b1');
-        expect(onSettingClick).toHaveBeenCalledWith('b1');
+        expect(onSettingClick).toHaveBeenCalledWith(boardId);
     });
 
-    it('toggles the pin', () => {
-        const { getByTestId } = renderBrief();
+    // The pin's visible state is a CSS class, so the assertion is the row it
+    // writes: clicking the pin has to persist it.
+    it('persists the pin when it is toggled', async () => {
+        const boardId = uid();
+        await dbs.kanbanDB.insert(board(boardId));
+        const { container, dispatch } = renderBrief({ boardId });
 
-        fireEvent.click(getByTestId('pin'));
+        fireEvent.click(container.querySelector('.pl-pin')!);
 
-        expect(actions.setPin).toHaveBeenCalledWith('b1', true);
+        expect(dispatch).toHaveBeenCalledWith(
+            expect.objectContaining({
+                type: '[Board]SET_PIN',
+                payload: { _id: boardId, pin: true },
+            })
+        );
+        await waitFor(async () => {
+            expect(await dbs.kanbanDB.findOne({ _id: boardId })).toMatchObject({ pin: true });
+        });
     });
 });

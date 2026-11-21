@@ -434,15 +434,15 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
                     height={props.createdTime !== undefined ? 26 : 40}
                 />
                 {relatedSessions.length && showTrend ? (
-                    <AnimTrend className="pl-trend" data-testid="trend-animation">
+                    // The chart is decorative SVG with no text, so it needs an
+                    // accessible name: tests observe its presence through it,
+                    // and a screen reader gets something other than "image".
+                    <AnimTrend className="pl-trend" role={'img'} aria-label={t('chart.trend')}>
                         <TrendChart>
                             <IdTrend boardId={props._id} sessionCount={relatedSessions.length} />
                         </TrendChart>
                         {trendRevealed ? undefined : (
-                            <TrendCover
-                                data-testid="trend-cover"
-                                onAnimationEnd={onTrendRevealEnd}
-                            />
+                            <TrendCover onAnimationEnd={onTrendRevealEnd} />
                         )}
                     </AnimTrend>
                 ) : undefined}

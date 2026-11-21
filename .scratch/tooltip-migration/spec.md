@@ -30,7 +30,7 @@ Status: pending（清单与批次已定，未开始）
 
 测试在 `Hint.test.tsx`：50ms 后出现提示；空白 label 不渲染 overlay。
 
-## 第一批：窗口与计时（最高频，先做）
+## 第一批：窗口与计时（已完成 2026-11-21）
 
 | 文件 | 处数 | 说明 |
 | --- | --- | --- |
@@ -38,6 +38,13 @@ Status: pending（清单与批次已定，未开始）
 | `src/components/common/Mini/MiniLogger.tsx` | 11 | 播放、暂停、结束、停止、扩展、任务名 |
 | `src/renderer/components/Timer/Timer.tsx` | 10 | 控制按钮、紧凑 / 迷你、主题 |
 | `src/renderer/components/Timer/SessionEndingMask.tsx` | 3 | +5 / +10、卡片名 |
+
+原来只有原生 title 的按钮补了 `aria-label`，测试从读 `title` 改为读 `aria-label`。
+
+## 已统一：历史页日历的自定义浮层
+
+`src/components/Visualization/GridCalendar/GridCalendar.tsx` 的格子提示是一个手写的绝对定位气泡，不是原生 title。这里保留共享浮层（53 周 × 7 天，371 个 Tooltip 实例会明显增加历史页挂载成本），只把背景、文字色、字号、行高、圆角、阴影换成 antd token，外观与 `Hint` 一致。
+
 
 ## 第二批：看板
 

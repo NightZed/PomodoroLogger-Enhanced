@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import { theme } from 'antd';
 import { useThemeTokens } from '../../../renderer/theme/useThemeTokens';
 import { useI18n } from '../../../renderer/i18n';
 import { roundHours } from '../../../shared/hours';
@@ -194,6 +195,7 @@ export function getHoverInfo(data: GridData) {
 export const GridCalendar = React.memo((props: Props) => {
     const [chosenIndex, setChosenIndex] = React.useState<undefined | number>(undefined);
     const { isDark } = useThemeTokens();
+    const { token } = theme.useToken();
     const {
         till = new Date(),
         width = 800,
@@ -238,16 +240,22 @@ export const GridCalendar = React.memo((props: Props) => {
     const Tooltip = (
         <div
             style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                /* Same surface as antd's Tooltip. The calendar keeps its own
+                   overlay because 53 weeks x 7 days would mean 371 Tooltip
+                   instances; only the look has to match. */
+                backgroundColor: token.colorBgSpotlight,
+                color: token.colorTextLightSolid,
+                fontSize: token.fontSize,
+                lineHeight: token.lineHeight,
+                boxShadow: token.boxShadowSecondary,
                 wordBreak: 'keep-all',
-                color: 'white',
                 position: 'absolute',
                 transition: 'all 0.1s',
                 left: tooltipPositionLeft,
                 maxWidth: 160,
                 top: toolTipTop,
-                padding: '8px 8px',
-                borderRadius: 4,
+                padding: '6px 8px',
+                borderRadius: token.borderRadius,
                 zIndex: 10,
                 overflow: 'hidden',
                 textOverflow: 'clip',

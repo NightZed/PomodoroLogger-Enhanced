@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import List from '../List';
 import { Button } from 'antd';
 import { AntdIcon as Icon } from '../../antdIcon';
+import { useI18n } from '../../../i18n';
 import { fatScrollBar } from '../../../style/scrollbar';
 import { isShallowEqualByKeys } from '../../../utils';
 import { KanbanBoard } from '../type';
@@ -51,6 +52,7 @@ const usefulPropNames = Object.keys(defaultBoard).concat(['lists', 'cards', 'boa
 interface Props extends KanbanBoard, BoardActionTypes, InputProps {}
 export const Board: FC<Props> = React.memo(
     (props: Props) => {
+        const { t } = useI18n();
         // The last pointer position is only needed by cards that mount right
         // after a cross-list drop: those never received a pointerenter, so they
         // ask the document instead (see the effect in Card.tsx). A passive
@@ -143,7 +145,12 @@ export const Board: FC<Props> = React.memo(
                     ))}
                     {provided.placeholder}
                     <ListPlaceholder>
-                        <Button onClick={addList} icon={<Icon type={'plus'} />} shape="circle" />
+                        <Button
+                            onClick={addList}
+                            icon={<Icon type={'plus'} />}
+                            shape="circle"
+                            aria-label={t('kanban.page.addList')}
+                        />
                     </ListPlaceholder>
                 </ListContainer>
             );

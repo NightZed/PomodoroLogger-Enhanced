@@ -679,6 +679,8 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                             key={c}
                             $color={c}
                             $selected={c === newColor}
+                            role="button"
+                            aria-label={`${t('kanban.labelEditor.color')} ${c}`}
                             onClick={() => {
                                 setNewColor(c);
                                 setColorTouched(true);

@@ -70,6 +70,11 @@ interface Props {
     isRounded?: boolean;
     onClick?: () => void;
     style?: any;
+    /**
+     * Accessible name. Without it the icon announces its own glyph name, which
+     * says nothing about what the control does.
+     */
+    'aria-label'?: string;
 }
 
 export const Pin: React.FC<Props> = (props: Props) => {
@@ -99,6 +104,8 @@ export const Pin: React.FC<Props> = (props: Props) => {
                 .join(' ')}
             style={props.style}
             onClick={onClick}
+            role={props['aria-label'] === undefined ? undefined : 'button'}
+            aria-label={props['aria-label']}
         >
             <Icon type={'pin' as any} component={PinSvg} />
         </C>

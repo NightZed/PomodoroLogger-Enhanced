@@ -489,6 +489,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                 onClick={addBoard}
                                 id={'create-kanban-button'}
                                 data-tour={'create-kanban-button'}
+                                aria-label={t('kanban.page.addBoard')}
                             >
                                 <Icon type={'plus'} />
                             </Button>
@@ -520,6 +521,11 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                     style={{ width: 32, padding: 0, margin: '0 4px' }}
                                     onClick={toggleSortDirection}
                                     id={'sort-direction-button'}
+                                    aria-label={
+                                        props.kanban.sortDirection === 'asc'
+                                            ? t('kanban.page.ascending')
+                                            : t('kanban.page.descending')
+                                    }
                                 >
                                     <Icon
                                         type={props.kanban.sortDirection === 'asc' ? 'up' : 'down'}
@@ -583,6 +589,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                         shape={'circle'}
                                         icon={<Icon type={'setting'} />}
                                         onClick={showBoardSettingMenu}
+                                        aria-label={t('kanban.page.boardSettings')}
                                     />
                                 </LabelButton>
                             </>

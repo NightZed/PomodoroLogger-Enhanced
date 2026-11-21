@@ -400,7 +400,12 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
                         <span className="brief-title" title={name}>
                             {name}
                         </span>
-                        <Pin isPin={!!props.pin} onClick={onPinClick} style={{ marginLeft: 4 }} />
+                        <Pin
+                            isPin={!!props.pin}
+                            onClick={onPinClick}
+                            style={{ marginLeft: 4 }}
+                            aria-label={t('kanban.brief.pin')}
+                        />
                     </h1>
                     {props.createdTime !== undefined ? (
                         <CreatedTime>
@@ -421,6 +426,7 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
                             shape={'circle'}
                             onClick={onSettingClick}
                             size={'small'}
+                            aria-label={t('kanban.page.boardSettings')}
                         />
                     ) : undefined}
                 </span>

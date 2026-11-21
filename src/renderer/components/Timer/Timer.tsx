@@ -1754,6 +1754,7 @@ class Timer extends Component<Props, State> {
                             <Board boardId={boardId} preview={true} showHeader={false} />
                             <Button
                                 icon={<Icon type={'more'} />}
+                                aria-label={t('timer.controls.toggleSider')}
                                 style={{
                                     position: 'absolute',
                                     right: 0,
@@ -1774,6 +1775,9 @@ class Timer extends Component<Props, State> {
                         <Button
                             onClick={() => this.props.setCompact(!compact)}
                             shape={'circle'}
+                            aria-label={
+                                compact ? t('timer.controls.normal') : t('timer.controls.compact')
+                            }
                             style={{
                                 position: 'absolute',
                                 zIndex: 50,
@@ -1789,6 +1793,7 @@ class Timer extends Component<Props, State> {
                             icon={<Icon type={'fullscreen-exit'} />}
                             onClick={this.minimize}
                             shape={'circle'}
+                            aria-label={t('timer.controls.minimize')}
                             style={{
                                 position: 'absolute',
                                 zIndex: 50,
@@ -1843,7 +1848,12 @@ class Timer extends Component<Props, State> {
 
                         <ThemeToggleRow $compact={compact}>
                             <Tooltip title={t('timer.controls.switchTheme')}>
-                                <ThemeToggle type="bulb" onClick={this.toggleTheme} />
+                                <ThemeToggle
+                                    type="bulb"
+                                    onClick={this.toggleTheme}
+                                    role="button"
+                                    aria-label={t('timer.controls.switchTheme')}
+                                />
                             </Tooltip>
                         </ThemeToggleRow>
 
@@ -1862,6 +1872,7 @@ class Timer extends Component<Props, State> {
                                         <Button
                                             icon={<Icon type="pause" />}
                                             shape={'circle'}
+                                            aria-label={t('timer.controls.pause')}
                                             onClick={this.onPauseResumeOrStart}
                                         />
                                     </Tooltip>
@@ -1870,6 +1881,7 @@ class Timer extends Component<Props, State> {
                                         <Button
                                             icon={<Icon type="caret-right" />}
                                             shape={'circle'}
+                                            aria-label={t('timer.controls.start')}
                                             onClick={this.onPauseResumeOrStart}
                                         />
                                     </Tooltip>
@@ -1880,6 +1892,7 @@ class Timer extends Component<Props, State> {
                                     <Button
                                         icon={<Icon type="check" />}
                                         shape={'circle'}
+                                        aria-label={t('timer.controls.finish')}
                                         onClick={this.onFinishButtonClick}
                                     />
                                 </Tooltip>
@@ -1889,6 +1902,7 @@ class Timer extends Component<Props, State> {
                                         id="mode-switching-button"
                                         icon={<Icon type="swap" />}
                                         shape="circle"
+                                        aria-label={t('timer.controls.switchMode')}
                                         onClick={this.switchMode}
                                     />
                                 </Tooltip>
@@ -1898,6 +1912,7 @@ class Timer extends Component<Props, State> {
                                     <Button
                                         shape="circle"
                                         icon={<Icon type="close" />}
+                                        aria-label={t('timer.controls.stop')}
                                         onClick={this.onStop}
                                     />
                                 </Tooltip>
@@ -1908,6 +1923,7 @@ class Timer extends Component<Props, State> {
                                         id="more-timer-button"
                                         icon={<Icon type="bar-chart" />}
                                         shape="circle"
+                                        aria-label={t('timer.controls.todayStats')}
                                         onClick={this.toggleMode}
                                     />
                                 </Tooltip>

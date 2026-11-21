@@ -125,6 +125,8 @@ interface AntdIconProps {
     title?: string;
     /** Accessible name for an icon that acts as a control (e.g. a menu trigger). */
     'aria-label'?: string;
+    /** Set to `button` when the icon itself is the control. */
+    role?: string;
 }
 
 /** Maps an antd v3 `Button icon="xxx"` string to a v5 icon node. */

@@ -703,6 +703,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                                         style={{ marginLeft: 4 }}
                                                         icon={<Icon type={'link'} />}
                                                         onClick={openLinkModal}
+                                                        aria-label={t('kanban.cardEditor.link')}
                                                     />
                                                 </Tooltip>
                                             </div>
@@ -775,6 +776,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                         }
                                         shape={'circle'}
                                         onClick={onSwitchIsEditing}
+                                        aria-label={t('kanban.cardEditor.toggleActualTime')}
                                     />
                                 </Form.Item>
                             )}

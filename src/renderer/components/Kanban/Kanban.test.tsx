@@ -167,7 +167,7 @@ describe('Kanban page', () => {
     it('opens the empty board form from the create button', () => {
         const { getByRole, getByTestId } = renderKanban();
 
-        fireEvent.click(getByRole('button', { name: 'plus' }));
+        fireEvent.click(getByRole('button', { name: 'Create a new board' }));
 
         expect(getByTestId('board-form').getAttribute('data-creating')).toBe('true');
         expect((global as any).__formProps.visible).toBe(true);
@@ -177,7 +177,7 @@ describe('Kanban page', () => {
         jest.useFakeTimers();
         const { getByRole, getByTestId, actions } = renderKanban();
 
-        fireEvent.click(getByRole('button', { name: 'plus' }));
+        fireEvent.click(getByRole('button', { name: 'Create a new board' }));
         fireEvent.click(getByTestId('form-save'));
 
         expect(actions.addBoard).toHaveBeenCalledWith(expect.any(String), 'New Board', 'New desc');
@@ -194,7 +194,7 @@ describe('Kanban page', () => {
     it('cancels the board form', () => {
         const { getByRole, getByTestId } = renderKanban();
 
-        fireEvent.click(getByRole('button', { name: 'plus' }));
+        fireEvent.click(getByRole('button', { name: 'Create a new board' }));
         fireEvent.click(getByTestId('form-cancel'));
 
         expect((global as any).__formProps.visible).toBe(false);
@@ -260,7 +260,7 @@ describe('Kanban page', () => {
     it('toggles the sort direction and shows the board view controls', () => {
         const { getByRole, actions } = renderKanban();
 
-        fireEvent.click(getByRole('button', { name: 'up' }));
+        fireEvent.click(getByRole('button', { name: 'Ascending' }));
         expect(actions.setSortDirection).toHaveBeenCalledWith('desc');
 
         cleanup();
@@ -288,7 +288,7 @@ describe('Kanban page', () => {
             },
         });
 
-        fireEvent.click(getByRole('button', { name: 'setting' }));
+        fireEvent.click(getByRole('button', { name: 'Board settings' }));
         expect((global as any).__formProps.isCreating).toBe(false);
         expect((global as any).__formProps.createdTime).toBe(board.createdTime);
 
@@ -306,7 +306,7 @@ describe('Kanban page', () => {
             },
         });
 
-        fireEvent.click(getByRole('button', { name: 'setting' }));
+        fireEvent.click(getByRole('button', { name: 'Board settings' }));
         fireEvent.click(getByTestId('form-delete'));
 
         expect(actions.deleteBoard).toHaveBeenCalledWith('b1');

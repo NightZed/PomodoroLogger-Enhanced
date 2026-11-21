@@ -75,6 +75,7 @@ export const zh: CatalogShape<typeof en> = {
         resumeGuide: '继续引导',
         back: '上一步',
         exit: '退出引导',
+        closeMask: '关闭引导',
         notNow: '暂不',
         takeMeThere: '点击前往',
         waiting: '正在等待高亮区域出现…',
@@ -155,6 +156,7 @@ export const zh: CatalogShape<typeof en> = {
             minimize: '迷你模式 (F12)',
             compact: '紧凑模式 (F11)',
             normal: '普通模式 (F11)',
+            toggleSider: '显示或隐藏项目面板',
         },
         stats: {
             timeSpent: '已用时间',
@@ -227,6 +229,10 @@ export const zh: CatalogShape<typeof en> = {
             cardPreview: '预览（限制高度）',
             cardFull: '完整内容',
             created: '创建于',
+            addBoard: '新建看板',
+            addList: '添加列表',
+            addCard: '添加卡片',
+            boardSettings: '看板设置',
         },
         overview: {
             boardName: '看板名称',
@@ -319,6 +325,7 @@ export const zh: CatalogShape<typeof en> = {
             description: '描述',
             estimatedTime: '预计用时（小时）',
             actualTime: '实际用时（小时）',
+            toggleActualTime: '编辑实际用时',
             actualSpentTime: '实际用时（小时）',
             completedTime: '完成时间',
             lastCompletedTime: '最近完成时间',
@@ -347,6 +354,7 @@ export const zh: CatalogShape<typeof en> = {
         },
         brief: {
             accuracy: '预估准确度',
+            pin: '固定此看板',
         },
         defaultList: {
             backlog: 'Backlog',

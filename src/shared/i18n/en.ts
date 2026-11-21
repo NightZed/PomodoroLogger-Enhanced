@@ -87,6 +87,8 @@ export const en = {
         resumeGuide: 'Resume guide',
         back: 'Back',
         exit: 'Exit tour',
+        /** The corner button of the mask-only steps, where the dialog is absent. */
+        closeMask: 'Close the tour',
         notNow: 'Not now',
         takeMeThere: 'Take me there',
         waiting: 'Waiting for the highlighted area to appear…',
@@ -170,6 +172,7 @@ export const en = {
             minimize: 'Minimize (F12)',
             compact: 'Compact (F11)',
             normal: 'Normal (F11)',
+            toggleSider: 'Show or hide the project panel',
         },
         stats: {
             timeSpent: 'Time Spent',
@@ -247,6 +250,11 @@ export const en = {
             cardPreview: 'Preview (limited height)',
             cardFull: 'Full content',
             created: 'Created',
+            /** Accessible names of icon-only controls on this page. */
+            addBoard: 'Create a new board',
+            addList: 'Add a list',
+            addCard: 'Add a card',
+            boardSettings: 'Board settings',
         },
         overview: {
             boardName: 'Board Name',
@@ -343,6 +351,7 @@ export const en = {
             description: 'Description',
             estimatedTime: 'Estimated Time In Hour',
             actualTime: 'Actual Time In Hour',
+            toggleActualTime: 'Edit actual time',
             actualSpentTime: 'Actual Spent Time In Hour',
             completedTime: 'Completed Time',
             lastCompletedTime: 'Last Completed Time',
@@ -371,6 +380,7 @@ export const en = {
         },
         brief: {
             accuracy: 'Estimate accuracy',
+            pin: 'Pin this board',
         },
         defaultList: {
             backlog: 'Backlog',

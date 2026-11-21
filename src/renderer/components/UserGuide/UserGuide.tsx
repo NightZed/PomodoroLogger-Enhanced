@@ -221,6 +221,7 @@ const UserGuideInner: React.FC<UserGuideProps> = (props: UserGuideProps) => {
                         icon={<Icon type={'close'} />}
                         size={'small'}
                         danger={true}
+                        aria-label={t('tour.closeMask')}
                         style={{
                             position: 'fixed',
                             zIndex: LAYER.guide,

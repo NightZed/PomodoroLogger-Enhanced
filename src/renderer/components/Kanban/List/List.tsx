@@ -776,6 +776,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
                                 shape={'circle'}
                                 icon={<Icon type="plus" />}
                                 id={'create-card-button'}
+                                aria-label={t('kanban.page.addCard')}
                             />
                         </ButtonWrapper>
                     </Container>

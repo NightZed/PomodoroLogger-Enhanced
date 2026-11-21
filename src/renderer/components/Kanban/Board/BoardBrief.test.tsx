@@ -139,6 +139,21 @@ describe('BoardBrief', () => {
         expect(getByText('bold')).toBeTruthy();
     });
 
+    // Regression: rendering the whole description at its natural height made
+    // one card taller than its neighbours. The row is clipped to one line in
+    // CSS (jsdom has no layout); the full text stays in the tooltip.
+    it('keeps the whole description in the tooltip', () => {
+        const description = 'first paragraph\n\nsecond paragraph';
+        const { getByText, getByTitle } = renderBrief({
+            board: { description },
+        });
+
+        expect(getByText('first paragraph')).toBeTruthy();
+        expect(getByTitle(/first paragraph/).getAttribute('title')).toBe(
+            'first paragraph second paragraph'
+        );
+    });
+
     // Regression: the spent badge used to add up the cards' `actual`, so a
     // pomodoro that was never assigned to a card -- or whose card was deleted
     // -- was missing here while the pomodoro count still included it.

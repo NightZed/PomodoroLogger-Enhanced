@@ -165,6 +165,74 @@ const Content = styled.div`
     padding: 0 ${CONTENT_HORIZONTAL_PADDING}px;
 `;
 
+/**
+ * The card keeps exactly one line for its description. It used to render the
+ * whole Markdown body, so a long description made one card taller than its
+ * neighbours; the grid is meant to be scanned, and the full text is still one
+ * hover away (the native `title`, same as the card's title).
+ *
+ * The whole body is still rendered, but every block is folded into the single
+ * row so the line fills up with the opening words of the description instead
+ * of stopping at its first paragraph. Any block that cannot be read on one
+ * line (images, tables) is dropped.
+ */
+const BriefDescription = styled(Markdown)`
+    /* 20px of text plus 6px above and below. The previous one-line layout
+       carried the Markdown padding and two sticky fade strips, so this row is
+       still shorter than before -- but the text is no longer flush against the
+       row's edges. */
+    height: 32px;
+    line-height: 20px;
+    padding: 6px 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+
+    /* The sticky fade strips are in-flow and used to add ~13px; a one-line
+       row has nothing to fade. */
+    &::before,
+    &::after {
+        display: none;
+    }
+
+    br,
+    img,
+    table {
+        display: none;
+    }
+
+    p,
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6,
+    ul,
+    ol,
+    li,
+    blockquote,
+    pre {
+        display: inline;
+        margin: 0 !important;
+        padding: 0;
+        font-size: inherit;
+        font-weight: inherit;
+        line-height: inherit;
+        white-space: inherit;
+    }
+
+    li + li::before {
+        content: ' · ';
+    }
+
+    /* Tags carry a taller line-height for their pill background; inside the
+       fixed 20px row that would crop the pill. */
+    .pl-tag {
+        line-height: inherit;
+    }
+`;
+
 const Header = styled.div`
     margin-top: 6px;
     margin-bottom: 4px;
@@ -345,6 +413,18 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
         [props.description]
     );
 
+    // The tooltip gets the readable text of the whole description (block
+    // boundaries become spaces) rather than the Markdown source with its
+    // syntax. The row renders the full body and clips it to one line.
+    const descriptionText = React.useMemo(() => {
+        if (!descriptionHtml) {
+            return '';
+        }
+        const holder = document.createElement('div');
+        holder.innerHTML = descriptionHtml.replace(/<\/(p|li|h[1-6]|blockquote|pre|tr)>/gi, '$& ');
+        return (holder.textContent ?? '').replace(/\s+/g, ' ').trim();
+    }, [descriptionHtml]);
+
     const avgErr = errorSum / n;
     // A letter grade rather than the number: the card only needs the rating,
     // and the table already prints the percentage. Both come from the same
@@ -432,9 +512,12 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
                 </span>
             </Header>
             <Content>
-                {descriptionHtml ? (
-                    <Markdown dangerouslySetInnerHTML={{ __html: descriptionHtml }} />
-                ) : undefined}
+                {/* Always rendered: the row is part of the card's fixed
+                    height, so boards with and without a description line up. */}
+                <BriefDescription
+                    title={descriptionText || undefined}
+                    dangerouslySetInnerHTML={{ __html: descriptionHtml ?? '' }}
+                />
                 <ListsCountBar
                     boardId={props._id}
                     height={props.createdTime !== undefined ? 26 : 40}

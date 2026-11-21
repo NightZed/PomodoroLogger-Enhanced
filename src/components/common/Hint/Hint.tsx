@@ -4,15 +4,15 @@ import { Tooltip, TooltipProps } from 'antd';
 /**
  * Shared hover hint.
  *
- * The native `title` attribute waits about a second before showing, which is
- * why the app's hints felt unresponsive. A hint appears right after the
- * pointer stops (50ms) and every call site shares that pace.
+ * antd's Tooltip waits for its own enter delay and then runs a zoom/fade
+ * transition, which reads as lag next to the treemap and calendar labels.
+ * This wrapper owns the trigger instead: the overlay is controlled and opens
+ * in the same event that the pointer enters the child, and GlobalStyle
+ * collapses the transition to 0s.
  *
  * An empty label returns the child unchanged: antd would otherwise keep an
  * empty overlay in the DOM and wire hover handlers for nothing.
  */
-export const HINT_ENTER_DELAY_SECONDS = 0.05;
-
 export interface HintProps {
     label?: React.ReactNode;
     children: React.ReactElement;
@@ -24,8 +24,15 @@ export interface HintProps {
     zIndex?: number;
 }
 
+/** The two handlers Hint chains onto the trigger element. */
+interface HintTriggerProps {
+    onMouseEnter?: React.MouseEventHandler;
+    onMouseLeave?: React.MouseEventHandler;
+}
+
 export const Hint = (props: HintProps) => {
     const { label, children, placement, maxWidth, getPopupContainer, zIndex } = props;
+    const [open, setOpen] = React.useState(false);
     const empty =
         label === undefined || label === null || (typeof label === 'string' && label.trim() === '');
 
@@ -33,12 +40,23 @@ export const Hint = (props: HintProps) => {
         return children;
     }
 
+    const trigger = React.cloneElement(children as React.ReactElement<HintTriggerProps>, {
+        onMouseEnter: (event: React.MouseEvent) => {
+            (children.props as HintTriggerProps).onMouseEnter?.(event);
+            setOpen(true);
+        },
+        onMouseLeave: (event: React.MouseEvent) => {
+            (children.props as HintTriggerProps).onMouseLeave?.(event);
+            setOpen(false);
+        },
+    });
+
     return (
         <Tooltip
+            open={open}
+            trigger={[]}
             title={label}
             placement={placement}
-            mouseEnterDelay={HINT_ENTER_DELAY_SECONDS}
-            mouseLeaveDelay={0}
             getPopupContainer={getPopupContainer}
             styles={
                 maxWidth === undefined && zIndex === undefined
@@ -51,7 +69,7 @@ export const Hint = (props: HintProps) => {
                       }
             }
         >
-            {children}
+            {trigger}
         </Tooltip>
     );
 };

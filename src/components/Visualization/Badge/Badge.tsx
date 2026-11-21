@@ -92,16 +92,139 @@ interface TimeBadgeProps {
     collapsed?: boolean;
 }
 
+/** Which half of the badge is shown: both totals, only spent, or only left. */
+export type TimeBadgeHalf = 'default' | 'spent' | 'left';
+
 /** Pointer dwell before the spent/left detail becomes interactive. */
 export const TIME_BADGE_HOVER_DELAY_MS = 200;
 
-type ClipState = 'default' | 'spent' | 'left';
+/** Grace after the pointer leaves, so briefly crossing the edge does not flash. */
+export const TIME_BADGE_LEAVE_DELAY_MS = 110;
+
+const TIME_BADGE_WIDTH = 168;
+
+/**
+ * The half a pointer at `offset` points at: the outer quarters reveal that
+ * half's detail, the middle keeps both totals.
+ */
+export const halfAtOffset = (offset: number, width = TIME_BADGE_WIDTH): TimeBadgeHalf => {
+    if (offset < width / 4) {
+        return 'spent';
+    }
+    if (offset > (width / 4) * 3) {
+        return 'left';
+    }
+    return 'default';
+};
+
+/**
+ * A half is dropped only when it has no data at all. Keying this on pixel width
+ * used to hide the spent half whenever the remaining estimate was long enough
+ * to squeeze it below 53px -- and with it the project's actual invested time.
+ * The half still has its 50px floor, and `formatTime`'s longest output (seven
+ * characters, ~47px with the 4px inset) fits in it.
+ */
+export const resolveVisibleHalf = (
+    spentTime: number,
+    leftTime: number,
+    hovered: TimeBadgeHalf
+): TimeBadgeHalf => {
+    if (spentTime === 0 && leftTime !== 0) {
+        return 'left';
+    }
+    if (leftTime === 0 && spentTime !== 0) {
+        return 'spent';
+    }
+    return hovered;
+};
+
+/**
+ * The hover state machine: wait for a dwell before the pointer can flip the
+ * detail, then follow it until the pointer leaves.
+ */
+export const useHoverDwell = (
+    delay = TIME_BADGE_HOVER_DELAY_MS,
+    grace = TIME_BADGE_LEAVE_DELAY_MS
+) => {
+    const [half, setHalf] = React.useState<TimeBadgeHalf>('default');
+    const halfRef = React.useRef<TimeBadgeHalf>('default');
+    const interactiveRef = React.useRef(false);
+    const dwellTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const leaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const pendingOffsetRef = React.useRef<number | null>(null);
+
+    const show = (next: TimeBadgeHalf) => {
+        if (next === halfRef.current) {
+            return;
+        }
+        halfRef.current = next;
+        setHalf(next);
+    };
+
+    const onEnter = (offset: number) => {
+        if (leaveTimerRef.current !== null) {
+            clearTimeout(leaveTimerRef.current);
+            leaveTimerRef.current = null;
+        }
+        pendingOffsetRef.current = offset;
+        if (interactiveRef.current || dwellTimerRef.current !== null) {
+            return;
+        }
+
+        dwellTimerRef.current = setTimeout(() => {
+            dwellTimerRef.current = null;
+            interactiveRef.current = true;
+            // The pointer may already have stopped over one of the halves;
+            // apply the stored position instead of waiting for the next move.
+            if (pendingOffsetRef.current !== null) {
+                show(halfAtOffset(pendingOffsetRef.current));
+            }
+        }, delay);
+    };
+
+    const onMove = (offset: number) => {
+        pendingOffsetRef.current = offset;
+        if (interactiveRef.current) {
+            show(halfAtOffset(offset));
+        }
+    };
+
+    const onLeave = () => {
+        if (dwellTimerRef.current !== null) {
+            clearTimeout(dwellTimerRef.current);
+            dwellTimerRef.current = null;
+        }
+        interactiveRef.current = false;
+        pendingOffsetRef.current = null;
+        if (leaveTimerRef.current !== null) {
+            clearTimeout(leaveTimerRef.current);
+        }
+        leaveTimerRef.current = setTimeout(() => {
+            leaveTimerRef.current = null;
+            show('default');
+        }, grace);
+    };
+
+    React.useEffect(
+        () => () => {
+            if (dwellTimerRef.current !== null) {
+                clearTimeout(dwellTimerRef.current);
+            }
+            if (leaveTimerRef.current !== null) {
+                clearTimeout(leaveTimerRef.current);
+            }
+        },
+        []
+    );
+
+    return { half, onEnter, onMove, onLeave };
+};
 
 export const TimeBadge = React.memo((props: TimeBadgeProps) => {
     const { t } = useI18n();
     const { collapsed = false } = props;
     const { tokens, isDark } = useThemeTokens();
-    const [clipState, setClipState] = React.useState<ClipState>('default');
+    const { half: hovered, onEnter, onMove, onLeave } = useHoverDwell();
     const id = React.useMemo(() => uid(), []);
     const id1 = id + '1';
     let exceeded = false;
@@ -117,130 +240,38 @@ export const TimeBadge = React.memo((props: TimeBadgeProps) => {
     const sSpentTime = formatTime(spentTime);
     const sEstimatedTime = formatTime(leftTime);
     const sum = spentTime + leftTime;
-    const totalWidth = 168;
+    const totalWidth = TIME_BADGE_WIDTH;
     const spentWidth = sum ? ((totalWidth - 100) / sum) * spentTime + 50 : 90;
     const estimatedWidth = totalWidth - spentWidth;
 
-    // The badge is hovered constantly while a card is crossed, so the detail
-    // interaction waits for a dwell (like the pin and the list bar). The badge
-    // is also one of several TimeBadges on screen (the Done list keeps its
-    // cards mounted), so avoid doing work on every mouse move:
-    //  - the left edge is measured once on enter instead of via
-    //    getBoundingClientRect() on every move (which can force layout);
-    //  - moves are ignored until the dwell elapses, so a sweep never flips the
-    //    clip paths or re-renders the badge.
-    const clipStateRef = React.useRef<ClipState>('default');
-    const interactiveRef = React.useRef(false);
-    const hoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-    const leaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    // The badge is hovered constantly while a card is crossed, and it is one
+    // of several TimeBadges on screen (the Done list keeps its cards mounted).
+    // Measure the left edge once per enter instead of on every move; the dwell
+    // itself lives in `useHoverDwell`.
     const badgeLeftRef = React.useRef<number | null>(null);
-    const lastClientXRef = React.useRef<number | null>(null);
 
-    const applyClientX = (clientX: number) => {
-        const left = badgeLeftRef.current;
-        if (left === null) {
-            return;
-        }
-
-        const offset = clientX - left;
-        let next: ClipState = 'default';
-        if (offset < totalWidth / 4) {
-            next = 'spent';
-        } else if (offset > (totalWidth / 4) * 3) {
-            next = 'left';
-        }
-        if (next === clipStateRef.current) {
-            return;
-        }
-
-        clipStateRef.current = next;
-        setClipState(next);
-    };
-
-    const onEnter = (event: React.MouseEvent<SVGSVGElement>) => {
+    const handleEnter = (event: React.MouseEvent<SVGSVGElement>) => {
         if (collapsed) {
             return;
         }
-        if (leaveTimerRef.current !== null) {
-            clearTimeout(leaveTimerRef.current);
-            leaveTimerRef.current = null;
-        }
-
         badgeLeftRef.current = event.currentTarget.getBoundingClientRect().left;
-        lastClientXRef.current = event.clientX;
-        if (interactiveRef.current || hoverTimerRef.current !== null) {
-            return;
-        }
-
-        hoverTimerRef.current = setTimeout(() => {
-            hoverTimerRef.current = null;
-            interactiveRef.current = true;
-            // The pointer may already have stopped over one of the halves;
-            // apply the stored position instead of waiting for the next move.
-            const clientX = lastClientXRef.current;
-            if (clientX !== null) {
-                applyClientX(clientX);
-            }
-        }, TIME_BADGE_HOVER_DELAY_MS);
+        onEnter(event.clientX - badgeLeftRef.current);
     };
 
-    const onMove = (event: React.MouseEvent<SVGSVGElement>) => {
-        if (collapsed) {
+    const handleMove = (event: React.MouseEvent<SVGSVGElement>) => {
+        const left = badgeLeftRef.current;
+        if (collapsed || left === null) {
             return;
         }
-        lastClientXRef.current = event.clientX;
-        if (interactiveRef.current) {
-            applyClientX(event.clientX);
-        }
+        onMove(event.clientX - left);
     };
 
-    const onLeave = () => {
-        if (hoverTimerRef.current !== null) {
-            clearTimeout(hoverTimerRef.current);
-            hoverTimerRef.current = null;
-        }
-        interactiveRef.current = false;
+    const handleLeave = () => {
         badgeLeftRef.current = null;
-        lastClientXRef.current = null;
-
-        if (leaveTimerRef.current !== null) {
-            clearTimeout(leaveTimerRef.current);
-        }
-        // Short grace period, as before: briefly crossing the badge edge must
-        // not flash "default" before the pointer comes back.
-        leaveTimerRef.current = setTimeout(() => {
-            leaveTimerRef.current = null;
-            if (clipStateRef.current === 'default') {
-                return;
-            }
-            clipStateRef.current = 'default';
-            setClipState('default');
-        }, 110);
+        onLeave();
     };
 
-    React.useEffect(
-        () => () => {
-            if (hoverTimerRef.current !== null) {
-                clearTimeout(hoverTimerRef.current);
-            }
-            if (leaveTimerRef.current !== null) {
-                clearTimeout(leaveTimerRef.current);
-            }
-        },
-        []
-    );
-    // A half is dropped only when it has no data at all. The old rule keyed on
-    // pixel width: whenever the remaining estimate was long enough to squeeze
-    // the spent half below 53px, the whole badge slid to the remaining half and
-    // the project's actual invested time disappeared -- even though that half
-    // still has its 50px floor, and `formatTime`'s longest output (seven
-    // characters, ~47px with the 4px inset) fits in it.
-    let state = clipState;
-    if (spentTime === 0 && leftTime !== 0) {
-        state = 'left';
-    } else if (leftTime === 0 && spentTime !== 0) {
-        state = 'spent';
-    }
+    const state = resolveVisibleHalf(spentTime, leftTime, hovered);
 
     let transform = `translate(0 0)`;
     switch (state) {
@@ -280,9 +311,9 @@ export const TimeBadge = React.memo((props: TimeBadgeProps) => {
             width={totalWidth}
             height="20"
             style={{ margin: '0 0 2px 6px', fontSize: 12 }}
-            onMouseEnter={onEnter}
-            onMouseMove={onMove}
-            onMouseLeave={onLeave}
+            onMouseEnter={handleEnter}
+            onMouseMove={handleMove}
+            onMouseLeave={handleLeave}
         >
             <defs>
                 <clipPath id={id}>

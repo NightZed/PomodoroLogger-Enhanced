@@ -4,102 +4,138 @@
  * and forth on every crossing. It now waits for a 200ms dwell and snaps once.
  */
 import * as React from 'react';
-import { act, cleanup, fireEvent, render } from '@testing-library/react';
-import { TIME_BADGE_HOVER_DELAY_MS, TimeBadge } from './Badge';
+import { act, cleanup, render, renderHook } from '@testing-library/react';
+import {
+    TIME_BADGE_HOVER_DELAY_MS,
+    TIME_BADGE_LEAVE_DELAY_MS,
+    TimeBadge,
+    halfAtOffset,
+    resolveVisibleHalf,
+    useHoverDwell,
+} from './Badge';
 
-const transforms = (container: HTMLElement) =>
-    Array.from(container.querySelectorAll('clipPath path')).map((path) =>
-        path.getAttribute('transform')
-    );
+afterEach(cleanup);
 
-const texts = (container: HTMLElement) =>
-    Array.from(container.querySelectorAll('text')).map((node) => node.firstChild?.textContent);
+describe('TimeBadge content', () => {
+    // Regression: a half used to be dropped by pixel width, which hid the
+    // spent total whenever the remaining estimate was long.
+    it('keeps both totals when the estimate dwarfs the spent time', () => {
+        expect(resolveVisibleHalf(0.5, 22, 'default')).toBe('default');
+    });
+
+    it.each([
+        ['spent time is missing', 0, 22, 'left'],
+        ['nothing is left', 2, 0, 'spent'],
+    ])('drops the remaining half when %s', (_label, spent, left, expected) => {
+        expect(resolveVisibleHalf(spent, left, 'default')).toBe(expected);
+    });
+
+    it('follows the pointer while both halves have data', () => {
+        expect({
+            hoveringSpent: resolveVisibleHalf(1, 1, 'spent'),
+            hoveringLeft: resolveVisibleHalf(1, 1, 'left'),
+        }).toEqual({ hoveringSpent: 'spent', hoveringLeft: 'left' });
+    });
+
+    it('reveals the outer quarters and keeps the middle neutral', () => {
+        expect({
+            leftQuarter: halfAtOffset(10),
+            middle: halfAtOffset(84),
+            rightQuarter: halfAtOffset(160),
+        }).toEqual({
+            leftQuarter: 'spent',
+            middle: 'default',
+            rightQuarter: 'left',
+        });
+    });
+
+    it('renders both formatted totals', () => {
+        const { getByText } = render(<TimeBadge spentTime={0.5} leftTime={22} />);
+
+        expect(getByText('00h 30m', { exact: false })).toBeTruthy();
+        expect(getByText('22h 00m', { exact: false })).toBeTruthy();
+    });
+});
 
 describe('TimeBadge hover detail', () => {
-    afterEach(cleanup);
-
-    // Regression: dropping a half by pixel width hid the spent time as soon as
-    // the remaining estimate was long, which is exactly when the card's "how
-    // much went in" figure matters. jsdom has no clipping, so the clip paths'
-    // translation is the only observable form of "this half was slid away".
-    it('keeps both halves when the estimate dwarfs the spent time', () => {
-        const { container } = render(<TimeBadge spentTime={0.5} leftTime={22} />);
-
-        expect(transforms(container)).toEqual(['translate(0 0)', 'translate(0 0)']);
-        expect(texts(container)).toEqual(expect.arrayContaining(['00h 30m', '22h 00m']));
-    });
-
-    it('still drops the remaining half when there is nothing left', () => {
-        const { container } = render(<TimeBadge spentTime={2} leftTime={0} />);
-
-        expect(transforms(container)).toEqual(['translate(168 0)', 'translate(168 0)']);
-        expect(texts(container)).toContain('02h 00m');
-    });
-
-    it('only reveals the spent/left detail after the pointer dwells', () => {
+    // Regression: a sweep used to flip the detail on every move; it now waits
+    // for a dwell before the pointer can switch halves.
+    it('only reveals the detail after the pointer dwells', () => {
         jest.useFakeTimers();
         try {
-            const { container } = render(<TimeBadge spentTime={1} leftTime={1} />);
-            const svg = container.querySelector('svg')!;
-            expect(transforms(container)).toEqual(['translate(0 0)', 'translate(0 0)']);
+            const { result } = renderHook(() => useHoverDwell());
 
-            fireEvent.mouseEnter(svg, { clientX: 10 });
-            fireEvent.mouseMove(svg, { clientX: 10 });
-
+            act(() => result.current.onEnter(10));
             act(() => {
                 jest.advanceTimersByTime(TIME_BADGE_HOVER_DELAY_MS - 1);
             });
-            expect(transforms(container)).toEqual(['translate(0 0)', 'translate(0 0)']);
+            expect(result.current.half).toBe('default');
 
             act(() => {
                 jest.advanceTimersByTime(1);
             });
-            // Left quarter: show the spent half.
-            expect(transforms(container)).toEqual(['translate(168 0)', 'translate(168 0)']);
+            expect(result.current.half).toBe('spent');
         } finally {
             jest.useRealTimers();
         }
     });
 
-    it('does not start the detail when the pointer only sweeps past', () => {
+    it('ignores a pointer that only sweeps past', () => {
         jest.useFakeTimers();
         try {
-            const { container } = render(<TimeBadge spentTime={1} leftTime={1} />);
-            const svg = container.querySelector('svg')!;
+            const { result } = renderHook(() => useHoverDwell());
 
-            fireEvent.mouseEnter(svg, { clientX: 10 });
-            fireEvent.mouseMove(svg, { clientX: 10 });
+            act(() => result.current.onEnter(10));
             act(() => {
                 jest.advanceTimersByTime(TIME_BADGE_HOVER_DELAY_MS / 2);
             });
-            fireEvent.mouseLeave(svg);
+            act(() => result.current.onLeave());
             act(() => {
                 jest.advanceTimersByTime(TIME_BADGE_HOVER_DELAY_MS * 2);
             });
 
-            expect(transforms(container)).toEqual(['translate(0 0)', 'translate(0 0)']);
+            expect(result.current.half).toBe('default');
         } finally {
             jest.useRealTimers();
         }
     });
 
-    it('resets after leaving the badge', () => {
+    it('resets after the pointer leaves', () => {
         jest.useFakeTimers();
         try {
-            const { container } = render(<TimeBadge spentTime={1} leftTime={1} />);
-            const svg = container.querySelector('svg')!;
+            const { result } = renderHook(() => useHoverDwell());
 
-            fireEvent.mouseEnter(svg, { clientX: 10 });
+            act(() => result.current.onEnter(10));
             act(() => {
                 jest.advanceTimersByTime(TIME_BADGE_HOVER_DELAY_MS);
             });
-            expect(transforms(container)).toEqual(['translate(168 0)', 'translate(168 0)']);
+            expect(result.current.half).toBe('spent');
 
-            fireEvent.mouseLeave(svg);
+            act(() => result.current.onLeave());
             act(() => {
-                jest.advanceTimersByTime(110);
+                jest.advanceTimersByTime(TIME_BADGE_LEAVE_DELAY_MS);
             });
-            expect(transforms(container)).toEqual(['translate(0 0)', 'translate(0 0)']);
+            expect(result.current.half).toBe('default');
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('follows the pointer once the dwell has elapsed', () => {
+        jest.useFakeTimers();
+        try {
+            const { result } = renderHook(() => useHoverDwell());
+
+            act(() => result.current.onEnter(10));
+            act(() => {
+                jest.advanceTimersByTime(TIME_BADGE_HOVER_DELAY_MS);
+            });
+
+            act(() => result.current.onMove(84));
+            expect(result.current.half).toBe('default');
+
+            act(() => result.current.onMove(160));
+            expect(result.current.half).toBe('left');
         } finally {
             jest.useRealTimers();
         }

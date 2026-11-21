@@ -5,7 +5,8 @@ import { actions, CardActionTypes } from './action';
 import { actions as kanbanActions } from '../action';
 import { RootState } from '../../../reducers';
 import { genMapDispatchToProp, matchParent } from '../../../utils';
-import { Button, Col, DatePicker, Form, Input, InputNumber, Row, Tabs, Tooltip } from 'antd';
+import { Button, Col, DatePicker, Form, Input, InputNumber, Row, Tabs } from 'antd';
+import { Hint } from '../../../../components/common/Hint/Hint';
 import { AppModal } from '../../AppModal';
 import { AntdIcon as Icon } from '../../antdIcon';
 import { feedback, FEEDBACK_MESSAGES } from '../../feedback';
@@ -582,19 +583,18 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                     ? t('kanban.cardEditor.createTitle')
                     : t('kanban.cardEditor.editTitle')
             }
-            // custom footer: wrap the Save button in an antd Tooltip so the
-            // Ctrl+Enter hint pops fast (~0.1s) instead of the slow native title
+            // custom footer: the Save button carries the Ctrl+Enter hint
             footer={
                 thisIsCreating ? (
                     <Button type="primary" onClick={onSave}>
                         {t('kanban.boardEditor.create')}
                     </Button>
                 ) : (
-                    <Tooltip title={t('kanban.cardEditor.ctrlEnter')}>
+                    <Hint label={t('kanban.cardEditor.ctrlEnter')}>
                         <Button type="primary" onClick={onSave}>
                             {t('common.save')}
                         </Button>
-                    </Tooltip>
+                    </Hint>
                 )
             }
             onCancel={onCancel}
@@ -660,44 +660,51 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                     children: (
                                         <>
                                             <div style={{ marginBottom: 4 }}>
-                                                <Tooltip title={t('kanban.cardEditor.checkbox')}>
-                                                    <Button size={'small'} onClick={insertCheckbox}>
+                                                <Hint label={t('kanban.cardEditor.checkbox')}>
+                                                    <Button
+                                                        size={'small'}
+                                                        aria-label={t('kanban.cardEditor.checkbox')}
+                                                        onClick={insertCheckbox}
+                                                    >
                                                         ☐
                                                     </Button>
-                                                </Tooltip>
-                                                <Tooltip title={t('kanban.cardEditor.bold')}>
+                                                </Hint>
+                                                <Hint label={t('kanban.cardEditor.bold')}>
                                                     <Button
                                                         size={'small'}
                                                         style={{ marginLeft: 4 }}
+                                                        aria-label={t('kanban.cardEditor.bold')}
                                                         onClick={insertBold}
                                                     >
                                                         <b>B</b>
                                                     </Button>
-                                                </Tooltip>
-                                                <Tooltip title={t('kanban.cardEditor.italic')}>
+                                                </Hint>
+                                                <Hint label={t('kanban.cardEditor.italic')}>
                                                     <Button
                                                         size={'small'}
                                                         style={{ marginLeft: 4 }}
+                                                        aria-label={t('kanban.cardEditor.italic')}
                                                         onClick={insertItalic}
                                                     >
                                                         <i>I</i>
                                                     </Button>
-                                                </Tooltip>
-                                                <Tooltip
-                                                    title={t('kanban.cardEditor.strikethrough')}
-                                                >
+                                                </Hint>
+                                                <Hint label={t('kanban.cardEditor.strikethrough')}>
                                                     <Button
                                                         size={'small'}
                                                         style={{
                                                             marginLeft: 4,
                                                             textDecoration: 'line-through',
                                                         }}
+                                                        aria-label={t(
+                                                            'kanban.cardEditor.strikethrough'
+                                                        )}
                                                         onClick={insertStrikethrough}
                                                     >
                                                         S
                                                     </Button>
-                                                </Tooltip>
-                                                <Tooltip title={t('kanban.cardEditor.link')}>
+                                                </Hint>
+                                                <Hint label={t('kanban.cardEditor.link')}>
                                                     <Button
                                                         size={'small'}
                                                         style={{ marginLeft: 4 }}
@@ -705,7 +712,7 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                                         onClick={openLinkModal}
                                                         aria-label={t('kanban.cardEditor.link')}
                                                     />
-                                                </Tooltip>
+                                                </Hint>
                                             </div>
                                             <Form.Item name="content" noStyle>
                                                 <Input.TextArea

@@ -550,8 +550,16 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                             shape="round"
                                             aria-label={t('kanban.page.cardView')}
                                             options={CARD_VIEW_OPTIONS.map((option) => ({
-                                                ...option,
-                                                tooltip: t(option.tooltipKey),
+                                                value: option.value,
+                                                label: (
+                                                    <Hint label={t(option.tooltipKey)}>
+                                                        <SegmentLabel
+                                                            aria-label={t(option.tooltipKey)}
+                                                        >
+                                                            {option.icon}
+                                                        </SegmentLabel>
+                                                    </Hint>
+                                                ),
                                             }))}
                                             value={getCardView(
                                                 props.boards[props.kanban.chosenBoardId]
@@ -605,27 +613,33 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                         options={[
                                             {
                                                 value: 'active',
-                                                tooltip: t('kanban.page.activeBoards'),
                                                 label: (
-                                                    <SegmentLabel
-                                                        aria-label={t('kanban.page.activeBoards')}
-                                                    >
-                                                        <Icon type="eye" />
-                                                    </SegmentLabel>
+                                                    <Hint label={t('kanban.page.activeBoards')}>
+                                                        <SegmentLabel
+                                                            aria-label={t(
+                                                                'kanban.page.activeBoards'
+                                                            )}
+                                                        >
+                                                            <Icon type="eye" />
+                                                        </SegmentLabel>
+                                                    </Hint>
                                                 ),
                                             },
                                             {
                                                 value: 'hidden',
-                                                tooltip: hiddenBoardsLabel,
                                                 label: (
-                                                    <SegmentLabel aria-label={hiddenBoardsLabel}>
-                                                        <Icon type="eye-invisible" />
-                                                        {hiddenBoardCount > 0 ? (
-                                                            <SegmentCount>
-                                                                {hiddenBoardCount}
-                                                            </SegmentCount>
-                                                        ) : null}
-                                                    </SegmentLabel>
+                                                    <Hint label={hiddenBoardsLabel}>
+                                                        <SegmentLabel
+                                                            aria-label={hiddenBoardsLabel}
+                                                        >
+                                                            <Icon type="eye-invisible" />
+                                                            {hiddenBoardCount > 0 ? (
+                                                                <SegmentCount>
+                                                                    {hiddenBoardCount}
+                                                                </SegmentCount>
+                                                            ) : null}
+                                                        </SegmentLabel>
+                                                    </Hint>
                                                 ),
                                             },
                                         ]}
@@ -640,24 +654,26 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                         options={[
                                             {
                                                 value: 'board',
-                                                tooltip: t('kanban.page.boardView'),
                                                 label: (
-                                                    <SegmentLabel
-                                                        aria-label={t('kanban.page.boardView')}
-                                                    >
-                                                        <Icon type="appstore" />
-                                                    </SegmentLabel>
+                                                    <Hint label={t('kanban.page.boardView')}>
+                                                        <SegmentLabel
+                                                            aria-label={t('kanban.page.boardView')}
+                                                        >
+                                                            <Icon type="appstore" />
+                                                        </SegmentLabel>
+                                                    </Hint>
                                                 ),
                                             },
                                             {
                                                 value: 'table',
-                                                tooltip: t('kanban.page.tableView'),
                                                 label: (
-                                                    <SegmentLabel
-                                                        aria-label={t('kanban.page.tableView')}
-                                                    >
-                                                        <Icon type="table" />
-                                                    </SegmentLabel>
+                                                    <Hint label={t('kanban.page.tableView')}>
+                                                        <SegmentLabel
+                                                            aria-label={t('kanban.page.tableView')}
+                                                        >
+                                                            <Icon type="table" />
+                                                        </SegmentLabel>
+                                                    </Hint>
                                                 ),
                                             },
                                         ]}

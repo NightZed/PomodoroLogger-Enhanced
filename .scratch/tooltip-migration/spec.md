@@ -43,18 +43,28 @@ Status: open（只剩 5 处 SVG 内部 `<title>` 待定）
 
 中间的 SVG `<title>`（专注中 / 休息中 / 暂停）换成 `Hint`，状态名同时放到 `role="img"` 的 `aria-label` 上。
 
+### 番茄圆点与分段控件
+
+`PomodoroDot` 的 SVG `<title>` 换成 `Hint`，并补 `role="img"` / `aria-label`。看板总览的「活跃 / 已隐藏 / 看板 / 表格」原来用 antd `Segmented` 自带的 `tooltip`（默认进入延迟），改成 `Hint` 包 label。
+
+### 提示去重
+
+只给「文字已经完整显示」的元素去掉提示：
+
+- 标题栏普通模式（页面名就在图标旁），紧凑模式只有图标，保留；
+- 设置页的声音路径（显示的就是文件名）与主题按钮（名称就在按钮里）。
+
 ### 历史页日历浮层
 
 `GridCalendar` 的格子提示是手写气泡，保留共享浮层（53 周 × 7 天，371 个 Tooltip 实例会明显增加挂载成本），只把颜色、字号、圆角、阴影换成同一组变量。
 
-## 待定：SVG 内部 `<title>`（5 处）
+## 待定：SVG 内部 `<title>`（4 处）
 
 | 文件 | 处数 | 问题 |
 | --- | --- | --- |
 | `src/components/Visualization/Badge/Badge.tsx` | 2 | 已花 / 剩余两个分区提示，一个 Hint 表达不了 |
 | `src/components/Visualization/Bar/Bar.tsx` | 1 | 每列一个提示，包外层后只剩一个 |
 | `src/renderer/components/Timer/PomodoroNumView.tsx` | 1 | 图形内部 |
-| `src/components/Visualization/PomodoroDot.tsx` | 1 | 图形内部 |
 
 ## 风险
 

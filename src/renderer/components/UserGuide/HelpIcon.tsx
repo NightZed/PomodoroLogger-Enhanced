@@ -24,13 +24,16 @@ interface Props {
 
 const HelpIconBase: FC<Props> = (props: Props) => {
     const { t } = useI18n();
+    // Once the tour has been seen the button is a plain help entry, not
+    // "resume the guide".
+    const label = props.resume ? t('tour.help') : t('tour.startGuide');
     return (
-        <Hint label={props.resume ? t('tour.resumeGuide') : t('tour.startGuide')}>
+        <Hint label={label}>
             <Button
                 icon={<Icon type={'question'} />}
                 onClick={props.resume ? props.resumeStory : props.showStory}
                 shape={'circle'}
-                aria-label={props.resume ? t('tour.resumeGuide') : t('tour.startGuide')}
+                aria-label={label}
                 style={props.style}
             />
         </Hint>

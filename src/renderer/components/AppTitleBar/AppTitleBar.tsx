@@ -284,8 +284,8 @@ const AppTitleBar: React.FC<Props> = ({
         return () => window.removeEventListener('blur', onWindowBlur);
     }, [endWindowDrag]);
 
-    const tab = (title: string, icon: string, tourKey?: string) => (
-        <Hint label={title}>
+    const tab = (title: string, icon: string, tourKey?: string) => {
+        const label = (
             <span
                 data-tour={tourKey}
                 style={{
@@ -298,8 +298,12 @@ const AppTitleBar: React.FC<Props> = ({
                 <Icon type={icon} />
                 {!compact && title}
             </span>
-        </Hint>
-    );
+        );
+
+        // The normal bar prints the page name next to the icon, so a hint would
+        // only repeat it. Compact mode is icon-only and keeps the hint.
+        return compact ? <Hint label={title}>{label}</Hint> : label;
+    };
 
     /**
      * The page rendered inside each pane. The nodes arrive as props (the Timer

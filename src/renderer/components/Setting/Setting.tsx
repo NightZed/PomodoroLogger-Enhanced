@@ -416,11 +416,9 @@ const SoundOption: React.FunctionComponent<SoundOptionProps> = ({
                     {t('settings.notification.restoreSound')}
                 </Button>
             </SoundRow>
-            <Hint label={path || undefined}>
-                <SoundFile $disabled={disabled}>
-                    {path ? soundName(path) : t('settings.notification.defaultSound')}
-                </SoundFile>
-            </Hint>
+            <SoundFile $disabled={disabled}>
+                {path ? soundName(path) : t('settings.notification.defaultSound')}
+            </SoundFile>
         </SoundBlock>
     );
 };
@@ -1226,43 +1224,35 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                                       ? t('theme.night')
                                                       : theme.name;
                                             return (
-                                                <Hint
+                                                <ThemeButton
                                                     key={theme.id}
-                                                    label={t(
-                                                        'settings.appearance.switchToTheme',
-                                                        name
-                                                    )}
+                                                    $active={
+                                                        !props.followSystemTheme &&
+                                                        props.themeId === theme.id
+                                                    }
+                                                    onClick={() => onSelectTheme(theme.id)}
                                                 >
-                                                    <ThemeButton
-                                                        $active={
-                                                            !props.followSystemTheme &&
-                                                            props.themeId === theme.id
-                                                        }
-                                                        onClick={() => onSelectTheme(theme.id)}
-                                                    >
-                                                        <Swatches>
-                                                            <i
-                                                                style={{
-                                                                    backgroundColor:
-                                                                        theme.tokens.bg,
-                                                                }}
-                                                            />
-                                                            <i
-                                                                style={{
-                                                                    backgroundColor:
-                                                                        theme.tokens.bgElevated,
-                                                                }}
-                                                            />
-                                                            <i
-                                                                style={{
-                                                                    backgroundColor:
-                                                                        theme.tokens.primary,
-                                                                }}
-                                                            />
-                                                        </Swatches>
-                                                        {name}
-                                                    </ThemeButton>
-                                                </Hint>
+                                                    <Swatches>
+                                                        <i
+                                                            style={{
+                                                                backgroundColor: theme.tokens.bg,
+                                                            }}
+                                                        />
+                                                        <i
+                                                            style={{
+                                                                backgroundColor:
+                                                                    theme.tokens.bgElevated,
+                                                            }}
+                                                        />
+                                                        <i
+                                                            style={{
+                                                                backgroundColor:
+                                                                    theme.tokens.primary,
+                                                            }}
+                                                        />
+                                                    </Swatches>
+                                                    {name}
+                                                </ThemeButton>
                                             );
                                         })}
                                     </ThemeOptions>

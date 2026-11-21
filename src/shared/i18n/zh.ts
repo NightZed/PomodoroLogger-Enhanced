@@ -73,6 +73,7 @@ export const zh: CatalogShape<typeof en> = {
     tour: {
         startGuide: '开始引导',
         resumeGuide: '继续引导',
+        help: '帮助',
         back: '上一步',
         exit: '退出引导',
         closeMask: '关闭引导',

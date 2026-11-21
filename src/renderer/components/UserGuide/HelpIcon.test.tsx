@@ -41,7 +41,7 @@ describe('UserGuide HelpIcon', () => {
         );
         const { getByRole, dispatch } = renderIcon({ resume: true });
 
-        fireEvent.click(getByRole('button', { name: 'Resume guide' }));
+        fireEvent.click(getByRole('button', { name: 'Help' }));
 
         expect(dispatch).toHaveBeenCalledWith(actions.resumeByStepId('allStories', 'timer.pause'));
     });
@@ -49,7 +49,7 @@ describe('UserGuide HelpIcon', () => {
     it('starts from the beginning when no step was saved', () => {
         const { getByRole, dispatch } = renderIcon({ resume: true });
 
-        fireEvent.click(getByRole('button', { name: 'Resume guide' }));
+        fireEvent.click(getByRole('button', { name: 'Help' }));
 
         expect(dispatch).toHaveBeenCalledWith(actions.startHelpByStoryName('allStories'));
     });
@@ -58,7 +58,7 @@ describe('UserGuide HelpIcon', () => {
         window.localStorage.setItem('pl-tour-progress', '{ not json');
         const { getByRole, dispatch } = renderIcon({ resume: true });
 
-        fireEvent.click(getByRole('button', { name: 'Resume guide' }));
+        fireEvent.click(getByRole('button', { name: 'Help' }));
 
         expect(dispatch).toHaveBeenCalledWith(actions.startHelpByStoryName('allStories'));
     });

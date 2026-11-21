@@ -85,6 +85,7 @@ export const en = {
     tour: {
         startGuide: 'Start guide',
         resumeGuide: 'Resume guide',
+        help: 'Help',
         back: 'Back',
         exit: 'Exit tour',
         /** The corner button of the mask-only steps, where the dialog is absent. */

@@ -205,7 +205,8 @@ describe('History (month filter)', () => {
     };
 
     /** The count inside PomodoroDot's <title>, e.g. "99 Pomodoros". */
-    const badge = (container: HTMLElement) => pageText(container).match(/\d+ Pomodoros/)?.[0];
+    const badge = (container: HTMLElement) =>
+        container.querySelector('.pomodoro-dot')?.getAttribute('aria-label') ?? undefined;
 
     // The filter row holds exactly three pickers: project, year, month.
     const pickers = (container: HTMLElement) =>

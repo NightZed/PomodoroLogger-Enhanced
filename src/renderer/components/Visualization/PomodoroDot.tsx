@@ -1,5 +1,6 @@
 import styled from 'styled-components';
 import * as React from 'react';
+import { Hint } from '../../../components/common/Hint/Hint';
 
 const Svg = styled.svg`
     user-select: none;
@@ -32,34 +33,38 @@ function formatThousand(num: number) {
 
 export const PomodoroDot: React.FC<Props> = (props) => {
     const num = formatThousand(props.num);
+    const label = `${props.num} Pomodoros`;
     return (
-        <Svg
-            className="pomodoro-dot"
-            width="20"
-            height="20"
-            style={{ margin: '0 0 2px 0', cursor: 'pointer' }}
-            viewBox={'0 0 28 28'}
-        >
-            <title>{`${props.num} Pomodoros`}</title>
-            <circle cx={14} cy={14} r={14} fill={'#b3775b'} />
-            <text
-                x={14}
-                y={14.5}
-                textAnchor={'middle'}
-                alignmentBaseline={'central'}
-                fill="rgba(0, 0, 0, 0.2)"
+        <Hint label={label}>
+            <Svg
+                className="pomodoro-dot"
+                width="20"
+                height="20"
+                role="img"
+                aria-label={label}
+                style={{ margin: '0 0 2px 0', cursor: 'pointer' }}
+                viewBox={'0 0 28 28'}
             >
-                {num}
-            </text>
-            <text
-                x={14}
-                y={13.5}
-                textAnchor={'middle'}
-                alignmentBaseline={'central'}
-                fill={'white'}
-            >
-                {num}
-            </text>
-        </Svg>
+                <circle cx={14} cy={14} r={14} fill={'#b3775b'} />
+                <text
+                    x={14}
+                    y={14.5}
+                    textAnchor={'middle'}
+                    alignmentBaseline={'central'}
+                    fill="rgba(0, 0, 0, 0.2)"
+                >
+                    {num}
+                </text>
+                <text
+                    x={14}
+                    y={13.5}
+                    textAnchor={'middle'}
+                    alignmentBaseline={'central'}
+                    fill={'white'}
+                >
+                    {num}
+                </text>
+            </Svg>
+        </Hint>
     );
 };

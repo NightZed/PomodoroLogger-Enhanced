@@ -169,7 +169,7 @@ pnpm run dist-win # 或 dist-mac / dist-linux / dist-all（每个都是独立脚
 
 ## 测试约定
 
-写测试前先读 `docs/testing.md`（完整判据在那）。下面五条只是高频自检项，不能替代原文，常量、契约、DOM 结构类测试尤其不能只靠它们：
+写测试前先读 `docs/testing.md`（完整判据在那）。下面六条只是高频自检项，不能替代原文，常量、契约、DOM 结构类测试尤其不能只靠它们：
 
 - **判据**：把实现重写一遍、只保留外部可观察行为，测试应当仍然通过。它挂了，就说明钉在了实现上。
   算行为：落库的那一行、IPC payload、dispatch 出去的 action、用户看得见的 role / 文本 / 启用禁用 / 焦点。
@@ -179,6 +179,8 @@ pnpm run dist-win # 或 dist-mac / dist-linux / dist-all（每个都是独立脚
 - **失败信息必须指出元凶**：把变化的那部分塞进断言值；`expect(true).toBe(true)` 只说明「某处坏了」。
 - **不显而易见的测试带 `// Regression:`**，写明防的是哪次事故。写之前先回答「什么改动会让它失败」——答不上来就是代理断言（检查代码怎么写，而不是做了什么）。
 - **不加覆盖率阈值，不用快照**。`toMatchSnapshot` 目前是 0，保持这样。
+- **改测试时发现的存量违规要记录，不要顺手重写**：碰一个测试文件，顺带看到同文件既有用例也违规（越界 mock、断言 `className`、断言 mock 函数被调用），按测试文件加一节到 `.scratch/test-compliance/spec.md` 的清单里，提交信息里点一句指过去。
+  混在同一次改动里重写，行为改动和测试重构就无法分开评审；不记，它就会一直留到下一次有人碰到这个文件。
 
 `jest.config.js` 使用 `jsdom`、Babel 转译、`maxWorkers: min(8, cpus)`、`workerIdleMemoryLimit`（worker 空闲超限即重启，防全量跑累积 OOM）、每测试 30 秒超时和 JUnit 输出（`junit.xml`）。
 `test/setup-env.js` 钉住 `NODE_ENV=test`，并为 antd polyfill `matchMedia`/`MessageChannel`/`ResizeObserver`。

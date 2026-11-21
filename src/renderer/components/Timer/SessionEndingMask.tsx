@@ -326,7 +326,7 @@ const TimerMaskInner = (props: MaskProps) => {
                 <CardPlaceholder>{t('timer.session.noCard')}</CardPlaceholder>
             ) : (
                 <>
-                    <Hint label={cardName}>
+                    <Hint label={cardName} zIndex={LAYER.sessionMaskTooltip}>
                         <CardName type="button" onClick={() => setEditing(true)}>
                             {cardName}
                         </CardName>
@@ -446,12 +446,13 @@ const TimerMaskInner = (props: MaskProps) => {
                             showNum={false}
                             newPomodoro={props.newPomodoro}
                             compact={props.compact}
+                            hintZIndex={LAYER.sessionMaskTooltip}
                         />
                     </PomodoroSummary>
                 </MaskInnerContainer>
                 {props.isFocusing ? (
                     <ButtonContainer>
-                        <Hint label={t('timer.session.extend5')}>
+                        <Hint label={t('timer.session.extend5')} zIndex={LAYER.sessionMaskTooltip}>
                             <Button
                                 style={{ margin: 4 }}
                                 aria-label={t('timer.session.extend5')}
@@ -460,7 +461,7 @@ const TimerMaskInner = (props: MaskProps) => {
                                 +5
                             </Button>
                         </Hint>
-                        <Hint label={t('timer.session.extend10')}>
+                        <Hint label={t('timer.session.extend10')} zIndex={LAYER.sessionMaskTooltip}>
                             <Button
                                 style={{ margin: 4 }}
                                 aria-label={t('timer.session.extend10')}

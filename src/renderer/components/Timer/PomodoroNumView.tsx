@@ -111,6 +111,8 @@ interface Props {
     chooseRecord?: (record: PomodoroRecord) => void;
     inline?: boolean;
     compact?: boolean;
+    /** Lifts every dot's hint above a full-window layer (the session mask). */
+    hintZIndex?: number;
 }
 
 interface State {
@@ -154,7 +156,7 @@ export class PomodoroNumView extends React.PureComponent<Props> {
             (isNew ? '[New]' : getTime(v.startTime)) +
             (v.efficiency != null ? ` Efficiency: ${Math.round(v.efficiency * 100)}%` : '');
         return (
-            <Hint key={v._id + (isNew ? 'new' : '')} label={label}>
+            <Hint key={v._id + (isNew ? 'new' : '')} label={label} zIndex={this.props.hintZIndex}>
                 <Svg
                     width="1em"
                     height="1em"

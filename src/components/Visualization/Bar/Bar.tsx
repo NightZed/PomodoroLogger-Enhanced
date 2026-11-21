@@ -157,6 +157,9 @@ export const Bar: React.FC<BarProps> = (props: BarProps) => {
     const scale = maxV > 0 ? maxItemInCol / maxV : 0;
     const layerHeight = (100 / maxItemInCol) * 0.6;
     const marginTop = (100 / maxItemInCol) * 0.4;
+    // No per-column hint: the column's name already appears on hover (the
+    // `.bg` text) and its card count is the bar height. The native `<title>`
+    // on each `<g>` repeated that and forced the browser's slow tooltip.
     return (
         // @ts-ignore
         <Svg
@@ -181,9 +184,6 @@ export const Bar: React.FC<BarProps> = (props: BarProps) => {
                 const arr = Array.from(Array(n).keys());
                 return (
                     <g key={i} transform={`translate(${(width + margin) * i}, 0)`}>
-                        <title>
-                            "{names[i]}" has {v} cards
-                        </title>
                         {arr.map((index) => {
                             const y = 100 - index * (layerHeight + marginTop) - layerHeight;
                             return (

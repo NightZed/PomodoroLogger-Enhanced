@@ -25,6 +25,11 @@ export const LAYER = {
      */
     popup: 1050,
     /**
+     * antd Tooltip (`zIndexPopupBase + 70`). Recorded because the session mask
+     * sits above it; hints inside that mask use `sessionMaskTooltip`.
+     */
+    tooltip: 1070,
+    /**
      * Full-window chart (PomodoroSankey). Level with `popup` on purpose: it is
      * opened from inside a dialog and has to stay above that dialog, while a
      * select menu opened on top of it is ordered by mount order like anywhere
@@ -33,6 +38,11 @@ export const LAYER = {
     fullscreenView: 1050,
     /** Session-ending mask: above every page and antd dialog. */
     sessionMask: 1100,
+    /**
+     * Hints inside the session-ending mask. antd puts tooltips at 1070, which
+     * is below the mask, so the call sites there lift theirs explicitly.
+     */
+    sessionMaskTooltip: 1110,
     /**
      * A dialog opened from the mask. Equal to `sessionMask` on purpose: the
      * later mount wins. Raise both together, never just this one.

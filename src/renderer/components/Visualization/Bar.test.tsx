@@ -35,7 +35,8 @@ describe('ListsCountBar', () => {
     it('charts the lists the store still has', () => {
         mount();
 
-        expect(screen.getByText(/2 cards/)).toBeTruthy();
+        // The column label is the list name; the bar height carries the count.
+        expect(screen.getByText('Todo')).toBeTruthy();
     });
 
     // Regression: "delete all data" emptied `lists` before `boards`, so this

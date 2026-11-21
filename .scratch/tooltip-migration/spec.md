@@ -1,6 +1,6 @@
 # 原生 title 迁移到 antd Tooltip
 
-Status: open（只剩 5 处 SVG 内部 `<title>` 待定）
+Status: done（2026-11-21；待归档到 `docs/architecture/renderer.md`）
 
 ## 背景
 
@@ -58,12 +58,14 @@ Status: open（只剩 5 处 SVG 内部 `<title>` 待定）
 
 `GridCalendar` 的格子提示是手写气泡，保留共享浮层（53 周 × 7 天，371 个 Tooltip 实例会明显增加挂载成本），只把颜色、字号、圆角、阴影换成同一组变量。
 
-## 待定：SVG 内部 `<title>`（3 处）
+## SVG 内部 `<title>`：已清空
 
-| 文件 | 处数 | 问题 |
-| --- | --- | --- |
-| `src/components/Visualization/Badge/Badge.tsx` | 2 | 已花 / 剩余两个分区提示，一个 Hint 表达不了 |
-| `src/components/Visualization/Bar/Bar.tsx` | 1 | 每列一个提示，包外层后只剩一个 |
+- `Badge`（时间徽章）：两段的原生 title 合成了一个覆盖整条徽章的 Hint，label 是「已用时间 … · 剩余/超出时间 …」。
+- `Bar`（列表柱状图）：每列的 `<title>` 直接删除，没有补 Hint——列名在 hover 时已经由图上的文字显示，卡片数由柱高表达，额外提示与现有的 200ms hold 交互冲突，测试也会产生 act 警告。
+
+## 遮罩内的提示层级
+
+会话结束遮罩在 `LAYER.sessionMask`（1100），antd Tooltip 默认 `LAYER.tooltip`（1070）会被它盖住。遮罩内的 `Hint`（今日番茄、+5 / +10、卡片名）统一传 `zIndex={LAYER.sessionMaskTooltip}`（1110）。`PomodoroNumView` 因此多了一个 `hintZIndex` prop。
 
 ## 风险
 

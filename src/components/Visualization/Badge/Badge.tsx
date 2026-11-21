@@ -276,6 +276,14 @@ export const TimeBadge = React.memo((props: TimeBadgeProps) => {
 
     const state = resolveVisibleHalf(spentTime, leftTime, hovered);
 
+    // One hint for the whole strip: the two halves used to carry their own
+    // native titles, which cannot be split across a single Hint.
+    const hintLabel = collapsed
+        ? `${t('chart.badge.spentTime')} ${sSpentTime}`
+        : `${t('chart.badge.spentTime')} ${sSpentTime} · ${
+              exceeded ? t('chart.badge.extraTime') : t('chart.badge.leftTime')
+          } ${sEstimatedTime}`;
+
     let transform = `translate(0 0)`;
     switch (state) {
         case 'spent':
@@ -288,14 +296,68 @@ export const TimeBadge = React.memo((props: TimeBadgeProps) => {
 
     if (collapsed) {
         return (
+            <Hint label={hintLabel}>
+                <AnimeSvg
+                    width={totalWidth}
+                    height="20"
+                    style={{ margin: '0 0 2px 6px', fontSize: 12 }}
+                >
+                    <g clipPath={`url(#${id1})`}>
+                        <text
+                            x={0}
+                            y={10}
+                            textLength={sSpentTime.length * 6.2}
+                            textAnchor={'start'}
+                            alignmentBaseline={'central'}
+                            fill={tokens.text}
+                        >
+                            {sSpentTime}
+                        </text>
+                    </g>
+                </AnimeSvg>
+            </Hint>
+        );
+    }
+
+    return (
+        <Hint label={hintLabel}>
             <AnimeSvg
                 width={totalWidth}
                 height="20"
                 style={{ margin: '0 0 2px 6px', fontSize: 12 }}
+                onMouseEnter={handleEnter}
+                onMouseMove={handleMove}
+                onMouseLeave={handleLeave}
             >
+                <defs>
+                    <clipPath id={id}>
+                        <path
+                            d={`M ${spentWidth} -10 L ${spentWidth} 30 L ${totalWidth * 2} 30 L ${
+                                totalWidth * 2
+                            } -10 Z`}
+                            fill={'white'}
+                            transform={transform}
+                        />
+                    </clipPath>
+                    <clipPath id={id1}>
+                        <path
+                            d={`M -${totalWidth} -10 H ${spentWidth} V 40 L ${-totalWidth} 30 Z`}
+                            fill={'white'}
+                            transform={transform}
+                        />
+                    </clipPath>
+                </defs>
+
                 <g clipPath={`url(#${id1})`}>
+                    <rect
+                        height={20}
+                        width={totalWidth - 50}
+                        x={50}
+                        rx={3}
+                        fill={isDark ? '#8a6549' : '#b37e5b'}
+                    />
                     <text
-                        x={0}
+                        x={4}
                         y={10}
                         textLength={sSpentTime.length * 6.2}
                         textAnchor={'start'}
@@ -304,105 +366,51 @@ export const TimeBadge = React.memo((props: TimeBadgeProps) => {
                     >
                         {sSpentTime}
                     </text>
+
+                    <text
+                        className={'label'}
+                        x={totalWidth - 4}
+                        y={10}
+                        textLength={38}
+                        textAnchor={'end'}
+                        alignmentBaseline={'central'}
+                        fill={'white'}
+                    >
+                        SPENT
+                    </text>
+                </g>
+
+                <g clipPath={`url(#${id})`}>
+                    <rect
+                        height={20}
+                        width={totalWidth - 50}
+                        x={0}
+                        rx={3}
+                        fill={exceeded ? '#740606' : isDark ? '#4a4a4a' : '#ddd'}
+                    />
+                    <text
+                        className={'label'}
+                        x={4}
+                        y={10}
+                        textLength={30 + (exceeded ? 8 : 0)}
+                        textAnchor={'start'}
+                        alignmentBaseline={'central'}
+                        fill={'white'}
+                    >
+                        {exceeded ? t('chart.badge.extra') : t('chart.badge.left')}
+                    </text>
+                    <text
+                        x={spentWidth + estimatedWidth - 4}
+                        y={10}
+                        textLength={sEstimatedTime.length * 6.2}
+                        textAnchor={'end'}
+                        alignmentBaseline={'central'}
+                        fill={tokens.text}
+                    >
+                        {sEstimatedTime}
+                    </text>
                 </g>
             </AnimeSvg>
-        );
-    }
-
-    return (
-        <AnimeSvg
-            width={totalWidth}
-            height="20"
-            style={{ margin: '0 0 2px 6px', fontSize: 12 }}
-            onMouseEnter={handleEnter}
-            onMouseMove={handleMove}
-            onMouseLeave={handleLeave}
-        >
-            <defs>
-                <clipPath id={id}>
-                    <path
-                        d={`M ${spentWidth} -10 L ${spentWidth} 30 L ${totalWidth * 2} 30 L ${
-                            totalWidth * 2
-                        } -10 Z`}
-                        fill={'white'}
-                        transform={transform}
-                    />
-                </clipPath>
-                <clipPath id={id1}>
-                    <path
-                        d={`M -${totalWidth} -10 H ${spentWidth} V 40 L ${-totalWidth} 30 Z`}
-                        fill={'white'}
-                        transform={transform}
-                    />
-                </clipPath>
-            </defs>
-
-            <g clipPath={`url(#${id1})`}>
-                <rect
-                    height={20}
-                    width={totalWidth - 50}
-                    x={50}
-                    rx={3}
-                    fill={isDark ? '#8a6549' : '#b37e5b'}
-                />
-                <text
-                    x={4}
-                    y={10}
-                    textLength={sSpentTime.length * 6.2}
-                    textAnchor={'start'}
-                    alignmentBaseline={'central'}
-                    fill={tokens.text}
-                >
-                    {sSpentTime}
-                    <title>{t('chart.badge.spentTime')}</title>
-                </text>
-
-                <text
-                    className={'label'}
-                    x={totalWidth - 4}
-                    y={10}
-                    textLength={38}
-                    textAnchor={'end'}
-                    alignmentBaseline={'central'}
-                    fill={'white'}
-                >
-                    SPENT
-                </text>
-            </g>
-
-            <g clipPath={`url(#${id})`}>
-                <rect
-                    height={20}
-                    width={totalWidth - 50}
-                    x={0}
-                    rx={3}
-                    fill={exceeded ? '#740606' : isDark ? '#4a4a4a' : '#ddd'}
-                />
-                <text
-                    className={'label'}
-                    x={4}
-                    y={10}
-                    textLength={30 + (exceeded ? 8 : 0)}
-                    textAnchor={'start'}
-                    alignmentBaseline={'central'}
-                    fill={'white'}
-                >
-                    {exceeded ? t('chart.badge.extra') : t('chart.badge.left')}
-                </text>
-                <text
-                    x={spentWidth + estimatedWidth - 4}
-                    y={10}
-                    textLength={sEstimatedTime.length * 6.2}
-                    textAnchor={'end'}
-                    alignmentBaseline={'central'}
-                    fill={tokens.text}
-                >
-                    {sEstimatedTime}
-                    <title>
-                        {exceeded ? t('chart.badge.extraTime') : t('chart.badge.leftTime')}
-                    </title>
-                </text>
-            </g>
-        </AnimeSvg>
+        </Hint>
     );
 });

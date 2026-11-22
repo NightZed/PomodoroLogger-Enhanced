@@ -626,12 +626,12 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                     >
                         <LabelChip $color={label.color}>
                             <Hint kind="live" label={label.name}>
-                                <ChipName aria-label={label.name}>{label.name}</ChipName>
+                                <ChipName>{label.name}</ChipName>
                             </Hint>
                             <Hint label={t('kanban.labelEditor.remove')}>
                                 <ChipRemove
-                                    role="button"
                                     aria-label={t('kanban.labelEditor.remove')}
+                                    {...pressable()}
                                     onClick={(event) => {
                                         // Keep the press from reaching the Popover
                                         // trigger: it would reopen the editor this

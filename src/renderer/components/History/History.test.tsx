@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 
 jest.mock('../../workers', () => ({
     workers: {
@@ -204,9 +204,11 @@ describe('History (month filter)', () => {
         return view;
     };
 
-    /** The count inside PomodoroDot's <title>, e.g. "99 Pomodoros". */
+    /** The count on PomodoroDot's accessible name, e.g. "99 Pomodoros". */
     const badge = (container: HTMLElement) =>
-        container.querySelector('.pomodoro-dot')?.getAttribute('aria-label') ?? undefined;
+        within(container)
+            .getByRole('img', { name: /Pomodoros/ })
+            .getAttribute('aria-label');
 
     // The filter row holds exactly three pickers: project, year, month.
     const pickers = (container: HTMLElement) =>

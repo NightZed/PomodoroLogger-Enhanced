@@ -137,7 +137,8 @@ describe('MiniLogger two-row mini layout', () => {
     it('exposes the timer state through the dial accessible name', () => {
         const stateLabel = (props: Partial<typeof baseProps>) => {
             const { container } = renderMini(props);
-            const dial = container.querySelector('svg.timer-svg');
+            // The antd icons are `role="img"` spans too, so narrow to the dial.
+            const dial = container.querySelector('svg[role="img"]');
             expect(dial).not.toBeNull();
             return dial?.getAttribute('aria-label') ?? '';
         };

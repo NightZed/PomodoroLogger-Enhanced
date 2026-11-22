@@ -16,7 +16,7 @@
  * did not shadow it.
  */
 import * as React from 'react';
-import { cleanup, fireEvent, render } from '@testing-library/react';
+import { cleanup, fireEvent, render, within } from '@testing-library/react';
 
 import { POPUP_CONTAINER_ID } from '../../popupLayer';
 import { LabelEditor } from './LabelEditor';
@@ -151,11 +151,11 @@ describe('LabelEditor chip editing', () => {
         document.body.innerHTML = '';
     });
 
-    const chipName = () => container.querySelector('span[aria-label="bug"]');
-    const chipRemove = () => container.querySelector('[aria-label="Remove label"]');
+    const chipName = () => within(container).getByText('bug');
+    const chipRemove = () => within(container).getByRole('button', { name: 'Remove label' });
 
     it('opens the edit popover from the chip, prefilled with the label', () => {
-        fireEvent.click(chipName() as Element);
+        fireEvent.click(chipName());
 
         // The popup renders into the shared popup layer (getPopupContainer);
         // the first input inside it is the prefilled name field.
@@ -168,7 +168,7 @@ describe('LabelEditor chip editing', () => {
     });
 
     it('removes the label from the cross without opening the popover', () => {
-        fireEvent.click(chipRemove() as Element);
+        fireEvent.click(chipRemove());
 
         expect(onChange).toHaveBeenCalledWith([]);
         // The cross stops propagation, so the Popover trigger's own click
@@ -178,7 +178,7 @@ describe('LabelEditor chip editing', () => {
     });
 
     it('saves an edited name through the popover OK button', () => {
-        fireEvent.click(chipName() as Element);
+        fireEvent.click(chipName());
         const editInput = document.querySelector('.ant-popover input') as HTMLInputElement;
         fireEvent.change(editInput, { target: { value: 'defect' } });
 
@@ -276,7 +276,7 @@ describe('LabelEditor direct commit on suggestion pick', () => {
             />,
             { container }
         );
-        fireEvent.click(container.querySelector('span[aria-label="bug"]') as Element);
+        fireEvent.click(within(container).getByText('bug'));
 
         const editInput = document.querySelector('.ant-popover input') as HTMLInputElement;
         fireEvent.change(editInput, { target: { value: 'feature' } });

@@ -45,6 +45,9 @@ describe('Hint', () => {
         }
     });
 
+    // Regression: a static label's timer outlived the pointer leaving, so a
+    // quick sweep opened the previous element's hint over whatever the pointer
+    // had already moved on to. Leaving now clears the pending open.
     it('drops a pending static hint when the pointer leaves early', () => {
         jest.useFakeTimers();
         try {

@@ -132,12 +132,12 @@ describe('BoardBrief', () => {
     });
 
     it('shows the board total and its remaining estimate', () => {
-        const { getByText, getAllByText } = renderBrief();
+        const { getByText } = renderBrief();
 
         // TimeBadge prints both halves as text: 3h board total, 1h left.
         expect(getByText('03h 00m')).toBeTruthy();
         expect(getByText('01h 00m')).toBeTruthy();
-        expect(getAllByText(GRADE_PATTERN)[0].textContent).toBe('A-');
+        expect(getByText(GRADE_PATTERN).textContent).toBe('A-');
         // The description is Markdown: the bold run is its own text node.
         expect(getByText('bold')).toBeTruthy();
     });
@@ -176,17 +176,17 @@ describe('BoardBrief', () => {
         ['A', { estimated: 5, actual: 4 }],
         ['A-', { estimated: 10, actual: 2 }],
     ])('grades a done card %s', (text, done) => {
-        const { getAllByText } = renderBrief({ done });
+        const { getByText } = renderBrief({ done });
 
-        expect(getAllByText(GRADE_PATTERN)[0].textContent).toBe(text);
+        expect(getByText(GRADE_PATTERN).textContent).toBe(text);
     });
 
     it('hides the accuracy badge when a done card has no time', () => {
-        const { queryAllByText, getByText } = renderBrief({
+        const { queryByText, getByText } = renderBrief({
             done: { estimated: 0, actual: 0 },
         });
 
-        expect(queryAllByText(GRADE_PATTERN)).toHaveLength(0);
+        expect(queryByText(GRADE_PATTERN)).toBeNull();
         expect(getByText('03h 00m')).toBeTruthy();
     });
 
@@ -205,7 +205,7 @@ describe('BoardBrief', () => {
             'done-a': { _id: 'done-a', spentTimeInHour: { estimated: 3, actual: 2 } },
             'done-b': { _id: 'done-b', spentTimeInHour: { estimated: 0, actual: 0 } },
         };
-        const { getAllByText, boardId } = renderBrief({
+        const { getByText, boardId } = renderBrief({
             lists: listsWithTwoDone,
             cards: cardsById,
         });
@@ -220,7 +220,7 @@ describe('BoardBrief', () => {
         // Both sides in the value: a failure shows the mean the table
         // aggregated next to the grade the card rendered.
         expect({
-            grade: getAllByText(GRADE_PATTERN)[0].textContent,
+            grade: getByText(GRADE_PATTERN).textContent,
             meanError,
         }).toEqual({ grade: accuracyGrade(meanError), meanError });
     });

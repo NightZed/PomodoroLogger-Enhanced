@@ -54,6 +54,7 @@ import { TimerMask } from './SessionEndingMask';
 import { nextMacroTask, waitUntil } from './wait';
 import { WorkRestIcon } from './WorkRestIcon';
 import { Hint } from '../../../components/common/Hint/Hint';
+import { pressable } from '../../../components/common/pressable';
 
 const KanbanName = styled.h1`
     position: relative;
@@ -1748,24 +1749,31 @@ class Timer extends Component<Props, State> {
                         >
                             <KanbanName onClick={this.switchToKanban}>
                                 {this.props.kanban.boards[boardId]?.name}
-                                <Button className={'kanban-name-arrow'}>
-                                    <IconComponent component={backIcon} />
-                                </Button>
+                                <Hint label={t('timer.sider.openBoard')}>
+                                    <Button
+                                        className={'kanban-name-arrow'}
+                                        aria-label={t('timer.sider.openBoard')}
+                                    >
+                                        <IconComponent component={backIcon} />
+                                    </Button>
+                                </Hint>
                             </KanbanName>
                             <Board boardId={boardId} preview={true} showHeader={false} />
-                            <Button
-                                icon={<Icon type={'more'} />}
-                                aria-label={t('timer.controls.toggleSider')}
-                                style={{
-                                    position: 'absolute',
-                                    right: 0,
-                                    top: 20,
-                                    marginRight: -15,
-                                    zIndex: 50,
-                                    boxShadow: '4px 0 6px -1px rgba(234, 234, 234, 0.6)',
-                                }}
-                                onClick={this.switchSider}
-                            />
+                            <Hint label={t('timer.controls.toggleSider')}>
+                                <Button
+                                    icon={<Icon type={'more'} />}
+                                    aria-label={t('timer.controls.toggleSider')}
+                                    style={{
+                                        position: 'absolute',
+                                        right: 0,
+                                        top: 20,
+                                        marginRight: -15,
+                                        zIndex: 50,
+                                        boxShadow: '4px 0 6px -1px rgba(234, 234, 234, 0.6)',
+                                    }}
+                                    onClick={this.switchSider}
+                                />
+                            </Hint>
                         </MySider>
                     ))}
                 <TimerLayout $compact={compact} ref={this.mainDiv}>
@@ -1852,8 +1860,8 @@ class Timer extends Component<Props, State> {
                                 <ThemeToggle
                                     type="bulb"
                                     onClick={this.toggleTheme}
-                                    role="button"
                                     aria-label={t('timer.controls.switchTheme')}
+                                    {...pressable()}
                                 />
                             </Hint>
                         </ThemeToggleRow>

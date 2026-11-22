@@ -300,7 +300,7 @@ describe('BoardBrief', () => {
     it('starts focusing on this board', async () => {
         const { getByLabelText, dispatch, timerManager, boardId } = renderBrief();
 
-        fireEvent.click(getByLabelText(t('timer.tray.startFocusing')));
+        fireEvent.click(getByLabelText(t('common.start')));
 
         expect(dispatch).toHaveBeenCalledWith(
             expect.objectContaining({ type: '[Timer]SET_BOARD_ID', payload: { boardId } })
@@ -315,7 +315,7 @@ describe('BoardBrief', () => {
         });
 
         // The button shows the action it will perform: pause, not play.
-        fireEvent.click(getByLabelText(t('timer.tray.pause')));
+        fireEvent.click(getByLabelText(t('common.pause')));
 
         expect(timerManager.pause).toHaveBeenCalled();
         expect(timerManager.start).not.toHaveBeenCalled();
@@ -326,7 +326,7 @@ describe('BoardBrief', () => {
         const onSettingClick = jest.fn();
         const { getByLabelText, dispatch, boardId } = renderBrief({ onSettingClick });
 
-        fireEvent.click(getByLabelText(t('kanban.page.boardSettings')));
+        fireEvent.click(getByLabelText(t('kanban.page.editBoard')));
 
         expect(dispatch).toHaveBeenCalledWith(
             expect.objectContaining({

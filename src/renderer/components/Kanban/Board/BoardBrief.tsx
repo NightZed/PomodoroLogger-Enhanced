@@ -501,14 +501,16 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
                         size={'small'}
                     />
                     {props.onSettingClick ? (
-                        <Button
-                            type={'default'}
-                            icon={<Icon type={'setting'} />}
-                            shape={'circle'}
-                            onClick={onSettingClick}
-                            size={'small'}
-                            aria-label={t('kanban.page.boardSettings')}
-                        />
+                        <Hint label={t('kanban.page.editBoard')}>
+                            <Button
+                                type={'default'}
+                                icon={<Icon type={'setting'} />}
+                                shape={'circle'}
+                                onClick={onSettingClick}
+                                size={'small'}
+                                aria-label={t('kanban.page.editBoard')}
+                            />
+                        </Hint>
                     ) : undefined}
                 </span>
             </Header>

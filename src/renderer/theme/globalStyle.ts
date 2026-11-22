@@ -186,6 +186,14 @@ export const GlobalStyle = createGlobalStyle`
         .ant-btn-link {
             color: var(--pl-primary);
         }
+        /* Elements that act as buttons without being <button> (see
+           components/common/pressable.ts) now take focus. Their native
+           outline is invisible on several of them (zero-size icon, clipped
+           overflow), so the ring is drawn explicitly. */
+        [data-pressable]:focus-visible {
+            outline: 2px solid var(--pl-primary);
+            outline-offset: 2px;
+        }
 
         /* ---------- cards ---------- */
         .ant-card {

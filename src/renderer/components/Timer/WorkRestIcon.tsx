@@ -4,6 +4,7 @@ import React, { FunctionComponent } from 'react';
 import { IconComponent as Icon } from '../antdIcon';
 import styled, { keyframes } from 'styled-components';
 import { t } from '../../i18n';
+import { pressable } from '../../../components/common/pressable';
 
 const fade = keyframes`
     0%,50% {
@@ -74,6 +75,7 @@ export const WorkRestIcon: FunctionComponent<Props> = (props: Props) => {
             id={'timer-mode'}
             data-tour={'timer-mode'}
             aria-label={props['aria-label'] ?? t('timer.controls.switchTimerMode')}
+            {...pressable()}
         >
             <FadeEffect key={`icon-${animationKey}`}>
                 {props.isWorking ? <Icon component={WorkIcon} /> : <Icon component={RestIcon} />}

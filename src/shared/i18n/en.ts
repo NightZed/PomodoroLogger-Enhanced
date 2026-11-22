@@ -33,6 +33,9 @@ export const en = {
         reset: 'Reset',
         import: 'Import',
         edit: 'Edit',
+        back: 'Back',
+        start: 'Start',
+        pause: 'Pause',
         /** Notice title for a failure that lost data; the specifics go in the body. */
         dataNotSaved: 'Data was not saved',
         dataNotSavedHint: 'Details were written to the log file.',
@@ -88,8 +91,7 @@ export const en = {
         help: 'Help',
         back: 'Back',
         exit: 'Exit tour',
-        /** The corner button of the mask-only steps, where the dialog is absent. */
-        closeMask: 'Close the tour',
+
         notNow: 'Not now',
         takeMeThere: 'Take me there',
         waiting: 'Waiting for the highlighted area to appear…',
@@ -155,6 +157,10 @@ export const en = {
         },
         /** Names the ending mask; a background click on it dismisses the mask. */
         maskLabel: 'Session ending',
+        /** The board name in the timer sider: clicking it opens that board. */
+        sider: {
+            openBoard: 'Open board',
+        },
         notify: {
             restEndedTitle: 'Resting session ended',
             focusEndedTitle: 'Focusing finished. Start resting.',
@@ -173,7 +179,7 @@ export const en = {
             minimize: 'Minimize (F12)',
             compact: 'Compact (F11)',
             normal: 'Normal (F11)',
-            toggleSider: 'Show or hide the project panel',
+            toggleSider: 'Sidebar',
         },
         stats: {
             timeSpent: 'Time Spent',
@@ -255,7 +261,7 @@ export const en = {
             addBoard: 'Create a new board',
             addList: 'Add a list',
             addCard: 'Add a card',
-            boardSettings: 'Board settings',
+            editBoard: 'Edit board',
         },
         overview: {
             boardName: 'Board Name',
@@ -758,7 +764,7 @@ export const en = {
             appPlaceholder: 'App RegExp',
             titleLabel: 'Title',
             titlePlaceholder: 'Title RegExp',
-            remove: 'Remove rule',
+            remove: 'Delete',
             addField: 'Add field',
         },
         footer: {

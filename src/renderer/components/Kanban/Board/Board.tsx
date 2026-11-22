@@ -6,6 +6,7 @@ import List from '../List';
 import { Button } from 'antd';
 import { AntdIcon as Icon } from '../../antdIcon';
 import { useI18n } from '../../../i18n';
+import { Hint } from '../../../../components/common/Hint/Hint';
 import { fatScrollBar } from '../../../style/scrollbar';
 import { isShallowEqualByKeys } from '../../../utils';
 import { KanbanBoard } from '../type';
@@ -145,12 +146,14 @@ export const Board: FC<Props> = React.memo(
                     ))}
                     {provided.placeholder}
                     <ListPlaceholder>
-                        <Button
-                            onClick={addList}
-                            icon={<Icon type={'plus'} />}
-                            shape="circle"
-                            aria-label={t('kanban.page.addList')}
-                        />
+                        <Hint label={t('kanban.page.addList')}>
+                            <Button
+                                onClick={addList}
+                                icon={<Icon type={'plus'} />}
+                                shape="circle"
+                                aria-label={t('kanban.page.addList')}
+                            />
+                        </Hint>
                     </ListPlaceholder>
                 </ListContainer>
             );

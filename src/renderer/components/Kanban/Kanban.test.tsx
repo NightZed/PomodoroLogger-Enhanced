@@ -288,7 +288,7 @@ describe('Kanban page', () => {
             },
         });
 
-        fireEvent.click(getByRole('button', { name: 'Board settings' }));
+        fireEvent.click(getByRole('button', { name: 'Edit board' }));
         expect((global as any).__formProps.isCreating).toBe(false);
         expect((global as any).__formProps.createdTime).toBe(board.createdTime);
 
@@ -306,7 +306,7 @@ describe('Kanban page', () => {
             },
         });
 
-        fireEvent.click(getByRole('button', { name: 'Board settings' }));
+        fireEvent.click(getByRole('button', { name: 'Edit board' }));
         fireEvent.click(getByTestId('form-delete'));
 
         expect(actions.deleteBoard).toHaveBeenCalledWith('b1');

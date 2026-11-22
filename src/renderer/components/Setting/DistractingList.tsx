@@ -10,6 +10,7 @@ import { AppModal } from '../AppModal';
 import { getPopupContainer } from '../popupLayer';
 import styled from 'styled-components';
 import { useI18n } from '../../i18n';
+import { Hint } from '../../../components/common/Hint/Hint';
 
 const { useForm } = Form;
 
@@ -164,13 +165,15 @@ const DynamicFieldSet: React.FC<DynamicFieldSetProps> = ({
                         </Form.Item>
                     </InputGroup>
                     {keys.length > 1 ? (
-                        <Button
-                            type="text"
-                            className="dynamic-delete-button"
-                            onClick={() => remove(k)}
-                            icon={<MinusCircleOutlined />}
-                            aria-label={t('settings.distracting.remove')}
-                        />
+                        <Hint label={t('settings.distracting.remove')}>
+                            <Button
+                                type="text"
+                                className="dynamic-delete-button"
+                                onClick={() => remove(k)}
+                                icon={<MinusCircleOutlined />}
+                                aria-label={t('settings.distracting.remove')}
+                            />
+                        </Hint>
                     ) : null}
                 </div>
             </Form.Item>

@@ -1,32 +1,14 @@
 import { Story } from './type';
 import { actions } from './actions';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import styled from 'styled-components';
 import { Pointer } from './Pointer';
 import { Spotlight } from './Spotlight';
 import { Dialog } from './Dialog';
 import { connect } from 'react-redux';
 import { RootState } from '../../reducers';
 import { Dispatch } from 'redux';
-import { Button } from 'antd';
-import { AntdIcon as Icon } from '../antdIcon';
 import { findVisibleTarget, TargetRect } from './utils';
 import { useI18n } from '../../i18n';
-import { LAYER } from '../layers';
-
-const Mask = styled.div`
-    top: 0;
-    left: 0;
-    position: fixed;
-    background-color: var(--pl-mask);
-    width: 100vw;
-    height: 100vh;
-    /* Left out of LAYER on purpose: this is the fallback for mask-only tour
-       steps, and 100 already covers the page it dims. Raising it to
-       LAYER.guide would also cover antd dialogs, which the spotlight steps
-       do not. */
-    z-index: 100;
-`;
 
 export interface UserGuideProps {
     story?: Story;
@@ -212,24 +194,6 @@ const UserGuideInner: React.FC<UserGuideProps> = (props: UserGuideProps) => {
                     clickThrough={holeClickThrough}
                     onTargetRect={onTargetRect}
                 />
-            ) : useMask ? (
-                <>
-                    <Mask />
-                    <Button
-                        onClick={exit}
-                        shape={'circle'}
-                        icon={<Icon type={'close'} />}
-                        size={'small'}
-                        danger={true}
-                        aria-label={t('tour.closeMask')}
-                        style={{
-                            position: 'fixed',
-                            zIndex: LAYER.guide,
-                            top: 16,
-                            right: 16,
-                        }}
-                    />
-                </>
             ) : undefined}
         </>
     );

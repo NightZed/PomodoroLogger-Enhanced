@@ -776,15 +776,19 @@ const _CardInDetail: FC<Props> = React.memo((props: Props) => {
                                             placeholder={t('kanban.cardEditor.actualTime')}
                                         />
                                     </Form.Item>
-                                    <Button
-                                        style={{ marginLeft: 4 }}
-                                        icon={
-                                            <Icon type={isEditingActualTime ? 'unlock' : 'lock'} />
-                                        }
-                                        shape={'circle'}
-                                        onClick={onSwitchIsEditing}
-                                        aria-label={t('kanban.cardEditor.toggleActualTime')}
-                                    />
+                                    <Hint label={t('kanban.cardEditor.toggleActualTime')}>
+                                        <Button
+                                            style={{ marginLeft: 4 }}
+                                            icon={
+                                                <Icon
+                                                    type={isEditingActualTime ? 'unlock' : 'lock'}
+                                                />
+                                            }
+                                            shape={'circle'}
+                                            onClick={onSwitchIsEditing}
+                                            aria-label={t('kanban.cardEditor.toggleActualTime')}
+                                        />
+                                    </Hint>
                                 </Form.Item>
                             )}
                         </Col>

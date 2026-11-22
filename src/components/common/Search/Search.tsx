@@ -5,6 +5,7 @@ import styled, { keyframes } from 'styled-components';
 import { SearchPanel } from './SearchPanel';
 import { isEditableTarget } from '../../../shared/keyboard';
 import { useI18n } from '../../../renderer/i18n';
+import { pressable } from '../pressable';
 
 export interface SearchProps {
     searchStr?: string;
@@ -305,12 +306,14 @@ export const Search = ({
                     className="close"
                     aria-label={t('search.expand')}
                     onClick={togglePanel}
+                    {...pressable()}
                 />
                 <Icon
                     type="close"
                     className="close"
                     aria-label={t('common.clear')}
                     onClick={clear}
+                    {...pressable()}
                 />
             </header>
             {panel}

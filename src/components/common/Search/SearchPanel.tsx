@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { Markdown } from '../../../renderer/components/Kanban/style/Markdown';
+import { pressable } from '../pressable';
 
 interface PanelProps {
     tags?: string[];
@@ -46,7 +47,7 @@ export const SearchPanel = ({
             <Group>
                 {tags.map((x) => (
                     <React.Fragment key={x}>
-                        <span className="pl-tag" onClick={setSearch(x)}>
+                        <span className="pl-tag" onClick={setSearch(x)} {...pressable()}>
                             {x}
                         </span>
                         <span />

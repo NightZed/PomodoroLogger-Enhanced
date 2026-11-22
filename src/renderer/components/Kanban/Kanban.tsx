@@ -463,12 +463,15 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                     {props.kanban.chosenBoardId ? (
                         <>
                             <Title>{props.boards[props.kanban.chosenBoardId]?.name}</Title>
-                            <Button
-                                style={{ paddingLeft: 10, paddingRight: 10, marginLeft: 10 }}
-                                onClick={goBack}
-                            >
-                                <IconComponent component={backIcon} />
-                            </Button>
+                            <Hint label={t('common.back')}>
+                                <Button
+                                    style={{ paddingLeft: 10, paddingRight: 10, marginLeft: 10 }}
+                                    onClick={goBack}
+                                    aria-label={t('common.back')}
+                                >
+                                    <IconComponent component={backIcon} />
+                                </Button>
+                            </Hint>
                             {props.boards[props.kanban.chosenBoardId]?.createdTime !== undefined ? (
                                 <CreatedTime>
                                     {t('kanban.page.created')}:{' '}
@@ -481,19 +484,21 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                     ) : (
                         <>
                             <Title>{t('kanban.page.overviewTitle')}</Title>
-                            <Button
-                                style={{
-                                    paddingLeft: 10,
-                                    paddingRight: 10,
-                                    margin: '0 4px 0 16px',
-                                }}
-                                onClick={addBoard}
-                                id={'create-kanban-button'}
-                                data-tour={'create-kanban-button'}
-                                aria-label={t('kanban.page.addBoard')}
-                            >
-                                <Icon type={'plus'} />
-                            </Button>
+                            <Hint label={t('kanban.page.addBoard')}>
+                                <Button
+                                    style={{
+                                        paddingLeft: 10,
+                                        paddingRight: 10,
+                                        margin: '0 4px 0 16px',
+                                    }}
+                                    onClick={addBoard}
+                                    id={'create-kanban-button'}
+                                    data-tour={'create-kanban-button'}
+                                    aria-label={t('kanban.page.addBoard')}
+                                >
+                                    <Icon type={'plus'} />
+                                </Button>
+                            </Hint>
 
                             <Label>{t('kanban.page.sortedBy')}</Label>
                             <Select
@@ -594,12 +599,14 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                         }
                                         onClick={choose}
                                     />
-                                    <Button
-                                        shape={'circle'}
-                                        icon={<Icon type={'setting'} />}
-                                        onClick={showBoardSettingMenu}
-                                        aria-label={t('kanban.page.boardSettings')}
-                                    />
+                                    <Hint label={t('kanban.page.editBoard')}>
+                                        <Button
+                                            shape={'circle'}
+                                            icon={<Icon type={'setting'} />}
+                                            onClick={showBoardSettingMenu}
+                                            aria-label={t('kanban.page.editBoard')}
+                                        />
+                                    </Hint>
                                 </LabelButton>
                             </>
                         ) : (

@@ -8,6 +8,7 @@ import { CardLabel } from '../type';
 import { getLabelSuggestions } from './labelSuggestion';
 import { useI18n } from '../../../i18n';
 import { Hint } from '../../../../components/common/Hint/Hint';
+import { pressable } from '../../../../components/common/pressable';
 
 export const LABEL_COLORS = [
     '#61bd4f',
@@ -606,6 +607,8 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                                             key={c}
                                             $color={c}
                                             $selected={c === editColor}
+                                            aria-label={`${t('kanban.labelEditor.color')} ${c}`}
+                                            {...pressable()}
                                             onClick={() => {
                                                 setEditColor(c);
                                                 setEditColorTouched(true);
@@ -685,8 +688,8 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                             key={c}
                             $color={c}
                             $selected={c === newColor}
-                            role="button"
                             aria-label={`${t('kanban.labelEditor.color')} ${c}`}
+                            {...pressable()}
                             onClick={() => {
                                 setNewColor(c);
                                 setColorTouched(true);

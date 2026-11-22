@@ -22,6 +22,9 @@ export const zh: CatalogShape<typeof en> = {
         reset: '重置',
         import: '导入',
         edit: '编辑',
+        back: '返回',
+        start: '开始',
+        pause: '暂停',
         dataNotSaved: '数据未能保存',
         dataNotSavedHint: '详细信息已写入日志文件。',
     },
@@ -76,7 +79,7 @@ export const zh: CatalogShape<typeof en> = {
         help: '帮助',
         back: '上一步',
         exit: '退出引导',
-        closeMask: '关闭引导',
+
         notNow: '暂不',
         takeMeThere: '点击前往',
         waiting: '正在等待高亮区域出现…',
@@ -140,6 +143,10 @@ export const zh: CatalogShape<typeof en> = {
         },
         /** 结束遮罩的可访问名称：点击遮罩空白处会关闭它。 */
         maskLabel: '番茄结束',
+        /** 计时器侧栏里的看板名：点击进入该看板的页面。 */
+        sider: {
+            openBoard: '打开看板',
+        },
         notify: {
             restEndedTitle: '休息结束',
             focusEndedTitle: '专注结束，开始休息吧',
@@ -157,7 +164,7 @@ export const zh: CatalogShape<typeof en> = {
             minimize: '迷你模式 (F12)',
             compact: '紧凑模式 (F11)',
             normal: '普通模式 (F11)',
-            toggleSider: '显示或隐藏项目面板',
+            toggleSider: '侧边栏',
         },
         stats: {
             timeSpent: '已用时间',
@@ -233,7 +240,7 @@ export const zh: CatalogShape<typeof en> = {
             addBoard: '新建看板',
             addList: '添加列表',
             addCard: '添加卡片',
-            boardSettings: '看板设置',
+            editBoard: '编辑看板',
         },
         overview: {
             boardName: '看板名称',
@@ -694,7 +701,7 @@ export const zh: CatalogShape<typeof en> = {
             appPlaceholder: '应用正则',
             titleLabel: '标题',
             titlePlaceholder: '标题正则',
-            remove: '删除规则',
+            remove: '删除',
             addField: '添加规则',
         },
         footer: {

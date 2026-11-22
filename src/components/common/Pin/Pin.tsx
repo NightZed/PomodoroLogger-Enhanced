@@ -3,6 +3,7 @@ import * as React from 'react';
 import styled, { css } from 'styled-components';
 
 import PinSvg from '../../../res/pin.svg';
+import { pressable } from '../pressable';
 
 /**
  * The pin is entirely CSS driven.
@@ -104,8 +105,8 @@ export const Pin: React.FC<Props> = (props: Props) => {
                 .join(' ')}
             style={props.style}
             onClick={onClick}
-            role={props['aria-label'] === undefined ? undefined : 'button'}
             aria-label={props['aria-label']}
+            {...(props['aria-label'] ? pressable() : {})}
         >
             <Icon type={'pin' as any} component={PinSvg} />
         </C>

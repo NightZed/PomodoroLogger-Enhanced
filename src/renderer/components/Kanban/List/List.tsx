@@ -772,13 +772,15 @@ export const List: FC<Props> = React.memo((props: Props) => {
                             }}
                         </Droppable>
                         <ButtonWrapper>
-                            <Button
-                                onClick={addCard}
-                                shape={'circle'}
-                                icon={<Icon type="plus" />}
-                                id={'create-card-button'}
-                                aria-label={t('kanban.page.addCard')}
-                            />
+                            <Hint label={t('kanban.page.addCard')}>
+                                <Button
+                                    onClick={addCard}
+                                    shape={'circle'}
+                                    icon={<Icon type="plus" />}
+                                    id={'create-card-button'}
+                                    aria-label={t('kanban.page.addCard')}
+                                />
+                            </Hint>
                         </ButtonWrapper>
                     </Container>
                 </div>

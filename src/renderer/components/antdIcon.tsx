@@ -116,17 +116,12 @@ const MAP = {
 
 export type AntdIconType = keyof typeof MAP;
 
-interface AntdIconProps {
+interface AntdIconProps extends Omit<React.HTMLAttributes<HTMLSpanElement>, 'onClick'> {
     type?: AntdIconType | string;
-    style?: React.CSSProperties;
-    className?: string;
-    onClick?: (e: any) => void;
     component?: any;
-    title?: string;
-    /** Accessible name for an icon that acts as a control (e.g. a menu trigger). */
-    'aria-label'?: string;
-    /** Set to `button` when the icon itself is the control. */
-    role?: string;
+    onClick?: (e: any) => void;
+    /** `data-*` carries the focus-ring hook from `common/pressable`. */
+    [key: `data-${string}`]: unknown;
 }
 
 /** Maps an antd v3 `Button icon="xxx"` string to a v5 icon node. */

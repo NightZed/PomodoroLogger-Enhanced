@@ -97,6 +97,15 @@ const ChartContainer = styled.div`
     align-items: center;
 `;
 
+/**
+ * The calendar and every chart below it are laid out at `calendarWidth`; the
+ * timeline measures its own box, so this slot is what pins it to that same
+ * width instead of letting `width: 100%` grow to the whole column.
+ */
+const TimelineSlot = styled.div<{ $width: number }>`
+    width: ${(props) => props.$width}px;
+`;
+
 interface Props extends HistoryActionCreatorTypes, HistoryState {
     chosenId?: string;
     boards: KanbanBoardState;
@@ -591,11 +600,13 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                                 describe the whole period, and a 24-hour lane has no
                                 single day to describe. */}
                             {shownPomodoros ? (
-                                <ProjectTimeline
-                                    records={shownPomodoros}
-                                    boards={props.boards}
-                                    onChooseRecord={props.chooseRecord}
-                                />
+                                <TimelineSlot $width={calendarWidth}>
+                                    <ProjectTimeline
+                                        records={shownPomodoros}
+                                        boards={props.boards}
+                                        onChooseRecord={props.chooseRecord}
+                                    />
+                                </TimelineSlot>
                             ) : undefined}
                             {aggInfo.total.count === 0 ? (
                                 <div

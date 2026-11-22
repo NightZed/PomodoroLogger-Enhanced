@@ -531,6 +531,13 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                         : t('kanban.page.descending')
                                 }
                             >
+                                {/* Looks ~1px taller than the 32px Select on
+                                    its left: antd 6 paints `defaultShadow`
+                                    (`0 2px 0`, button/style/token.js) below
+                                    the box, and a Select has no shadow. The
+                                    heights and top edges match -- the extra
+                                    pixels are paint-only. Do not "fix" this by
+                                    changing the height or padding. */}
                                 <Button
                                     style={{ width: 32, padding: 0, margin: '0 4px' }}
                                     onClick={toggleSortDirection}

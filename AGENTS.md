@@ -36,11 +36,20 @@ Electron 桌面应用（番茄钟 + 看板 + 桌面活动追踪 + 统计）。
 - 七个滑块一律非受控，拖动值不进 store。
 - 占满窗口的平面保持纯 `background-color`，不要用 `color-mix()`。
 - 不要 import antd 的 `message` / `notification` / `Modal`，走 feedback 层与 `AppModal`。
-- 非 `<button>` 的可点击元素（图标、圆点、状态切换）展开 `components/common/pressable.ts` 的 `pressable()`，它给出 `role`、`tabIndex` 与 Enter/Space 转发。浏览器只对真实 `<button>` 合成这两个键的 click，不展开的话键盘用户点不动。
 - 悬停提示走 `components/common/Hint`：按钮动作一类（开始、停止、添加）用默认 `static`，停留 0.4s 再显示；标签跟着数据变的（卡片标题、看板名、番茄时间、当前计时状态、计数）必须写 `kind="live"`，否则用户要多等 0.4s 才能读到已经变过的内容。
 - `kind: 'error'` 只能出现在 `alert` 或 `notice`；走 notice 前必须先落盘。
 - `AppErrorBoundary` 必须留在 `Application` 外面；Timer 的内层边界不能被包装组件替代。
 - 新增全窗口浮层先在 `renderer/components/layers.ts` 的 `LAYER` 里定层，不要就地写数字。页面/组件内部的局部 z-index 留在原地，不要塞进表里（它们不在同一堆叠上下文）。
+
+**可访问性**
+
+- 非 `<button>` 的可点击元素（图标、圆点、状态切换）展开 `components/common/pressable.ts` 的 `pressable()`，它给出 `role`、`tabIndex` 与 Enter/Space 转发。浏览器只对真实 `<button>` 合成这两个键的 click，不展开的话键盘用户点不动。
+- 只有图标或符号的控件必须带 `aria-label`，文案随状态变化（播放/暂停、显示/隐藏、展开/收起）一起改。
+- 输入控件必须有可访问名称（`aria-label` 或关联的 `label`），`placeholder` 不算。收起态是操作入口、展开态是输入容器的复合控件，两态必须切换 `role` / `tabIndex` / 按键转发，否则按钮语义会吞掉输入框里的空格（参考 `Search`）。
+- 不移动焦点的结果或状态变化（搜索无结果、异步失败）要能被播报：用 `role="status"` 或 feedback 的 `alert`，不要只改可见文字。
+- 弹窗与全窗口浮层不要手写裸遮罩：`AppModal` 与 feedback 层已经带 dialog 语义、焦点管理和 Esc。
+- 焦点必须可见：不要用 `outline: none` 抹掉 `GlobalStyle` 的统一焦点环；为了去掉原生边框而写了它时，必须给 `:focus-visible` 或 `:focus-within` 留一个可见替代。颜色走主题变量。
+- 新增交互至少手动 Tab + Enter/Space 走一遍；测试按 role 与可访问名称查询（见 `docs/testing.md`）。
 
 **窗口与生命周期**
 
@@ -60,19 +69,19 @@ Electron 桌面应用（番茄钟 + 看板 + 桌面活动追踪 + 统计）。
 
 ## 区域索引
 
-| 你在改…                              | 先读                                                             |
-| ------------------------------------ | ---------------------------------------------------------------- |
-| 打包、CI、更新通道、依赖安装         | `docs/architecture/build-release.md`                             |
-| 主进程启动、IPC、preload、弹窗与提示 | `docs/architecture/process-ipc.md`                               |
-| SQLite、repository、迁移             | `docs/architecture/data.md`                                      |
-| 日志、错误上报、崩溃页               | `docs/architecture/diagnostics.md`（文件表在 `docs/logging.md`） |
-| Redux 结构、页面清单、主题、悬停提示、渲染性能 | `docs/architecture/renderer.md`                                  |
-| 窗口档位、托盘、页面卸载、今日统计   | `docs/architecture/window-modes.md`                              |
-| 看板、列表、拖拽、卡片               | `docs/architecture/kanban.md`                                    |
-| 设置页滑块、窗口不透明度             | `docs/architecture/settings.md`                                  |
-| 计时、活动追踪、会话落库、提示音     | `docs/architecture/session.md`                                   |
-| 写测试                               | `docs/testing.md`                                                |
-| 界面文案                             | `docs/i18n.md`                                                   |
+| 你在改…                                                  | 先读                                                             |
+| -------------------------------------------------------- | ---------------------------------------------------------------- |
+| 打包、CI、更新通道、依赖安装                             | `docs/architecture/build-release.md`                             |
+| 主进程启动、IPC、preload、弹窗与提示                     | `docs/architecture/process-ipc.md`                               |
+| SQLite、repository、迁移                                 | `docs/architecture/data.md`                                      |
+| 日志、错误上报、崩溃页                                   | `docs/architecture/diagnostics.md`（文件表在 `docs/logging.md`） |
+| Redux 结构、页面清单、主题、悬停提示、可访问性、渲染性能 | `docs/architecture/renderer.md`                                  |
+| 窗口档位、托盘、页面卸载、今日统计                       | `docs/architecture/window-modes.md`                              |
+| 看板、列表、拖拽、卡片                                   | `docs/architecture/kanban.md`                                    |
+| 设置页滑块、窗口不透明度                                 | `docs/architecture/settings.md`                                  |
+| 计时、活动追踪、会话落库、提示音                         | `docs/architecture/session.md`                                   |
+| 写测试                                                   | `docs/testing.md`                                                |
+| 界面文案                                                 | `docs/i18n.md`                                                   |
 
 ## Shell
 

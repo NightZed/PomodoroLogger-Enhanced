@@ -1,6 +1,6 @@
 # 渲染层：状态、页面与渲染性能
 
-> `AGENTS.md` 的「渲染层状态与 UI」区域详情。页面卸载的四档规则在 `window-modes.md`，看板在 `kanban.md`，滑块在 `settings.md`。改动 Redux 结构、页面切换、主题或窗口渲染性能前先读这里。
+> `AGENTS.md` 的「渲染层状态与 UI」区域详情。页面卸载的四档规则在 `window-modes.md`，看板在 `kanban.md`，滑块在 `settings.md`。改动 Redux 结构、页面切换、主题、悬停提示或窗口渲染性能前先读这里。
 
 ## Redux 结构
 
@@ -31,6 +31,43 @@
 ## 共享组件库
 
 `src/components/**` 是共享的可视化/小部件库（`Visualization/*`、`common/*`），渲染层用相对路径引用它——它不是渲染层自己的组件树。
+
+## 悬停提示
+
+所有悬停提示走 `src/components/common/Hint`。应用里没有单独使用的 antd `Tooltip`，也没有把提示写在 SVG `<title>` 或 HTML `title` 上——原生 `title` 要等约一秒，样式也由系统决定。仍然保留的 `title` 属性都是对话框、`Statistic`、notification 的标题，不是提示。
+
+### 两类提示
+
+`kind` 决定打开时机，默认 `static`：
+
+| kind | 何时出现 | 用在哪 |
+| --- | --- | --- |
+| `static` | 指针停留 `HINT_STATIC_DELAY_MS`（0.4s） | 按钮动作的说明：开始、停止、添加、设置 |
+| `live` | 指针进入的那一帧 | 跟着数据变的标签：卡片标题、看板名、番茄的时间与效率、当前计时状态、计数 |
+
+判断标准只有一条：**这段文字下次悬停时会不会变。** 不变就是 `static`——看一次就记住，指针扫过一排图标时立刻弹出一串标签只是噪音；会变就必须 `live`，否则用户要多等 0.4s 才能读到已经变过的内容。
+
+### 为什么不用 antd 的延迟
+
+antd 的 `mouseEnterDelay` 也能做延迟，但 `Hint` 把它关掉了（`trigger={[]}`）：延迟为 0 时它仍要经过一次 `setTimeout`，再挂载 portal、测量定位，比在同一个事件里 `setState` 晚一到两帧；而 `live` 的手感基准是树图和日历那种「指针一进就出来」。所以 `Hint` 自己监听 `mouseenter` / `mouseleave`，延迟、提前移出时取消、卸载清理都在内部，`live` 直接跳过定时器。
+
+### 外观与层级
+
+表面由 `GlobalStyle` 统一：背景 `--pl-bg-elevated`、文字 `--pl-text`、阴影 `--pl-shadow`，箭头跟随；antd 默认的 `zoom-big-fast` 动画时长压成 0。不要在调用点另写颜色或动画。
+
+全窗口浮层的层级走 `layers.ts`：`LAYER.tooltip`（1070）是默认值，会话结束遮罩（1100）内的提示必须传 `zIndex={LAYER.sessionMaskTooltip}`（1110），否则会被遮罩盖住。`PomodoroNumView` 为此有一个 `hintZIndex`。
+
+### 不该加的提示
+
+文字已经完整显示的元素不需要提示：图标旁就有页面名的标签栏（普通模式）、显示文件名的声音路径、名称就在按钮里的主题选择。提示只回答「这个图标是什么」，不重复屏幕上已有的文字。
+
+日历格子的浮层是例外：它保留 `GridCalendar` 自己的共享气泡，因为 53 周 × 7 天逐个包 `Hint` 会多出 371 个组件实例；只把颜色、字号、圆角、阴影换成与 `Hint` 相同的变量。
+
+### 可访问性
+
+提示不提供可访问名称。只有图标或符号的触发元素必须自己带 `aria-label`，内容随状态变时（播放/暂停、显示/隐藏）要一起变。非 `<button>` 的可点击元素另需 `pressable()`，见 `AGENTS.md`。
+
+已知限制：`disabled` 元素不派发鼠标事件，`Hint` 不会出现，而原生 `title` 会。未分配面板里的链接按钮属于这种情况；按钮本身有可见文字，可以接受。
 
 ## 主题
 

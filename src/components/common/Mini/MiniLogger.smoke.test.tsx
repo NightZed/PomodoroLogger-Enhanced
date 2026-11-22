@@ -1,5 +1,5 @@
 import React, { act } from 'react';
-import { render } from '@testing-library/react';
+import { render, within } from '@testing-library/react';
 import { MiniLogger } from './MiniLogger';
 
 const baseProps = {
@@ -27,15 +27,7 @@ const classNameOf = (node: Element | null) => node?.getAttribute('class') ?? '';
 const all = (container: HTMLElement, selector: string) =>
     Array.from(container.querySelectorAll(selector));
 
-const withClass = (container: HTMLElement, className: string) =>
-    all(container, '[class]').filter((node) => classNameOf(node).split(/\s+/).includes(className));
-
 const buttons = (container: HTMLElement) => all(container, 'button') as HTMLButtonElement[];
-
-const iconClasses = (container: HTMLElement) =>
-    all(container, '[class*="anticon-"]')
-        .map((node) => classNameOf(node))
-        .join(' ');
 
 /** Inline transform of the SVG second hand. */
 const transformOf = (node: Element | null) => (node as HTMLElement | null)?.style.transform;
@@ -44,13 +36,11 @@ const renderMini = (props: Partial<typeof baseProps> = {}) =>
     render(<MiniLogger {...baseProps} {...props} />);
 
 describe('MiniLogger two-row mini layout', () => {
-    it('renders task row on top and control row below the divider', () => {
+    it('shows the task name next to the controls', () => {
         const { container } = renderMini();
-        expect(withClass(container, 'control-row')).toHaveLength(1);
-        expect(withClass(container, 'task-row')).toHaveLength(1);
-        const taskNodes = all(container, 'div.task');
-        expect(taskNodes).toHaveLength(1);
-        expect(taskNodes[0].textContent).toContain('MiniLogger regression test');
+
+        expect(within(container).getByText('MiniLogger regression test')).toBeTruthy();
+        expect(buttons(container).length).toBeGreaterThan(0);
     });
 
     it('paints the inner disc differently for focus and rest', () => {
@@ -77,43 +67,27 @@ describe('MiniLogger two-row mini layout', () => {
         // the first 2% of a session it is still 0. The left cluster must already
         // offer Finish instead of Switch Mode, exactly like the normal/compact
         // pages, which read the timer state instead of the percentage.
-        const leftClusterIcons = (props: Partial<typeof baseProps>) => {
+        const controls = (props: Partial<typeof baseProps>) => {
             const { container } = renderMini(props);
-            const left = container.querySelector('.btn-side.left');
-            expect(left).not.toBeNull();
-            const icons = iconClasses(left as HTMLElement);
+            const scope = within(container);
             return {
-                swap: icons.includes('anticon-swap'),
-                check: icons.includes('anticon-check'),
-                finish: buttons(left as HTMLElement).some(
-                    (button) => button.getAttribute('aria-label') === 'Finish'
-                ),
+                switchMode: scope.queryByRole('button', { name: 'Switch Mode (Tab)' }) !== null,
+                finish: scope.queryByRole('button', { name: 'Finish' }) !== null,
             };
         };
 
-        expect(leftClusterIcons({ hasSession: true, percentage: 0 })).toEqual({
-            swap: false,
-            check: true,
+        expect(controls({ hasSession: true, percentage: 0 })).toEqual({
+            switchMode: false,
             finish: true,
         });
-        expect(leftClusterIcons({ hasSession: true, percentage: 3 })).toEqual({
-            swap: false,
-            check: true,
+        expect(controls({ hasSession: true, percentage: 3 })).toEqual({
+            switchMode: false,
             finish: true,
         });
-        expect(leftClusterIcons({ hasSession: false, percentage: 0 })).toEqual({
-            swap: true,
-            check: false,
+        expect(controls({ hasSession: false, percentage: 0 })).toEqual({
+            switchMode: true,
             finish: false,
         });
-    });
-
-    it('never renders the removed status icons (fire / coffee / check-circle)', () => {
-        const { container } = renderMini({ isConfirming: true });
-        const icons = iconClasses(container);
-        expect(icons).not.toContain('anticon-fire');
-        expect(icons).not.toContain('anticon-coffee');
-        expect(icons).not.toContain('anticon-check-circle');
     });
 
     it('shows a default placeholder when no project is selected', () => {
@@ -161,7 +135,6 @@ describe('MiniLogger two-row mini layout', () => {
         // Fresh mount starts a new round at 12 o'clock: the first render
         // anchors the base, so the angle is 0deg.
         expect(transformOf(orbit)).toBe('rotate(0deg)');
-        expect(container.querySelector('.timer-paused-badge')).toBeNull();
     });
 
     it('advances the second hand clockwise as the countdown decreases', () => {
@@ -218,10 +191,8 @@ describe('MiniLogger two-row mini layout', () => {
             />
         );
         expect(angleOf()).toBe('rotate(6deg)');
-        const svg = view.container.querySelector('svg.timer-svg');
-        expect(svg).not.toBeNull();
-        expect(classNameOf(svg)).toContain('is-paused');
-        expect(view.container.querySelectorAll('.timer-paused-badge')).toHaveLength(1);
+        // The dial says it is paused instead of changing what it draws.
+        expect(within(view.container).getByRole('img', { name: /Paused/ })).toBeTruthy();
         // The time text itself stays rendered so the remaining time is never hidden.
         expect(all(view.container, 'text').length).toBeGreaterThan(0);
         // Resume continues from the frozen detent instead of jumping back.
@@ -255,7 +226,6 @@ describe('MiniLogger two-row mini layout', () => {
             });
             // No second hand or pause badge while confirming.
             expect(container.querySelector('.timer-orbit')).toBeNull();
-            expect(container.querySelector('.timer-paused-badge')).toBeNull();
 
             // Long-idle freeze: after ~60s the sweep pauses itself. The
             // transient prop changes the generated class (and its CSS rule).

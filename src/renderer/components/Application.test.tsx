@@ -443,15 +443,11 @@ describe('Application page switching', () => {
         // window is not a real OS maximized window (Electron emulates it by
         // resizing to the work area), so the main process pushes the state and
         // the title bar mirrors it.
-        const captionButtons = () =>
-            document.querySelectorAll<HTMLButtonElement>('.ant-tabs-extra-content button');
         // Picked by caption instead of by position: the cluster also carries the
         // always-on-top pin in compact mode, and the window mode leaks in from
         // the persisted settings (the suite stores them in the DB).
         const captionButton = () =>
-            Array.from(captionButtons()).find((b) =>
-                /^(Maximize|Restore Down)$/.test(b.getAttribute('aria-label') ?? '')
-            );
+            screen.queryByRole('button', { name: /^(Maximize|Restore Down)$/ });
 
         expect(captionButton()?.getAttribute('aria-label')).toBe('Maximize');
 

@@ -11,6 +11,7 @@ import { useI18n } from '../../../renderer/i18n';
 import { createTranslator } from '../../../shared/i18n';
 import { roundHours } from '../../../shared/hours';
 import type { Language } from '../../../shared/i18n';
+import { createProjectColorOf, ProjectColorOf, ProjectColorSource } from '../projectColors';
 
 export interface Props {
     width?: number;
@@ -34,6 +35,12 @@ export interface Props {
     pomodoroCount?: number;
     onProjectClick?: (project: string) => void;
     showAllApplications?: boolean;
+    /**
+     * Board map behind the project colors. Supplying it keeps a project's block
+     * the same color as its strip in `ProjectTimeline`, and keeps that color
+     * when the project's rank (and therefore its position) changes.
+     */
+    boards?: ProjectColorSource;
 }
 
 interface TreemapItem {
@@ -164,7 +171,8 @@ function treemapSeries(
     width: number,
     height: number,
     panelTotal: number,
-    showAllApplications = false
+    showAllApplications = false,
+    colorOf?: ProjectColorOf
 ): SeriesOption {
     const displayData =
         name === APP_SERIES_NAME
@@ -173,6 +181,12 @@ function treemapSeries(
     const colors =
         tokens.treemapColors ??
         (tokens.base === 'dark' ? NIGHT_TREEMAP_COLORS : DAY_TREEMAP_COLORS);
+    // A per-block color replaces the position-based `levels` palette: two
+    // projects that swap ranks must not swap colors.
+    const coloredData =
+        colorOf === undefined
+            ? displayData
+            : displayData.map((item) => ({ ...item, itemStyle: { color: colorOf(item.name) } }));
 
     return {
         name,
@@ -216,7 +230,7 @@ function treemapSeries(
             // blocks narrower than 2x the radius, so tiny ones stay intact.
             borderRadius: BLOCK_RADIUS,
         },
-        data: displayData,
+        data: coloredData,
     };
 }
 
@@ -245,6 +259,11 @@ export function getOption(
         textStyle: { color: tokens.text, fontSize: 14 },
         subtextStyle: { color: tokens.textSecondary, fontSize: 12 },
     };
+    // Only the project panel takes the shared palette: application blocks are
+    // informational and were never tied to a project. Without a board map there
+    // is nothing to key colors on, so the position-based levels stay in charge.
+    const projectColorOf =
+        props.boards === undefined ? undefined : createProjectColorOf(props.boards, tokens);
 
     return {
         title: [
@@ -285,7 +304,9 @@ export function getOption(
                 tokens,
                 panelWidth,
                 panelHeight,
-                projectTotal
+                projectTotal,
+                false,
+                projectColorOf
             ),
             treemapSeries(
                 APP_SERIES_NAME,
@@ -324,6 +345,7 @@ export const TimeTreemap: React.FC<Props> = (props: Props) => {
                     width,
                     height,
                     showAllApplications,
+                    boards: props.boards,
                 },
                 tokens,
                 language
@@ -334,6 +356,7 @@ export const TimeTreemap: React.FC<Props> = (props: Props) => {
             projectTotal,
             appTotal,
             props.pomodoroCount,
+            props.boards,
             width,
             height,
             showAllApplications,

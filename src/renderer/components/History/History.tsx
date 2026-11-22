@@ -23,6 +23,7 @@ import { TimeBadge } from '../../../components/Visualization/Badge/Badge';
 import { workers } from '../../workers';
 import { Card as CardState } from '../Kanban/type';
 import { TimeTreemap } from '../../../components/Visualization/TimeTreemap';
+import { ProjectTimeline } from '../../../components/Visualization/ProjectTimeline';
 import { SessionDayEditor } from './SessionDayEditor';
 import { useI18n } from '../../i18n';
 
@@ -586,6 +587,16 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                                     </Button>
                                 ) : undefined}
                             </div>
+                            {/* Day scope only: without a picked date the views below
+                                describe the whole period, and a 24-hour lane has no
+                                single day to describe. */}
+                            {shownPomodoros ? (
+                                <ProjectTimeline
+                                    records={shownPomodoros}
+                                    boards={props.boards}
+                                    onChooseRecord={props.chooseRecord}
+                                />
+                            ) : undefined}
                             {aggInfo.total.count === 0 ? (
                                 <div
                                     style={{
@@ -603,6 +614,7 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                                         {...(shownTimeSpent || { projectData: [], appData: [] })}
                                         width={calendarWidth}
                                         onProjectClick={onProjectClick}
+                                        boards={props.boards}
                                     />
                                     <WordCloud
                                         weights={shownWordWeights || []}

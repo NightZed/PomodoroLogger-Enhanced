@@ -472,6 +472,12 @@ export const en = {
             projectSeries: 'Project Hours',
             applicationSeries: 'Application Hours',
         },
+        timeline: {
+            summary: (count: number, from: string, to: string): string =>
+                `${count} ${count === 1 ? 'pomodoro' : 'pomodoros'} · ${from}–${to}`,
+            block: (project: string, from: string, to: string, minutes: number): string =>
+                `${project} · ${from}–${to} · ${minutes} min`,
+        },
     },
 
     /** Import validation report (`shared/dataTransfer/validate.ts`). */

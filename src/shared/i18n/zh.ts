@@ -447,6 +447,12 @@ export const zh: CatalogShape<typeof en> = {
             projectSeries: '项目时长',
             applicationSeries: '应用时长',
         },
+        timeline: {
+            summary: (count: number, from: string, to: string): string =>
+                `${count} 个番茄 · ${from}–${to}`,
+            block: (project: string, from: string, to: string, minutes: number): string =>
+                `${project} · ${from}–${to} · ${minutes} 分钟`,
+        },
     },
 
     guard: {

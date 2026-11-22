@@ -23,6 +23,7 @@ import backIcon from '../../../res/back.svg';
 import { DAY_THEME_ID, NIGHT_THEME_ID } from '../../theme/tokens';
 import { COMPACT_TITLE_BAR_HEIGHT, TITLE_BAR_HEIGHT } from '../AppTitleBar/tokens';
 import { PomodoroTimeTreemap } from '../Visualization/PomodoroTimeTreemap';
+import { ProjectTimeline } from '../../../components/Visualization/ProjectTimeline';
 import { AsyncWordCloud } from '../Visualization/WordCloud';
 import { deriveWindowMode } from '../pageUnload';
 import { subscribeWindowHideIntent } from '../windowHideIntent';
@@ -1954,8 +1955,14 @@ class Timer extends Component<Props, State> {
                         {more ? (
                             <MoreInfo>
                                 <h2>{t('timer.stats.timeSpent')}</h2>
+                                <ProjectTimeline
+                                    records={this.state.pomodorosToday}
+                                    boards={this.props.kanban.boards}
+                                    onChooseRecord={this.props.setChosenRecord}
+                                />
                                 <PomodoroTimeTreemap
                                     pomodoros={this.state.pomodorosToday}
+                                    boards={this.props.kanban.boards}
                                     width={800}
                                 />
                                 <Divider />

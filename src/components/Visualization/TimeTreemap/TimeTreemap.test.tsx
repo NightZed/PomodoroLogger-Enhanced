@@ -110,6 +110,34 @@ describe('TimeTreemap option', () => {
         }
     });
 
+    it('keeps a project on the same color when its rank changes', () => {
+        // Colors used to come from the block's position in the value-sorted
+        // list, so a project swapped colors as soon as it gained hours — and
+        // disagreed with the timeline strip that points at it.
+        const boards = {
+            a: { name: 'Board A', createdTime: 1 },
+            b: { name: 'Board B', createdTime: 2 },
+        };
+        const colorOfBlock = (option: any, name: string) =>
+            option.series[0].data.find((item: any) => item.name === name).itemStyle.color;
+        const rankedAFirst = getOption(props({ boards }), dayTokens) as any;
+        const rankedBFirst = getOption(
+            props({
+                boards,
+                projectData: [
+                    { name: 'Board B', value: 30 },
+                    { name: 'Board A', value: 10 },
+                ],
+            }),
+            dayTokens
+        ) as any;
+
+        expect(colorOfBlock(rankedAFirst, 'Board A')).toBe(colorOfBlock(rankedBFirst, 'Board A'));
+        expect(colorOfBlock(rankedAFirst, 'Board B')).not.toBe(
+            colorOfBlock(rankedAFirst, 'Board A')
+        );
+    });
+
     it('titles each panel with its total hours', () => {
         const option = getOption(props(), nightTokens) as any;
 

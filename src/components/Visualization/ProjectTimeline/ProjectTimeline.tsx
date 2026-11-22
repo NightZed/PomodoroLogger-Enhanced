@@ -1,0 +1,414 @@
+import * as React from 'react';
+import styled, { css } from 'styled-components';
+import { PomodoroRecord } from '../../../renderer/monitor/type';
+import { to2digits } from '../../../renderer/utils';
+import { useI18n } from '../../../renderer/i18n';
+import type { TranslateFn } from '../../../shared/i18n';
+import { Hint } from '../../common/Hint/Hint';
+import { ProjectColorSource, useProjectColors } from '../projectColors';
+
+/** The axis always covers the whole day; it never zooms in on what happened. */
+export const HOURS_IN_DAY = 24;
+/**
+ * Smallest gap a time label may leave to its neighbour. A label is about 30px
+ * wide at 11px, so anything below ~60px reads as one run of digits.
+ */
+export const MIN_LABEL_GAP = 60;
+/** Candidate label intervals, all of which divide 24 evenly. */
+const LABEL_STEPS = [1, 2, 3, 4, 6] as const;
+
+const LABEL_LINE_HEIGHT = 14;
+const BAR_TOP = 20;
+const BAR_HEIGHT = 16;
+const AXIS_TOP = 44;
+const AXIS_HEIGHT = 2;
+const CHART_HEIGHT = AXIS_TOP + AXIS_HEIGHT;
+const MAJOR_TICK_HEIGHT = AXIS_TOP - BAR_TOP;
+const MINOR_TICK_HEIGHT = 3;
+/**
+ * How far the click target reaches above and below the visible bar. A 25 minute
+ * session is 12–17px wide, so the vertical padding is what makes it a usable
+ * target; the horizontal extent is already as generous as it can be without
+ * stealing the neighbour's area (see `hitBounds`).
+ */
+const HIT_PADDING = 5;
+
+export interface TimelineSegment {
+    record: PomodoroRecord;
+    /** Offsets from the start of the day, in hours: 0…24. */
+    startHour: number;
+    endHour: number;
+}
+
+export interface HitBounds {
+    leftHour: number;
+    rightHour: number;
+}
+
+export function startOfDay(time: number): number {
+    const date = new Date(time);
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+
+/**
+ * Projects each record onto the day it started in.
+ *
+ * The right edge is `startTime + spentTimeInHour`: sessions carry no end time,
+ * and the nominal duration is what the treemap and the counters report too. A
+ * pomodoro that was paused therefore looks shorter than the wall-clock span it
+ * occupied — accepted, see the spec.
+ */
+export function buildSegments(records: PomodoroRecord[]): TimelineSegment[] {
+    if (records.length === 0) {
+        return [];
+    }
+
+    const dayStart = startOfDay(records[0].startTime);
+    const segments: TimelineSegment[] = [];
+    for (const record of records) {
+        const hours = record.spentTimeInHour;
+        if (!(hours > 0)) {
+            continue;
+        }
+
+        const startHour = (record.startTime - dayStart) / 3600000;
+        // A record that started before the day (it belongs to another day's
+        // query) has no place on this axis.
+        if (startHour >= HOURS_IN_DAY) {
+            continue;
+        }
+
+        const endHour = Math.min(startHour + hours, HOURS_IN_DAY);
+        segments.push({
+            record,
+            startHour: Math.max(startHour, 0),
+            endHour,
+        });
+    }
+
+    segments.sort((a, b) => a.startHour - b.startHour || a.endHour - b.endHour);
+    return segments;
+}
+
+/**
+ * Every block owns the strip up to the midpoint shared with its neighbour, so
+ * two adjacent sessions never fight over the same pixel and no clock position
+ * falls into a dead zone between them.
+ */
+export function hitBounds(segments: TimelineSegment[]): HitBounds[] {
+    return segments.map((segment, index) => {
+        const previous = segments[index - 1];
+        const next = segments[index + 1];
+        const leftHour = previous ? (previous.endHour + segment.startHour) / 2 : segment.startHour;
+        const rightHour = next ? (segment.endHour + next.startHour) / 2 : segment.endHour;
+
+        // Overlapping records (only through hand-edited data) can collapse the
+        // midpoints; fall back to the block itself rather than a zero-width box.
+        if (!(rightHour > leftHour)) {
+            return { leftHour: segment.startHour, rightHour: segment.endHour };
+        }
+
+        return { leftHour, rightHour };
+    });
+}
+
+/**
+ * Label interval in hours for a given plot width. Without a measurement the
+ * 720–1000px case is assumed, which is what both call sites sit at.
+ */
+export function labelStepFor(width: number): number {
+    if (!(width > 0)) {
+        return 2;
+    }
+
+    const hourWidth = width / HOURS_IN_DAY;
+    for (const step of LABEL_STEPS) {
+        if (step * hourWidth >= MIN_LABEL_GAP) {
+            return step;
+        }
+    }
+
+    return LABEL_STEPS[LABEL_STEPS.length - 1];
+}
+
+/** `14:05` — clocks on the axis and in the labels share one formatter. */
+export function formatClock(hour: number): string {
+    const totalMinutes = Math.round(hour * 60);
+    const hours = Math.min(HOURS_IN_DAY, Math.floor(totalMinutes / 60));
+    const minutes = hours === HOURS_IN_DAY ? 0 : totalMinutes % 60;
+    return `${to2digits(hours)}:${to2digits(minutes)}`;
+}
+
+function formatHourLabel(hour: number): string {
+    return `${to2digits(hour)}:00`;
+}
+
+/**
+ * Name and palette key of one block. A deleted board and an unassigned session
+ * both fall back to the neutral color, but they read differently: the former
+ * still has a project id, it just cannot be resolved any more.
+ */
+export function projectOf(
+    record: PomodoroRecord,
+    boards: ProjectColorSource | undefined,
+    translate: TranslateFn
+): { projectName: string | undefined; label: string } {
+    const board = record.boardId === undefined ? undefined : boards?.[record.boardId];
+    if (board !== undefined) {
+        return { projectName: board.name, label: board.name };
+    }
+
+    return {
+        projectName: undefined,
+        label:
+            record.boardId === undefined
+                ? translate('history.sessionEditor.noProject')
+                : translate('history.sessionEditor.unknownProject'),
+    };
+}
+
+const Chart = styled.div`
+    position: relative;
+    width: 100%;
+    height: ${CHART_HEIGHT}px;
+    margin: 6px 0 10px;
+`;
+
+const Label = styled.span<{ $anchor: 'start' | 'middle' | 'end' }>`
+    position: absolute;
+    top: 0;
+    font-size: 11px;
+    line-height: ${LABEL_LINE_HEIGHT}px;
+    color: var(--pl-text-secondary);
+    white-space: nowrap;
+    transform: translateX(
+        ${(props) => (props.$anchor === 'start' ? '0' : props.$anchor === 'end' ? '-100%' : '-50%')}
+    );
+`;
+
+const Axis = styled.div`
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: ${AXIS_TOP}px;
+    height: ${AXIS_HEIGHT}px;
+    background: var(--pl-text-tertiary);
+`;
+
+const MajorTick = styled.div`
+    position: absolute;
+    top: ${BAR_TOP}px;
+    width: 1px;
+    height: ${MAJOR_TICK_HEIGHT}px;
+    background: var(--pl-text-tertiary);
+`;
+
+const MinorTick = styled.div`
+    position: absolute;
+    top: ${AXIS_TOP - MINOR_TICK_HEIGHT}px;
+    width: 1px;
+    height: ${MINOR_TICK_HEIGHT}px;
+    background: var(--pl-border);
+`;
+
+const NowMark = styled.div`
+    position: absolute;
+    top: ${LABEL_LINE_HEIGHT}px;
+    width: 1px;
+    height: ${CHART_HEIGHT - LABEL_LINE_HEIGHT}px;
+    background: var(--pl-primary);
+`;
+
+const blockBase = css`
+    position: absolute;
+    top: ${BAR_TOP - HIT_PADDING}px;
+    height: ${BAR_HEIGHT + HIT_PADDING * 2}px;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background: none;
+    overflow: hidden;
+    border-radius: 2px;
+`;
+
+/**
+ * The block is a real button so it inherits Enter/Space, focus order and the
+ * global focus ring (`data-pressable`). The pale end of the treemap palette
+ * needs the hairline ring to stay visible against the page background.
+ */
+const BlockButton = styled.button`
+    ${blockBase}
+    cursor: pointer;
+
+    &:hover > span,
+    &:focus-visible > span {
+        box-shadow: inset 0 0 0 1px var(--pl-primary);
+    }
+`;
+
+const BlockBox = styled.div`
+    ${blockBase}
+`;
+
+const Bar = styled.span`
+    position: absolute;
+    top: ${HIT_PADDING}px;
+    height: ${BAR_HEIGHT}px;
+    min-width: 1px;
+    border-radius: 2px;
+    /* The day palette ends in near-white pastels (#ffffc2), which vanish on the
+       page background. A hairline in the tertiary text color gives every block
+       an edge while staying lighter than the block's own fill. */
+    box-shadow: inset 0 0 0 1px var(--pl-text-tertiary);
+`;
+
+export interface ProjectTimelineProps {
+    records: PomodoroRecord[];
+    /** Used for project names and colors; omit to render everything neutral. */
+    boards?: ProjectColorSource;
+    /** Clicking a block opens the same view as clicking a pomodoro dot. */
+    onChooseRecord?: (record: PomodoroRecord) => void;
+}
+
+/**
+ * A single 24-hour lane under the calendar: when the day's pomodoros ran, in
+ * which project, for how long. Everything is positioned in percentages, so a
+ * resize needs no re-layout — only the label interval depends on the width.
+ */
+export const ProjectTimeline: React.FC<ProjectTimelineProps> = (props: ProjectTimelineProps) => {
+    const { records, boards, onChooseRecord } = props;
+    const { t } = useI18n();
+    const colorOf = useProjectColors(boards);
+    const container = React.useRef<HTMLDivElement | null>(null);
+    const [width, setWidth] = React.useState(0);
+
+    const segments = React.useMemo(() => buildSegments(records), [records]);
+    const bounds = React.useMemo(() => hitBounds(segments), [segments]);
+    const hasRecords = segments.length > 0;
+
+    // Keyed by `hasRecords`: the first render of an empty list does not mount
+    // the measured element, so a mount-only effect would never observe it.
+    React.useLayoutEffect(() => {
+        const element = container.current;
+        if (element == null) {
+            return undefined;
+        }
+
+        const measure = () => setWidth(element.clientWidth);
+        measure();
+        if (typeof ResizeObserver === 'undefined') {
+            return undefined;
+        }
+
+        const observer = new ResizeObserver(measure);
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, [hasRecords]);
+
+    if (!hasRecords) {
+        return null;
+    }
+
+    const dayStart = startOfDay(segments[0].record.startTime);
+    const now = Date.now();
+    const nowHour = startOfDay(now) === dayStart ? (now - dayStart) / 3600000 : undefined;
+    const step = labelStepFor(width);
+
+    const labels: React.ReactNode[] = [];
+    for (let hour = 0; hour <= HOURS_IN_DAY; hour += step) {
+        labels.push(
+            <Label
+                key={`label-${hour}`}
+                $anchor={hour === 0 ? 'start' : hour === HOURS_IN_DAY ? 'end' : 'middle'}
+                style={{ left: `${(hour / HOURS_IN_DAY) * 100}%` }}
+            >
+                {formatHourLabel(hour)}
+            </Label>
+        );
+    }
+
+    const ticks: React.ReactNode[] = [];
+    for (let hour = 0; hour <= HOURS_IN_DAY; hour += 1) {
+        // The last tick has to sit inside the box; `left: 100%` would fall on
+        // the border and disappear.
+        const left = hour === HOURS_IN_DAY ? 'calc(100% - 1px)' : `${(hour / HOURS_IN_DAY) * 100}%`;
+        ticks.push(<MajorTick key={`major-${hour}`} style={{ left }} />);
+        if (hour < HOURS_IN_DAY) {
+            ticks.push(
+                <MinorTick
+                    key={`minor-${hour}`}
+                    style={{ left: `${((hour + 0.5) / HOURS_IN_DAY) * 100}%` }}
+                />
+            );
+        }
+    }
+
+    const blocks = segments.map((segment, index) => {
+        const { leftHour, rightHour } = bounds[index];
+        const span = rightHour - leftHour;
+        const { projectName, label } = projectOf(segment.record, boards, t);
+        const blockLabel = t(
+            'chart.timeline.block',
+            label,
+            formatClock(segment.startHour),
+            formatClock(segment.endHour),
+            Math.round((segment.endHour - segment.startHour) * 60)
+        );
+        const geometry = {
+            left: `${(leftHour / HOURS_IN_DAY) * 100}%`,
+            width: `${((rightHour - leftHour) / HOURS_IN_DAY) * 100}%`,
+        };
+        const bar = (
+            <Bar
+                style={{
+                    left: span > 0 ? `${((segment.startHour - leftHour) / span) * 100}%` : '0%',
+                    width:
+                        span > 0
+                            ? `${((segment.endHour - segment.startHour) / span) * 100}%`
+                            : '100%',
+                    backgroundColor: colorOf(projectName),
+                }}
+            />
+        );
+
+        return (
+            <Hint key={segment.record._id} kind="live" label={blockLabel}>
+                {onChooseRecord === undefined ? (
+                    <BlockBox style={geometry}>{bar}</BlockBox>
+                ) : (
+                    <BlockButton
+                        type="button"
+                        data-pressable
+                        aria-label={blockLabel}
+                        style={geometry}
+                        onClick={() => onChooseRecord(segment.record)}
+                    >
+                        {bar}
+                    </BlockButton>
+                )}
+            </Hint>
+        );
+    });
+
+    const summary = t(
+        'chart.timeline.summary',
+        segments.length,
+        formatClock(segments[0].startHour),
+        formatClock(segments[segments.length - 1].endHour)
+    );
+
+    return (
+        <Chart ref={container} role={onChooseRecord ? 'group' : 'img'} aria-label={summary}>
+            {labels}
+            <Axis />
+            {ticks}
+            {blocks}
+            {nowHour === undefined ? undefined : (
+                <NowMark
+                    aria-hidden="true"
+                    style={{ left: `${(nowHour / HOURS_IN_DAY) * 100}%` }}
+                />
+            )}
+        </Chart>
+    );
+};

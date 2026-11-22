@@ -32,6 +32,18 @@
 
 `src/components/**` 是共享的可视化/小部件库（`Visualization/*`、`common/*`），渲染层用相对路径引用它——它不是渲染层自己的组件树。
 
+### 项目配色
+
+`src/components/Visualization/projectColors.ts` 是「项目名 → 颜色」的唯一来源：按 `boards` 的 `createdTime` 升序（名字破平手）依次取 `tokens.treemapColors` 的槽位，新增看板只追加到队尾，所以屏幕上的颜色不会因为某个项目涨了时长就挪位。
+
+`TimeTreemap` 的项目面板和 `ProjectTimeline` 都从这里取色。不要退回用 `levels.color` 按 data 顺序上色：同一个项目换个排名就会换颜色，还会和旁边引用它的图对不上。没有传 `boards` 时树图仍走 `levels` 兜底。
+
+### 当日时间轴
+
+`ProjectTimeline`（同目录）是历史页（选中日期后）与计时页「今日统计」共用的 24 小时时间轴：横轴固定 0–24，块用百分比定位、自己量宽度，标签步长按实测宽度取 2h 或 3h（最窄按 670px 设计）。每块是一个 `<button data-pressable>`，点击走 `chooseRecord`，与番茄圆点同一个入口。
+
+块右边缘是 `startTime + spentTimeInHour`（名义专注时长），不是墙钟跨度——会话记录里没有结束时间，暂停过的番茄会显得比实际占用短。这与树图、圆点旁的小时数同一口径，改口径要三处一起改。
+
 ## 悬停提示
 
 所有悬停提示走 `src/components/common/Hint`。应用里没有单独使用的 antd `Tooltip`，也没有把提示写在 SVG `<title>` 或 HTML `title` 上——原生 `title` 要等约一秒，样式也由系统决定。仍然保留的 `title` 属性都是对话框、`Statistic`、notification 的标题，不是提示。

@@ -75,7 +75,7 @@ Electron 桌面应用（番茄钟 + 看板 + 桌面活动追踪 + 统计）。
 | 主进程启动、IPC、preload、弹窗与提示                     | `docs/architecture/process-ipc.md`                               |
 | SQLite、repository、迁移                                 | `docs/architecture/data.md`                                      |
 | 日志、错误上报、崩溃页                                   | `docs/architecture/diagnostics.md`（文件表在 `docs/logging.md`） |
-| Redux 结构、页面清单、主题、悬停提示、可访问性、渲染性能 | `docs/architecture/renderer.md`                                  |
+| Redux 结构、页面清单、主题、悬停提示、可访问性、渲染性能、项目配色 | `docs/architecture/renderer.md`                                  |
 | 窗口档位、托盘、页面卸载、今日统计                       | `docs/architecture/window-modes.md`                              |
 | 看板、列表、拖拽、卡片                                   | `docs/architecture/kanban.md`                                    |
 | 设置页滑块、窗口不透明度                                 | `docs/architecture/settings.md`                                  |

@@ -539,8 +539,11 @@ export class MiniLogger extends React.Component<Props> {
         const showSecondHand = handAngle !== undefined;
         const ringDim = isPausedWithSession ? 0.45 : 1;
         const stateLabel = this.getTimerStateLabel();
+        // Static despite the label changing: the dial's own colors already show
+        // focused / resting / paused, so the text is a one-time explanation
+        // rather than something read off on every hover.
         return (
-            <Hint kind="live" label={stateLabel} placement="bottom">
+            <Hint label={stateLabel} placement="bottom">
                 <svg
                     className={`timer-svg${isPausedWithSession ? ' is-paused' : ''}`}
                     viewBox="0 0 100 100"

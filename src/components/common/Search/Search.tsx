@@ -111,7 +111,8 @@ const StyledSearch = styled.div<StyledProps>`
         }
     }
 
-    &:focus {
+    &:focus,
+    &:focus-within {
         border: 1px solid var(--pl-primary);
     }
     &:hover {

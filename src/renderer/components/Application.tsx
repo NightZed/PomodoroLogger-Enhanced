@@ -559,7 +559,7 @@ class Application extends React.Component<Props, State> {
                         onKeyDown={this.onKeyDown}
                     />
                 </Content>
-                <WindowRing data-testid="window-ring" $resizing={this.state.resizing} />
+                <WindowRing $resizing={this.state.resizing} />
             </Main>
         );
     }

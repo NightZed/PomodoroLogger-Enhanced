@@ -10,7 +10,6 @@ Status: open（持续追加，不排期）
 
 | 测试文件 | 条目 | 记录于 |
 | --- | --- | --- |
-| `src/renderer/components/Application.test.tsx` | 5 类 DOM 内部细节 | 2026-11-22 |
 | `src/components/common/Mini/MiniLogger.smoke.test.tsx` | 2 类 SVG 图形类名（无合规替代） | 2026-11-22 |
 
 已修复：
@@ -19,25 +18,7 @@ Status: open（持续追加，不排期）
 - `src/components/Visualization/Badge/Badge.test.tsx`（2026-11-21，10 条用例改断言纯函数与 hook 状态，不再读 `clipPath` 的 `transform`）。
 - `Application.test.tsx` 的窗口按钮（2026-11-22，`.ant-tabs-extra-content button` → `getByRole('button', { name })`）。
 - `MiniLogger.smoke.test.tsx` 的图标与布局类名（2026-11-22，`[class*="anticon-"]` 与 `withClass` 全部删除：图标改按按钮的 `aria-label`，两行布局的结构断言在 jsdom 里观察不到，换成任务名可见 + 控制按钮存在）。
-
-## `src/renderer/components/Application.test.tsx`
-
-窗口按钮那一处已经清掉，同一个文件里还剩五类：
-
-| 位置 | 写法 | 问题 |
-| --- | --- | --- |
-| 页签查询 | `querySelectorAll('.ant-tabs-tab')` | antd 内部类名 |
-| 全屏 / 沉浸样式的检查 | `querySelectorAll('style[data-styled]')` | styled-components 注入样式的内部标记 |
-| 标题栏圆环 | `[data-testid="window-ring"]` | `data-testid` 本身就在「不算」一侧 |
-| feedback 弹窗 | `querySelector('.ant-modal')`、`.ant-modal-wrap` | antd 内部类名 |
-
-**规范依据**：`docs/testing.md` 的判据表把 `className` 与 `data-testid` 都列在「不算」一侧。antd 换版或 styled-components 换注入方式时，行为不变而断言全红。
-
-**修法**：
-- 页签 → `getAllByRole('tab')`；
-- 弹窗 → `within(popupLayer).getByRole('dialog')`，`.ant-modal-wrap` 那一处先看它断言的到底是什么（如果只是「弹窗可见」，用 `toBeVisible()` 或 `role="dialog"` 就够）；
-- `data-styled` 的样式检查要看目的：如果它验证的是「主题变量被注入」，改成读 `document.head` 里的自定义属性或直接断言元素的计算样式；如果只是「styled 生效了」，这条本身就是代理断言，删掉；
-- `data-testid="window-ring"` 需要一个真实的语义锚点（圆环是装饰还是有角色），再决定用 role 还是删。
+- `Application.test.tsx` 的其余 DOM 内部细节（2026-11-22）：`.ant-tabs-tab` → `getAllByRole('tab')`；`.ant-modal` → `within(popupLayer).getByRole('dialog')`；`.ant-modal-wrap` → `getByRole('dialog').parentElement`；`[data-testid="window-ring"]` → 按图层顺序取 `main.children[2]`（产品里的 testid 已删除）；`kanban-page` 的 mock 改成带文本的 div，按文本观察挂载。CSS 形状断言保留，定位从 `style[data-styled]` 换成全部 `style` 标签，仍用元素自身的 `classList` 关联规则——这是 jsdom 里唯一能观察两条渲染性能硬约束的方式。
 
 ## `src/components/common/Mini/MiniLogger.smoke.test.tsx`
 

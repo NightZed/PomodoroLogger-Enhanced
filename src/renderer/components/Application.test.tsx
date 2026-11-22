@@ -15,7 +15,7 @@
  * batching question is actually exercised.
  */
 import * as React from 'react';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { applyMiddleware, createStore, Store } from 'redux';
 import { thunk } from 'redux-thunk';
@@ -27,7 +27,7 @@ jest.mock('./Kanban', () => {
     const React = require('react');
     return {
         __esModule: true,
-        default: () => React.createElement('div', { 'data-testid': 'kanban-page' }),
+        default: () => React.createElement('div', null, 'kanban page'),
     };
 });
 jest.mock('./History', () => ({ __esModule: true, default: () => null }));
@@ -164,8 +164,8 @@ const press = async (key: string, init: KeyboardEventInit = {}) => {
 
 const clickTab = async (index: number) => {
     await act(async () => {
-        document
-            .querySelectorAll('.ant-tabs-tab')
+        screen
+            .getAllByRole('tab')
             [index].dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     });
 };
@@ -185,7 +185,7 @@ describe('Application page switching', () => {
         expect(el).not.toBeNull();
 
         const classes = Array.from(el!.classList);
-        return Array.from(document.querySelectorAll('style[data-styled]'))
+        return Array.from(document.querySelectorAll('style'))
             .map((style) => style.textContent || '')
             .filter((text) => classes.some((cls) => text.includes(`.${cls}`)))
             .join('\n');
@@ -205,11 +205,12 @@ describe('Application page switching', () => {
      * `display:none` must not leak into the at-rest assertion.
      */
     const ringCss = () => {
-        const ring = container.querySelector('[data-testid="window-ring"]') as HTMLElement | null;
-        expect(ring).not.toBeNull();
+        // Wallpaper, Content, then the ring overlay (see the layer table).
+        const ring = container.firstElementChild?.children[2] as HTMLElement | undefined;
+        expect(ring).not.toBeUndefined();
 
         const classes = Array.from(ring!.classList);
-        return Array.from(document.querySelectorAll('style[data-styled]'))
+        return Array.from(document.querySelectorAll('style'))
             .flatMap((style) => (style.textContent || '').split('}'))
             .filter((rule) => classes.some((cls) => rule.includes(`.${cls}`)))
             .map((rule) => `${rule}}`)
@@ -312,11 +313,11 @@ describe('Application page switching', () => {
 
     it('unloads the background pages 30s after the window goes to the tray by default', async () => {
         await clickTab(1);
-        expect(screen.queryByTestId('kanban-page')).not.toBeNull();
+        expect(screen.queryByText('kanban page')).not.toBeNull();
 
         await clickTab(0);
         // Back on the timer, the board is only inside its regular 120s grace.
-        expect(screen.queryByTestId('kanban-page')).not.toBeNull();
+        expect(screen.queryByText('kanban page')).not.toBeNull();
 
         // No dispatch: this is the default the user gets on a fresh install.
         jest.useFakeTimers();
@@ -326,12 +327,12 @@ describe('Application page switching', () => {
             act(() => {
                 jest.advanceTimersByTime(29_999);
             });
-            expect(screen.queryByTestId('kanban-page')).not.toBeNull();
+            expect(screen.queryByText('kanban page')).not.toBeNull();
 
             act(() => {
                 jest.advanceTimersByTime(1);
             });
-            expect(screen.queryByTestId('kanban-page')).toBeNull();
+            expect(screen.queryByText('kanban page')).toBeNull();
         } finally {
             jest.useRealTimers();
             act(() => fireWindowTray(false));
@@ -353,7 +354,7 @@ describe('Application page switching', () => {
             act(() => {
                 jest.advanceTimersByTime(30_000);
             });
-            expect(screen.queryByTestId('kanban-page')).toBeNull();
+            expect(screen.queryByText('kanban page')).toBeNull();
         } finally {
             jest.useRealTimers();
             act(() => {
@@ -407,7 +408,7 @@ describe('Application page switching', () => {
             act(() => {
                 jest.advanceTimersByTime(30_000);
             });
-            expect(screen.queryByTestId('kanban-page')).not.toBeNull();
+            expect(screen.queryByText('kanban page')).not.toBeNull();
         } finally {
             jest.useRealTimers();
             act(() => setDocumentVisibility('visible'));
@@ -431,7 +432,7 @@ describe('Application page switching', () => {
                 jest.advanceTimersByTime(30_000);
             });
             // Off means off: hiding the window must not shorten anything.
-            expect(screen.queryByTestId('kanban-page')).not.toBeNull();
+            expect(screen.queryByText('kanban page')).not.toBeNull();
         } finally {
             jest.useRealTimers();
             act(() => fireWindowTray(false));
@@ -470,7 +471,7 @@ describe('Application page switching', () => {
 
         const popupLayer = document.getElementById('pl-popup-container');
         expect(popupLayer).not.toBeNull();
-        expect(popupLayer?.querySelector('.ant-modal')).not.toBeNull();
+        expect(within(popupLayer!).getByRole('dialog')).toBeTruthy();
 
         act(() => {
             modal.destroy();
@@ -487,7 +488,9 @@ describe('Application page switching', () => {
             modal = feedback.confirm({ title: 'Confirm action', onCancel });
         });
 
-        const wrap = document.querySelector<HTMLElement>('.ant-modal-wrap');
+        // rc-dialog treats the wrap -- the dialog element's parent -- as the
+        // mask; a click only counts when the mousedown landed there too.
+        const wrap = screen.getByRole('dialog').parentElement as HTMLElement | null;
         expect(wrap).not.toBeNull();
 
         // rc-dialog only treats a click as a mask click when the mousedown that

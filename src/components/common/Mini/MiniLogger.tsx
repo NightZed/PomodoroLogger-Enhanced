@@ -3,6 +3,13 @@ import { AntdIcon as Icon } from '../../../renderer/components/antdIcon';
 import React from 'react';
 import styled, { keyframes } from 'styled-components';
 import { PomodoroRecord } from '../../../renderer/monitor/type';
+import {
+    SECOND_HAND_START,
+    SecondHandState,
+    advanceSecondHand,
+    isSecondHandVisible,
+    resetSecondHand,
+} from './secondHand';
 import { t } from '../../../renderer/i18n';
 import { Hint } from '../Hint/Hint';
 
@@ -339,23 +346,8 @@ export class MiniLogger extends React.Component<Props> {
         }
     }
 
-    /**
-     * Cumulative second-hand angle, so the hand always walks clockwise. The
-     * countdown prop (`secondsLeft`) DECREASES, and `secondsLeft % 60 * 6deg`
-     * would decrease with it (counter-clockwise); worse, each minute wrap
-     * 0deg -> 354deg was interpolated by the CSS transition as a full
-     * clockwise sweep -- the "spin then walk backwards" bug. Instead the hand
-     * starts at 12 o'clock and each elapsed second adds +6deg: the modulo-60
-     * dial position is identical, but the rendered angle never goes backward.
-     *
-     * Reset bookkeeping: when the countdown jumps UP by more than a tick
-     * (new session, mode switch, +5/+10 extension re-anchor), the cumulative
-     * base restarts so the hand snaps to 12 o'clock for the new round instead
-     * of spinning forward from the old total.
-     */
-    private handBaseSecondsLeft: number | undefined = undefined;
-    private handElapsedSeconds = 0;
-    private handLastSecondsLeft: number | undefined = undefined;
+    /** Second-hand bookkeeping; the maths lives in `secondHand.ts`. */
+    private handState: SecondHandState = SECOND_HAND_START;
 
     extend5Minutes = () => {
         this.props.extendCurrentSession(5);
@@ -534,35 +526,15 @@ export class MiniLogger extends React.Component<Props> {
         // owner derives hasSession from sessionState (never from the throttled
         // percentage) for exactly this kind of call.
         const isPausedWithSession = !isConfirming && hasSession && !isRunning;
-        // Cumulative clockwise angle from the DECREASING countdown: the hand
-        // starts each round at 12 o'clock and every elapsed second adds +6deg.
-        // `secondsLeft % 60 * 6deg` would walk counter-clockwise and sweep a
-        // full circle on each minute wrap (0deg -> 354deg interpolated
-        // clockwise by the CSS transition) -- the reported bug.
+        // The hand walks clockwise from 12 o'clock; the maths and the
+        // minute-wrap reasoning live in `secondHand.ts`.
         let handAngle: number | undefined;
-        if (!isConfirming && hasSession && secondsLeft !== undefined) {
-            if (
-                this.handBaseSecondsLeft === undefined ||
-                this.handLastSecondsLeft === undefined ||
-                // New round (start / switch mode / extend re-anchor): the
-                // countdown jumped UP, so restart from 12 o'clock.
-                secondsLeft > this.handLastSecondsLeft + 1
-            ) {
-                this.handBaseSecondsLeft = secondsLeft;
-                this.handElapsedSeconds = 0;
-            } else if (secondsLeft < this.handLastSecondsLeft) {
-                // Normal tick (possibly several seconds at once after a
-                // throttled render): advance the same amount.
-                this.handElapsedSeconds += this.handLastSecondsLeft - secondsLeft;
-            }
-            // Paused renders repeat the frozen value: neither branch moves, so
-            // the hand holds its detent until resume.
-            this.handLastSecondsLeft = secondsLeft;
-            handAngle = this.handElapsedSeconds * 6;
+        if (isSecondHandVisible(isConfirming, hasSession, secondsLeft)) {
+            const next = advanceSecondHand(this.handState, secondsLeft);
+            this.handState = next.state;
+            handAngle = next.angle;
         } else {
-            this.handBaseSecondsLeft = undefined;
-            this.handLastSecondsLeft = undefined;
-            this.handElapsedSeconds = 0;
+            this.handState = resetSecondHand();
         }
         const showSecondHand = handAngle !== undefined;
         const ringDim = isPausedWithSession ? 0.45 : 1;

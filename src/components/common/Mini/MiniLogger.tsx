@@ -655,9 +655,10 @@ export class MiniLogger extends React.Component<Props> {
         return (
             <StyledLogger style={style}>
                 <div className="task-row">
-                    <Hint kind="live" label={task || undefined}>
-                        <div className="task">{task || t('timer.mini.noProject')}</div>
-                    </Hint>
+                    {/* No hint: the strip is a window drag region (Chromium
+                        sends it no mouse events) and 200x90 leaves no room for
+                        a popup. A clipped name is read by expanding instead. */}
+                    <div className="task">{task || t('timer.mini.noProject')}</div>
                 </div>
                 {this.getControlRow()}
             </StyledLogger>

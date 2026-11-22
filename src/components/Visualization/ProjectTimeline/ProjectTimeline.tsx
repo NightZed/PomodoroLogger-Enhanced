@@ -17,14 +17,28 @@ export const MIN_LABEL_GAP = 60;
 /** Candidate label intervals, all of which divide 24 evenly. */
 const LABEL_STEPS = [1, 2, 3, 4, 6] as const;
 
-const LABEL_LINE_HEIGHT = 14;
-const BAR_TOP = 20;
-const BAR_HEIGHT = 16;
-const AXIS_TOP = 44;
+/**
+ * Vertical layout, top to bottom: the blocks, a gap, the axis, ticks hanging
+ * below it, then the time labels. A coordinate x-axis rather than a ruler: the
+ * ticks are short marks outside the plot area, and the axis carries an arrow
+ * past 24:00 instead of a closing tick.
+ */
+const BAR_HEIGHT = 12;
+const BAR_TOP = 0;
+const BAR_AXIS_GAP = 2;
+const AXIS_TOP = BAR_TOP + BAR_HEIGHT + BAR_AXIS_GAP;
 const AXIS_HEIGHT = 2;
-const CHART_HEIGHT = AXIS_TOP + AXIS_HEIGHT;
-const MAJOR_TICK_HEIGHT = AXIS_TOP - BAR_TOP;
-const MINOR_TICK_HEIGHT = 3;
+const MAJOR_TICK_HEIGHT = 4;
+const MINOR_TICK_HEIGHT = 2;
+/** Both kinds hang from the axis, so they share a bottom edge. */
+const TICK_TOP = AXIS_TOP + AXIS_HEIGHT;
+const LABEL_GAP = 4;
+const LABEL_LINE_HEIGHT = 14;
+const LABEL_TOP = TICK_TOP + MAJOR_TICK_HEIGHT + LABEL_GAP;
+const CHART_HEIGHT = LABEL_TOP + LABEL_LINE_HEIGHT;
+/** Arrowhead at the right end, drawn just outside the container. */
+const ARROW_WIDTH = 4;
+const ARROW_HALF_HEIGHT = 2;
 /**
  * How far the click target reaches above and below the visible bar. A 25 minute
  * session is 12–17px wide, so the vertical padding is what makes it a usable
@@ -176,7 +190,7 @@ const Chart = styled.div`
 
 const Label = styled.span<{ $anchor: 'start' | 'middle' | 'end' }>`
     position: absolute;
-    top: 0;
+    top: ${LABEL_TOP}px;
     font-size: 11px;
     line-height: ${LABEL_LINE_HEIGHT}px;
     color: var(--pl-text-secondary);
@@ -197,7 +211,7 @@ const Axis = styled.div`
 
 const MajorTick = styled.div`
     position: absolute;
-    top: ${BAR_TOP}px;
+    top: ${TICK_TOP}px;
     width: 1px;
     height: ${MAJOR_TICK_HEIGHT}px;
     background: var(--pl-text-tertiary);
@@ -205,17 +219,28 @@ const MajorTick = styled.div`
 
 const MinorTick = styled.div`
     position: absolute;
-    top: ${AXIS_TOP - MINOR_TICK_HEIGHT}px;
+    top: ${TICK_TOP + MAJOR_TICK_HEIGHT - MINOR_TICK_HEIGHT}px;
     width: 1px;
     height: ${MINOR_TICK_HEIGHT}px;
-    background: var(--pl-border);
+    background: var(--pl-text-tertiary);
+`;
+
+const AxisArrow = styled.div`
+    position: absolute;
+    top: ${AXIS_TOP + AXIS_HEIGHT / 2 - ARROW_HALF_HEIGHT}px;
+    right: ${-ARROW_WIDTH}px;
+    width: 0;
+    height: 0;
+    border-left: ${ARROW_WIDTH}px solid var(--pl-text-tertiary);
+    border-top: ${ARROW_HALF_HEIGHT}px solid transparent;
+    border-bottom: ${ARROW_HALF_HEIGHT}px solid transparent;
 `;
 
 const NowMark = styled.div`
     position: absolute;
-    top: ${LABEL_LINE_HEIGHT}px;
+    top: 0;
     width: 1px;
-    height: ${CHART_HEIGHT - LABEL_LINE_HEIGHT}px;
+    height: ${TICK_TOP}px;
     background: var(--pl-primary);
 `;
 
@@ -328,19 +353,23 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = (props: ProjectTi
     }
 
     const ticks: React.ReactNode[] = [];
-    for (let hour = 0; hour <= HOURS_IN_DAY; hour += 1) {
-        // The last tick has to sit inside the box; `left: 100%` would fall on
-        // the border and disappear.
-        const left = hour === HOURS_IN_DAY ? 'calc(100% - 1px)' : `${(hour / HOURS_IN_DAY) * 100}%`;
-        ticks.push(<MajorTick key={`major-${hour}`} style={{ left }} />);
-        if (hour < HOURS_IN_DAY) {
+    for (let hour = 0; hour < HOURS_IN_DAY; hour += 1) {
+        // 0:00 and 24:00 are the ends of the axis and carry no tick; the
+        // arrowhead past 24:00 is what closes it.
+        if (hour > 0) {
             ticks.push(
-                <MinorTick
-                    key={`minor-${hour}`}
-                    style={{ left: `${((hour + 0.5) / HOURS_IN_DAY) * 100}%` }}
+                <MajorTick
+                    key={`major-${hour}`}
+                    style={{ left: `${(hour / HOURS_IN_DAY) * 100}%` }}
                 />
             );
         }
+        ticks.push(
+            <MinorTick
+                key={`minor-${hour}`}
+                style={{ left: `${((hour + 0.5) / HOURS_IN_DAY) * 100}%` }}
+            />
+        );
     }
 
     const blocks = segments.map((segment, index) => {
@@ -401,6 +430,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = (props: ProjectTi
         <Chart ref={container} role={onChooseRecord ? 'group' : 'img'} aria-label={summary}>
             {labels}
             <Axis />
+            <AxisArrow aria-hidden="true" />
             {ticks}
             {blocks}
             {nowHour === undefined ? undefined : (

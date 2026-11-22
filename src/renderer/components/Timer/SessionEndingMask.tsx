@@ -326,7 +326,7 @@ const TimerMaskInner = (props: MaskProps) => {
                 <CardPlaceholder>{t('timer.session.noCard')}</CardPlaceholder>
             ) : (
                 <>
-                    <Hint label={cardName} zIndex={LAYER.sessionMaskTooltip}>
+                    <Hint kind="live" label={cardName} zIndex={LAYER.sessionMaskTooltip}>
                         <CardName type="button" onClick={() => setEditing(true)}>
                             {cardName}
                         </CardName>

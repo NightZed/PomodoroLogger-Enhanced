@@ -374,6 +374,7 @@ export const UnassignedPanel = (props: UnassignedPanelProps) => {
                                         <Cell>{row.spentTimeInHour.toFixed(2)}h</Cell>
                                         <Cell>
                                             <Hint
+                                                kind="live"
                                                 label={
                                                     cardIdOf(row._id) === undefined
                                                         ? t('kanban.unassigned.noCard')

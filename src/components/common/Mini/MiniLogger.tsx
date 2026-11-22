@@ -568,7 +568,7 @@ export class MiniLogger extends React.Component<Props> {
         const ringDim = isPausedWithSession ? 0.45 : 1;
         const stateLabel = this.getTimerStateLabel();
         return (
-            <Hint label={stateLabel} placement="bottom">
+            <Hint kind="live" label={stateLabel} placement="bottom">
                 <svg
                     className={`timer-svg${isPausedWithSession ? ' is-paused' : ''}`}
                     viewBox="0 0 100 100"
@@ -680,7 +680,7 @@ export class MiniLogger extends React.Component<Props> {
         return (
             <StyledLogger style={style}>
                 <div className="task-row">
-                    <Hint label={task || undefined}>
+                    <Hint kind="live" label={task || undefined}>
                         <div className="task">{task || t('timer.mini.noProject')}</div>
                     </Hint>
                 </div>

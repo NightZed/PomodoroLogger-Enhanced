@@ -187,7 +187,7 @@ const ProjectPickerBodyInner = (props: BodyProps) => {
             ) : (
                 <Grid role="listbox" aria-label={t('kanban.projectPicker.title')}>
                     {boards.map((board) => (
-                        <Hint key={board._id} label={board.name}>
+                        <Hint key={board._id} kind="live" label={board.name}>
                             <BoardOption
                                 type="button"
                                 role="option"

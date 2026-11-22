@@ -625,7 +625,7 @@ export const LabelEditor: FC<Props> = ({ labels, onChange, suggestions }) => {
                         }
                     >
                         <LabelChip $color={label.color}>
-                            <Hint label={label.name}>
+                            <Hint kind="live" label={label.name}>
                                 <ChipName aria-label={label.name}>{label.name}</ChipName>
                             </Hint>
                             <Hint label={t('kanban.labelEditor.remove')}>

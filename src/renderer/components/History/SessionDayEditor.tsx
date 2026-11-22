@@ -484,7 +484,7 @@ const SessionDayEditorInner = (props: Props) => {
                                     <Cell>{timeLabel(row.startTime)}</Cell>
                                     <Cell>{row.spentTimeInHour.toFixed(2)}h</Cell>
                                     <Cell>
-                                        <Hint label={boardTitle(row.boardId)}>
+                                        <Hint kind="live" label={boardTitle(row.boardId)}>
                                             <LinkButton
                                                 type="button"
                                                 onClick={() =>
@@ -499,7 +499,7 @@ const SessionDayEditorInner = (props: Props) => {
                                         </Hint>
                                     </Cell>
                                     <Cell>
-                                        <Hint label={cardTitle(row.cardId)}>
+                                        <Hint kind="live" label={cardTitle(row.cardId)}>
                                             <LinkButton
                                                 type="button"
                                                 onClick={() => {

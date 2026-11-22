@@ -35,7 +35,7 @@ export const PomodoroDot: React.FC<Props> = (props) => {
     const num = formatThousand(props.num);
     const label = `${props.num} Pomodoros`;
     return (
-        <Hint label={label}>
+        <Hint kind="live" label={label}>
             <Svg
                 className="pomodoro-dot"
                 width="20"

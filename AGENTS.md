@@ -37,6 +37,7 @@ Electron 桌面应用（番茄钟 + 看板 + 桌面活动追踪 + 统计）。
 - 占满窗口的平面保持纯 `background-color`，不要用 `color-mix()`。
 - 不要 import antd 的 `message` / `notification` / `Modal`，走 feedback 层与 `AppModal`。
 - 非 `<button>` 的可点击元素（图标、圆点、状态切换）展开 `components/common/pressable.ts` 的 `pressable()`，它给出 `role`、`tabIndex` 与 Enter/Space 转发。浏览器只对真实 `<button>` 合成这两个键的 click，不展开的话键盘用户点不动。
+- 悬停提示走 `components/common/Hint`：按钮动作一类（开始、停止、添加）用默认 `static`，停留 0.4s 再显示；标签跟着数据变的（卡片标题、看板名、番茄时间、当前计时状态、计数）必须写 `kind="live"`，否则用户要多等 0.4s 才能读到已经变过的内容。
 - `kind: 'error'` 只能出现在 `alert` 或 `notice`；走 notice 前必须先落盘。
 - `AppErrorBoundary` 必须留在 `Application` 外面；Timer 的内层边界不能被包装组件替代。
 - 新增全窗口浮层先在 `renderer/components/layers.ts` 的 `LAYER` 里定层，不要就地写数字。页面/组件内部的局部 z-index 留在原地，不要塞进表里（它们不在同一堆叠上下文）。

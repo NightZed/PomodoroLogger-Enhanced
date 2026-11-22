@@ -172,7 +172,7 @@ const CardPickerInner = (props: Props) => {
                                 <ColumnTitle>{column.list.title}</ColumnTitle>
                                 <ColumnBody role="listbox" aria-label={column.list.title}>
                                     {column.cards.map((card) => (
-                                        <Hint key={card._id} label={card.title}>
+                                        <Hint key={card._id} kind="live" label={card.title}>
                                             <CardOption
                                                 type="button"
                                                 role="option"

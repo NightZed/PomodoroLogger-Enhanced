@@ -478,7 +478,7 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
             <Header>
                 <div className="header-left">
                     <h1>
-                        <Hint label={name}>
+                        <Hint kind="live" label={name}>
                             <span className="brief-title">{name}</span>
                         </Hint>
                         <Pin
@@ -517,7 +517,7 @@ const _BoardBrief: React.FC<Props> = React.memo((props: Props) => {
             <Content>
                 {/* Always rendered: the row is part of the card's fixed
                     height, so boards with and without a description line up. */}
-                <Hint label={descriptionText || undefined} maxWidth={400}>
+                <Hint kind="live" label={descriptionText || undefined} maxWidth={400}>
                     <BriefDescription dangerouslySetInnerHTML={{ __html: descriptionHtml ?? '' }} />
                 </Hint>
                 <ListsCountBar

@@ -574,7 +574,10 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                             }
                                         />
                                     </HeaderSegmented>
-                                    <Hint label={t('kanban.unassigned.button', unassignedTotal)}>
+                                    <Hint
+                                        kind="live"
+                                        label={t('kanban.unassigned.button', unassignedTotal)}
+                                    >
                                         <Button
                                             style={{
                                                 marginRight: 4,
@@ -635,7 +638,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                             {
                                                 value: 'hidden',
                                                 label: (
-                                                    <Hint label={hiddenBoardsLabel}>
+                                                    <Hint kind="live" label={hiddenBoardsLabel}>
                                                         <SegmentLabel
                                                             aria-label={hiddenBoardsLabel}
                                                         >

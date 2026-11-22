@@ -153,7 +153,7 @@ const ListPickerBodyInner = (props: Props) => {
         <Body>
             <Columns role="listbox" aria-label={t('kanban.cardMove.listTitle', board?.name ?? '')}>
                 {options.map((option) => (
-                    <Hint key={option.list._id} label={option.list.title}>
+                    <Hint key={option.list._id} kind="live" label={option.list.title}>
                         <ListOption
                             type="button"
                             role="option"

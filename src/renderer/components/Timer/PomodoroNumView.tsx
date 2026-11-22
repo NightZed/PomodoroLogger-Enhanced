@@ -156,7 +156,12 @@ export class PomodoroNumView extends React.PureComponent<Props> {
             (isNew ? '[New]' : getTime(v.startTime)) +
             (v.efficiency != null ? ` Efficiency: ${Math.round(v.efficiency * 100)}%` : '');
         return (
-            <Hint key={v._id + (isNew ? 'new' : '')} label={label} zIndex={this.props.hintZIndex}>
+            <Hint
+                key={v._id + (isNew ? 'new' : '')}
+                kind="live"
+                label={label}
+                zIndex={this.props.hintZIndex}
+            >
                 <Svg
                     width="1em"
                     height="1em"

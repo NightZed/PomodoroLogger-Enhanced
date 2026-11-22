@@ -359,7 +359,7 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
                         onChange={() => toggle(cardKey(card._id))}
                     />
                     <RowBody>
-                        <Hint label={card.title}>
+                        <Hint kind="live" label={card.title}>
                             <RowTitle>{card.title || t('dataRepair.untitled')}</RowTitle>
                         </Hint>
                         <RowMeta>{cardMeta(card, t)}</RowMeta>
@@ -593,7 +593,7 @@ const DataRepairDialogInner = (props: DataRepairDialogProps) => {
                                         onChange={() => toggle(`list:${list._id}`)}
                                     />
                                     <RowBody>
-                                        <Hint label={list.title}>
+                                        <Hint kind="live" label={list.title}>
                                             <RowTitle>{list.title}</RowTitle>
                                         </Hint>
                                         <RowMeta>{list._id}</RowMeta>

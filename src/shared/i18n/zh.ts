@@ -437,13 +437,6 @@ export const zh: CatalogShape<typeof en> = {
             projectSeries: '项目时长',
             applicationSeries: '应用时长',
         },
-        badge: {
-            spentTime: '已用时间',
-            extra: '超出',
-            left: '剩余',
-            extraTime: '超出时间',
-            leftTime: '剩余时间',
-        },
     },
 
     guard: {

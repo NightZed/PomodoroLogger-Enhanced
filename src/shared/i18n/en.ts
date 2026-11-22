@@ -464,13 +464,6 @@ export const en = {
             projectSeries: 'Project Hours',
             applicationSeries: 'Application Hours',
         },
-        badge: {
-            spentTime: 'Spent Time',
-            extra: 'EXTRA',
-            left: 'LEFT',
-            extraTime: 'Extra Time',
-            leftTime: 'Left Time',
-        },
     },
 
     /** Import validation report (`shared/dataTransfer/validate.ts`). */

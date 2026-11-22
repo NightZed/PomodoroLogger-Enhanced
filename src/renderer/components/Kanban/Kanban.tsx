@@ -225,6 +225,10 @@ export const Kanban: FunctionComponent<Props> = React.memo(
         // Local to the page on purpose: which board scope the overview shows is
         // a transient view choice, not a setting worth persisting.
         const [showHidden, setShowHidden] = useState(false);
+        // Board-name filter of the overview. Kept out of the store: `searchReg`
+        // means "filter the cards of the open board" and is read by `List` and
+        // `Card`; the overview filters board names before any board is open.
+        const [overviewKeyword, setOverviewKeyword] = useState('');
         const [editingBoardId, setEditingBoardId] = useState<string | undefined>('');
         const [unassignedOpen, setUnassignedOpen] = useState(false);
         /**
@@ -293,6 +297,10 @@ export const Kanban: FunctionComponent<Props> = React.memo(
             }
             search.cancel();
             setSearchReg(undefined);
+            // The overview's name filter is page-local, so nothing else clears
+            // it; leaving with it set would show a filtered grid (and an empty
+            // search box) on return.
+            setOverviewKeyword('');
         }, [currentTab, setSearchReg, search]);
         React.useEffect(() => {
             if (currentTab === 'kanban' || !dragActivity.dragging) {
@@ -614,6 +622,15 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                             </>
                         ) : (
                             <LabelButton>
+                                {/* Same bar as the open board's search, but it
+                                    filters board names instead of cards. No
+                                    `tags`: content tags belong to cards, not to
+                                    the overview. */}
+                                <Search
+                                    enabled={props.currentTab === 'kanban'}
+                                    setSearchStr={setOverviewKeyword}
+                                    searchStr={overviewKeyword}
+                                />
                                 <HeaderSegmented>
                                     <Segmented
                                         shape="round"
@@ -716,6 +733,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                             showConfigById={showConfigById}
                             showTable={showTable}
                             showHidden={showHidden}
+                            keyword={overviewKeyword}
                         />
                     </div>
                     {props.kanban.chosenBoardId === undefined ? null : (

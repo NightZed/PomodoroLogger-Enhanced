@@ -278,17 +278,27 @@ export const Search = ({
         () => (showPanel && isSearching && searchHistory ? searchHistory() : undefined),
         [showPanel, isSearching, searchHistory]
     );
+    // A bar without suggestions (the overview's board-name filter) must not
+    // offer a toggle: opening it would show an empty card with no content.
+    const hasPanelContent = Boolean(tags || searchHistory);
     const panel = React.useMemo(
         () =>
-            showPanel && isSearching ? (
+            hasPanelContent && showPanel && isSearching ? (
                 <SearchPanel tags={tagList} history={historyList} search={search} />
             ) : null,
-        [showPanel, isSearching, tagList, historyList, search]
+        [hasPanelContent, showPanel, isSearching, tagList, historyList, search]
     );
 
     return (
         <StyledSearch
-            onKeyDown={onKeydown}
+            // Collapsed, the whole bar is the control that opens the input:
+            // give it a button role so it can be reached and activated from
+            // the keyboard like the icons inside it. Expanded, the bar is a
+            // plain container -- a button role would swallow Space in the
+            // input through its Enter/Space forwarding.
+            {...(isSearching
+                ? { onKeyDown: onKeydown }
+                : { ...pressable(), 'aria-label': t('search.label') })}
             $isSearching={isSearching}
             $showPanel={showPanel}
             onClick={onClick}
@@ -296,18 +306,25 @@ export const Search = ({
         >
             <header>
                 <Icon type="search" style={{ padding: 1 }} />
-                <input ref={inputRef} onChange={onChange} value={text} />
-                <Icon
-                    type={'down'}
-                    style={{
-                        transform: showPanel ? 'rotate(180deg)' : '',
-                        transition: 'transform 120ms',
-                    }}
-                    className="close"
-                    aria-label={t('search.expand')}
-                    onClick={togglePanel}
-                    {...pressable()}
+                <input
+                    ref={inputRef}
+                    onChange={onChange}
+                    value={text}
+                    aria-label={t('search.label')}
                 />
+                {hasPanelContent ? (
+                    <Icon
+                        type={'down'}
+                        style={{
+                            transform: showPanel ? 'rotate(180deg)' : '',
+                            transition: 'transform 120ms',
+                        }}
+                        className="close"
+                        aria-label={t('search.expand')}
+                        onClick={togglePanel}
+                        {...pressable()}
+                    />
+                ) : null}
                 <Icon
                     type="close"
                     className="close"

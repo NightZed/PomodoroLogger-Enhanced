@@ -56,6 +56,7 @@ export const en = {
     },
 
     search: {
+        label: 'Search',
         expand: 'Expand search panel',
     },
 
@@ -252,6 +253,7 @@ export const en = {
             tableView: 'Table',
             noActiveBoards: 'No active boards',
             noHiddenBoards: 'No hidden boards',
+            noMatchingBoards: 'No matching boards',
             cardView: 'Card view',
             cardTitleOnly: 'Title only',
             cardPreview: 'Preview (limited height)',

@@ -17,7 +17,9 @@ import { useI18n } from '../../../i18n';
 
 const Container = styled.div``;
 
-const EmptyHint = styled.div`
+// `role="status"` makes the empty state announce itself when a search narrows
+// the grid down to nothing (the text changes without moving focus).
+const EmptyHint = styled.div.attrs({ role: 'status' })`
     padding: 24px;
     text-align: center;
     font-size: 14px;
@@ -31,6 +33,26 @@ const EmptyHint = styled.div`
  */
 export const getBoardsForScope = (boards: KanbanBoardState, showHidden: boolean): KanbanBoard[] =>
     Object.values(boards).filter((board) => !!board.hidden === showHidden);
+
+/**
+ * Filter a board scope by its name or description. Matches the project
+ * picker's search rules (trimmed, case-insensitive substring) and adds the
+ * description because it is the other text the overview shows on the card, so
+ * every hit has a visible reason. Runs on the already-scoped list: a search
+ * never mixes active and hidden boards.
+ */
+export const filterBoardsByKeyword = (boards: KanbanBoard[], keyword?: string): KanbanBoard[] => {
+    const term = keyword?.trim().toLowerCase();
+    if (!term) {
+        return boards;
+    }
+
+    return boards.filter(
+        (board) =>
+            board.name.toLowerCase().includes(term) ||
+            (board.description ?? '').toLowerCase().includes(term)
+    );
+};
 
 // Waterfall geometry, matching what react-stack-grid used before the React 19
 // migration removed it: fixed-width columns, a 5px gutter, and cards placed in
@@ -139,18 +161,22 @@ const columns = [
     },
 ] as const;
 
-const OverviewTableInner: FC<Props> = (props: Props) => {
+const OverviewTableInner: FC<Props & InputProps> = (props: Props & InputProps) => {
     const { t } = useI18n();
     const { lists: listsById, cards: cardsById } = props;
 
-    // The table lists one scope at a time, matching the card grid.
+    // The table lists one scope at a time, matching the card grid, and applies
+    // the same keyword filter the search box feeds the grid.
     const boards = React.useMemo(() => {
         const filtered: KanbanBoardState = {};
-        for (const board of getBoardsForScope(props.boards, !!props.showHidden)) {
+        for (const board of filterBoardsByKeyword(
+            getBoardsForScope(props.boards, !!props.showHidden),
+            props.keyword
+        )) {
             filtered[board._id] = board;
         }
         return filtered;
-    }, [props.boards, props.showHidden]);
+    }, [props.boards, props.showHidden, props.keyword]);
 
     // The aggregation walks every card of every board. The table re-renders
     // when it is sorted, paged or when an IdTrend resolves, so keep the result
@@ -179,6 +205,8 @@ interface InputProps {
     showConfigById?: (boardId: string) => void;
     /** false/undefined = active boards, true = hidden boards. */
     showHidden?: boolean;
+    /** Board name/description filter from the header search; blank = no filter. */
+    keyword?: string;
 }
 
 const OverviewTable = connect((state: RootState) => ({
@@ -267,6 +295,7 @@ interface OverviewCardsProps {
     minimize: boolean;
     showConfigById?: (boardId: string) => void;
     showHidden?: boolean;
+    keyword?: string;
 }
 
 interface BoardRect {
@@ -710,8 +739,9 @@ const OverviewCards = connect(
     const { boardsById, setId } = props;
     // One scope at a time: the overview never mixes active and hidden boards.
     const boards = React.useMemo(
-        () => getBoardsForScope(boardsById, !!props.showHidden),
-        [boardsById, props.showHidden]
+        () =>
+            filterBoardsByKeyword(getBoardsForScope(boardsById, !!props.showHidden), props.keyword),
+        [boardsById, props.showHidden, props.keyword]
     );
     const ids = React.useMemo(
         () =>
@@ -739,9 +769,11 @@ const OverviewCards = connect(
             </ResponsiveBoardGrid>
             {ids.length === 0 ? (
                 <EmptyHint>
-                    {props.showHidden
-                        ? t('kanban.page.noHiddenBoards')
-                        : t('kanban.page.noActiveBoards')}
+                    {props.keyword?.trim()
+                        ? t('kanban.page.noMatchingBoards')
+                        : props.showHidden
+                          ? t('kanban.page.noHiddenBoards')
+                          : t('kanban.page.noActiveBoards')}
                 </EmptyHint>
             ) : undefined}
         </>
@@ -752,10 +784,14 @@ const OverviewCards = connect(
 // toggling the table view, ...) does not re-render the board grid: the
 // connected `OverviewCards` would otherwise rebuild every `BoardBrief`.
 export const Overview: FC<InputProps> = React.memo(
-    ({ showTable = false, showConfigById, showHidden = false }: InputProps) =>
+    ({ showTable = false, showConfigById, showHidden = false, keyword }: InputProps) =>
         showTable ? (
-            <OverviewTable showHidden={showHidden} />
+            <OverviewTable showHidden={showHidden} keyword={keyword} />
         ) : (
-            <OverviewCards showConfigById={showConfigById} showHidden={showHidden} />
+            <OverviewCards
+                showConfigById={showConfigById}
+                showHidden={showHidden}
+                keyword={keyword}
+            />
         )
 );

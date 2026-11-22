@@ -100,4 +100,45 @@ describe('Search Ctrl+F scoping', () => {
 
         view.unmount();
     });
+
+    it('offers no suggestion toggle when it has nothing to suggest', () => {
+        // The overview's bar only filters board names; a toggle there would
+        // open an empty panel.
+        const view = render(<Search enabled={true} setSearchStr={jest.fn()} />);
+
+        expect(view.queryByLabelText('Expand search panel')).toBeNull();
+
+        view.unmount();
+    });
+
+    it('exposes the collapsed bar as a button with an accessible name', () => {
+        const view = render(<Search enabled={true} setSearchStr={jest.fn()} />);
+
+        // Mouse users click the circle; the keyboard reaches the same control
+        // through the tab order.
+        expect(view.getByRole('button', { name: 'Search' })).toBeTruthy();
+
+        view.unmount();
+    });
+
+    // Regression: SearchPanel defaulted `tags` to ['#TAG'], so a bar without
+    // suggestions (the overview's board-name filter) opened a panel showing a
+    // fake tag the user could click, which then searched for "#TAG".
+    it('does not invent a placeholder tag when the tag list is empty', () => {
+        const view = render(<Search enabled={true} setSearchStr={jest.fn()} tags={() => []} />);
+
+        act(() => {
+            (view.container.firstElementChild as HTMLElement).click();
+        });
+        act(() => {
+            const arrow = view.container.querySelector(
+                '[aria-label="Expand search panel"]'
+            ) as HTMLElement;
+            arrow.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        });
+
+        expect(view.queryByText('#TAG')).toBeNull();
+
+        view.unmount();
+    });
 });

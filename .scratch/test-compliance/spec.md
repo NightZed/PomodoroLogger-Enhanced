@@ -10,7 +10,15 @@ Status: open（持续追加，不排期）
 
 | 测试文件 | 条目 | 记录于 |
 | --- | --- | --- |
-| （暂无） | | |
+| `src/components/common/Search/Search.test.tsx` | 用 `container.firstElementChild` 与 `querySelector('input')` 驱动展开与输入 | 2026-11-22 |
+
+## `src/components/common/Search/Search.test.tsx`
+
+**现象**：`clears its local query when its page becomes inactive` 与 `computes the tag panel once per open` 用 `view.container.firstElementChild.click()` 展开搜索条，用 `view.container.querySelector('input')` 取输入框。样式组件的外层结构或输入框包裹方式一变，用例就挂，而用户可见行为没变。
+
+**规范依据**：`docs/testing.md`「判据」——`data-testid`、具体容器类型不算行为；测试把实现重写一遍后应当仍然通过。
+
+**修法**：本次改动已让收起的搜索条带上 `role="button"` 与 `aria-label`，改用 `getByRole('button', { name: 'Search' })` 触发展开，输入框改用 `getByRole('textbox', { name: 'Search' })`。
 
 已修复：
 

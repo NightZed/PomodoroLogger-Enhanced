@@ -35,25 +35,25 @@ const Group = styled.div`
     }
 `;
 
-export const SearchPanel = ({
-    history: _history = ['Search History'],
-    tags = ['#TAG'],
-    search,
-}: PanelProps) => {
+export const SearchPanel = ({ history: _history, tags, search }: PanelProps) => {
     const setSearch = (str: string) => () => search(str);
     return (
         <StyledPanel>
-            <Title>#TAGS</Title>
-            <Group>
-                {tags.map((x) => (
-                    <React.Fragment key={x}>
-                        <span className="pl-tag" onClick={setSearch(x)} {...pressable()}>
-                            {x}
-                        </span>
-                        <span />
-                    </React.Fragment>
-                ))}
-            </Group>
+            {tags?.length ? (
+                <>
+                    <Title>#TAGS</Title>
+                    <Group>
+                        {tags.map((x) => (
+                            <React.Fragment key={x}>
+                                <span className="pl-tag" onClick={setSearch(x)} {...pressable()}>
+                                    {x}
+                                </span>
+                                <span />
+                            </React.Fragment>
+                        ))}
+                    </Group>
+                </>
+            ) : null}
             {/* <Title>HISTORY</Title>
             <Group>
                 {history.map((x) => (

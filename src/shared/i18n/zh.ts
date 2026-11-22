@@ -44,6 +44,8 @@ export const zh: CatalogShape<typeof en> = {
     },
 
     search: {
+        /** 搜索输入框自身的可访问名称。 */
+        label: '搜索',
         expand: '展开搜索面板',
     },
 
@@ -232,6 +234,7 @@ export const zh: CatalogShape<typeof en> = {
             tableView: '表格',
             noActiveBoards: '没有活跃的看板',
             noHiddenBoards: '没有已隐藏的看板',
+            noMatchingBoards: '没有匹配的看板',
             cardView: '卡片视图',
             cardTitleOnly: '仅标题',
             cardPreview: '预览（限制高度）',

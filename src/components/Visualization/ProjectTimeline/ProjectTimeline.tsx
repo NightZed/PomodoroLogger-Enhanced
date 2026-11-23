@@ -294,13 +294,30 @@ const Bar = styled.span`
     box-shadow: inset 0 0 0 1px var(--pl-text-tertiary);
 `;
 
-/** The area chart sits on the axis, so it spans the full plot height. */
-const Plot = styled.div`
+/**
+ * The drawing layer: blocks in day mode, the area chart in period mode.
+ *
+ * It grows out of the axis when data arrives, the same way the pomodoro dots
+ * unfold — transform only, so the box keeps its height and nothing under it
+ * moves. The axis, ticks and labels stay put: they are the frame, this is the
+ * content. Collapsing is instant (the hidden state carries no transition),
+ * matching the dots, whose row also snaps shut while the next day loads.
+ */
+const Plot = styled.div<{ $visible: boolean }>`
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     height: ${AXIS_TOP}px;
+    transform-origin: 0 100%;
+    ${(props) =>
+        props.$visible
+            ? css`
+                  transition: transform 150ms;
+              `
+            : css`
+                  transform: scaleY(0);
+              `}
 `;
 
 /**
@@ -386,46 +403,45 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = (props: ProjectTi
 
     const isPeriod = timeOfDay !== undefined;
     const periodPeak = isPeriod ? Math.max(0, ...timeOfDay) : 0;
-
     // An empty lane holds the space without claiming to be a chart: no axis, no
     // label and nothing for assistive tech to read over the date above it.
-    if (isPeriod ? periodPeak <= 0 : segments.length === 0) {
-        return <Chart ref={container} aria-hidden="true" />;
-    }
+    const hasContent = isPeriod ? periodPeak > 0 : segments.length > 0;
 
     const step = labelStepFor(width);
 
     const labels: React.ReactNode[] = [];
-    for (let hour = 0; hour <= HOURS_IN_DAY; hour += step) {
-        labels.push(
-            <Label
-                key={`label-${hour}`}
-                $anchor={hour === 0 ? 'start' : hour === HOURS_IN_DAY ? 'end' : 'middle'}
-                style={{ left: `${(hour / HOURS_IN_DAY) * 100}%` }}
-            >
-                {formatHourLabel(hour)}
-            </Label>
-        );
-    }
-
     const ticks: React.ReactNode[] = [];
-    for (let hour = 0; hour < HOURS_IN_DAY; hour += 1) {
-        // 0:00 and 24:00 are the ends of the axis and carry no tick; the
-        // arrowhead past 24:00 is what closes it.
-        if (hour > 0) {
-            ticks.push(
-                <MajorTick
-                    key={`major-${hour}`}
+    if (hasContent) {
+        for (let hour = 0; hour <= HOURS_IN_DAY; hour += step) {
+            labels.push(
+                <Label
+                    key={`label-${hour}`}
+                    $anchor={hour === 0 ? 'start' : hour === HOURS_IN_DAY ? 'end' : 'middle'}
                     style={{ left: `${(hour / HOURS_IN_DAY) * 100}%` }}
+                >
+                    {formatHourLabel(hour)}
+                </Label>
+            );
+        }
+
+        for (let hour = 0; hour < HOURS_IN_DAY; hour += 1) {
+            // 0:00 and 24:00 are the ends of the axis and carry no tick; the
+            // arrowhead past 24:00 is what closes it.
+            if (hour > 0) {
+                ticks.push(
+                    <MajorTick
+                        key={`major-${hour}`}
+                        style={{ left: `${(hour / HOURS_IN_DAY) * 100}%` }}
+                    />
+                );
+            }
+            ticks.push(
+                <MinorTick
+                    key={`minor-${hour}`}
+                    style={{ left: `${((hour + 0.5) / HOURS_IN_DAY) * 100}%` }}
                 />
             );
         }
-        ticks.push(
-            <MinorTick
-                key={`minor-${hour}`}
-                style={{ left: `${((hour + 0.5) / HOURS_IN_DAY) * 100}%` }}
-            />
-        );
     }
 
     const blocks = isPeriod
@@ -478,8 +494,12 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = (props: ProjectTi
             : undefined;
 
     let plot: React.ReactNode;
-    let summary: string;
-    if (isPeriod) {
+    let summary: string | undefined;
+    if (!hasContent) {
+        // Draws nothing, but stays mounted: that is what lets the next state
+        // transition from `scaleY(0)` instead of snapping in.
+        plot = <Plot $visible={false} />;
+    } else if (isPeriod) {
         const bucketHours = HOURS_IN_DAY / timeOfDay.length;
         const totalHours = timeOfDay.reduce((sum, value) => sum + value, 0);
         const peakIndex = timeOfDay.indexOf(periodPeak);
@@ -490,7 +510,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = (props: ProjectTi
             `${formatClock(peakIndex * bucketHours)}–${formatClock((peakIndex + 1) * bucketHours)}`
         );
         plot = (
-            <Plot>
+            <Plot $visible>
                 <svg
                     width="100%"
                     height="100%"
@@ -539,7 +559,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = (props: ProjectTi
             formatClock(segments[segments.length - 1].endHour)
         );
         plot = (
-            <>
+            <Plot $visible>
                 {blocks}
                 {nowHour === undefined ? undefined : (
                     <NowMark
@@ -547,19 +567,26 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = (props: ProjectTi
                         style={{ left: `${(nowHour / HOURS_IN_DAY) * 100}%` }}
                     />
                 )}
-            </>
+            </Plot>
         );
     }
 
     return (
         <Chart
             ref={container}
-            role={!isPeriod && onChooseRecord !== undefined ? 'group' : 'img'}
+            role={
+                hasContent
+                    ? !isPeriod && onChooseRecord !== undefined
+                        ? 'group'
+                        : 'img'
+                    : undefined
+            }
+            aria-hidden={hasContent ? undefined : true}
             aria-label={summary}
         >
             {labels}
-            <Axis />
-            <AxisArrow aria-hidden="true" />
+            {hasContent ? <Axis /> : undefined}
+            {hasContent ? <AxisArrow aria-hidden="true" /> : undefined}
             {plot}
             {/* After the plot: the ticks point into it, so they have to sit on
                 top of the area (and of a block that happens to cover an hour). */}

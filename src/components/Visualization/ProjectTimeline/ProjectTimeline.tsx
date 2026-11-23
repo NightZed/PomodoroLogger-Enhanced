@@ -18,23 +18,26 @@ export const MIN_LABEL_GAP = 60;
 const LABEL_STEPS = [1, 2, 3, 4, 6] as const;
 
 /**
- * Vertical layout, top to bottom: the blocks, a gap, the axis, ticks hanging
- * below it, then the time labels. A coordinate x-axis rather than a ruler: the
- * ticks are short marks outside the plot area, and the axis carries an arrow
- * past 24:00 instead of a closing tick.
+ * Vertical layout, top to bottom: the block row, a gap, the tick band, the axis,
+ * then the time labels.
+ *
+ * The ticks sit on the plot side of the axis on purpose: their 4px band then
+ * belongs to the period area's height instead of taking a band of its own under
+ * the axis, where it would only make the area shorter. Labels stay outside,
+ * under the axis, so the two never share a band.
  */
 const BAR_HEIGHT = 12;
 const BAR_TOP = 0;
-const BAR_AXIS_GAP = 2;
-const AXIS_TOP = BAR_TOP + BAR_HEIGHT + BAR_AXIS_GAP;
-const AXIS_HEIGHT = 2;
+/** Gap between the block row and the tick band, so ticks never touch a block. */
+const BAR_TICK_GAP = 2;
 const MAJOR_TICK_HEIGHT = 4;
 const MINOR_TICK_HEIGHT = 2;
-/** Both kinds hang from the axis, so they share a bottom edge. */
-const TICK_TOP = AXIS_TOP + AXIS_HEIGHT;
+const AXIS_TOP = BAR_TOP + BAR_HEIGHT + BAR_TICK_GAP + MAJOR_TICK_HEIGHT;
+const AXIS_HEIGHT = 2;
+const AXIS_BOTTOM = AXIS_TOP + AXIS_HEIGHT;
 const LABEL_GAP = 4;
 const LABEL_LINE_HEIGHT = 14;
-const LABEL_TOP = TICK_TOP + MAJOR_TICK_HEIGHT + LABEL_GAP;
+const LABEL_TOP = AXIS_BOTTOM + LABEL_GAP;
 const CHART_HEIGHT = LABEL_TOP + LABEL_LINE_HEIGHT;
 /** Arrowhead at the right end, drawn just outside the container. */
 const ARROW_WIDTH = 4;
@@ -211,7 +214,7 @@ const Axis = styled.div`
 
 const MajorTick = styled.div`
     position: absolute;
-    top: ${TICK_TOP}px;
+    top: ${AXIS_TOP - MAJOR_TICK_HEIGHT}px;
     width: 1px;
     height: ${MAJOR_TICK_HEIGHT}px;
     background: var(--pl-text-tertiary);
@@ -219,7 +222,7 @@ const MajorTick = styled.div`
 
 const MinorTick = styled.div`
     position: absolute;
-    top: ${TICK_TOP + MAJOR_TICK_HEIGHT - MINOR_TICK_HEIGHT}px;
+    top: ${AXIS_TOP - MINOR_TICK_HEIGHT}px;
     width: 1px;
     height: ${MINOR_TICK_HEIGHT}px;
     background: var(--pl-text-tertiary);
@@ -240,7 +243,7 @@ const NowMark = styled.div`
     position: absolute;
     top: 0;
     width: 1px;
-    height: ${TICK_TOP}px;
+    height: ${AXIS_BOTTOM}px;
     background: var(--pl-primary);
 `;
 
@@ -559,8 +562,10 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = (props: ProjectTi
             {labels}
             <Axis />
             <AxisArrow aria-hidden="true" />
-            {ticks}
             {plot}
+            {/* After the plot: the ticks point into it, so they have to sit on
+                top of the area (and of a block that happens to cover an hour). */}
+            {ticks}
         </Chart>
     );
 };

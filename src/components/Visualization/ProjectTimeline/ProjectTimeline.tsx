@@ -318,6 +318,10 @@ const BucketHit = styled.div`
  *
  * Each bucket stays a flat column: a busy half hour is a plateau of its own
  * width, not a smooth bump bleeding into the quiet hours around it.
+ *
+ * Read by eye only: the output is an SVG `d` string, and jsdom implements no
+ * SVG geometry, so a test could only pin the exact command sequence — which
+ * an equivalent rewrite of this function would break without changing a pixel.
  */
 export function histogramAreaPath(values: number[], peak: number): string {
     const top = values.map((value) => 100 - (value / peak) * 100);

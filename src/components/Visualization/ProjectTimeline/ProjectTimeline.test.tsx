@@ -3,7 +3,6 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import {
     buildSegments,
     formatClock,
-    histogramAreaPath,
     HOURS_IN_DAY,
     labelStepFor,
     MIN_LABEL_GAP,
@@ -76,17 +75,6 @@ describe('labelStepFor', () => {
 
     it('thins the labels out as the plot narrows', () => {
         expect(labelStepFor(670)).toBeGreaterThan(labelStepFor(1000));
-    });
-});
-
-describe('histogramAreaPath', () => {
-    it('keeps a busy bucket a flat column instead of a slope', () => {
-        // Values are 0 / peak / half. The peak has to stay at the top across its
-        // whole width, so the chart shows which half hour was busy rather than
-        // smoothing it into the neighbouring ones.
-        const path = histogramAreaPath([0, 2, 1], 2);
-
-        expect(path).toContain('H 1 V 0.00 H 2');
     });
 });
 

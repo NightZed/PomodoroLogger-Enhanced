@@ -33,6 +33,12 @@ const pressCtrlF = (target: EventTarget): boolean => {
 
 const mount = (enabled?: boolean) => render(<Search enabled={enabled} setSearchStr={jest.fn()} />);
 
+/** Open the collapsed bar; returns the input it reveals. */
+const expandBar = (view: ReturnType<typeof render>) => {
+    fireEvent.click(view.getByRole('button', { name: 'Search' }));
+    return view.getByRole('textbox', { name: 'Search' }) as HTMLInputElement;
+};
+
 describe('Search Ctrl+F scoping', () => {
     it('handles Ctrl+F while its page is active', () => {
         const view = mount(true);
@@ -63,13 +69,16 @@ describe('Search Ctrl+F scoping', () => {
     it('clears its local query when its page becomes inactive', () => {
         const setSearchStr = jest.fn();
         const view = render(<Search enabled={true} setSearchStr={setSearchStr} />);
-        const input = view.container.querySelector('input') as HTMLInputElement;
+        const input = expandBar(view);
 
         fireEvent.change(input, { target: { value: 'old query' } });
         expect(input.value).toBe('old query');
 
         view.rerender(<Search enabled={false} setSearchStr={setSearchStr} />);
-        expect((view.container.querySelector('input') as HTMLInputElement).value).toBe('');
+        view.rerender(<Search enabled={true} setSearchStr={setSearchStr} />);
+
+        // Coming back must not show the query from before the page was left.
+        expect(expandBar(view).value).toBe('');
         view.unmount();
     });
 
@@ -78,21 +87,12 @@ describe('Search Ctrl+F scoping', () => {
         const view = render(<Search enabled={true} setSearchStr={jest.fn()} tags={tags} />);
 
         // Expand the bar, then the suggestion panel.
-        act(() => {
-            (view.container.firstElementChild as HTMLElement).click();
-        });
-        act(() => {
-            const arrow = view.container.querySelector(
-                '[aria-label="Expand search panel"]'
-            ) as HTMLElement;
-            arrow.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-        });
+        const input = expandBar(view);
+        fireEvent.click(view.getByRole('button', { name: 'Expand search panel' }));
 
         expect(tags).toHaveBeenCalledTimes(1);
 
-        fireEvent.change(view.container.querySelector('input') as HTMLInputElement, {
-            target: { value: 'one' },
-        });
+        fireEvent.change(input, { target: { value: 'one' } });
 
         // The board data did not change, so typing must reuse the computed
         // tag list instead of walking every card again.
@@ -106,7 +106,7 @@ describe('Search Ctrl+F scoping', () => {
         // open an empty panel.
         const view = render(<Search enabled={true} setSearchStr={jest.fn()} />);
 
-        expect(view.queryByLabelText('Expand search panel')).toBeNull();
+        expect(view.queryByRole('button', { name: 'Expand search panel' })).toBeNull();
 
         view.unmount();
     });
@@ -127,15 +127,8 @@ describe('Search Ctrl+F scoping', () => {
     it('does not invent a placeholder tag when the tag list is empty', () => {
         const view = render(<Search enabled={true} setSearchStr={jest.fn()} tags={() => []} />);
 
-        act(() => {
-            (view.container.firstElementChild as HTMLElement).click();
-        });
-        act(() => {
-            const arrow = view.container.querySelector(
-                '[aria-label="Expand search panel"]'
-            ) as HTMLElement;
-            arrow.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-        });
+        expandBar(view);
+        fireEvent.click(view.getByRole('button', { name: 'Expand search panel' }));
 
         expect(view.queryByText('#TAG')).toBeNull();
 

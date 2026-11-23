@@ -3,7 +3,6 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import {
     buildSegments,
     formatClock,
-    hitBounds,
     histogramAreaPath,
     HOURS_IN_DAY,
     labelStepFor,
@@ -59,38 +58,6 @@ describe('buildSegments', () => {
 
     it('drops sessions with no recorded time instead of drawing zero-width blocks', () => {
         expect(buildSegments([record(at(9), 0, 'empty')])).toEqual([]);
-    });
-});
-
-describe('hitBounds', () => {
-    it('splits the gap between two sessions at the midpoint', () => {
-        const bounds = hitBounds(
-            buildSegments([record(at(9), 30 * MINUTE, 'a'), record(at(10), 30 * MINUTE, 'b')])
-        );
-
-        expect(bounds).toEqual([
-            { leftHour: 9, rightHour: 9.75 },
-            { leftHour: 9.75, rightHour: 10.5 },
-        ]);
-    });
-
-    it('leaves no gap and no overlap between neighbours', () => {
-        const bounds = hitBounds(
-            buildSegments([
-                record(at(9), 25 * MINUTE, 'a'),
-                record(at(9, 30), 25 * MINUTE, 'b'),
-                record(at(11), 25 * MINUTE, 'c'),
-            ])
-        );
-        const rounded = (hours: number) => Number(hours.toFixed(6));
-
-        // Each boundary is shared verbatim: the left edge of one block is the
-        // right edge of the previous one, so no clock position is unreachable.
-        expect(bounds.map((bound) => [rounded(bound.leftHour), rounded(bound.rightHour)])).toEqual([
-            [9, 9.458333],
-            [9.458333, 10.458333],
-            [10.458333, 11.416667],
-        ]);
     });
 });
 

@@ -44,9 +44,9 @@ const ARROW_WIDTH = 4;
 const ARROW_HALF_HEIGHT = 2;
 /**
  * How far the click target reaches above and below the visible bar. A 25 minute
- * session is 12–17px wide, so the vertical padding is what makes it a usable
- * target; the horizontal extent is already as generous as it can be without
- * stealing the neighbour's area (see `hitBounds`).
+ * session is 12–17px wide, so this padding is what makes it a usable target.
+ * It is vertical only: horizontally the button is the block itself, so a gap
+ * between two sessions stays inert instead of answering for a neighbour.
  */
 const HIT_PADDING = 5;
 
@@ -55,11 +55,6 @@ export interface TimelineSegment {
     /** Offsets from the start of the day, in hours: 0…24. */
     startHour: number;
     endHour: number;
-}
-
-export interface HitBounds {
-    leftHour: number;
-    rightHour: number;
 }
 
 export function startOfDay(time: number): number {
@@ -105,28 +100,6 @@ export function buildSegments(records: PomodoroRecord[]): TimelineSegment[] {
 
     segments.sort((a, b) => a.startHour - b.startHour || a.endHour - b.endHour);
     return segments;
-}
-
-/**
- * Every block owns the strip up to the midpoint shared with its neighbour, so
- * two adjacent sessions never fight over the same pixel and no clock position
- * falls into a dead zone between them.
- */
-export function hitBounds(segments: TimelineSegment[]): HitBounds[] {
-    return segments.map((segment, index) => {
-        const previous = segments[index - 1];
-        const next = segments[index + 1];
-        const leftHour = previous ? (previous.endHour + segment.startHour) / 2 : segment.startHour;
-        const rightHour = next ? (segment.endHour + next.startHour) / 2 : segment.endHour;
-
-        // Overlapping records (only through hand-edited data) can collapse the
-        // midpoints; fall back to the block itself rather than a zero-width box.
-        if (!(rightHour > leftHour)) {
-            return { leftHour: segment.startHour, rightHour: segment.endHour };
-        }
-
-        return { leftHour, rightHour };
-    });
 }
 
 /**
@@ -203,6 +176,12 @@ const Label = styled.span<{ $anchor: 'start' | 'middle' | 'end' }>`
     );
 `;
 
+/**
+ * The axis, its ticks and the arrow are painted above the plot (see the render
+ * order below), so they need `pointer-events: none`: otherwise the 1px tick
+ * under the cursor swallows the hover that a block or a bucket column should
+ * answer, and the tooltip blinks as the pointer crosses each hour.
+ */
 const Axis = styled.div`
     position: absolute;
     left: 0;
@@ -210,6 +189,7 @@ const Axis = styled.div`
     top: ${AXIS_TOP}px;
     height: ${AXIS_HEIGHT}px;
     background: var(--pl-text-tertiary);
+    pointer-events: none;
 `;
 
 const MajorTick = styled.div`
@@ -218,6 +198,7 @@ const MajorTick = styled.div`
     width: 1px;
     height: ${MAJOR_TICK_HEIGHT}px;
     background: var(--pl-text-tertiary);
+    pointer-events: none;
 `;
 
 const MinorTick = styled.div`
@@ -226,6 +207,7 @@ const MinorTick = styled.div`
     width: 1px;
     height: ${MINOR_TICK_HEIGHT}px;
     background: var(--pl-text-tertiary);
+    pointer-events: none;
 `;
 
 const AxisArrow = styled.div`
@@ -237,6 +219,7 @@ const AxisArrow = styled.div`
     border-left: ${ARROW_WIDTH}px solid var(--pl-text-tertiary);
     border-top: ${ARROW_HALF_HEIGHT}px solid transparent;
     border-bottom: ${ARROW_HALF_HEIGHT}px solid transparent;
+    pointer-events: none;
 `;
 
 const NowMark = styled.div`
@@ -245,6 +228,7 @@ const NowMark = styled.div`
     width: 1px;
     height: ${AXIS_BOTTOM}px;
     background: var(--pl-primary);
+    pointer-events: none;
 `;
 
 const blockBase = css`
@@ -281,8 +265,9 @@ const BlockBox = styled.div`
 const Bar = styled.span`
     position: absolute;
     top: ${HIT_PADDING}px;
+    left: 0;
+    right: 0;
     height: ${BAR_HEIGHT}px;
-    min-width: 1px;
     border-radius: 2px;
     /* The day palette ends in near-white pastels (#ffffc2), which vanish on the
        page background. A hairline in the tertiary text color gives every block
@@ -358,7 +343,6 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = (props: ProjectTi
     const [width, setWidth] = React.useState(0);
 
     const segments = React.useMemo(() => buildSegments(records), [records]);
-    const bounds = React.useMemo(() => hitBounds(segments), [segments]);
 
     React.useLayoutEffect(() => {
         const element = container.current;
@@ -423,9 +407,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = (props: ProjectTi
 
     const blocks = isPeriod
         ? []
-        : segments.map((segment, index) => {
-              const { leftHour, rightHour } = bounds[index];
-              const span = rightHour - leftHour;
+        : segments.map((segment) => {
               const { projectName, label } = projectOf(segment.record, boards, t);
               const blockLabel = t(
                   'chart.timeline.block',
@@ -434,23 +416,13 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = (props: ProjectTi
                   formatClock(segment.endHour),
                   Math.round((segment.endHour - segment.startHour) * 60)
               );
+              // The button is the block: no horizontal padding, so the gaps
+              // between sessions belong to no one.
               const geometry = {
-                  left: `${(leftHour / HOURS_IN_DAY) * 100}%`,
-                  width: `${((rightHour - leftHour) / HOURS_IN_DAY) * 100}%`,
+                  left: `${(segment.startHour / HOURS_IN_DAY) * 100}%`,
+                  width: `${((segment.endHour - segment.startHour) / HOURS_IN_DAY) * 100}%`,
               };
-              const bar = (
-                  <Bar
-                      style={{
-                          left:
-                              span > 0 ? `${((segment.startHour - leftHour) / span) * 100}%` : '0%',
-                          width:
-                              span > 0
-                                  ? `${((segment.endHour - segment.startHour) / span) * 100}%`
-                                  : '100%',
-                          backgroundColor: colorOf(projectName),
-                      }}
-                  />
-              );
+              const bar = <Bar style={{ backgroundColor: colorOf(projectName) }} />;
 
               return (
                   <Hint key={segment.record._id} kind="live" label={blockLabel}>

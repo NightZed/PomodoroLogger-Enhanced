@@ -64,7 +64,7 @@ const MAX_SQUARE_RATIO = 2.25;
  * `borderWidth` (1px) so the rounded corner is not eaten by the page-colored
  * seam; blocks too small for it are clamped by zrender, never distorted.
  */
-export const BLOCK_RADIUS = 4;
+const BLOCK_RADIUS = 4;
 const sumHours = (data: { value: number }[]): number =>
     data.reduce((sum, item) => sum + item.value, 0);
 

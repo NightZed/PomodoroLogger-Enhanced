@@ -19,7 +19,6 @@ import {
     PROJECT_SERIES_NAME,
     APP_SERIES_NAME,
     APPLICATIONS_OTHER_NAME,
-    BLOCK_RADIUS,
     TimeTreemap,
 } from './TimeTreemap';
 import { dayTokens, nightTokens } from '../../../renderer/theme/tokens';
@@ -72,42 +71,43 @@ describe('TimeTreemap option', () => {
 
     it('lays the two treemap panels side by side filling the canvas', () => {
         const option = getOption(props(), dayTokens) as any;
-
-        expect(option.series).toHaveLength(2);
         const [projects, apps] = option.series;
-        expect(projects.type).toBe('treemap');
-        expect(projects.name).toBe(PROJECT_SERIES_NAME);
-        expect(projects.animation).toBe(true);
-        expect(projects.animationDuration).toBe(100);
-        expect(projects.animationDurationUpdate).toBe(500);
-        expect(projects.animationEasing).toBe('cubicOut');
-        expect(projects.levels[1].color.length).toBeGreaterThan(1);
-        expect(apps.levels[1].color.length).toBeGreaterThan(1);
-        const nightOption = getOption(props(), nightTokens) as any;
-        expect(projects.levels[0].color).not.toEqual(nightOption.series[0].levels[0].color);
-        expect(projects.levels[0].color).toEqual(projects.levels[1].color);
-        expect(apps.levels[0].color).toEqual(apps.levels[1].color);
-        expect(apps.type).toBe('treemap');
-        expect(apps.name).toBe(APP_SERIES_NAME);
-        expect(projects.squareRatio).toBeGreaterThan(1);
-        expect(apps.squareRatio).toBeGreaterThan(1);
+
+        expect([projects.type, apps.type]).toEqual(['treemap', 'treemap']);
+        expect([projects.name, apps.name]).toEqual([PROJECT_SERIES_NAME, APP_SERIES_NAME]);
+
         // Both panels span the full height; the right one starts where the
         // left one ends (PANEL_DIVIDE), so no space is wasted.
-        expect(projects.left).toBe(0);
-        expect(projects.right).toBe('51%');
-        expect(apps.left).toBe('51%');
-        expect(apps.right).toBe(0);
+        expect([projects.left, projects.right]).toEqual([0, '51%']);
+        expect([apps.left, apps.right]).toEqual(['51%', 0]);
+        expect([projects.bottom, apps.bottom]).toEqual([0, 0]);
+
+        // A statistics panel, not an explorable tree: no pan, no zoom-to-node,
+        // no breadcrumb. The History view already offers its own filtering.
         for (const series of option.series) {
-            expect(series.bottom).toBe(0);
-            // Rounded blocks; the radius sits above the 1px seam so corners
-            // still read as round against the page-colored gap.
-            expect(series.itemStyle.borderWidth).toBe(1);
-            expect(series.itemStyle.borderRadius).toBe(BLOCK_RADIUS);
-            // Not an explorable tree: no pan/zoom/breadcrumb on a stats panel.
-            expect(series.roam).toBe(false);
-            expect(series.nodeClick).toBe(false);
-            expect(series.breadcrumb).toEqual({ show: false });
+            expect([series.roam, series.nodeClick, series.breadcrumb]).toEqual([
+                false,
+                false,
+                { show: false },
+            ]);
         }
+    });
+
+    it('paints both panel levels from one theme palette', () => {
+        // Without a board map the blocks are colored by `levels`. Both levels
+        // share a palette so expanding the "Others" block keeps every child on
+        // the same fill as its parent, and the night theme never paints the
+        // near-white day palette onto a dark canvas.
+        const paletteOf = (tokens: typeof dayTokens, index: number) =>
+            (getOption(props(), tokens) as any).series[index].levels.map(
+                (level: any) => level.color
+            );
+        const dayProjects = paletteOf(dayTokens, 0);
+        const dayApps = paletteOf(dayTokens, 1);
+
+        expect(dayProjects).toEqual([dayProjects[0], dayProjects[0]]);
+        expect(dayApps).toEqual([dayApps[0], dayApps[0]]);
+        expect(paletteOf(nightTokens, 0)).not.toEqual(dayProjects);
     });
 
     it('keeps a project on the same color when its rank changes', () => {

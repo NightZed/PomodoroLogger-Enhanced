@@ -11,15 +11,6 @@ Status: open（持续追加，不排期）
 | 测试文件 | 条目 | 记录于 |
 | --- | --- | --- |
 | `src/components/common/Search/Search.test.tsx` | 用 `container.firstElementChild` 与 `querySelector('input')` 驱动展开与输入 | 2026-11-22 |
-| `src/components/Visualization/TimeTreemap/TimeTreemap.test.tsx` | 断言动画时长/缓动/圆角等调参值与 `levels[].color` 结构 | 2026-11-23 |
-
-## `src/components/Visualization/TimeTreemap/TimeTreemap.test.tsx`
-
-**现象**：`lays the two treemap panels side by side filling the canvas` 同时断言 `animationDuration`(100)、`animationDurationUpdate`(500)、`animationEasing`、`itemStyle.borderRadius`(=`BLOCK_RADIUS`) 与 `levels[].color` 的形状。前四项是视觉调参值：把入场动画从 100ms 改成 150ms、圆角从 4 改成 3，用户看到的行为（图表很快出现、块带圆角）没变，用例却挂。`levels[].color` 更明显：加了共享项目配色后，项目面板的 `levels` 只是没有 `boards` 时的兜底，断言它钉住的是上色机制，不是「不同项目颜色不同」这个结果。
-
-**规范依据**：`docs/testing.md`「判据」与「可测的契约」——常量与结构要能说清算契约还是代理断言；`AGENTS.md`「测试约定」要求新增/改动测试时回答这个问题。
-
-**修法**：删掉动画时长、缓动、圆角半径这四条断言（或只保留一条带 `// Regression:` 的曲线用例）；`levels` 只断言存在与两档一致，项目颜色改由已有的 `keeps a project on the same color when its rank changes` 覆盖。
 
 ## `src/components/common/Search/Search.test.tsx`
 
@@ -37,3 +28,4 @@ Status: open（持续追加，不排期）
 - `MiniLogger.smoke.test.tsx` 的图标与布局类名（2026-11-22，`[class*="anticon-"]` 与 `withClass` 全部删除：图标改按按钮的 `aria-label`，两行布局的结构断言在 jsdom 里观察不到，换成任务名可见 + 控制按钮存在）。
 - `Application.test.tsx` 的其余 DOM 内部细节（2026-11-22）：`.ant-tabs-tab` → `getAllByRole('tab')`；`.ant-modal` → `within(popupLayer).getByRole('dialog')`；`.ant-modal-wrap` → `getByRole('dialog').parentElement`；`[data-testid="window-ring"]` → 按图层顺序取 `main.children[2]`（产品里的 testid 已删除）；`kanban-page` 的 mock 改成带文本的 div，按文本观察挂载。CSS 形状断言保留，定位从 `style[data-styled]` 换成全部 `style` 标签，仍用元素自身的 `classList` 关联规则——这是 jsdom 里唯一能观察两条渲染性能硬约束的方式。
 - `MiniLogger.smoke.test.tsx` 的秒针与确认动画（2026-11-22）：把秒针角度提成 `common/Mini/secondHand.ts` 的 `advanceSecondHand` / `isSecondHandVisible`，组件只保留一个 `handState` 字段。跨分钟不回退、节流渲染一次跳多秒、暂停保持刻度、新一轮归零都由纯函数测试覆盖，DOM 测试里依赖 `.timer-orbit` / `.timer-confirm` 的 5 条全部删除——它们断言的是 SVG 图形与生成的动画 CSS，jsdom 没有观察点。
+- `TimeTreemap.test.tsx` 的调参值与 `levels` 结构（2026-11-23）：删掉 `animationDuration` / `animationDurationUpdate` / `animationEasing` / `itemStyle.borderRadius` / `squareRatio > 1` 与 `borderWidth` 断言，主用例只留面板身份、左右分区与「不可平移缩放」；`levels[].color` 拆成独立用例「两层共用同一条调色板，夜间不复用日间那套」，只比较结构内的一致性，不钉具体色值。`BLOCK_RADIUS` 随之不再导出。

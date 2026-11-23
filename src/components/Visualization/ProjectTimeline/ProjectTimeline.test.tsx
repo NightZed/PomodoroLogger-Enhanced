@@ -50,10 +50,12 @@ describe('buildSegments', () => {
         ]);
     });
 
-    it('cuts a session that runs past midnight at the end of the axis', () => {
+    it('keeps the real end of a session that runs past midnight', () => {
         const [segment] = buildSegments([record(at(23, 50), 30 * MINUTE, 'late')]);
 
-        expect(segment.endHour).toBe(HOURS_IN_DAY);
+        // 23:50 + 30 min = 00:20 the next day: the label needs that, only the
+        // drawn width is clipped to the axis.
+        expect(Number(segment.endHour.toFixed(6))).toBe(24.333333);
     });
 
     it('drops sessions with no recorded time instead of drawing zero-width blocks', () => {
@@ -96,6 +98,10 @@ describe('formatClock', () => {
             '24:00',
         ]);
     });
+
+    it('prints a moment after midnight on the next day, not 24:15', () => {
+        expect([formatClock(24.25), formatClock(25)]).toEqual(['00:15', '01:00']);
+    });
 });
 
 describe('ProjectTimeline', () => {
@@ -117,6 +123,20 @@ describe('ProjectTimeline', () => {
         expect(
             screen.getByRole('button', { name: 'No project · 11:00–11:25 · 25 min' })
         ).toBeTruthy();
+    });
+
+    it('labels a session that runs past midnight with its real end and length', () => {
+        render(
+            <ProjectTimeline
+                records={[record(at(23, 50), 25 * MINUTE, 'late', 'board1')]}
+                boards={boards}
+                onChooseRecord={jest.fn()}
+            />
+        );
+
+        // Regression: the block used to be clipped before the label was built,
+        // so this read `23:50–24:00 · 10 min`.
+        expect(screen.getByRole('button', { name: 'Alpha · 23:50–00:15 · 25 min' })).toBeTruthy();
     });
 
     it('opens the session that was clicked, not its neighbour', () => {

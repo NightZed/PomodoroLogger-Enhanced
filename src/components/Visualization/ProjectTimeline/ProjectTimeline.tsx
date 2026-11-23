@@ -69,6 +69,10 @@ export function startOfDay(time: number): number {
  * and the nominal duration is what the treemap and the counters report too. A
  * pomodoro that was paused therefore looks shorter than the wall-clock span it
  * occupied — accepted, see the spec.
+ *
+ * `endHour` keeps the real end even past 24, so the label of a session that
+ * runs into the next day can still say how long it was and when it ended.
+ * Drawing clips it to the axis instead (see the geometry in the component).
  */
 export function buildSegments(records: PomodoroRecord[]): TimelineSegment[] {
     if (records.length === 0) {
@@ -90,7 +94,11 @@ export function buildSegments(records: PomodoroRecord[]): TimelineSegment[] {
             continue;
         }
 
-        const endHour = Math.min(startHour + hours, HOURS_IN_DAY);
+        const endHour = startHour + hours;
+        if (endHour <= 0) {
+            continue;
+        }
+
         segments.push({
             record,
             startHour: Math.max(startHour, 0),
@@ -122,11 +130,22 @@ export function labelStepFor(width: number): number {
 }
 
 /** `14:05` — clocks on the axis and in the labels share one formatter. */
+/**
+ * A clock time from an hour offset, rounded to the minute.
+ *
+ * Exactly 24:00 stays `24:00` — that is the end of the axis. Anything past it
+ * belongs to the next day, so a session ending at 24.25 reads `00:15`, matching
+ * the clock the user actually saw rather than an impossible `24:15`.
+ */
 export function formatClock(hour: number): string {
     const totalMinutes = Math.round(hour * 60);
-    const hours = Math.min(HOURS_IN_DAY, Math.floor(totalMinutes / 60));
-    const minutes = hours === HOURS_IN_DAY ? 0 : totalMinutes % 60;
-    return `${to2digits(hours)}:${to2digits(minutes)}`;
+    if (totalMinutes > HOURS_IN_DAY * 60) {
+        const nextDay = totalMinutes % (HOURS_IN_DAY * 60);
+        return `${to2digits(Math.floor(nextDay / 60))}:${to2digits(nextDay % 60)}`;
+    }
+
+    const hours = totalMinutes === HOURS_IN_DAY * 60 ? HOURS_IN_DAY : Math.floor(totalMinutes / 60);
+    return `${to2digits(hours)}:${to2digits(totalMinutes % 60)}`;
 }
 
 function formatHourLabel(hour: number): string {
@@ -417,10 +436,13 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = (props: ProjectTi
                   Math.round((segment.endHour - segment.startHour) * 60)
               );
               // The button is the block: no horizontal padding, so the gaps
-              // between sessions belong to no one.
+              // between sessions belong to no one. A session running past
+              // midnight is clipped here; the label above still tells the
+              // truth about where it ended.
+              const visibleEndHour = Math.min(segment.endHour, HOURS_IN_DAY);
               const geometry = {
                   left: `${(segment.startHour / HOURS_IN_DAY) * 100}%`,
-                  width: `${((segment.endHour - segment.startHour) / HOURS_IN_DAY) * 100}%`,
+                  width: `${((visibleEndHour - segment.startHour) / HOURS_IN_DAY) * 100}%`,
               };
               const bar = <Bar style={{ backgroundColor: colorOf(projectName) }} />;
 

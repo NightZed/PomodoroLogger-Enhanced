@@ -44,6 +44,12 @@ const MAX_AGG_CACHE_ENTRIES = 16;
  */
 type LoadStatus = 'loading' | 'ready' | 'error';
 
+/**
+ * A stable empty list: the timeline keeps its lane while a day is loading, and
+ * a fresh `[]` on every render would rebuild its segments each time.
+ */
+const NO_RECORDS: PomodoroRecord[] = [];
+
 const EMPTY_AGG_INFO: AggPomodoroInfo = {
     agg: {
         day: undefined,
@@ -57,6 +63,7 @@ const EMPTY_AGG_INFO: AggPomodoroInfo = {
     calendarCount: undefined,
     timeSpent: undefined,
     wordWeights: undefined,
+    timeOfDay: undefined,
 };
 
 const Container = styled.div`
@@ -596,18 +603,19 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
                                     </Button>
                                 ) : undefined}
                             </div>
-                            {/* Day scope only: without a picked date the views below
-                                describe the whole period, and a 24-hour lane has no
-                                single day to describe. */}
-                            {shownPomodoros ? (
-                                <TimelineSlot $width={calendarWidth}>
-                                    <ProjectTimeline
-                                        records={shownPomodoros}
-                                        boards={props.boards}
-                                        onChooseRecord={props.chooseRecord}
-                                    />
-                                </TimelineSlot>
-                            ) : undefined}
+                            {/* Always mounted, and it follows the same scope as the
+                                charts below: a picked date draws that day's sessions,
+                                otherwise the lane shows when the filtered range was
+                                worked. Both modes share one box, so nothing below
+                                ever moves. */}
+                            <TimelineSlot $width={calendarWidth}>
+                                <ProjectTimeline
+                                    records={shownPomodoros ?? NO_RECORDS}
+                                    timeOfDay={targetDate == null ? aggInfo.timeOfDay : undefined}
+                                    boards={props.boards}
+                                    onChooseRecord={props.chooseRecord}
+                                />
+                            </TimelineSlot>
                             {aggInfo.total.count === 0 ? (
                                 <div
                                     style={{

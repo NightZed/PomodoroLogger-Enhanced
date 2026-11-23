@@ -23,6 +23,8 @@ describe('History aggregating operations', () => {
                 usedTime: 0,
             },
             calendarCount: {},
+            // 48 half-hour buckets, all empty.
+            timeOfDay: new Array(48).fill(0),
         });
     });
 

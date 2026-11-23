@@ -287,8 +287,50 @@ const Bar = styled.span`
     box-shadow: inset 0 0 0 1px var(--pl-text-tertiary);
 `;
 
+/** The area chart sits on the axis, so it spans the full plot height. */
+const Plot = styled.div`
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: ${AXIS_TOP}px;
+`;
+
+/**
+ * Invisible column over one bucket, carrying its hint. Kept as HTML rather than
+ * an SVG `<rect>` because `Hint` needs an element it can own and clone onto.
+ */
+const BucketHit = styled.div`
+    position: absolute;
+    top: 0;
+    height: 100%;
+`;
+
+/**
+ * Step outline of the area chart in a `0…buckets` by `0…100` viewBox.
+ *
+ * Each bucket stays a flat column: a busy half hour is a plateau of its own
+ * width, not a smooth bump bleeding into the quiet hours around it.
+ */
+export function histogramAreaPath(values: number[], peak: number): string {
+    const top = values.map((value) => 100 - (value / peak) * 100);
+    let path = `M 0 ${top[0].toFixed(2)}`;
+    for (let index = 1; index < top.length; index += 1) {
+        path += ` H ${index} V ${top[index].toFixed(2)}`;
+    }
+
+    return `${path} H ${values.length}`;
+}
+
 export interface ProjectTimelineProps {
+    /** Day mode: the sessions of the day being described. */
     records: PomodoroRecord[];
+    /**
+     * Period mode: focus hours per equal time-of-day bucket across the whole
+     * filtered range (see `getTimeOfDayHistogram`). Takes precedence over
+     * `records` and is drawn as a filled area instead of blocks.
+     */
+    timeOfDay?: number[];
     /** Used for project names and colors; omit to render everything neutral. */
     boards?: ProjectColorSource;
     /** Clicking a block opens the same view as clicking a pomodoro dot. */
@@ -296,12 +338,17 @@ export interface ProjectTimelineProps {
 }
 
 /**
- * A single 24-hour lane under the calendar: when the day's pomodoros ran, in
- * which project, for how long. Everything is positioned in percentages, so a
- * resize needs no re-layout — only the label interval depends on the width.
+ * A single 24-hour lane under the calendar. It describes whatever the charts
+ * below describe: one day when a date is picked (blocks per session, coloured by
+ * project), or the whole filtered range otherwise (an area chart of the hours
+ * worked at each time of day).
+ *
+ * Everything is positioned in percentages, so a resize needs no re-layout — only
+ * the label interval depends on the width. Both modes use the same box, and an
+ * empty one keeps its height and draws nothing, so the charts below never move.
  */
 export const ProjectTimeline: React.FC<ProjectTimelineProps> = (props: ProjectTimelineProps) => {
-    const { records, boards, onChooseRecord } = props;
+    const { records, timeOfDay, boards, onChooseRecord } = props;
     const { t } = useI18n();
     const colorOf = useProjectColors(boards);
     const container = React.useRef<HTMLDivElement | null>(null);
@@ -309,10 +356,7 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = (props: ProjectTi
 
     const segments = React.useMemo(() => buildSegments(records), [records]);
     const bounds = React.useMemo(() => hitBounds(segments), [segments]);
-    const hasRecords = segments.length > 0;
 
-    // Keyed by `hasRecords`: the first render of an empty list does not mount
-    // the measured element, so a mount-only effect would never observe it.
     React.useLayoutEffect(() => {
         const element = container.current;
         if (element == null) {
@@ -328,15 +372,17 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = (props: ProjectTi
         const observer = new ResizeObserver(measure);
         observer.observe(element);
         return () => observer.disconnect();
-    }, [hasRecords]);
+    }, []);
 
-    if (!hasRecords) {
-        return null;
+    const isPeriod = timeOfDay !== undefined;
+    const periodPeak = isPeriod ? Math.max(0, ...timeOfDay) : 0;
+
+    // An empty lane holds the space without claiming to be a chart: no axis, no
+    // label and nothing for assistive tech to read over the date above it.
+    if (isPeriod ? periodPeak <= 0 : segments.length === 0) {
+        return <Chart ref={container} aria-hidden="true" />;
     }
 
-    const dayStart = startOfDay(segments[0].record.startTime);
-    const now = Date.now();
-    const nowHour = startOfDay(now) === dayStart ? (now - dayStart) / 3600000 : undefined;
     const step = labelStepFor(width);
 
     const labels: React.ReactNode[] = [];
@@ -372,73 +418,149 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = (props: ProjectTi
         );
     }
 
-    const blocks = segments.map((segment, index) => {
-        const { leftHour, rightHour } = bounds[index];
-        const span = rightHour - leftHour;
-        const { projectName, label } = projectOf(segment.record, boards, t);
-        const blockLabel = t(
-            'chart.timeline.block',
-            label,
-            formatClock(segment.startHour),
-            formatClock(segment.endHour),
-            Math.round((segment.endHour - segment.startHour) * 60)
-        );
-        const geometry = {
-            left: `${(leftHour / HOURS_IN_DAY) * 100}%`,
-            width: `${((rightHour - leftHour) / HOURS_IN_DAY) * 100}%`,
-        };
-        const bar = (
-            <Bar
-                style={{
-                    left: span > 0 ? `${((segment.startHour - leftHour) / span) * 100}%` : '0%',
-                    width:
-                        span > 0
-                            ? `${((segment.endHour - segment.startHour) / span) * 100}%`
-                            : '100%',
-                    backgroundColor: colorOf(projectName),
-                }}
-            />
-        );
+    const blocks = isPeriod
+        ? []
+        : segments.map((segment, index) => {
+              const { leftHour, rightHour } = bounds[index];
+              const span = rightHour - leftHour;
+              const { projectName, label } = projectOf(segment.record, boards, t);
+              const blockLabel = t(
+                  'chart.timeline.block',
+                  label,
+                  formatClock(segment.startHour),
+                  formatClock(segment.endHour),
+                  Math.round((segment.endHour - segment.startHour) * 60)
+              );
+              const geometry = {
+                  left: `${(leftHour / HOURS_IN_DAY) * 100}%`,
+                  width: `${((rightHour - leftHour) / HOURS_IN_DAY) * 100}%`,
+              };
+              const bar = (
+                  <Bar
+                      style={{
+                          left:
+                              span > 0 ? `${((segment.startHour - leftHour) / span) * 100}%` : '0%',
+                          width:
+                              span > 0
+                                  ? `${((segment.endHour - segment.startHour) / span) * 100}%`
+                                  : '100%',
+                          backgroundColor: colorOf(projectName),
+                      }}
+                  />
+              );
 
-        return (
-            <Hint key={segment.record._id} kind="live" label={blockLabel}>
-                {onChooseRecord === undefined ? (
-                    <BlockBox style={geometry}>{bar}</BlockBox>
-                ) : (
-                    <BlockButton
-                        type="button"
-                        data-pressable
-                        aria-label={blockLabel}
-                        style={geometry}
-                        onClick={() => onChooseRecord(segment.record)}
-                    >
-                        {bar}
-                    </BlockButton>
+              return (
+                  <Hint key={segment.record._id} kind="live" label={blockLabel}>
+                      {onChooseRecord === undefined ? (
+                          <BlockBox style={geometry}>{bar}</BlockBox>
+                      ) : (
+                          <BlockButton
+                              type="button"
+                              data-pressable
+                              aria-label={blockLabel}
+                              style={geometry}
+                              onClick={() => onChooseRecord(segment.record)}
+                          >
+                              {bar}
+                          </BlockButton>
+                      )}
+                  </Hint>
+              );
+          });
+
+    const dayStart =
+        !isPeriod && segments.length > 0 ? startOfDay(segments[0].record.startTime) : undefined;
+    const now = Date.now();
+    const nowHour =
+        dayStart !== undefined && startOfDay(now) === dayStart
+            ? (now - dayStart) / 3600000
+            : undefined;
+
+    let plot: React.ReactNode;
+    let summary: string;
+    if (isPeriod) {
+        const bucketHours = HOURS_IN_DAY / timeOfDay.length;
+        const totalHours = timeOfDay.reduce((sum, value) => sum + value, 0);
+        const peakIndex = timeOfDay.indexOf(periodPeak);
+        const outline = histogramAreaPath(timeOfDay, periodPeak);
+        summary = t(
+            'chart.timeline.period',
+            totalHours.toFixed(1),
+            `${formatClock(peakIndex * bucketHours)}–${formatClock((peakIndex + 1) * bucketHours)}`
+        );
+        plot = (
+            <Plot>
+                <svg
+                    width="100%"
+                    height="100%"
+                    viewBox={`0 0 ${timeOfDay.length} 100`}
+                    preserveAspectRatio="none"
+                    aria-hidden="true"
+                >
+                    <path
+                        d={`${outline} V 100 H 0 Z`}
+                        style={{ fill: 'var(--pl-primary)', fillOpacity: 0.22 }}
+                    />
+                    <path
+                        d={outline}
+                        style={{ fill: 'none', stroke: 'var(--pl-primary)', strokeWidth: 1 }}
+                        vectorEffect="non-scaling-stroke"
+                    />
+                </svg>
+                {timeOfDay.map((value, index) =>
+                    value > 0 ? (
+                        <Hint
+                            key={`bucket-${index}`}
+                            kind="live"
+                            label={t(
+                                'chart.timeline.bucket',
+                                formatClock(index * bucketHours),
+                                formatClock((index + 1) * bucketHours),
+                                value.toFixed(1)
+                            )}
+                        >
+                            <BucketHit
+                                style={{
+                                    left: `${(index / timeOfDay.length) * 100}%`,
+                                    width: `${100 / timeOfDay.length}%`,
+                                }}
+                            />
+                        </Hint>
+                    ) : null
                 )}
-            </Hint>
+            </Plot>
         );
-    });
-
-    const summary = t(
-        'chart.timeline.summary',
-        segments.length,
-        formatClock(segments[0].startHour),
-        formatClock(segments[segments.length - 1].endHour)
-    );
+    } else {
+        summary = t(
+            'chart.timeline.summary',
+            segments.length,
+            formatClock(segments[0].startHour),
+            formatClock(segments[segments.length - 1].endHour)
+        );
+        plot = (
+            <>
+                {blocks}
+                {nowHour === undefined ? undefined : (
+                    <NowMark
+                        aria-hidden="true"
+                        style={{ left: `${(nowHour / HOURS_IN_DAY) * 100}%` }}
+                    />
+                )}
+            </>
+        );
+    }
 
     return (
-        <Chart ref={container} role={onChooseRecord ? 'group' : 'img'} aria-label={summary}>
+        <Chart
+            ref={container}
+            role={!isPeriod && onChooseRecord !== undefined ? 'group' : 'img'}
+            aria-label={summary}
+        >
             {labels}
             <Axis />
             <AxisArrow aria-hidden="true" />
             {ticks}
-            {blocks}
-            {nowHour === undefined ? undefined : (
-                <NowMark
-                    aria-hidden="true"
-                    style={{ left: `${(nowHour / HOURS_IN_DAY) * 100}%` }}
-                />
-            )}
+            {plot}
         </Chart>
     );
 };

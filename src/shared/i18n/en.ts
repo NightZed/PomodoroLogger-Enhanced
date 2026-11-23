@@ -477,6 +477,10 @@ export const en = {
                 `${count} ${count === 1 ? 'pomodoro' : 'pomodoros'} · ${from}–${to}`,
             block: (project: string, from: string, to: string, minutes: number): string =>
                 `${project} · ${from}–${to} · ${minutes} min`,
+            period: (hours: string, peak: string): string =>
+                `${hours} h in this period · busiest ${peak}`,
+            bucket: (from: string, to: string, hours: string): string =>
+                `${from}–${to} · ${hours} h`,
         },
     },
 

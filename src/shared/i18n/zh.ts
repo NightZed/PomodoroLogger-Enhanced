@@ -452,6 +452,9 @@ export const zh: CatalogShape<typeof en> = {
                 `${count} 个番茄 · ${from}–${to}`,
             block: (project: string, from: string, to: string, minutes: number): string =>
                 `${project} · ${from}–${to} · ${minutes} 分钟`,
+            period: (hours: string, peak: string): string => `${hours} 小时 · 最集中在 ${peak}`,
+            bucket: (from: string, to: string, hours: string): string =>
+                `${from}–${to} · ${hours} 小时`,
         },
     },
 

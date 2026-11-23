@@ -4,6 +4,7 @@ import {
     buildSegments,
     formatClock,
     hitBounds,
+    histogramAreaPath,
     HOURS_IN_DAY,
     labelStepFor,
     MIN_LABEL_GAP,
@@ -109,6 +110,17 @@ describe('labelStepFor', () => {
     });
 });
 
+describe('histogramAreaPath', () => {
+    it('keeps a busy bucket a flat column instead of a slope', () => {
+        // Values are 0 / peak / half. The peak has to stay at the top across its
+        // whole width, so the chart shows which half hour was busy rather than
+        // smoothing it into the neighbouring ones.
+        const path = histogramAreaPath([0, 2, 1], 2);
+
+        expect(path).toContain('H 1 V 0.00 H 2');
+    });
+});
+
 describe('formatClock', () => {
     it('rounds to the minute and prints the end of the day as 24:00', () => {
         expect([formatClock(9.25), formatClock(9.5), formatClock(HOURS_IN_DAY)]).toEqual([
@@ -157,10 +169,28 @@ describe('ProjectTimeline', () => {
         expect(onChooseRecord.mock.calls[0][0]._id).toBe('second');
     });
 
-    it('takes no space at all when the day has no sessions', () => {
-        const { container } = render(<ProjectTimeline records={[]} onChooseRecord={jest.fn()} />);
+    it('holds its space but claims no chart on a day without sessions', () => {
+        render(<ProjectTimeline records={[]} onChooseRecord={jest.fn()} />);
 
-        expect(container.innerHTML).toBe('');
+        expect(screen.queryAllByRole('button')).toEqual([]);
+        expect(screen.queryAllByRole('group')).toEqual([]);
+        expect(screen.queryAllByRole('img')).toEqual([]);
+    });
+
+    it('summarises the filtered range when no date is picked', () => {
+        // Eight buckets of three hours; three of them sit in the 09:00–12:00 one.
+        render(<ProjectTimeline records={[]} timeOfDay={[0, 0, 1, 3, 0, 0, 0, 0]} />);
+
+        expect(screen.queryAllByRole('button')).toEqual([]);
+        expect(
+            screen.getByRole('img', { name: '4.0 h in this period · busiest 09:00–12:00' })
+        ).toBeTruthy();
+    });
+
+    it('stays blank when the filtered range has no sessions either', () => {
+        render(<ProjectTimeline records={[]} timeOfDay={new Array(8).fill(0)} />);
+
+        expect(screen.queryAllByRole('img')).toEqual([]);
     });
 
     it('summarises the day for assistive tech when the blocks cannot be clicked', () => {

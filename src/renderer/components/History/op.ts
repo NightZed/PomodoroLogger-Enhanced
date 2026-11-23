@@ -5,6 +5,7 @@ import {
     getTokenWeights,
     getPomodoroAgg,
     getPomodoroCalendarData,
+    getTimeOfDayHistogram,
     getTimeSpentDataFromRecordsSync,
     TimeSpentData,
 } from '../../../utils/aggPomodoro';
@@ -60,6 +61,8 @@ export interface AggPomodoroInfo {
     calendarCount?: any;
     wordWeights?: [string, number][];
     timeSpent?: TimeSpentData;
+    /** Focus hours per 30-minute bucket of the day, over the same records as `timeSpent`. */
+    timeOfDay?: number[];
 }
 
 /**
@@ -90,6 +93,7 @@ export async function getAggPomodoroInfo(
         },
         wordWeights: getTokenWeights(yearRecords),
         timeSpent: await getTimeSpentDataFromRecords(yearRecords),
+        timeOfDay: getTimeOfDayHistogram(yearRecords),
         calendarCount: getPomodoroCalendarData(yearRecords),
     };
 }

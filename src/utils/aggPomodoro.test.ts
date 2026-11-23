@@ -2,6 +2,7 @@ import {
     aggHistory,
     getDateFromTimestamp,
     getPomodoroCalendarData,
+    getTimeOfDayHistogram,
     getTimeSpentDataFromRecordsSync,
 } from './aggPomodoro';
 
@@ -126,5 +127,33 @@ describe('aggPomodoro shared core', () => {
         const ans = aggHistory([], yearRecords, { b1: 'Work' }, undefined);
         expect(ans.total).toEqual({ count: 2, usedTime: 2 });
         expect(Object.keys(ans.calendarCount).length).toBe(2);
+    });
+});
+
+describe('getTimeOfDayHistogram', () => {
+    const at = (hour: number, minute = 0) => new Date(2020, 5, 15, hour, minute).getTime();
+    const record = (startTime: number, spentTimeInHour: number) =>
+        ({ startTime, spentTimeInHour }) as any;
+    /** Buckets are 30 minutes, so index 21 starts at 10:30. */
+    const bucket = (hours: number[], index: number) => Number(hours[index].toFixed(6));
+
+    it('splits a session across the buckets it covers', () => {
+        // 10:50–11:15 is 10 minutes in the 10:30 bucket and 15 in the 11:00 one.
+        const hours = getTimeOfDayHistogram([record(at(10, 50), 25 / 60)]);
+
+        expect([bucket(hours, 21), bucket(hours, 22)]).toEqual([0.166667, 0.25]);
+    });
+
+    it('accounts for every hour spent, once', () => {
+        const hours = getTimeOfDayHistogram([record(at(9), 2), record(at(14, 30), 1.5)]);
+
+        expect(Number(hours.reduce((sum, value) => sum + value, 0).toFixed(6))).toBe(3.5);
+    });
+
+    it('feeds the early buckets when a session runs past midnight', () => {
+        // 23:50 + 30 minutes: 10 minutes before midnight, 20 after.
+        const hours = getTimeOfDayHistogram([record(at(23, 50), 0.5)]);
+
+        expect([bucket(hours, 47), bucket(hours, 0)]).toEqual([0.166667, 0.333333]);
     });
 });

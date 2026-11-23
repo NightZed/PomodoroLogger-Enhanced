@@ -151,6 +151,60 @@ export function getTokenWeights(records: PomodoroRecord[]): [string, number][] {
 }
 
 /**
+ * Focus hours per time-of-day bucket, summed over every record.
+ *
+ * This is the "when do I work" view for a date range: a session is split
+ * across the buckets it overlaps (10:50–11:15 adds 10 min to the 10:30 bucket
+ * and 15 min to the 11:00 one) and lands by its own clock time, so a session
+ * running past midnight feeds the late buckets of the same lane rather than
+ * being dropped or doubled.
+ *
+ * The duration used is `spentTimeInHour`, the same nominal value as every other
+ * chart; the buckets hold hours, not pomodoro counts.
+ */
+export function getTimeOfDayHistogram(pomodoros: PomodoroRecord[], bucketMinutes = 30): number[] {
+    const bucketsPerDay = (24 * 60) / bucketMinutes;
+    const bucketMs = bucketMinutes * 60000;
+    const hours = new Array<number>(bucketsPerDay).fill(0);
+
+    for (const pomodoro of pomodoros) {
+        const spent = pomodoro.spentTimeInHour;
+        if (!(spent > 0)) {
+            continue;
+        }
+
+        const start = pomodoro.startTime;
+        const end = start + spent * 3600000;
+        // A session may cross midnight; walking day by day keeps the bucket
+        // index a plain time of day. The day length is assumed to be 24h, the
+        // same assumption `getDateFromTimestamp` makes for the calendar.
+        for (
+            let dayStart = getDateFromTimestamp(start).getTime();
+            dayStart < end;
+            dayStart += DAY_MS
+        ) {
+            const from = Math.max(start, dayStart);
+            const to = Math.min(end, dayStart + DAY_MS);
+            if (to <= from) {
+                continue;
+            }
+
+            const first = Math.floor((from - dayStart) / bucketMs);
+            const last = Math.min(bucketsPerDay - 1, Math.floor((to - 1 - dayStart) / bucketMs));
+            for (let index = first; index <= last; index += 1) {
+                const bucketStart = dayStart + index * bucketMs;
+                const overlap = Math.min(to, bucketStart + bucketMs) - Math.max(from, bucketStart);
+                if (overlap > 0) {
+                    hours[index] += overlap / 3600000;
+                }
+            }
+        }
+    }
+
+    return hours;
+}
+
+/**
  * Everything the History view needs, computed from already-queried records.
  * Runs inside the db worker so raw records never cross to the main thread.
  *
@@ -191,6 +245,9 @@ export function aggHistory(
         },
         wordWeights: getTokenWeights(period),
         timeSpent: getTimeSpentDataFromRecordsSync(period, boardNames),
+        // Same records as the treemap, so the lane above it describes the same
+        // range: the selected month, the selected year, or everything.
+        timeOfDay: getTimeOfDayHistogram(period),
         calendarCount: getPomodoroCalendarData(yearRecords),
     };
 }

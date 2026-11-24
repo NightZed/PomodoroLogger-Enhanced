@@ -67,11 +67,6 @@ jest.mock('../Visualization/WordCloud', () => ({
     AsyncWordCloud: () => <div data-testid="word-cloud" />,
 }));
 jest.mock('./FocusSelector', () => ({ FocusSelector: () => <div data-testid="focus-selector" /> }));
-jest.mock('./PomodoroNumView', () => ({
-    PomodoroNumView: ({ pomodoros }: any) => (
-        <div data-testid="pomodoro-num">{pomodoros.length}</div>
-    ),
-}));
 /** Set by the boundary test: makes one of the page's children throw. */
 let mockProgressThrows = false;
 jest.mock('./Progress', () => ({
@@ -591,6 +586,19 @@ describe('Timer page', () => {
         await rerenderTimer(view, next);
 
         expect(getTodaySessions).toHaveBeenCalledTimes(2);
+    });
+
+    it('draws one dot per pomodoro of the day', async () => {
+        (getTodaySessions as jest.Mock).mockResolvedValue([
+            { _id: 's1', startTime: 1, boardId: 'b1' },
+            { _id: 's2', startTime: 2, boardId: 'b1' },
+        ]);
+
+        const view = await renderTimer();
+
+        // The dot row is the page's only `img` per session; each dot's hint
+        // label is the session's start time.
+        expect(view.getAllByRole('img', { name: /^\d{2}:\d{2}$/ })).toHaveLength(2);
     });
 
     it('shows today sessions and opens the more panel', async () => {

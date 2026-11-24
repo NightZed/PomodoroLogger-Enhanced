@@ -10,17 +10,11 @@ Status: open（持续追加，不排期）
 
 | 测试文件 | 条目 | 记录于 |
 | --- | --- | --- |
-| `src/renderer/components/Timer/Timer.test.tsx` | 整份文件 mock 掉应用内部的 `PomodoroNumView` | 2026-11-24 |
-
-## `src/renderer/components/Timer/Timer.test.tsx`
-
-**现象**：文件顶部的 `jest.mock('./PomodoroNumView')` 把应用内部的圆点组件换成占位文本，整页测试因此完全看不到圆点，也无法验证「倒计时页面画出的圆点与今日番茄数据一致」。`SessionEndingMask.test.tsx` 的同名 mock 已在 2026-11-24 删掉，这份文件还是老样子。
-
-**规范依据**：`docs/testing.md` 的「mock 停在哪」——只 mock `fs` / `electron` / `get-windows` / `electron-updater` / 时钟 / 随机数 / worker，应用内部的一切跑真实现。
-
-**修法**（待做）：去掉 mock；用到圆点的用例按 `role="img"` 的 `aria-label`（已存点是 `HH:MM`，待确认点是 `[New]`）查询；夹具用完整的 `PomodoroRecord`。属于存量整治，不要和功能改动混在一次提交里。
+| （暂无） | | |
 
 ## 已修复
+
+- `src/renderer/components/Timer/Timer.test.tsx` 的圆点组件 mock（2026-11-24）：删掉 `jest.mock('./PomodoroNumView')`，整页测试第一次真的渲染圆点；新增「draws one dot per pomodoro of the day」按 `role="img"` + `HH:MM` 的名称数点，确认真实组件与今日数据对得上。同一提交里 `SessionEndingMask.test.tsx` 也做了同样的清理。
 
 - `src/renderer/components/Timer/SessionEndingMask.test.tsx` 的圆点组件 mock（2026-11-24）：删掉 `jest.mock('./PomodoroNumView')`，夹具换成完整的 `PomodoroRecord` 工厂；两条计数用例同时断言标题数字与 `role="img"` 的圆点数量，于是「标题数量和下方圆点一致」第一次真的被覆盖。
 

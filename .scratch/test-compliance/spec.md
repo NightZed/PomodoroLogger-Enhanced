@@ -10,17 +10,11 @@ Status: open（持续追加，不排期）
 
 | 测试文件 | 条目 | 记录于 |
 | --- | --- | --- |
-| `src/renderer/components/Timer/Timer.test.tsx` | 三条提示音用例依赖 `DEBUG_TIME_SCALE = 120` | 2026-11-24 |
-
-## `src/renderer/components/Timer/Timer.test.tsx`
-
-**现象**：`plays the short break sound at the configured volume when a break ends`、`plays the long break sound when the fourth break ends`、`falls back to the bundled chime when the file cannot be played` 三条用例用 `targetTime: Date.now() + 1` 加 `jest.advanceTimersByTime(1000)` 驱动会话结束。它们只在 `DEBUG_TIME_SCALE = 120`（`src/config.ts` 的非生产默认值）下通过；把倍速改成 1（本地观察动画时的常规操作）后三条全挂，`played` 为空——1ms 的墙钟剩余在 1 倍速下撑不到会话结束，`onDone` 不会触发。
-
-**规范依据**：`docs/testing.md` 的判据——测试应只依赖被测行为。这三条测的是「会话结束 → 播放提示音」，却把结果绑在一个可被本地调试开关改写的全局配置上，属于环境耦合，不是契约。
-
-**修法**（待做）：把 `timeScale` 变成可注入的 seam（测试里 mock `config` 模块，或让 `countdownSeconds` / `progressPercent` 的调用方接受 scale 参数），用例显式使用自己声明的倍速；或者不再用 1ms 的剩余时间去博 120 倍速，改成把 `targetTime` 设到「距离结束不足一个采样周期」的绝对时间点，让 `onDone` 在 1 倍速下也必然触发。选哪种取决于 `timeScale` 还要不要保留全局读取。
+| （暂无） | | |
 
 ## 已修复
+
+- `src/renderer/components/Timer/Timer.test.tsx` 的提示音用例（2026-11-24）：9 处 `targetTime: Date.now() + 1` 换成 `justExpired()`（`Date.now() - 1`）。原先靠开发环境的 120 倍速才能在 1 秒内把「剩 1ms」算成负数；1 倍速下第一次 500ms 采样仍是 0 秒，`onDone` 不触发，三条播放断言挂掉、几条静默断言变成空跑。改成已过期 1ms 后第一次采样就结束，与 `timeScale()` 无关；已分别在 120 与 1 两种倍速下跑通。
 
 - `src/renderer/components/Kanban/Board/BoardBrief.test.tsx`（2026-11-21，17 条用例全部改跑真实组件与真实存储）。
 - `src/components/Visualization/Badge/Badge.test.tsx`（2026-11-21，10 条用例改断言纯函数与 hook 状态，不再读 `clipPath` 的 `transform`）。

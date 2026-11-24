@@ -273,6 +273,15 @@ const confirmFromMiniStrip = async (button: HTMLElement) => {
     });
 };
 
+/**
+ * A session that expired one millisecond before the page mounted.
+ * `updateLeftTime` samples every 500ms and `countdownSeconds` rounds to the
+ * nearest second, so "ends in 1ms" still reads 0 seconds left on the first
+ * sample at 1x -- only the development 120x scale made it negative there.
+ * Already expired, it ends on the first sample whatever `timeScale()` is.
+ */
+const justExpired = () => Date.now() - 1;
+
 describe('Timer page', () => {
     beforeEach(() => {
         jest.useFakeTimers({ now: new Date('2026-01-01T00:00:00Z') });
@@ -839,14 +848,13 @@ describe('Timer page', () => {
         const { actions } = await renderTimer({
             isFocusing: false,
             isRunning: true,
-            targetTime: Date.now() + 1,
+            targetTime: justExpired(),
         });
 
         await act(async () => {
-            // Two 500ms ticks. A single tick only reaches "00:00":
-            // `countdownSeconds` rounds to the nearest second, so a session
-            // that is 499ms past its target is still 0 seconds left. The second
-            // tick goes negative and ends the session -- at any clock scale.
+            // One 500ms sample is enough: the session had already expired when
+            // the page mounted, so `countdownSeconds` comes back negative and
+            // the page ends it on the first tick.
             jest.advanceTimersByTime(1000);
         });
 
@@ -859,7 +867,7 @@ describe('Timer page', () => {
         const { actions } = await renderTimer({
             isFocusing: false,
             isRunning: true,
-            targetTime: Date.now() + 1,
+            targetTime: justExpired(),
             inTray: true,
         });
 
@@ -879,7 +887,7 @@ describe('Timer page', () => {
         await renderTimer({
             isFocusing: false,
             isRunning: true,
-            targetTime: Date.now() + 1,
+            targetTime: justExpired(),
             inTray: true,
             openWindowOnSessionEnd: true,
         });
@@ -949,7 +957,7 @@ describe('Timer page', () => {
             isFocusing: false,
             iBreak: 1,
             isRunning: true,
-            targetTime: Date.now() + 1,
+            targetTime: justExpired(),
             shortBreakSoundPath: 'C:\\sounds\\short.wav',
             soundVolume: 0.3,
         });
@@ -969,7 +977,7 @@ describe('Timer page', () => {
             isFocusing: false,
             iBreak: 0,
             isRunning: true,
-            targetTime: Date.now() + 1,
+            targetTime: justExpired(),
             longBreakSoundPath: 'C:\\sounds\\long.wav',
         });
 
@@ -986,7 +994,7 @@ describe('Timer page', () => {
             isFocusing: false,
             iBreak: 1,
             isRunning: true,
-            targetTime: Date.now() + 1,
+            targetTime: justExpired(),
             shortBreakSoundPath: 'C:\\sounds\\short.wav',
             shortBreakSoundEnabled: false,
         });
@@ -1004,7 +1012,7 @@ describe('Timer page', () => {
             isFocusing: false,
             iBreak: 1,
             isRunning: true,
-            targetTime: Date.now() + 1,
+            targetTime: justExpired(),
             soundVolume: 0,
         });
 
@@ -1027,7 +1035,7 @@ describe('Timer page', () => {
             isFocusing: false,
             iBreak: 1,
             isRunning: true,
-            targetTime: Date.now() + 1,
+            targetTime: justExpired(),
             shortBreakSoundPath: 'C:\\sounds\\short.wav',
         });
 
@@ -1053,7 +1061,7 @@ describe('Timer page', () => {
         await renderTimer({
             isFocusing: false,
             isRunning: true,
-            targetTime: Date.now() + 1,
+            targetTime: justExpired(),
             desktopNotification: false,
         });
 

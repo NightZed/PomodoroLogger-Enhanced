@@ -8,6 +8,7 @@ import { DAY_THEME_ID, NIGHT_THEME_ID } from '../../theme/tokens';
 import { scaleMs } from '../../../config';
 import { DEFAULT_SOUND_URL, soundUrl } from '../../sound';
 import { announceWindowHideIntent } from '../windowHideIntent';
+import { t } from '../../i18n';
 
 const mockMonitorInstances: any[] = [];
 
@@ -77,9 +78,6 @@ jest.mock('./Progress', () => ({
         }
         return <div data-testid="progress">{children}</div>;
     },
-}));
-jest.mock('./WorkRestIcon', () => ({
-    WorkRestIcon: () => <button data-testid="work-rest" />,
 }));
 jest.mock('./SessionEndingMask', () => ({
     TimerMask: ({ showMask, pomodoros, onCancel, onStart }: any) => (
@@ -599,6 +597,21 @@ describe('Timer page', () => {
         // The dot row is the page's only `img` per session; each dot's hint
         // label is the session's start time.
         expect(view.getAllByRole('img', { name: /^\d{2}:\d{2}$/ })).toHaveLength(2);
+    });
+
+    it("shows the mode and today's count under the countdown", async () => {
+        (getTodaySessions as jest.Mock).mockResolvedValue([
+            { _id: 's1', startTime: 1, boardId: 'b1' },
+            { _id: 's2', startTime: 2, boardId: 'b1' },
+        ]);
+
+        const view = await renderTimer();
+
+        // The mode line replaced the old clickable work/rest icon; its count
+        // matches the dots drawn below.
+        expect(
+            view.getByText(t('timer.stats.modeWithCount', t('timer.stats.focusing'), 2))
+        ).toBeTruthy();
     });
 
     it('shows today sessions and opens the more panel', async () => {

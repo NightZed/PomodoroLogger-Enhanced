@@ -102,7 +102,7 @@ export const en = {
             pause: 'Clicking the same button again pauses the timer.',
             stop: 'You can stop the timer here',
             focus: 'Every Pomodoro record will be linked to the Kanban which you are focusing on',
-            mode: 'There are focus sessions and rest sessions. You can click the icon to switch them.',
+            mode: 'There are focus sessions and rest sessions. You can click the button below to switch them.',
         },
         kanban: {
             switchTab:
@@ -186,6 +186,10 @@ export const en = {
             timeSpent: 'Time Spent',
             wordCloud: 'Word Cloud',
             pomodorosToday: 'Pomodoros Today',
+            /** The current mode in the middle of the dial. */
+            focusing: 'Focus',
+            /** Mode name followed by today's pomodoro count; shared with the mini tooltip. */
+            modeWithCount: (mode: string, count: number): string => `${mode} · 🍅 ${count}`,
         },
         saveFailed:
             'This pomodoro could not be saved. It will not appear in your history and no project or card was credited.',

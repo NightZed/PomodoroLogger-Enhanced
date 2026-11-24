@@ -20,6 +20,7 @@ const baseProps = {
     hasSession: false,
     secondsLeft: undefined as number | undefined,
     task: 'MiniLogger regression test',
+    pomodorosToday: 3,
 };
 
 const all = (container: HTMLElement, selector: string) =>
@@ -116,5 +117,12 @@ describe('MiniLogger mini strip', () => {
         expect(stateLabel({ isConfirming: true })).toContain('Finish');
         expect(stateLabel({ hasSession: true, isRunning: true })).toContain('Running');
         expect(stateLabel({ hasSession: true, isRunning: false })).toContain('Paused');
+    });
+
+    it("appends today's count to the dial label", () => {
+        const { container } = renderMini({ pomodorosToday: 7 });
+        const dial = container.querySelector('svg[role="img"]');
+
+        expect(dial?.getAttribute('aria-label')).toContain('🍅 7');
     });
 });

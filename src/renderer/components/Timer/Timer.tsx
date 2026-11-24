@@ -53,7 +53,6 @@ import {
 } from './sessionState';
 import { TimerMask } from './SessionEndingMask';
 import { nextMacroTask, waitUntil } from './wait';
-import { WorkRestIcon } from './WorkRestIcon';
 import { Hint } from '../../../components/common/Hint/Hint';
 import { pressable } from '../../../components/common/pressable';
 
@@ -110,6 +109,20 @@ const ProgressTextContainer = styled.div`
     flex-direction: column;
     align-items: center;
     justify-content: center;
+`;
+
+/**
+ * The mode line under the countdown. It used to be a clickable icon pair
+ * (WorkRestIcon); the mode can only be switched from the button row, so this
+ * is plain text now and carries today's count as well.
+ *
+ * 0.48em is the old label's size: the wrapper was 0.6em and its label 0.8em,
+ * so keeping the product leaves the line exactly as small as before.
+ */
+const ModeSummary = styled.div`
+    font-size: 0.48em;
+    user-select: none;
+    white-space: nowrap;
 `;
 
 const TimerLayout = styled.div<{ $compact: boolean }>`
@@ -1716,6 +1729,7 @@ class Timer extends Component<Props, State> {
                            `undefined` while idle hides the hand, exactly like
                            the dial it belongs to. */
                         secondsLeft={secondsLeft}
+                        pomodorosToday={pomodorosToday.length}
                         switch={this.switchMode}
                         task={name || ''}
                         time={shownLeftTime.slice(0, 2)}
@@ -1850,14 +1864,18 @@ class Timer extends Component<Props, State> {
                                     >
                                         {shownLeftTime}
                                     </div>
-                                    <WorkRestIcon
-                                        isWorking={this.props.timer.isFocusing}
-                                        isLongBreak={
-                                            !(this.props.timer.iBreak % LONG_BREAK_INTERVAL)
-                                        }
-                                        aria-label={t('timer.controls.switchTimerMode')}
-                                        onClick={this.switchMode}
-                                    />
+                                    <ModeSummary>
+                                        {t(
+                                            'timer.stats.modeWithCount',
+                                            isFocusing
+                                                ? t('timer.stats.focusing')
+                                                : this.props.timer.iBreak % LONG_BREAK_INTERVAL ===
+                                                    0
+                                                  ? t('timer.session.longBreak')
+                                                  : t('timer.session.shortBreak'),
+                                            pomodorosToday.length
+                                        )}
+                                    </ModeSummary>
                                 </ProgressTextContainer>
                             </Progress>
                         </ProgressContainer>

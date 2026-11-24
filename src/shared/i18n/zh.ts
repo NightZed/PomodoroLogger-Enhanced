@@ -91,7 +91,7 @@ export const zh: CatalogShape<typeof en> = {
             pause: '再次点击同一个按钮即可暂停计时。',
             stop: '可以在这里停止计时',
             focus: '每条番茄记录都会关联到你正在专注的看板项目',
-            mode: '会话分为专注和休息两种，点击图标即可切换。',
+            mode: '会话分为专注和休息两种，点击底部按钮即可切换。',
         },
         kanban: {
             switchTab: '让我们切换到看板（点击看板标签，或按「确定」前往）',
@@ -172,6 +172,10 @@ export const zh: CatalogShape<typeof en> = {
             timeSpent: '已用时间',
             wordCloud: '词云',
             pomodorosToday: '今日番茄',
+            /** 计时盘中间的当前模式，不带「中」字。 */
+            focusing: '专注',
+            /** 模式名后接今日番茄数，计时盘中间与迷你条的悬停提示共用。 */
+            modeWithCount: (mode: string, count: number): string => `${mode} · 🍅 ${count}`,
         },
         saveFailed: '本次番茄未能保存，历史中不会出现这条记录，项目和卡片也没有计入时长。',
         error: {
@@ -207,8 +211,8 @@ export const zh: CatalogShape<typeof en> = {
             startNext: '开始下一会话',
             expand: '展开 (F12)',
             noProject: '未选择项目',
-            working: '专注中',
-            breaking: '休息中',
+            working: '专注',
+            breaking: '休息',
             finish: '结束',
             statePaused: (phase: string): string => `${phase} - 已暂停`,
             stateRunning: (phase: string): string => `${phase} - 运行中`,

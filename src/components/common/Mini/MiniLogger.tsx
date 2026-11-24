@@ -295,6 +295,12 @@ interface Props {
      * normal/compact pages and the mode-switch guard use.
      */
     hasSession: boolean;
+    /**
+     * Pomodoros finished today. The dial's hover label names the mode, and the
+     * count rides along so the strip answers "how many so far" without
+     * expanding the window.
+     */
+    pomodorosToday: number;
 }
 
 export class MiniLogger extends React.Component<Props> {
@@ -502,14 +508,18 @@ export class MiniLogger extends React.Component<Props> {
         );
     }
 
-    /** Hover label for the countdown: which state the current session is in. */
+    /** Hover label for the countdown: the session state plus today's count. */
     private getTimerStateLabel(): string {
-        const { isConfirming, isFocusing, isRunning, hasSession } = this.props;
+        const { isConfirming, isFocusing, isRunning, hasSession, pomodorosToday } = this.props;
         if (isConfirming) return t('timer.mini.finish');
         const phase = isFocusing ? t('timer.mini.working') : t('timer.mini.breaking');
-        if (hasSession && !isRunning) return t('timer.mini.statePaused', phase);
-        if (isRunning) return t('timer.mini.stateRunning', phase);
-        return phase;
+        const state =
+            hasSession && !isRunning
+                ? t('timer.mini.statePaused', phase)
+                : isRunning
+                  ? t('timer.mini.stateRunning', phase)
+                  : phase;
+        return t('timer.stats.modeWithCount', state, pomodorosToday);
     }
 
     private renderTimer(): React.ReactNode {

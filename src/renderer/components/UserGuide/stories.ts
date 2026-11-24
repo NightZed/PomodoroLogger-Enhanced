@@ -9,7 +9,8 @@ import { Story } from './type';
  *   sider's preview, which is a second mounted copy of the same list id)
  * - `[data-tour="kanban-card"]` — first card of each list inside the board; the
  *   visible-target lookup picks the first one that actually exists (same caveat)
- * - `[data-tour="timer-mode"]` — work/rest icon+label (tight box, see WorkRestIcon)
+ * - `#mode-switching-button` — mode switch control on the timer page (an app id,
+ *   not a data-tour anchor: it is the only control that changes the mode now)
  *
  * Interaction convention ("demo, don't touch"):
  * - Timer steps are DEMO-ONLY: spotlight hole BLOCKS clicks, user only looks
@@ -69,10 +70,7 @@ export const timerStories: Story[] = [
         stepId: 'timer.mode',
         useMask: true,
         spotlight: true,
-        // #timer-mode's icon and label are stacked in one slot; measure the
-        // children union so the spotlight covers the taller icon as well.
-        unionChildren: true,
-        pointerTargetSelector: '[data-tour="timer-mode"]',
+        pointerTargetSelector: '#mode-switching-button',
         hasConfirm: true,
         hintKey: 'tour.timer.mode',
     },

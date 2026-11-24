@@ -35,7 +35,7 @@ export interface Story {
     waitForTargetMs?: number;
     /**
      * Measure union of the target's visible children (see SpotlightProps.unionChildren).
-     * Needed for #timer-mode whose icon and label are stacked layers sharing one slot.
+     * Useful when a target stacks layers in one slot.
      */
     unionChildren?: boolean;
     hint?: string;

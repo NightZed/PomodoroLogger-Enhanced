@@ -57,6 +57,12 @@ import { WorkRestIcon } from './WorkRestIcon';
 import { Hint } from '../../../components/common/Hint/Hint';
 import { pressable } from '../../../components/common/pressable';
 
+/**
+ * Stable style object: `AsyncWordCloud` is memoized, and a fresh literal here
+ * would fail its shallow prop comparison on every countdown tick.
+ */
+const WORD_CLOUD_STYLE: React.CSSProperties = { margin: '0 auto' };
+
 const KanbanName = styled.h1`
     position: relative;
     margin: 0;
@@ -1972,7 +1978,7 @@ class Timer extends Component<Props, State> {
                                     records={this.state.pomodorosToday}
                                     width={800}
                                     height={400}
-                                    style={{ margin: '0 auto' }}
+                                    style={WORD_CLOUD_STYLE}
                                 />
                             </MoreInfo>
                         ) : undefined}

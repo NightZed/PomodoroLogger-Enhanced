@@ -8,7 +8,7 @@ interface PomodoroTimeTreemapProps extends Partial<Props> {
     pomodoros: PomodoroRecord[];
 }
 
-export const PomodoroTimeTreemap: React.FC<PomodoroTimeTreemapProps> = (
+const PomodoroTimeTreemapImpl: React.FC<PomodoroTimeTreemapProps> = (
     props: PomodoroTimeTreemapProps
 ) => {
     const { pomodoros, ...restProps } = props;
@@ -30,3 +30,10 @@ export const PomodoroTimeTreemap: React.FC<PomodoroTimeTreemapProps> = (
         <TimeTreemap {...timeSpent} {...restProps} />
     );
 };
+
+/**
+ * Memoized for the timer page, which re-renders once a second: `pomodoros`
+ * is a stored array and the remaining props are scalars, so recomputing the
+ * treemap layout on every countdown tick is wasted work.
+ */
+export const PomodoroTimeTreemap = React.memo(PomodoroTimeTreemapImpl);

@@ -59,7 +59,7 @@ interface AsyncProps {
 }
 
 type MAsyncProps = AsyncProps & { [name: string]: any };
-export const AsyncWordCloud: React.FC<MAsyncProps> = (props: MAsyncProps) => {
+const AsyncWordCloudImpl: React.FC<MAsyncProps> = (props: MAsyncProps) => {
     const { records, cards = EMPTY_CARDS, ...restProps } = props;
     const [weights, setWeights] = React.useState<[string, number][]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
@@ -92,3 +92,11 @@ export const AsyncWordCloud: React.FC<MAsyncProps> = (props: MAsyncProps) => {
         <WordCloud weights={weights} {...restProps} />
     );
 };
+
+/**
+ * Same reason as the other timer-page charts: the countdown re-renders the
+ * page every second, `records` stays put, and tokenizing is driven by the
+ * effect below. Callers must pass stable props (the `style` object included)
+ * or the memo re-renders on every tick anyway.
+ */
+export const AsyncWordCloud = React.memo(AsyncWordCloudImpl);

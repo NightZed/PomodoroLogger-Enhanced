@@ -375,7 +375,7 @@ export interface ProjectTimelineProps {
  * the label interval depends on the width. Both modes use the same box, and an
  * empty one keeps its height and draws nothing, so the charts below never move.
  */
-export const ProjectTimeline: React.FC<ProjectTimelineProps> = (props: ProjectTimelineProps) => {
+const ProjectTimelineImpl: React.FC<ProjectTimelineProps> = (props: ProjectTimelineProps) => {
     const { records, timeOfDay, boards, onChooseRecord } = props;
     const { t } = useI18n();
     const colorOf = useProjectColors(boards);
@@ -594,3 +594,10 @@ export const ProjectTimeline: React.FC<ProjectTimelineProps> = (props: ProjectTi
         </Chart>
     );
 };
+
+/**
+ * The timer page re-renders once a second for the countdown, and every prop
+ * here (records, boards, the pick handler) keeps its identity across those
+ * renders. Without memo the whole SVG lane is rebuilt each second.
+ */
+export const ProjectTimeline = React.memo(ProjectTimelineImpl);

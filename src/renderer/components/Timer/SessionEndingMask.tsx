@@ -197,6 +197,12 @@ const SessionMaskPortal: React.FC<{ children: React.ReactNode }> = ({ children }
 const TimerMaskInner = (props: MaskProps) => {
     const { extendCurrentSession } = props;
     /**
+     * The dot row below draws `pomodoros` plus the session that just finished
+     * (`newPomodoro`, which only joins the list once it is confirmed), so the
+     * headline counts both and stays in step with the dots.
+     */
+    const todayCount = props.pomodoros.length + (props.newPomodoro === undefined ? 0 : 1);
+    /**
      * A focus session that ran without a project cannot be dismissed by clicking
      * the background: one stray click would credit it to nobody with no way
      * back. Picking a project ends that state by itself (the mask then shows the
@@ -438,7 +444,7 @@ const TimerMaskInner = (props: MaskProps) => {
                     </ConfigProvider>
                     <PomodoroSummary>
                         <h1 style={{ color: 'white', margin: 0 }}>
-                            {t('timer.session.todayPomodoros')}
+                            {`${t('timer.session.todayPomodoros')} ${todayCount}`}
                         </h1>
                         <PomodoroNumView
                             pomodoros={props.pomodoros}

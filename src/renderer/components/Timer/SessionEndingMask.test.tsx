@@ -5,6 +5,7 @@ import { createStore } from 'redux';
 import { TimerMask } from './SessionEndingMask';
 import { SESSION_MASK_LAYER_ID } from '../popupLayer';
 import { DAY_THEME_ID } from '../../theme/tokens';
+import { t } from '../../i18n';
 
 jest.mock('./action', () => ({
     actions: {
@@ -215,6 +216,23 @@ describe('TimerMask', () => {
         expect(view.getByText('Break')).toBeTruthy();
         expect(view.getByRole('button', { name: /Start Focusing/ })).toBeTruthy();
         expect(view.queryByTitle('Extend 5 minutes')).toBeNull();
+    });
+
+    it('counts the pomodoros of the day next to the headline', () => {
+        const view = renderMask({
+            pomodoros: [{ _id: 'p1' } as any, { _id: 'p2' } as any],
+            newPomodoro: { _id: 'p3' } as any,
+        });
+
+        // The dot row below draws the stored sessions plus the one waiting for
+        // confirmation; the headline counts the same set, so the two cannot
+        // disagree.
+        expect(
+            view.getByRole('heading', {
+                level: 1,
+                name: `${t('timer.session.todayPomodoros')} 3`,
+            })
+        ).toBeTruthy();
     });
 });
 

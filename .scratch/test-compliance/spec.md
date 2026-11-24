@@ -10,17 +10,19 @@ Status: open（持续追加，不排期）
 
 | 测试文件 | 条目 | 记录于 |
 | --- | --- | --- |
-| `src/renderer/components/Timer/SessionEndingMask.test.tsx` | 整份文件 mock 掉应用内部的 `PomodoroNumView` | 2026-11-24 |
+| `src/renderer/components/Timer/Timer.test.tsx` | 整份文件 mock 掉应用内部的 `PomodoroNumView` | 2026-11-24 |
 
-## `src/renderer/components/Timer/SessionEndingMask.test.tsx`
+## `src/renderer/components/Timer/Timer.test.tsx`
 
-**现象**：文件顶部的 `jest.mock('./PomodoroNumView')` 把应用内部的圆点组件替换成一个占位 div（`Timer.test.tsx` 里也有同一个 mock）。遮罩自己画的圆点因此完全不可见，涉及计数的用例只能断言标题里的数字，无法验证「标题数量和下方实际画出的圆点一致」——而这正是 `pomodoros` 与 `newPomodoro` 两个来源最容易分叉的地方。用例里的 `PomodoroRecord` 也因此被写成 `{ _id } as any`，只是没炸而已。
+**现象**：文件顶部的 `jest.mock('./PomodoroNumView')` 把应用内部的圆点组件换成占位文本，整页测试因此完全看不到圆点，也无法验证「倒计时页面画出的圆点与今日番茄数据一致」。`SessionEndingMask.test.tsx` 的同名 mock 已在 2026-11-24 删掉，这份文件还是老样子。
 
 **规范依据**：`docs/testing.md` 的「mock 停在哪」——只 mock `fs` / `electron` / `get-windows` / `electron-updater` / 时钟 / 随机数 / worker，应用内部的一切跑真实现。
 
-**修法**（待做）：去掉这个 mock，让 `PomodoroNumView` 跑真实现；夹具补上组件实际读取的字段（`_id`、`startTime`、`efficiency`），按 `role="img"` 的 `aria-label` 或圆点数量断言。`Timer.test.tsx` 有同一个 mock，两处要一起改，否则会出现一个文件跑真实现、另一个打桩的分裂。属于存量整治，不要和功能改动混在一次提交里。
+**修法**（待做）：去掉 mock；用到圆点的用例按 `role="img"` 的 `aria-label`（已存点是 `HH:MM`，待确认点是 `[New]`）查询；夹具用完整的 `PomodoroRecord`。属于存量整治，不要和功能改动混在一次提交里。
 
 ## 已修复
+
+- `src/renderer/components/Timer/SessionEndingMask.test.tsx` 的圆点组件 mock（2026-11-24）：删掉 `jest.mock('./PomodoroNumView')`，夹具换成完整的 `PomodoroRecord` 工厂；两条计数用例同时断言标题数字与 `role="img"` 的圆点数量，于是「标题数量和下方圆点一致」第一次真的被覆盖。
 
 - `src/renderer/components/Timer/Timer.test.tsx` 的提示音用例（2026-11-24）：9 处 `targetTime: Date.now() + 1` 换成 `justExpired()`（`Date.now() - 1`）。原先靠开发环境的 120 倍速才能在 1 秒内把「剩 1ms」算成负数；1 倍速下第一次 500ms 采样仍是 0 秒，`onDone` 不触发，三条播放断言挂掉、几条静默断言变成空跑。改成已过期 1ms 后第一次采样就结束，与 `timeScale()` 无关；已分别在 120 与 1 两种倍速下跑通。
 

@@ -6,6 +6,7 @@ import { TimerMask } from './SessionEndingMask';
 import { SESSION_MASK_LAYER_ID } from '../popupLayer';
 import { DAY_THEME_ID } from '../../theme/tokens';
 import { t } from '../../i18n';
+import type { PomodoroRecord } from '../../monitor/type';
 
 jest.mock('./action', () => ({
     actions: {
@@ -14,9 +15,19 @@ jest.mock('./action', () => ({
     LONG_BREAK_INTERVAL: 4,
 }));
 
-jest.mock('./PomodoroNumView', () => ({
-    PomodoroNumView: () => <div>pomodoro-num</div>,
-}));
+/**
+ * The fields `PomodoroNumView` reads: `_id` keys the dot and its SVG mask,
+ * `startTime` becomes the hint label. `efficiency` is omitted, so the dot
+ * renders without an efficiency cut-out — the state of a session that was
+ * never analysed.
+ */
+const pomodoro = (id: string, startTime = 0): PomodoroRecord => ({
+    _id: id,
+    apps: {},
+    spentTimeInHour: 25 / 60,
+    switchTimes: 0,
+    startTime,
+});
 
 const boards = {
     b1: { _id: 'b1', name: 'Project One', lists: ['l1'], focusedList: 'l1' },
@@ -99,7 +110,7 @@ describe('TimerMask', () => {
 
         expect(view.getByText('Project One')).toBeTruthy();
         expect(view.getByText('Session Finished')).toBeTruthy();
-        expect(view.getByText('pomodoro-num')).toBeTruthy();
+        expect(view.getByText(new RegExp(t('timer.session.todayPomodoros')))).toBeTruthy();
         expect(view.queryByRole('button', { name: 'Confirm' })).toBeNull();
         expect(view.queryByText('Choose Your Focus')).toBeNull();
 
@@ -220,12 +231,14 @@ describe('TimerMask', () => {
 
     it('counts the pomodoros of the day next to the headline', () => {
         const view = renderMask({
-            pomodoros: [{ _id: 'p1' } as any, { _id: 'p2' } as any],
-            newPomodoro: { _id: 'p3' } as any,
+            pomodoros: [pomodoro('p1'), pomodoro('p2')],
+            newPomodoro: pomodoro('p3'),
         });
 
-        // The session waiting for confirmation only joins `pomodoros` once it
-        // is confirmed, so the headline has to add it.
+        // The headline counts every dot the row below draws; the session
+        // waiting for confirmation is the one labelled `[New]`.
+        expect(view.getAllByRole('img', { name: /^\d{2}:\d{2}$/ })).toHaveLength(2);
+        expect(view.getAllByRole('img', { name: '[New]' })).toHaveLength(1);
         view.getByRole('heading', {
             level: 1,
             name: `${t('timer.session.todayPomodoros')} 3`,
@@ -233,8 +246,9 @@ describe('TimerMask', () => {
     });
 
     it('counts only the stored pomodoros when nothing is waiting', () => {
-        const view = renderMask({ pomodoros: [{ _id: 'p1' } as any] });
+        const view = renderMask({ pomodoros: [pomodoro('p1')] });
 
+        expect(view.getAllByRole('img', { name: /^\d{2}:\d{2}$/ })).toHaveLength(1);
         view.getByRole('heading', {
             level: 1,
             name: `${t('timer.session.todayPomodoros')} 1`,

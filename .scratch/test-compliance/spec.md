@@ -10,7 +10,15 @@ Status: open（持续追加，不排期）
 
 | 测试文件 | 条目 | 记录于 |
 | --- | --- | --- |
-| （暂无） | | |
+| `src/renderer/components/Timer/SessionEndingMask.test.tsx` | 整份文件 mock 掉应用内部的 `PomodoroNumView` | 2026-11-24 |
+
+## `src/renderer/components/Timer/SessionEndingMask.test.tsx`
+
+**现象**：文件顶部的 `jest.mock('./PomodoroNumView')` 把应用内部的圆点组件替换成一个占位 div（`Timer.test.tsx` 里也有同一个 mock）。遮罩自己画的圆点因此完全不可见，涉及计数的用例只能断言标题里的数字，无法验证「标题数量和下方实际画出的圆点一致」——而这正是 `pomodoros` 与 `newPomodoro` 两个来源最容易分叉的地方。用例里的 `PomodoroRecord` 也因此被写成 `{ _id } as any`，只是没炸而已。
+
+**规范依据**：`docs/testing.md` 的「mock 停在哪」——只 mock `fs` / `electron` / `get-windows` / `electron-updater` / 时钟 / 随机数 / worker，应用内部的一切跑真实现。
+
+**修法**（待做）：去掉这个 mock，让 `PomodoroNumView` 跑真实现；夹具补上组件实际读取的字段（`_id`、`startTime`、`efficiency`），按 `role="img"` 的 `aria-label` 或圆点数量断言。`Timer.test.tsx` 有同一个 mock，两处要一起改，否则会出现一个文件跑真实现、另一个打桩的分裂。属于存量整治，不要和功能改动混在一次提交里。
 
 ## 已修复
 

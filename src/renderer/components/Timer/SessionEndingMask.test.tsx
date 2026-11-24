@@ -224,15 +224,21 @@ describe('TimerMask', () => {
             newPomodoro: { _id: 'p3' } as any,
         });
 
-        // The dot row below draws the stored sessions plus the one waiting for
-        // confirmation; the headline counts the same set, so the two cannot
-        // disagree.
-        expect(
-            view.getByRole('heading', {
-                level: 1,
-                name: `${t('timer.session.todayPomodoros')} 3`,
-            })
-        ).toBeTruthy();
+        // The session waiting for confirmation only joins `pomodoros` once it
+        // is confirmed, so the headline has to add it.
+        view.getByRole('heading', {
+            level: 1,
+            name: `${t('timer.session.todayPomodoros')} 3`,
+        });
+    });
+
+    it('counts only the stored pomodoros when nothing is waiting', () => {
+        const view = renderMask({ pomodoros: [{ _id: 'p1' } as any] });
+
+        view.getByRole('heading', {
+            level: 1,
+            name: `${t('timer.session.todayPomodoros')} 1`,
+        });
     });
 });
 

@@ -607,10 +607,9 @@ describe('Timer page', () => {
         const view = await renderTimer();
 
         // The mode line replaced the old clickable work/rest icon; its count
-        // matches the dots drawn below.
-        expect(
-            view.getByText(t('timer.stats.modeWithCount', t('timer.stats.focusing'), 2))
-        ).toBeTruthy();
+        // matches the dots drawn below. The tomato is an SVG (no text), so the
+        // line reads as mode + separator + number.
+        expect(view.getByText(`${t('timer.stats.focusing')} · 2`)).toBeTruthy();
     });
 
     it('shows today sessions and opens the more panel', async () => {

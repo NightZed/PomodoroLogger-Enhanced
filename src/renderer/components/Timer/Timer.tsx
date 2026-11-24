@@ -20,6 +20,7 @@ import Board from '../Kanban/Board';
 import { BoardActionTypes } from '../Kanban/Board/action';
 import { HelpIcon } from '../UserGuide/HelpIcon';
 import backIcon from '../../../res/back.svg';
+import tomatoSvg from '../../../res/tomato.svg';
 import { DAY_THEME_ID, NIGHT_THEME_ID } from '../../theme/tokens';
 import { COMPACT_TITLE_BAR_HEIGHT, TITLE_BAR_HEIGHT } from '../AppTitleBar/tokens';
 import { PomodoroTimeTreemap } from '../Visualization/PomodoroTimeTreemap';
@@ -122,6 +123,23 @@ const ModeSummary = styled.div`
     font-size: 0.48em;
     user-select: none;
     white-space: nowrap;
+`;
+
+/**
+ * The tomato for the mode line, taken from `res/tomato.svg`. The emoji renders
+ * as a colour glyph or falls back to monochrome depending on the font in play;
+ * the asset is filled with `currentColor` here so it follows the text colour
+ * in both themes.
+ *
+ * 1em matches the emoji it replaces: the glyph sits on the text baseline at
+ * roughly the cap height, so anything larger makes the line look oversized.
+ */
+const TomatoIcon = styled(tomatoSvg)`
+    width: 1em;
+    height: 1em;
+    margin-right: 0.1em;
+    vertical-align: -0.125em;
+    fill: currentColor;
 `;
 
 const TimerLayout = styled.div<{ $compact: boolean }>`
@@ -1693,6 +1711,11 @@ class Timer extends Component<Props, State> {
         const hasActiveSession = hasSession(this.props.timer);
         const shownLeftTime =
             hasActiveSession && leftTime.length ? leftTime : this.defaultLeftTime();
+        const modeLabel = isFocusing
+            ? t('timer.stats.focusing')
+            : this.props.timer.iBreak % LONG_BREAK_INTERVAL === 0
+              ? t('timer.session.longBreak')
+              : t('timer.session.shortBreak');
         const boardId = this.props.timer.boardId;
 
         if (minimize) {
@@ -1858,16 +1881,13 @@ class Timer extends Component<Props, State> {
                                         {shownLeftTime}
                                     </div>
                                     <ModeSummary>
-                                        {t(
-                                            'timer.stats.modeWithCount',
-                                            isFocusing
-                                                ? t('timer.stats.focusing')
-                                                : this.props.timer.iBreak % LONG_BREAK_INTERVAL ===
-                                                    0
-                                                  ? t('timer.session.longBreak')
-                                                  : t('timer.session.shortBreak'),
-                                            pomodorosToday.length
-                                        )}
+                                        {modeLabel}
+                                        {' · '}
+                                        <TomatoIcon
+                                            role="img"
+                                            aria-label={t('timer.stats.pomodorosToday')}
+                                        />
+                                        {pomodorosToday.length}
                                     </ModeSummary>
                                 </ProgressTextContainer>
                             </Progress>

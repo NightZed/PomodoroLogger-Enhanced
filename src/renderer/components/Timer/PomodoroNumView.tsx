@@ -36,18 +36,6 @@ const CompactDotRow = styled.div`
     max-width: 100%;
 `;
 
-const swayLeft = keyframes`
-    0%, 20% { transform: translate3d(-18px, 0, 0); }
-    25%, 80% { transform: translate3d(0, 0, 0); }
-    85%, 100% { transform: translate3d(-18px, 0, 0); }
-`;
-
-const swayRight = keyframes`
-    0%, 50% { transform: translate3d(0, 0, 0); }
-    55%, 75% { transform: translate3d(18px, 0, 0); }
-    80%, 100% { transform: translate3d(0, 0, 0); }
-`;
-
 const scale = keyframes`
   0% {
     transform: scale(1.1);
@@ -90,16 +78,51 @@ const AnimeSvgDot = styled(SvgDot)`
     animation: ${scale} 1s linear infinite;
 `;
 
-const SwayLeftDot = styled(SvgDot)`
-    animation: ${swayLeft} 1s linear infinite;
-    will-change: transform;
-    transform: translate3d(-18px, 0, 0);
-`;
+/** How dark a running dot is while the marquee highlight is elsewhere. */
+const MARQUEE_IDLE_OPACITY = 0.45;
 
-const SwayRightDot = styled(SvgDot)`
-    animation: ${swayRight} 1s linear infinite;
-    will-change: transform;
-    transform: translate3d(0, 0, 0);
+/** Time the highlight spends on one dot before moving to the next. */
+const MARQUEE_STEP_MS = 1000;
+
+/**
+ * Keyframes are cached per dot count: the lit slice is one step of an
+ * n-step cycle (`100 / count` percent), so each count needs its own
+ * @keyframes. Rendering happens once a second while the timer runs, and a
+ * fresh keyframes object per render would keep appending style rules.
+ */
+const marqueeFramesCache = new Map<number, ReturnType<typeof keyframes>>();
+
+function marqueeFrames(count: number) {
+    const cached = marqueeFramesCache.get(count);
+    if (cached) return cached;
+    const lit = 100 / count;
+    const frames = keyframes`
+        0%, ${lit}% {
+            opacity: 1;
+        }
+        ${lit}%, 100% {
+            opacity: ${MARQUEE_IDLE_OPACITY};
+        }
+    `;
+    marqueeFramesCache.set(count, frames);
+    return frames;
+}
+
+/**
+ * LED-style chase: the dots stay put and one dot lights at a time, handing
+ * the highlight to its right-hand neighbour every `MARQUEE_STEP_MS`. The
+ * cycle length is the dot count, so the phases stay exactly one step apart;
+ * `step-end` makes the hand-off instant instead of fading two dots at once.
+ */
+const MarqueeDot = styled(SvgDot)<{ $count: number; $index: number }>`
+    opacity: ${MARQUEE_IDLE_OPACITY};
+    animation: ${({ $count }) => marqueeFrames($count)}
+        ${({ $count }) => $count * MARQUEE_STEP_MS}ms step-end infinite;
+    animation-delay: ${({ $index }) => $index * MARQUEE_STEP_MS}ms;
+    @media (prefers-reduced-motion: reduce) {
+        animation: none;
+        opacity: 1;
+    }
 `;
 
 interface Props {
@@ -140,17 +163,14 @@ export class PomodoroNumView extends React.PureComponent<Props> {
         isNew: boolean = false,
         isRunning: boolean = false
     ) => {
-        const { color = 'red', animation = false } = this.props;
+        // Same pomodoro red as the pomodoro emoji.
+        const { color = '#f03a17', animation = false } = this.props;
         const { transform } = this.state;
-        let Svg = isNew ? AnimeSvgDot : SvgDot;
         const n = this.props.pomodoros.length;
-        if (!isNew && isRunning && n > 1) {
-            if (index === 0) {
-                Svg = SwayLeftDot;
-            } else if (index === n - 1) {
-                Svg = SwayRightDot;
-            }
-        }
+        // The freshly added dot keeps its own spawn pulse; the chase needs at
+        // least two settled dots so there is a neighbour to hand off to.
+        const marquee = !isNew && isRunning && n > 1;
+        const Svg: React.ComponentType<any> = marquee ? MarqueeDot : isNew ? AnimeSvgDot : SvgDot;
         const chooseThis = this.props.chooseRecord ? () => this.props.chooseRecord!(v) : undefined;
         const label =
             (isNew ? '[New]' : getTime(v.startTime)) +
@@ -163,6 +183,8 @@ export class PomodoroNumView extends React.PureComponent<Props> {
                 zIndex={this.props.hintZIndex}
             >
                 <Svg
+                    $count={n}
+                    $index={index}
                     width="1em"
                     height="1em"
                     fill="currentColor"

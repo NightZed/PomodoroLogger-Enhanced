@@ -161,7 +161,6 @@ export const zh: CatalogShape<typeof en> = {
             switchMode: '切换模式 (Tab)',
             stop: '停止',
             todayStats: '今日统计',
-            switchTimerMode: '切换计时模式',
             switchTheme: '切换主题',
             minimize: '迷你模式 (F12)',
             compact: '紧凑模式 (F11)',

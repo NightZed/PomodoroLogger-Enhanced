@@ -9,7 +9,7 @@ export interface SpotlightProps {
     /**
      * Measure the union of the target's visible children instead of the target
      * box itself. Needed when visible content lives in absolutely-positioned
-     * children (WorkRestIcon FadeEffects) and the target box is a long strip.
+     * children and the target box is a long strip.
      */
     unionChildren?: boolean;
     /**

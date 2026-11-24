@@ -112,9 +112,8 @@ const ProgressTextContainer = styled.div`
 `;
 
 /**
- * The mode line under the countdown. It used to be a clickable icon pair
- * (WorkRestIcon); the mode can only be switched from the button row, so this
- * is plain text now and carries today's count as well.
+ * The mode line under the countdown. The mode can only be switched from the
+ * button row now, so this is plain text and carries today's count as well.
  *
  * 0.48em is the old label's size: the wrapper was 0.6em and its label 0.8em,
  * so keeping the product leaves the line exactly as small as before.

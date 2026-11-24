@@ -54,9 +54,8 @@ export const findVisibleTarget = (selector: string): HTMLElement | null => {
 
 const unionVisibleChildren = (target: HTMLElement): TargetRect | null => {
     // Union of visible element-children. Used when the target's visible content
-    // is spread over stacked children that overlap vertically (e.g.
-    // WorkRestIcon's icon and label share one slot): the union covers both
-    // layers, whichever of them is currently visible.
+    // is spread over stacked children that overlap vertically (their layers
+    // share one slot): the union covers both layers, whichever is visible.
     let union: TargetRect | null = null;
     for (const kid of Array.from(target.children) as HTMLElement[]) {
         const r = kid.getBoundingClientRect();

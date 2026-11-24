@@ -175,7 +175,6 @@ export const en = {
             switchMode: 'Switch Mode (Tab)',
             stop: 'Stop',
             todayStats: "Today's Stats",
-            switchTimerMode: 'Switch timer mode',
             switchTheme: 'Switch Theme',
             minimize: 'Minimize (F12)',
             compact: 'Compact (F11)',

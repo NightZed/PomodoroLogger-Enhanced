@@ -510,8 +510,16 @@ export class MiniLogger extends React.Component<Props> {
 
     /** Hover label for the countdown: the session state plus today's count. */
     private getTimerStateLabel(): string {
-        const { isConfirming, isFocusing, isRunning, hasSession, pomodorosToday } = this.props;
-        if (isConfirming) return t('timer.mini.finish');
+        const { isConfirming, isFocusing, isRunning, hasSession, pomodorosToday, stagedPomodoro } =
+            this.props;
+        if (isConfirming) {
+            // The session that just ended has not joined `pomodorosToday` yet
+            // (only confirmation does that), so count it here as well -- the
+            // ending mask is on screen at the same time and its headline
+            // already includes it.
+            const count = pomodorosToday + (stagedPomodoro === undefined ? 0 : 1);
+            return t('timer.stats.modeWithCount', t('timer.mini.finish'), count);
+        }
         const phase = isFocusing ? t('timer.mini.working') : t('timer.mini.breaking');
         const state =
             hasSession && !isRunning
@@ -549,11 +557,11 @@ export class MiniLogger extends React.Component<Props> {
         const showSecondHand = handAngle !== undefined;
         const ringDim = isPausedWithSession ? 0.45 : 1;
         const stateLabel = this.getTimerStateLabel();
-        // Static despite the label changing: the dial's own colors already show
-        // focused / resting / paused, so the text is a one-time explanation
-        // rather than something read off on every hover.
+        // Live, not static: the label carries today's count, which changes
+        // when a pomodoro is confirmed or a session ends. The dial's colours
+        // alone would not tell the user that the number had moved on.
         return (
-            <Hint label={stateLabel} placement="bottom">
+            <Hint label={stateLabel} placement="bottom" kind="live">
                 <svg
                     className={`timer-svg${isPausedWithSession ? ' is-paused' : ''}`}
                     viewBox="0 0 100 100"

@@ -1,6 +1,8 @@
 import React from 'react';
 import { render, within } from '@testing-library/react';
 import { MiniLogger } from './MiniLogger';
+import type { PomodoroRecord } from '../../../renderer/monitor/type';
+import { t } from '../../../renderer/i18n';
 
 const baseProps = {
     play: jest.fn(),
@@ -21,6 +23,7 @@ const baseProps = {
     secondsLeft: undefined as number | undefined,
     task: 'MiniLogger regression test',
     pomodorosToday: 3,
+    stagedPomodoro: undefined as PomodoroRecord | undefined,
 };
 
 const all = (container: HTMLElement, selector: string) =>
@@ -124,5 +127,36 @@ describe('MiniLogger mini strip', () => {
         const dial = container.querySelector('svg[role="img"]');
 
         expect(dial?.getAttribute('aria-label')).toContain('🍅 7');
+    });
+
+    it('counts the just-finished session in the confirming label', () => {
+        const { container } = renderMini({
+            isConfirming: true,
+            pomodorosToday: 3,
+            stagedPomodoro: {
+                _id: 'staged',
+                apps: {},
+                spentTimeInHour: 25 / 60,
+                switchTimes: 0,
+                startTime: 0,
+            },
+        });
+        const dial = container.querySelector('svg[role="img"]');
+
+        // Confirmation is what stores the session, so while the mask is up it
+        // is still missing from `pomodorosToday`; the label has to add it to
+        // agree with the mask's headline.
+        expect(dial?.getAttribute('aria-label')).toBe(
+            t('timer.stats.modeWithCount', t('timer.mini.finish'), 4)
+        );
+    });
+
+    it('counts only the stored sessions when nothing is waiting', () => {
+        const { container } = renderMini({ isConfirming: true, pomodorosToday: 3 });
+        const dial = container.querySelector('svg[role="img"]');
+
+        expect(dial?.getAttribute('aria-label')).toBe(
+            t('timer.stats.modeWithCount', t('timer.mini.finish'), 3)
+        );
     });
 });

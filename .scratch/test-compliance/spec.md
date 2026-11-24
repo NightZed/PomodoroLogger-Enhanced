@@ -10,7 +10,15 @@ Status: open（持续追加，不排期）
 
 | 测试文件 | 条目 | 记录于 |
 | --- | --- | --- |
-| （暂无） | | |
+| `src/renderer/components/Timer/Timer.test.tsx` | 三条提示音用例依赖 `DEBUG_TIME_SCALE = 120` | 2026-11-24 |
+
+## `src/renderer/components/Timer/Timer.test.tsx`
+
+**现象**：`plays the short break sound at the configured volume when a break ends`、`plays the long break sound when the fourth break ends`、`falls back to the bundled chime when the file cannot be played` 三条用例用 `targetTime: Date.now() + 1` 加 `jest.advanceTimersByTime(1000)` 驱动会话结束。它们只在 `DEBUG_TIME_SCALE = 120`（`src/config.ts` 的非生产默认值）下通过；把倍速改成 1（本地观察动画时的常规操作）后三条全挂，`played` 为空——1ms 的墙钟剩余在 1 倍速下撑不到会话结束，`onDone` 不会触发。
+
+**规范依据**：`docs/testing.md` 的判据——测试应只依赖被测行为。这三条测的是「会话结束 → 播放提示音」，却把结果绑在一个可被本地调试开关改写的全局配置上，属于环境耦合，不是契约。
+
+**修法**（待做）：把 `timeScale` 变成可注入的 seam（测试里 mock `config` 模块，或让 `countdownSeconds` / `progressPercent` 的调用方接受 scale 参数），用例显式使用自己声明的倍速；或者不再用 1ms 的剩余时间去博 120 倍速，改成把 `targetTime` 设到「距离结束不足一个采样周期」的绝对时间点，让 `onDone` 在 1 倍速下也必然触发。选哪种取决于 `timeScale` 还要不要保留全局读取。
 
 ## 已修复
 

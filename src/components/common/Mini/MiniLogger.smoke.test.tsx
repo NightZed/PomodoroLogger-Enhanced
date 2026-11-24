@@ -31,6 +31,16 @@ const all = (container: HTMLElement, selector: string) =>
 
 const buttons = (container: HTMLElement) => all(container, 'button') as HTMLButtonElement[];
 
+/**
+ * Accessible name of the countdown dial. Narrowed to the svg because the antd
+ * icons are `role="img"` spans too.
+ */
+const dialLabel = (container: HTMLElement): string => {
+    const label = container.querySelector('svg[role="img"]')?.getAttribute('aria-label');
+    if (!label) throw new Error('the countdown dial has no accessible name');
+    return label;
+};
+
 const renderMini = (props: Partial<typeof baseProps> = {}) =>
     render(<MiniLogger {...baseProps} {...props} />);
 
@@ -108,13 +118,8 @@ describe('MiniLogger mini strip', () => {
     });
 
     it('exposes the timer state through the dial accessible name', () => {
-        const stateLabel = (props: Partial<typeof baseProps>) => {
-            const { container } = renderMini(props);
-            // The antd icons are `role="img"` spans too, so narrow to the dial.
-            const dial = container.querySelector('svg[role="img"]');
-            expect(dial).not.toBeNull();
-            return dial?.getAttribute('aria-label') ?? '';
-        };
+        const stateLabel = (props: Partial<typeof baseProps>) =>
+            dialLabel(renderMini(props).container);
         expect(stateLabel({})).toContain('Working');
         expect(stateLabel({ isFocusing: false })).toContain('Breaking');
         expect(stateLabel({ isConfirming: true })).toContain('Finish');
@@ -124,9 +129,10 @@ describe('MiniLogger mini strip', () => {
 
     it("appends today's count to the dial label", () => {
         const { container } = renderMini({ pomodorosToday: 7 });
-        const dial = container.querySelector('svg[role="img"]');
 
-        expect(dial?.getAttribute('aria-label')).toContain('🍅 7');
+        expect(dialLabel(container)).toBe(
+            t('timer.stats.modeWithCount', t('timer.mini.working'), 7)
+        );
     });
 
     it('counts the just-finished session in the confirming label', () => {
@@ -141,21 +147,19 @@ describe('MiniLogger mini strip', () => {
                 startTime: 0,
             },
         });
-        const dial = container.querySelector('svg[role="img"]');
 
         // Confirmation is what stores the session, so while the mask is up it
         // is still missing from `pomodorosToday`; the label has to add it to
         // agree with the mask's headline.
-        expect(dial?.getAttribute('aria-label')).toBe(
+        expect(dialLabel(container)).toBe(
             t('timer.stats.modeWithCount', t('timer.mini.finish'), 4)
         );
     });
 
     it('counts only the stored sessions when nothing is waiting', () => {
         const { container } = renderMini({ isConfirming: true, pomodorosToday: 3 });
-        const dial = container.querySelector('svg[role="img"]');
 
-        expect(dial?.getAttribute('aria-label')).toBe(
+        expect(dialLabel(container)).toBe(
             t('timer.stats.modeWithCount', t('timer.mini.finish'), 3)
         );
     });

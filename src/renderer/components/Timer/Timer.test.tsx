@@ -602,14 +602,13 @@ describe('Timer page', () => {
         (getTodaySessions as jest.Mock).mockResolvedValue([
             { _id: 's1', startTime: 1, boardId: 'b1' },
             { _id: 's2', startTime: 2, boardId: 'b1' },
+            { _id: 's3', startTime: 3, boardId: 'b1' },
         ]);
 
         const view = await renderTimer();
 
-        // The mode line replaced the old clickable work/rest icon; its count
-        // matches the dots drawn below. The tomato is an SVG (no text), so the
-        // line reads as mode + separator + number.
-        expect(view.getByText(`${t('timer.stats.focusing')} · 2`)).toBeTruthy();
+        // The tomato is an SVG, so the line reads as mode + separator + count.
+        view.getByText(`${t('timer.stats.focusing')} · 3`);
     });
 
     it('shows today sessions and opens the more panel', async () => {

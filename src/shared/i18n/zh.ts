@@ -790,10 +790,7 @@ export const zh: CatalogShape<typeof en> = {
             deleteBoardDetail: '看板中的所有列表和卡片会一并删除。',
         },
         timer: {
-            cannotSwitchMode: (isFocusing: boolean, isRunning: boolean): string =>
-                `无法在${isFocusing ? '专注' : '休息'}会话${
-                    isRunning ? '进行中' : '已暂停'
-                }时切换模式 —— 请先${isRunning ? '暂停' : '继续'}或停止它。`,
+            cannotSwitchMode: '会话未结束时无法切换模式 —— 请先结束或停止当前会话。',
             finishTooEarly: (minMinutes: number): string => `至少专注 ${minMinutes} 分钟才能结束`,
         },
         statistics: {

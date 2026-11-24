@@ -1321,10 +1321,7 @@ class Timer extends Component<Props, State> {
         if (hasSession(this.props.timer)) {
             feedback.toast({
                 kind: 'warning',
-                content: FEEDBACK_MESSAGES.timer.cannotSwitchMode(
-                    this.props.timer.isFocusing,
-                    this.props.timer.isRunning
-                ),
+                content: FEEDBACK_MESSAGES.timer.cannotSwitchMode,
             });
             return;
         }
@@ -1390,10 +1387,7 @@ class Timer extends Component<Props, State> {
             // is live (see `trayMenuItems`), so this should not be reachable.
             feedback.toast({
                 kind: 'warning',
-                content: FEEDBACK_MESSAGES.timer.cannotSwitchMode(
-                    this.props.timer.isFocusing,
-                    this.props.timer.isRunning
-                ),
+                content: FEEDBACK_MESSAGES.timer.cannotSwitchMode,
             });
             return;
         }

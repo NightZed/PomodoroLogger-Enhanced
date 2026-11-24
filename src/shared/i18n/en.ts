@@ -888,10 +888,8 @@ export const en = {
              * the state: a running session has to be paused or stopped first, a
              * paused one continued or stopped.
              */
-            cannotSwitchMode: (isFocusing: boolean, isRunning: boolean): string =>
-                `Cannot switch mode while a ${isFocusing ? 'focus session' : 'break'} is ` +
-                `${isRunning ? 'running' : 'paused'} — ${isRunning ? 'pause' : 'continue'} or ` +
-                'stop it first.',
+            cannotSwitchMode:
+                'Cannot switch modes while a session exists — finish or stop it first.',
             /**
              * A focus session was finished before the configured minimum
              * (`Setting.minFinishDuration`, adjustable on the settings page) had

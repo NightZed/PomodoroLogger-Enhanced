@@ -41,8 +41,7 @@ jest.mock('../feedback', () => ({
     },
     FEEDBACK_MESSAGES: {
         timer: {
-            cannotSwitchMode: (focusing: boolean, running: boolean) =>
-                `cannot-switch-${focusing}-${running}`,
+            cannotSwitchMode: 'cannot-switch',
             finishTooEarly: (minutes: number) => `too-early-${minutes}`,
         },
     },
@@ -546,7 +545,7 @@ describe('Timer page', () => {
         expect(actions.switchFocusRestMode).not.toHaveBeenCalled();
         expect(feedback.toast).toHaveBeenCalledWith({
             kind: 'warning',
-            content: 'cannot-switch-true-true',
+            content: 'cannot-switch',
         });
     });
 

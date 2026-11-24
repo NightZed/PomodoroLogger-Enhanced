@@ -119,6 +119,95 @@ function getTime(date: number) {
     return `${to2digits(d.getHours())}:${to2digits(d.getMinutes())}`;
 }
 
+interface DotProps {
+    record: PomodoroRecord;
+    /** The dot of the session that just finished, still waiting for a label. */
+    isNew: boolean;
+    /** The session is running; new dots keep their spawn pulse. */
+    isRunning: boolean;
+    /** The chase is on: running, at least two settled dots, a countdown tick. */
+    chase: boolean;
+    /** This dot carries the chase highlight right now. */
+    active: boolean;
+    color: string;
+    /** Unique per view, so the SVG mask ids of two views cannot collide. */
+    idPrefix: string;
+    transform?: { x: number; y: number };
+    chooseRecord?: (record: PomodoroRecord) => void;
+    hintZIndex?: number;
+}
+
+/**
+ * One dot. Memoized because the timer re-renders on every countdown tick:
+ * only the two dots whose `active` flag flips need to re-render, the rest
+ * would otherwise rebuild their antd Tooltip once a second for nothing.
+ * Every prop above is a scalar or a stable reference, so the comparison holds.
+ */
+const Dot = React.memo(function Dot(props: DotProps) {
+    const {
+        record: v,
+        isNew,
+        isRunning,
+        chase,
+        active,
+        color,
+        idPrefix,
+        transform,
+        chooseRecord,
+        hintZIndex,
+    } = props;
+    const Svg: React.ComponentType<any> = chase ? ChaseDot : isNew ? AnimeSvgDot : SvgDot;
+    const chooseThis = chooseRecord ? () => chooseRecord(v) : undefined;
+    const label =
+        (isNew ? '[New]' : getTime(v.startTime)) +
+        (v.efficiency != null ? ` Efficiency: ${Math.round(v.efficiency * 100)}%` : '');
+    return (
+        <Hint kind="live" label={label} zIndex={hintZIndex}>
+            <Svg
+                $active={active}
+                width="1em"
+                height="1em"
+                fill="currentColor"
+                focusable="false"
+                role="img"
+                aria-label={label}
+                viewBox="0 0 100 100"
+                style={{
+                    margin: '0 0.1rem',
+                    transition: 'transform 0.2s, opacity 0.15s',
+                    transitionTimingFunction: 'ease',
+                    cursor: 'pointer',
+                    transform:
+                        isRunning && transform
+                            ? `translate(${transform.x}px, ${transform.y}px)`
+                            : undefined,
+                }}
+            >
+                <defs>
+                    <circle
+                        r={v.efficiency != null ? (1 - v.efficiency) * 48 : 0}
+                        cx={50}
+                        cy={50}
+                        id={`dmusk${idPrefix + v._id}`}
+                    />
+                </defs>
+                <mask id={`musk${idPrefix + v._id}`}>
+                    <rect id="bg" x="0" y="0" width="100%" height="100%" fill="white" />
+                    <use xlinkHref={`#dmusk${idPrefix + v._id}`} fill="Black" />
+                </mask>
+                <circle
+                    r={50}
+                    cx={50}
+                    cy={50}
+                    color={color}
+                    mask={`url(#musk${idPrefix + v._id})`}
+                    onClick={chooseThis}
+                />
+            </Svg>
+        </Hint>
+    );
+});
+
 export class PomodoroNumView extends React.PureComponent<Props> {
     state: State = { transform: [] };
     iFrame: number = 0;
@@ -129,78 +218,6 @@ export class PomodoroNumView extends React.PureComponent<Props> {
         this.key = uid();
     }
 
-    createDot = (
-        v: PomodoroRecord,
-        index: number,
-        isNew: boolean = false,
-        isRunning: boolean = false
-    ) => {
-        // Same pomodoro red as the pomodoro emoji.
-        const { color = '#f03a17', animation = false, tick } = this.props;
-        const { transform } = this.state;
-        const n = this.props.pomodoros.length;
-        // The freshly added dot keeps its own spawn pulse; the chase needs at
-        // least two settled dots so there is a neighbour to hand off to.
-        const marquee = !isNew && isRunning && n > 1 && tick !== undefined;
-        // `tick` counts down, so negate it to make the highlight travel right.
-        const activeIndex = marquee && tick !== undefined ? ((-tick % n) + n) % n : -1;
-        const Svg: React.ComponentType<any> = marquee ? ChaseDot : isNew ? AnimeSvgDot : SvgDot;
-        const chooseThis = this.props.chooseRecord ? () => this.props.chooseRecord!(v) : undefined;
-        const label =
-            (isNew ? '[New]' : getTime(v.startTime)) +
-            (v.efficiency != null ? ` Efficiency: ${Math.round(v.efficiency * 100)}%` : '');
-        return (
-            <Hint
-                key={v._id + (isNew ? 'new' : '')}
-                kind="live"
-                label={label}
-                zIndex={this.props.hintZIndex}
-            >
-                <Svg
-                    $active={activeIndex === index}
-                    width="1em"
-                    height="1em"
-                    fill="currentColor"
-                    focusable="false"
-                    role="img"
-                    aria-label={label}
-                    viewBox="0 0 100 100"
-                    style={{
-                        margin: '0 0.1rem',
-                        transition: 'transform 0.2s, opacity 0.15s',
-                        transitionTimingFunction: 'ease',
-                        cursor: 'pointer',
-                        transform:
-                            animation && transform[index]
-                                ? `translate(${transform[index].x}px, ${transform[index].y}px)`
-                                : undefined,
-                    }}
-                >
-                    <defs>
-                        <circle
-                            r={v.efficiency != null ? (1 - v.efficiency) * 48 : 0}
-                            cx={50}
-                            cy={50}
-                            id={`dmusk${this.key + v._id}`}
-                        />
-                    </defs>
-                    <mask id={`musk${this.key + v._id}`}>
-                        <rect id="bg" x="0" y="0" width="100%" height="100%" fill="white" />
-                        <use xlinkHref={`#dmusk${this.key + v._id}`} fill="Black" />
-                    </mask>
-                    <circle
-                        r={50}
-                        cx={50}
-                        cy={50}
-                        color={color}
-                        mask={`url(#musk${this.key + v._id})`}
-                        onClick={chooseThis}
-                    />
-                </Svg>
-            </Hint>
-        );
-    };
-
     render() {
         const {
             showNum = true,
@@ -209,10 +226,48 @@ export class PomodoroNumView extends React.PureComponent<Props> {
             inline = false,
             animation = false,
             compact = false,
+            // Same pomodoro red as the pomodoro emoji.
+            color = '#f03a17',
+            tick,
+            chooseRecord,
+            hintZIndex,
         } = this.props;
-        const dots = pomodoros.map((v, index) => this.createDot(v, index, false, animation));
+        const { transform } = this.state;
+        const n = pomodoros.length;
+        // The freshly added dot keeps its own spawn pulse; the chase needs at
+        // least two settled dots so there is a neighbour to hand off to.
+        const chase = animation && n > 1 && tick !== undefined;
+        // `tick` counts down, so negate it to make the highlight travel right.
+        const activeIndex = chase && tick !== undefined ? ((-tick % n) + n) % n : -1;
+        const sharedDotProps = {
+            isRunning: animation,
+            color,
+            idPrefix: this.key,
+            chooseRecord,
+            hintZIndex,
+        };
+        const dots = pomodoros.map((v, index) => (
+            <Dot
+                key={v._id}
+                record={v}
+                isNew={false}
+                chase={chase}
+                active={chase && index === activeIndex}
+                transform={transform[index]}
+                {...sharedDotProps}
+            />
+        ));
         if (newPomodoro != null) {
-            dots.push(this.createDot(newPomodoro, dots.length, true));
+            dots.push(
+                <Dot
+                    key={newPomodoro._id + 'new'}
+                    record={newPomodoro}
+                    isNew={true}
+                    chase={false}
+                    active={false}
+                    {...sharedDotProps}
+                />
+            );
         }
 
         if (showNum) {

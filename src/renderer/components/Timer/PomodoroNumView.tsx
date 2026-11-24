@@ -81,48 +81,14 @@ const AnimeSvgDot = styled(SvgDot)`
 /** How dark a running dot is while the marquee highlight is elsewhere. */
 const MARQUEE_IDLE_OPACITY = 0.45;
 
-/** Time the highlight spends on one dot before moving to the next. */
-const MARQUEE_STEP_MS = 1000;
-
 /**
- * Keyframes are cached per dot count: the lit slice is one step of an
- * n-step cycle (`100 / count` percent), so each count needs its own
- * @keyframes. Rendering happens once a second while the timer runs, and a
- * fresh keyframes object per render would keep appending style rules.
+ * LED-style chase. Which dot is lit comes from the countdown tick (see the
+ * `tick` prop) instead of a CSS animation: a CSS animation starts whenever
+ * the dot mounts, so it drifts out of phase with the second the page renders,
+ * and nothing on the CSS side can see a pause or a resume.
  */
-const marqueeFramesCache = new Map<number, ReturnType<typeof keyframes>>();
-
-function marqueeFrames(count: number) {
-    const cached = marqueeFramesCache.get(count);
-    if (cached) return cached;
-    const lit = 100 / count;
-    const frames = keyframes`
-        0%, ${lit}% {
-            opacity: 1;
-        }
-        ${lit}%, 100% {
-            opacity: ${MARQUEE_IDLE_OPACITY};
-        }
-    `;
-    marqueeFramesCache.set(count, frames);
-    return frames;
-}
-
-/**
- * LED-style chase: the dots stay put and one dot lights at a time, handing
- * the highlight to its right-hand neighbour every `MARQUEE_STEP_MS`. The
- * cycle length is the dot count, so the phases stay exactly one step apart;
- * `step-end` makes the hand-off instant instead of fading two dots at once.
- */
-const MarqueeDot = styled(SvgDot)<{ $count: number; $index: number }>`
-    opacity: ${MARQUEE_IDLE_OPACITY};
-    animation: ${({ $count }) => marqueeFrames($count)}
-        ${({ $count }) => $count * MARQUEE_STEP_MS}ms step-end infinite;
-    animation-delay: ${({ $index }) => $index * MARQUEE_STEP_MS}ms;
-    @media (prefers-reduced-motion: reduce) {
-        animation: none;
-        opacity: 1;
-    }
+const ChaseDot = styled(SvgDot)<{ $active: boolean }>`
+    opacity: ${({ $active }) => ($active ? 1 : MARQUEE_IDLE_OPACITY)};
 `;
 
 interface Props {
@@ -130,6 +96,12 @@ interface Props {
     color?: string;
     showNum?: boolean;
     animation?: boolean;
+    /**
+     * Whole seconds left in the running session. When given, the chase steps
+     * on this value, so the highlight moves in the same render as the
+     * countdown text instead of on a CSS clock of its own.
+     */
+    tick?: number;
     newPomodoro?: PomodoroRecord;
     chooseRecord?: (record: PomodoroRecord) => void;
     inline?: boolean;
@@ -164,13 +136,15 @@ export class PomodoroNumView extends React.PureComponent<Props> {
         isRunning: boolean = false
     ) => {
         // Same pomodoro red as the pomodoro emoji.
-        const { color = '#f03a17', animation = false } = this.props;
+        const { color = '#f03a17', animation = false, tick } = this.props;
         const { transform } = this.state;
         const n = this.props.pomodoros.length;
         // The freshly added dot keeps its own spawn pulse; the chase needs at
         // least two settled dots so there is a neighbour to hand off to.
-        const marquee = !isNew && isRunning && n > 1;
-        const Svg: React.ComponentType<any> = marquee ? MarqueeDot : isNew ? AnimeSvgDot : SvgDot;
+        const marquee = !isNew && isRunning && n > 1 && tick !== undefined;
+        // `tick` counts down, so negate it to make the highlight travel right.
+        const activeIndex = marquee && tick !== undefined ? ((-tick % n) + n) % n : -1;
+        const Svg: React.ComponentType<any> = marquee ? ChaseDot : isNew ? AnimeSvgDot : SvgDot;
         const chooseThis = this.props.chooseRecord ? () => this.props.chooseRecord!(v) : undefined;
         const label =
             (isNew ? '[New]' : getTime(v.startTime)) +
@@ -183,8 +157,7 @@ export class PomodoroNumView extends React.PureComponent<Props> {
                 zIndex={this.props.hintZIndex}
             >
                 <Svg
-                    $count={n}
-                    $index={index}
+                    $active={activeIndex === index}
                     width="1em"
                     height="1em"
                     fill="currentColor"
@@ -194,7 +167,7 @@ export class PomodoroNumView extends React.PureComponent<Props> {
                     viewBox="0 0 100 100"
                     style={{
                         margin: '0 0.1rem',
-                        transition: 'transform 0.2s',
+                        transition: 'transform 0.2s, opacity 0.15s',
                         transitionTimingFunction: 'ease',
                         cursor: 'pointer',
                         transform:

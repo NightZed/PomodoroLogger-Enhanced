@@ -1952,6 +1952,7 @@ class Timer extends Component<Props, State> {
                                     pomodoros={this.state.pomodorosToday}
                                     showNum={false}
                                     animation={isRunning}
+                                    tick={secondsLeft}
                                     compact={compact}
                                     chooseRecord={this.props.setChosenRecord}
                                 />

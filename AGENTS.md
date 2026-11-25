@@ -35,6 +35,7 @@ Electron 桌面应用（番茄钟 + 看板 + 桌面活动追踪 + 统计）。
 
 - 八个滑块一律非受控，拖动值不进 store。
 - 占满窗口的平面保持纯 `background-color`，不要用 `color-mix()`。
+- 每秒都会变的属性不要挂 `transition`（透明窗口 + 软件渲染，过渡帧按窗口面积收费）。
 - 不要 import antd 的 `message` / `notification` / `Modal`，走 feedback 层与 `AppModal`。
 - 悬停提示走 `components/common/Hint`：按钮动作一类（开始、停止、添加）用默认 `static`，停留 0.4s 再显示；标签跟着数据变的（卡片标题、看板名、番茄时间、计数）必须写 `kind="live"`，否则用户要多等 0.4s 才能读到已经变过的内容。迷你窗的计时盘也属于这一类：盘面颜色只表达专注/休息/暂停，标签里的今日番茄数只能靠文字读。
 - `kind: 'error'` 只能出现在 `alert` 或 `notice`；走 notice 前必须先落盘。

@@ -174,7 +174,14 @@ const Dot = React.memo(function Dot(props: DotProps) {
                 viewBox="0 0 100 100"
                 style={{
                     margin: '0 0.1rem',
-                    transition: 'transform 0.2s, opacity 0.15s',
+                    // Transform only: the chase swaps `opacity` once a second,
+                    // and a 0.15 s opacity transition there is a frame every
+                    // few milliseconds for the whole window. The window is
+                    // transparent and the app renders in software by default
+                    // (see renderer.md), so each of those frames costs CPU
+                    // proportional to the window area -- 9.2% vs 2.3% on a
+                    // 1440x960 window. The step is instant without it.
+                    transition: 'transform 0.2s',
                     transitionTimingFunction: 'ease',
                     cursor: 'pointer',
                     transform:

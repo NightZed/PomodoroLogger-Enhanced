@@ -111,9 +111,9 @@ antd 的 `mouseEnterDelay` 也能做延迟，但 `Hint` 把它关掉了（`trigg
 
 样式用 styled-components（外加少量 `.scss` 全局文件）；不要为组件添加独立 CSS 文件。
 
-## 渲染性能：两条硬约束
+## 渲染性能：三条硬约束
 
-整个应用默认禁用硬件加速（`src/main/main.ts`）。下面两条都是在 CPU 光栅化下量出来的，换硬件加速也不会好转。
+整个应用默认禁用硬件加速（`src/main/main.ts`）。下面三条都是在 CPU 光栅化下量出来的，换硬件加速也不会好转。
 
 ### 占满窗口的平面必须保持纯 `background-color`
 
@@ -136,3 +136,11 @@ antd 的 `mouseEnterDelay` 也能做延迟，但 `Hint` 把它关掉了（`trigg
 所以模式切换（`MinimizeWindow` / `CompactWindow`）和最大化按钮在 resize 前先调 `init.ts` 的 `suppressResizingNotification()`（300 ms 抑制窗），这几条路径上圆角全程不动。
 
 因此只有用户拖动期间圆角是方的。没在 trace 里量过 `Display::DrawAndSwap` 之前，不要给那个元素加回真实圆角边框或换成占布局的画法，也不要让新的程序性 resize 路径漏掉抑制调用。
+
+### 每秒都会变的属性上不要挂 `transition`
+
+窗口是透明 frameless（`src/main/init.ts` 的 `transparent: true`），默认又关了硬件加速（`src/main/main.ts`），所以每一帧的混合与合成都在 CPU 上做完再交给桌面，成本与窗口像素数成正比。一个挂在每秒变化属性上的过渡，等于把「一次更新」放大成「十几帧 × 整窗面积」。
+
+`PomodoroNumView` 的追逐高亮每秒切一次 `$active`，原来带 `opacity 0.15s` 过渡：1440×960 窗口下倒计时期间整机 CPU 9.2%（renderer 5.8 + gpu 2.3），同步把窗口拉到 360×480 只剩 1.7%；去掉 opacity 过渡（只留 `transform`，它移动的是已有位图）后大窗口回到 2.3%，与暂停时 0% 之间只剩每秒一次更新本身的成本。给该点加 `will-change: opacity` 提升合成层也有用（2.8%），但每颗点一个合成层，不划算。
+
+新加动画前先问：这个属性是不是每秒（或更频繁）都会变？是的话不要过渡；确需柔和感，把时长压到几十毫秒以内，或者把它放进独立合成层。面积相关的开销在小窗口里看不出来，在普通窗口上却是一整个数量级。

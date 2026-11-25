@@ -11,6 +11,7 @@ import { EfficiencyAnalyser } from '../../../shared/efficiency/efficiency';
 import { normalizeAppHours } from '../../../shared/normalizeAppHours';
 import { Monitor } from '../../monitor';
 import { getTodaySessions } from '../../monitor/sessionManager';
+import { todayStart } from '../../monitor/day';
 import { PomodoroRecord } from '../../monitor/type';
 import { RootState } from '../../reducers';
 import { tabMaxHeight, thinScrollBar } from '../../style/scrollbar';
@@ -365,6 +366,13 @@ class Timer extends Component<Props, State> {
     selfRef: React.RefObject<HTMLDivElement | null> = React.createRef<HTMLDivElement>();
     private componentGone = false;
     /**
+     * `todayStart()` of the day the cached `pomodorosToday` came from, set by
+     * a successful load. `onStart` compares it and reloads after midnight; 0
+     * means "never loaded", so a start before the first load resolves looks
+     * again instead of trusting the empty initial list.
+     */
+    private lastReloadDay = 0;
+    /**
      * The open "no project / no cards" confirmation, if any. A new start request
      * destroys the previous dialog instead of stacking another one on top.
      */
@@ -440,6 +448,10 @@ class Timer extends Component<Props, State> {
      * switches, so waiting for a mount would leave the old list on screen.
      */
     private reloadTodaySessions(): void {
+        // Captured before the query: if it resolves after midnight, recording
+        // the *new* day would make this list look current, and the next start
+        // would skip the reload it needs. The requested day is the honest one.
+        const day = todayStart();
         getTodaySessions()
             .then((finishedSessions) => {
                 // 组件可能已在查询完成前卸载，此时不再更新状态
@@ -447,6 +459,7 @@ class Timer extends Component<Props, State> {
                     return;
                 }
 
+                this.lastReloadDay = day;
                 finishedSessions.sort((a, b) => a.startTime - b.startTime);
                 this.setState({
                     pomodorosToday: finishedSessions,
@@ -827,6 +840,15 @@ class Timer extends Component<Props, State> {
     };
 
     onStart = (boardId?: string) => {
+        // `pomodorosToday` is cached: confirmation appends to the array instead
+        // of re-querying (`onSessionConfirmed`), so a session started after
+        // midnight would keep piling yesterday's dots onto this list until the
+        // app restarts. Reload only when the day actually changed -- both start
+        // paths (focus and break) go through here.
+        if (todayStart() !== this.lastReloadDay) {
+            this.reloadTodaySessions();
+        }
+
         if (!this.props.timer.isFocusing) {
             return this.startResting();
         }

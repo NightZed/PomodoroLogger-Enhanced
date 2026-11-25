@@ -14,6 +14,12 @@
 
 单次采样间隔被 `MAX_TICK_MS`（30 s）截断，负差值按 0 处理。所以改系统时钟不会给某个应用凭空加减时间，休眠唤醒也不会把整段挂起记给前台应用。
 
+## 今日列表的缓存
+
+「今日」按 `startTime` 归属，边界是本地 0 点，只有一处定义：`src/renderer/monitor/day.ts` 的 `todayStart()`。`getTodaySessions` 用它过滤，Timer 页也用它判断缓存是否过期——两处各写一遍会让查询和失效判断落到不同的日子。
+
+Timer 页的 `pomodorosToday` 是缓存：挂载与数据重载（导入 / 全删，见 `sessionReloadToken`）时查库，之后每确认一个番茄直接 `concat`，不再查询。它不会因为跨天自己失效，所以 `onStart` 先比较 `todayStart()` 与上次成功加载的日期，不同才重新查询。所以 0 点后到第一次开始会话之间，页面、圆点、模式行计数和结束遮罩显示的都还是前一天的数据。
+
 ## 时长归一化
 
 会话确认时 `normalizeAppHours`（`src/shared/normalizeAppHours.ts`）把 `apps` 和 `stayTimeInSecond` 按最终 `spentTimeInHour`（含延长）等比缩放。

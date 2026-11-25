@@ -1,5 +1,6 @@
 import { workers } from '../workers';
 import { PomodoroRecord } from './type';
+import { todayStart } from './day';
 
 const dbWorkers = workers.dbWorkers;
 export function renameIllegalName(record: PomodoroRecord) {
@@ -76,7 +77,7 @@ export async function removeSession(startTime: number) {
 }
 
 export async function getTodaySessions(): Promise<PomodoroRecord[]> {
-    const todayStartTime = new Date(new Date().toDateString()).getTime();
+    const todayStartTime = todayStart();
     const ans = (await dbWorkers.sessionDB.find(
         { startTime: { $gt: todayStartTime } },
         {}

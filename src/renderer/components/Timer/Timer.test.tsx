@@ -598,6 +598,46 @@ describe('Timer page', () => {
         expect(view.getAllByRole('img', { name: /^\d{2}:\d{2}$/ })).toHaveLength(2);
     });
 
+    it('reloads the day list when the first session after midnight starts', async () => {
+        (getTodaySessions as jest.Mock).mockResolvedValue([
+            { _id: 's1', startTime: 1, boardId: 'b1' },
+            { _id: 's2', startTime: 2, boardId: 'b1' },
+        ]);
+
+        const view = await renderTimer();
+        expect(view.getAllByRole('img', { name: /^\d{2}:\d{2}$/ })).toHaveLength(2);
+
+        // Cross midnight, and let the next load return the new day's (empty)
+        // list. Yesterday's dots must not survive the start.
+        jest.setSystemTime(new Date('2026-01-02T00:00:30Z'));
+        (getTodaySessions as jest.Mock).mockResolvedValue([]);
+
+        await act(async () => {
+            view.ref.current!.onStart();
+        });
+
+        expect(view.queryAllByRole('img', { name: /^\d{2}:\d{2}$/ })).toHaveLength(0);
+    });
+
+    it('keeps the loaded day list when a session starts on the same day', async () => {
+        (getTodaySessions as jest.Mock).mockResolvedValue([
+            { _id: 's1', startTime: 1, boardId: 'b1' },
+        ]);
+
+        const view = await renderTimer();
+        expect(view.getAllByRole('img', { name: /^\d{2}:\d{2}$/ })).toHaveLength(1);
+
+        // A reload now would wipe the list: the mock would answer with nothing.
+        // The dot has to survive, i.e. no query happens within the same day.
+        (getTodaySessions as jest.Mock).mockResolvedValue([]);
+
+        await act(async () => {
+            view.ref.current!.onStart();
+        });
+
+        expect(view.getAllByRole('img', { name: /^\d{2}:\d{2}$/ })).toHaveLength(1);
+    });
+
     it("shows the mode and today's count under the countdown", async () => {
         (getTodaySessions as jest.Mock).mockResolvedValue([
             { _id: 's1', startTime: 1, boardId: 'b1' },

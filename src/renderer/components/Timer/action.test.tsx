@@ -10,6 +10,7 @@ import {
     setSessionEnding,
     pauseTimer,
     setWarnBeforeFocusStart,
+    resetSettingsToDefaults,
     startTimer,
     timerFinished,
     TimerState,
@@ -58,7 +59,19 @@ function stubMainProcessSettingsApi() {
         compactWindow: jest.fn(),
     };
     Object.assign(api, calls);
-    return { calls, restore: () => Object.assign(api, saved) };
+
+    return {
+        calls,
+        restore: () => {
+            for (const [key, value] of Object.entries(saved)) {
+                if (value === undefined) {
+                    delete api[key];
+                } else {
+                    api[key] = value;
+                }
+            }
+        },
+    };
 }
 
 describe('Reducer', () => {
@@ -153,6 +166,46 @@ describe('Reducer', () => {
         expect(reducer(state, setMinFinishDuration(5 * 60)).minFinishDuration).toBe(5 * 60);
         // 0 is the settings page's "finish at any time" option.
         expect(reducer(state, setMinFinishDuration(0)).minFinishDuration).toBe(0);
+    });
+
+    it('puts every persisted setting back to its factory value', () => {
+        const state = reducer(
+            {
+                ...defaultState,
+                focusDuration: 40 * 60,
+                themeId: 'night',
+                followSystemTheme: false,
+                workSoundPath: 'C:\\sounds\\rain.mp3',
+                contentOpacity: 0.4,
+            },
+            resetSettingsToDefaults()
+        );
+
+        expect({
+            focusDuration: state.focusDuration,
+            themeId: state.themeId,
+            followSystemTheme: state.followSystemTheme,
+            workSoundPath: state.workSoundPath,
+            contentOpacity: state.contentOpacity,
+        }).toEqual({
+            focusDuration: 25 * 60,
+            themeId: 'day',
+            followSystemTheme: true,
+            workSoundPath: undefined,
+            contentOpacity: 1,
+        });
+    });
+
+    // A reset changes preferences, not what the user is doing: stopping their
+    // session or bouncing them to another page would lose work.
+    it('leaves the running session and the current page alone', () => {
+        const running = reducer({ ...defaultState, currentTab: 'kanban' }, startTimer());
+        const state = reducer(running, resetSettingsToDefaults());
+
+        expect({ isRunning: state.isRunning, currentTab: state.currentTab }).toEqual({
+            isRunning: true,
+            currentTab: 'kanban',
+        });
     });
 
     it('reminds before a focus session by default and can be turned off', () => {
@@ -342,31 +395,22 @@ describe('Reducer', () => {
         expect(await stored()).toBeUndefined();
     });
 
-    // Regression: a reset that only dispatched the defaults left the settings
-    // table on the old values, so the next start brought every one of them
-    // back -- and a slider drag still inside its debounce window landed right
-    // after the reset and rewrote the old duration.
+    // What makes it fail: a reset that only dispatches the defaults. The store
+    // looks right, but `fetchSettings` replays the table, so the next start
+    // brings every old value back.
     it('writes the factory settings back and drops the nullable ones', async () => {
-        jest.useFakeTimers({ doNotFake: ['Date', 'nextTick', 'queueMicrotask'] });
         const mainProcess = stubMainProcessSettingsApi();
-        let state: TimerState = {
-            ...defaultState,
-            focusDuration: 40 * 60,
-            themeId: 'night',
-            followSystemTheme: false,
-        };
-        const dispatch = ((action: any) => {
-            state = reducer(state, action);
-        }) as unknown as Dispatch;
+        const dispatch = (() => undefined) as unknown as Dispatch;
 
         try {
             await actions.setWorkSoundPath('C:\\sounds\\rain.mp3')(dispatch);
-            // A drag that has not settled yet when the reset is pressed.
-            actions.setFocusDuration(40 * 60)(dispatch);
-
-            await actions.resetSettings()(dispatch, () => ({ timer: state }));
+            await actions.resetSettings()(dispatch, () => ({
+                timer: { ...defaultState, compact: false },
+            }));
 
             const stored = await dbs.settingDB.findOne({ name: 'setting' });
+            // The object names the setting that disagrees, so a failure says
+            // which one the reset missed.
             expect({
                 focusDuration: stored.focusDuration,
                 minFinishDuration: stored.minFinishDuration,
@@ -380,11 +424,34 @@ describe('Reducer', () => {
                 followSystemTheme: true,
                 workSoundPath: false,
             });
+        } finally {
+            mainProcess.restore();
+        }
+    });
 
-            // The dropped write must not put the dragged value back.
+    // A slider drag persists 300ms after its last move. What makes it fail:
+    // resetting without dropping that pending write -- it fires afterwards and
+    // puts the dragged value back over the factory one.
+    it('drops a slider write that is still waiting for its debounce', async () => {
+        jest.useFakeTimers({ doNotFake: ['Date', 'nextTick', 'queueMicrotask'] });
+        const mainProcess = stubMainProcessSettingsApi();
+        let state: TimerState = { ...defaultState, focusDuration: 40 * 60 };
+        const dispatch = ((action: any) => {
+            state = reducer(state, action);
+        }) as unknown as Dispatch;
+
+        try {
+            actions.setFocusDuration(40 * 60)(dispatch);
+            await actions.resetSettings()(dispatch, () => ({ timer: state }));
+
+            // Long past the debounce window: the old value would land here.
             await jest.advanceTimersByTimeAsync(400);
-            expect((await dbs.settingDB.findOne({ name: 'setting' })).focusDuration).toBe(25 * 60);
-            expect(state.focusDuration).toBe(25 * 60);
+
+            const stored = (await dbs.settingDB.findOne({ name: 'setting' })).focusDuration;
+            expect({ shown: state.focusDuration, stored }).toEqual({
+                shown: 25 * 60,
+                stored: 25 * 60,
+            });
         } finally {
             mainProcess.restore();
         }

@@ -358,8 +358,9 @@ describe('reset all settings', () => {
 
     // The button's label reads as switches and sliders, while the reset also
     // clears the wallpaper, a custom theme and the distracting-app list. The
-    // confirmation is the only place that can say so.
-    it('asks first and names what else gets cleared', async () => {
+    // confirmation is the only place that can say so -- and the click alone
+    // must not reset anything.
+    it('asks before touching anything and spells out what else goes', () => {
         const p = props();
         render(<Setting {...p} />);
         openSystem();
@@ -367,15 +368,26 @@ describe('reset all settings', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Reset All Settings' }));
 
         expect(p.resetSettings).not.toHaveBeenCalled();
-        const options = mockConfirm.mock.calls[0][0];
-        expect(options.title).toBe('Reset all settings?');
-        expect(options.content).toContain('wallpaper');
-        expect(options.content).toContain('distracting app list');
-        // Sessions live in another table; the note has to promise that.
-        expect(options.content).toContain('Sessions and boards are kept.');
+        expect(mockConfirm.mock.calls[0]?.[0]).toMatchObject({
+            title: 'Reset all settings?',
+            okText: 'Reset',
+        });
 
+        const content = mockConfirm.mock.calls[0][0].content;
+        expect(content).toContain('wallpaper');
+        expect(content).toContain('distracting app list');
+        // Sessions live in another table; the note has to promise that.
+        expect(content).toContain('Sessions and boards are kept.');
+    });
+
+    it('resets and reports it once the dialog is accepted', async () => {
+        const p = props();
+        render(<Setting {...p} />);
+        openSystem();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Reset All Settings' }));
         await act(async () => {
-            await options.onOk?.();
+            await mockConfirm.mock.calls[0][0].onOk?.();
         });
 
         expect(p.resetSettings).toHaveBeenCalledTimes(1);

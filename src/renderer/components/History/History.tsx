@@ -25,6 +25,7 @@ import { Card as CardState } from '../Kanban/type';
 import { TimeTreemap } from '../../../components/Visualization/TimeTreemap';
 import { ProjectTimeline } from '../../../components/Visualization/ProjectTimeline';
 import { SessionDayEditor } from './SessionDayEditor';
+import { tomorrowStart } from '../../monitor/day';
 import { useI18n } from '../../i18n';
 
 const { Option } = Select;
@@ -255,7 +256,13 @@ export const History: React.FunctionComponent<Props> = React.memo((props: Props)
         const weekStart = todayStart - new Date().getDay() * 86400 * 1000;
         const recentStart = Math.min(monthStart, weekStart);
         const searchArg = props.chosenId === undefined ? {} : { boardId: props.chosenId };
-        const recentArg = { ...searchArg, startTime: { $gte: recentStart } };
+        // Both ends: the Today/Week/Month cards are computed from this query,
+        // and a session dated in the future (clock moved forward, then back)
+        // would otherwise stay counted as "today" until it is deleted.
+        const recentArg = {
+            ...searchArg,
+            startTime: { $gte: recentStart, $lt: tomorrowStart(now) },
+        };
         let yearArg: any = searchArg;
         let periodRange: { from: number; to: number } | undefined = undefined;
         if (chosenYear !== ALL_TIME) {

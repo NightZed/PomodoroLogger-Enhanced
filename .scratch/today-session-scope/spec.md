@@ -1,6 +1,6 @@
 # 今日会话的查询范围与缓存失效
 
-Status: open（边界已记录，剩余一项未排期）
+Status: closed（剩余为已接受的边界，见下）
 
 ## 背景
 
@@ -56,7 +56,11 @@ Status: open（边界已记录，剩余一项未排期）
   时钟回拨到那天时 `onStart` 的比较成立，页面永远不再重查，旧列表被当成今天直到重启。
   测试：`Timer.test.tsx` 的「retries a failed day load when the clock returns to the cached day」。
 
+- **无上界的「最近」查询**（issue 02）：`History` 的 `recentArg`、`getPomodoroAgg` 与
+  `ProjectTrend` 的 `since` 都补到了明天 0 点。历史页顶部的今日 / 本周 / 本月由
+  `recentRecords` 算出，而 All-time 模式下 worker 会用 `yearRecords` 兜底，
+  所以 `getPomodoroAgg` 自己也收了一次上界，不只依赖调用方的查询。
+
 ## 待办
 
-- `issues/02-unbounded-recent-queries.md`：`History` 的 `recentArg`、`getPomodoroAgg` 与
-  `ProjectTrend` 的 `since` 仍无上界。
+（暂无）

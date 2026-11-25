@@ -64,11 +64,16 @@ export const getPomodoroAgg = (
     days: number,
     pomodoros: PomodoroRecord[]
 ): { count: number; hours: number } => {
-    const time = getDateFromTimestamp(new Date().getTime()).getTime() - days * DAY_MS;
+    const todayStart = getDateFromTimestamp(new Date().getTime()).getTime();
+    const since = todayStart - days * DAY_MS;
+    // Both ends. The source query is bounded too, but in All-time mode the
+    // worker falls back to `yearRecords`, which keeps every recorded row --
+    // including ones dated in the future after the clock was moved forward.
+    const until = todayStart + DAY_MS;
     let count = 0;
     let hours = 0;
     for (const p of pomodoros) {
-        if (p.startTime >= time) {
+        if (p.startTime >= since && p.startTime < until) {
             count += 1;
             hours += p.spentTimeInHour;
         }

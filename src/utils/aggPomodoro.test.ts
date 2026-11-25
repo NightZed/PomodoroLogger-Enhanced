@@ -93,6 +93,29 @@ describe('aggPomodoro shared core', () => {
         expect(Object.keys(ans.calendarCount).length).toBe(1);
     });
 
+    it("does not let tomorrow's session into today's number", () => {
+        const todayStart = getDateFromTimestamp(Date.now()).getTime();
+        const tomorrow = {
+            startTime: todayStart + 24 * 3600 * 1000 + 3600_000,
+            spentTimeInHour: 1,
+            apps: {},
+            boardId: 'b1',
+        } as any;
+
+        // All-time mode passes `yearRecords` in as `recentRecords`, and those
+        // keep future-dated rows; the Today/Week/Month counters must still stop
+        // at midnight.
+        const ans = aggHistory([tomorrow], [tomorrow], { b1: 'Work' });
+
+        expect(ans.agg).toEqual({
+            day: { count: 0, hours: 0 },
+            week: { count: 0, hours: 0 },
+            month: { count: 0, hours: 0 },
+        });
+        // "All time" still includes the row itself.
+        expect(ans.total).toEqual({ count: 1, usedTime: 1 });
+    });
+
     it('narrows the badge and charts to the month while the calendar keeps the year', () => {
         const rec = (startTime: number) =>
             ({ startTime, spentTimeInHour: 1, apps: {}, boardId: 'b1' }) as any;

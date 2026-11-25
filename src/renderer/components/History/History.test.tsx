@@ -68,6 +68,7 @@ jest.mock('antd', () => {
 import { History } from './History';
 import { AggPomodoroInfo } from './op';
 import { workers } from '../../workers';
+import { tomorrowStart } from '../../monitor/day';
 
 const AGG: AggPomodoroInfo = {
     agg: {
@@ -226,6 +227,9 @@ describe('History (month filter)', () => {
             $gte: new Date(year, 0, 1).getTime(),
             $lt: new Date(year + 1, 0, 1).getTime(),
         });
+        // The Today/Week/Month cards are computed from the recent query, so it
+        // must stop at midnight too; otherwise a future-dated row stays "today".
+        expect(lastCall().recentQuery.startTime.$lt).toBe(tomorrowStart());
         expect(badge(container)).toBe(`${WHOLE_YEAR_COUNT} Pomodoros`);
 
         const [, yearPicker, monthPicker] = pickers(container);

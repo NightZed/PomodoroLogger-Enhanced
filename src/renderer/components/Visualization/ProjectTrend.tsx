@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { PomodoroRecord } from '../../monitor/type';
 import { workers } from '../../workers';
 import { useI18n } from '../../i18n';
+import { tomorrowStart } from '../../monitor/day';
 
 const Container = styled.div`
     position: relative;
@@ -278,9 +279,19 @@ const fetchTrend = (boardId: string, sessionCount?: number): Promise<number[]> =
     // and cloned all of them over IPC just to throw them away here. Projecting
     // `startTime` also lets the repository read a single scalar column, and the
     // range filter uses the (board_id, start_time) index.
-    const since = Date.now() - TREND_SPAN_IN_DAYS * 24 * 3600 * 1000;
+    const now = Date.now();
+    const since = now - TREND_SPAN_IN_DAYS * 24 * 3600 * 1000;
+    // Both ends from the same instant. A record dated in the future would
+    // otherwise pass the lower bound and push its bucket past the array's
+    // end (`countRecordNum` writes `data[spanInDay + n]`).
     const request = workers.dbWorkers.sessionDB
-        .find({ boardId, startTime: { $gte: since } }, { startTime: 1 })
+        .find(
+            {
+                boardId,
+                startTime: { $gte: since, $lt: tomorrowStart(new Date(now)) },
+            },
+            { startTime: 1 }
+        )
         .then((values: Pick<PomodoroRecord, 'startTime'>[]) => {
             const counter = countRecordNum(values);
             counter[counter.length - 1] += 0.001;

@@ -2,6 +2,7 @@ import React from 'react';
 import { act, render, waitFor } from '@testing-library/react';
 import { IdTrend, invalidateTrendCache, ProjectTrend } from './ProjectTrend';
 import { workers } from '../../workers';
+import { tomorrowStart } from '../../monitor/day';
 
 jest.mock('../../workers', () => ({
     workers: {
@@ -60,6 +61,9 @@ describe('ProjectTrend sparkline', () => {
         const [query, projection] = mockSessionFind.mock.calls[0];
         expect(query.boardId).toBe('b1');
         expect(typeof query.startTime.$gte).toBe('number');
+        // A future-dated row would pass the lower bound and push its bucket
+        // past the end of the trend array, so the window has to close today.
+        expect(query.startTime.$lt).toBe(tomorrowStart());
         expect(projection).toEqual({ startTime: 1 });
         view.unmount();
     });

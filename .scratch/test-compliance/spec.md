@@ -10,7 +10,25 @@ Status: open（持续追加，不排期）
 
 | 测试文件 | 条目 | 记录于 |
 | --- | --- | --- |
-| （暂无） | | |
+| `Setting.test.tsx` | 用 `data-testid` 定位 Slider 桩；断言 feedback mock 被调几次 | 2026-11-25 |
+| `PreviewSlider.test.tsx` | 断言 `onPreview` 被调次数（每帧一次的实现细节） | 2026-11-25 |
+
+## 待修
+
+### `Setting.test.tsx`
+
+- **现象**：`getAllByTestId('slider')` 多处使用（桩在 130–147 行定义 `'data-testid': 'slider'`）。
+- **依据**：`docs/testing.md` 的「算不算行为」表——`data-testid` 属于「不算」。这里是替身的私有接口，换成别的桩或真实滑块就整组失效。
+- **修法**：桩本身就是原生 `<input type="range">`，它带 `role="slider"`；改成 `getAllByRole('slider')`，断言不变。
+- **现象（续）**：`expect(mockAlert).toHaveBeenCalledTimes(1)`、`mockToast`、`mockConfirm` 等十余处只数调用次数。
+- **依据**：次数是实现（「调了几次」），用户看到的是提示的 `kind` 与文案。
+- **修法**：按 `feedback.alert` / `notice` 的 payload 断言 `kind` 与含变化值的那段文案。
+
+### `PreviewSlider.test.tsx`
+
+- **现象**：`expect(onPreview).toHaveBeenCalledTimes(2)`（约 106 行）断言拖动过程中预览回调被调几次。
+- **依据**：预览是每帧都会调的实现节流细节；真实滑块合帧或改节流，次数就变，行为没变。
+- **修法**：断言最后一次 `onPreview` 收到拖动终点值，或断言读数文本已随之更新。
 
 ## 已修复
 

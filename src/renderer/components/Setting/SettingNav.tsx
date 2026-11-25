@@ -13,15 +13,19 @@ import { SECTIONS, SectionId, SectionMeta } from './sections';
  * overridden here anyway (see the `.ant-menu-*` rules in `theme/globalStyle.ts`),
  * and these items only need a label, an icon and a selected state -- the same
  * combination `ThemeButton` in the appearance section already renders.
+ *
+ * The sidebar stays on the left at every window width: narrowing the window
+ * narrows the content pane, it never turns the navigation into a top bar.
  */
 const Nav = styled.nav`
     flex: 0 0 auto;
-    width: 168px;
-    padding: 12px 8px 12px 12px;
+    width: 216px;
+    padding: 16px 12px;
     color: var(--pl-text);
     -webkit-app-region: no-drag;
     overflow-y: auto;
     background-color: var(--pl-bg-sunken);
+    border-right: 1px solid var(--pl-border);
 `;
 
 const NavList = styled.ul`
@@ -36,11 +40,14 @@ const NavItem = styled.button<{ $active: boolean }>`
     display: flex;
     align-items: center;
     width: 100%;
-    padding: 8px 10px;
+    height: 34px;
+    padding: 0 10px;
     margin-bottom: 2px;
     border: none;
-    border-radius: 4px;
+    border-radius: 7px;
+    font-family: inherit;
     font-size: 13px;
+    font-weight: ${({ $active }) => ($active ? 500 : 400)};
     text-align: left;
     cursor: pointer;
     transition:
@@ -51,11 +58,17 @@ const NavItem = styled.button<{ $active: boolean }>`
 
     .anticon {
         margin-right: 8px;
+        font-size: 14px;
     }
 
     &:hover {
         background-color: var(--pl-bg-hover);
-        color: var(--pl-text);
+        color: ${({ $active }) => ($active ? 'var(--pl-primary)' : 'var(--pl-text)')};
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--pl-primary);
+        outline-offset: -2px;
     }
 `;
 

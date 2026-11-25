@@ -644,6 +644,22 @@ export const en = {
             system: 'System',
             about: 'About',
         },
+        /** Group headings inside a section. */
+        group: {
+            durations: 'Durations',
+            focus: 'Focus',
+            transparency: 'Transparency',
+            background: 'Background',
+            calendar: 'Calendar',
+            alerts: 'Alerts',
+            general: 'General',
+            startupWindow: 'Startup & Window',
+        },
+        /** The numeric editor shared by every slider. */
+        slider: {
+            editValue: (label: string): string => `Edit ${label}`,
+            editValueFallback: 'Edit value',
+        },
         language: {
             system: 'Follow system',
             /** Language names are written in their own language, in both catalogs. */
@@ -680,7 +696,6 @@ export const en = {
             language: 'Language',
             languageHint: 'Applies immediately, including the tray menu and desktop notifications.',
             compactAlwaysOnTop: 'Keep Compact Window Always On Top',
-            startup: 'Startup',
             startOnBoot: 'Start On Boot',
             hardwareAcceleration: 'Hardware Acceleration',
             hardwareAccelerationHint:
@@ -691,9 +706,16 @@ export const en = {
                 'releases the other pages after 30 seconds. Reopening rebuilds them, and ' +
                 'history recalculates.',
             update: 'Update',
-            autoUpdate: 'Auto Update',
+            autoUpdate: 'Automatically check for updates',
+            autoUpdateHint: 'Looks for a new version when the app starts.',
             checkUpdate: 'Check Update',
+            checkUpdateHint: 'Check for a new version now.',
             dataManagement: 'Data Management',
+            dataBackup: 'Backup & Maintenance',
+            dataManagementHint: 'Export, import, check and repair your data.',
+            deleteAllHint:
+                'Sessions, projects and boards are deleted; your settings are kept. ' +
+                'This cannot be undone.',
             openDataFolder: 'Open Data Folder',
             logging: 'Logging',
             logLevel: 'Log Level',
@@ -704,6 +726,8 @@ export const en = {
             logLevelInfo: 'Info',
             logLevelWarn: 'Warn',
             logLevelError: 'Error',
+            logFolder: 'Log Folder',
+            logFolderHint: 'Where the app writes its log files.',
             openLogFolder: 'Open Log Folder',
             exportData: 'Export Data',
             importData: 'Import Data',
@@ -715,25 +739,21 @@ export const en = {
             shortBreak: 'Short Break',
             longBreak: 'Long Break',
             minFinish: 'Minimum Focus Time before Finish',
-            minFinishHint:
-                'The range follows the focus duration above. ' +
-                'Set it to "Any" (0) to allow finishing at any time. ',
             distracting: 'Distracting App Setting',
-            any: 'Any',
+            configure: 'Configure…',
         },
         appearance: {
             theme: 'Theme',
+            mode: 'Mode',
+            customTheme: 'Custom Theme',
             switchToTheme: (name: string): string => `Switch to the ${name} theme`,
             followSystem: 'Follow System',
             contentOpacity: 'Content Opacity',
             contentOpacityHint:
-                'Fades the title bar and the page, text and icons included. Dialogs and ' +
-                'toasts fade with them; the window background has its own slider below and ' +
-                'is not affected.',
+                'Affects the title bar and every page, including text, icons, dialogs and toasts.',
             backgroundOpacity: 'Background Opacity',
             backgroundOpacityHint:
-                'How much of the desktop shows through the window background. Floored above ' +
-                'zero so the surface never disappears; the text keeps its own opacity.',
+                'Affects the window background only; text keeps its own opacity.',
             wallpaper: 'Background Wallpaper',
             wallpaperOpacity: 'Wallpaper Opacity',
             calendarBaseColor: 'Calendar Base Color',

@@ -162,3 +162,118 @@ it('renders no badge without a formatter', () => {
 
     expect(screen.queryByText(/:00/)).toBeNull();
 });
+
+// The readout is also the editor: the value the slider owns is what the input
+// starts from, Enter commits it, and Escape leaves the setting untouched.
+it('commits a typed value when the editor is confirmed', () => {
+    const onCommit = jest.fn();
+    render(
+        <PreviewSlider
+            value={15}
+            min={10}
+            max={60}
+            ariaLabel="Duration"
+            formatValue={(v) => `${v}:00`}
+            onCommit={onCommit}
+        />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Duration' }));
+    const input = screen.getByRole('textbox', { name: 'Duration' });
+    fireEvent.change(input, { target: { value: '35' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith(35);
+    expect(screen.getByText('35:00')).toBeTruthy();
+});
+
+// A hand-typed number has no thumb to stop at the ends, so the clamp the
+// slider applies has to be repeated here -- 5 and 999 must land on 10 and 60.
+it('clamps a typed value to the slider range', () => {
+    const onCommit = jest.fn();
+    render(
+        <PreviewSlider
+            value={15}
+            min={10}
+            max={60}
+            ariaLabel="Duration"
+            formatValue={(v) => `${v}:00`}
+            onCommit={onCommit}
+        />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Duration' }));
+    const input = screen.getByRole('textbox', { name: 'Duration' });
+    fireEvent.change(input, { target: { value: '999' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onCommit).toHaveBeenLastCalledWith(60);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Duration' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Duration' }), {
+        target: { value: '5' },
+    });
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Duration' }), {
+        key: 'Enter',
+    });
+
+    expect(onCommit).toHaveBeenLastCalledWith(10);
+});
+
+it('leaves the setting alone when the edit is cancelled', () => {
+    const onCommit = jest.fn();
+    render(
+        <PreviewSlider
+            value={15}
+            ariaLabel="Duration"
+            formatValue={(v) => `${v}:00`}
+            onCommit={onCommit}
+        />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Duration' }));
+    const input = screen.getByRole('textbox', { name: 'Duration' });
+    fireEvent.change(input, { target: { value: '35' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(screen.getByText('15:00')).toBeTruthy();
+});
+
+// Regression: a drag commits without re-seeding the slider (the store echo is
+// not an outside change), so the readout used to fall back to the pre-drag
+// seed when the editor replaced and then remounted its text node. Opening the
+// editor and clicking away undid the drag.
+it('keeps the dragged value after the editor is opened and closed again', () => {
+    const onCommit = jest.fn();
+    const { rerender } = render(
+        <PreviewSlider
+            value={15}
+            ariaLabel="Duration"
+            formatValue={(v) => `${v}:00`}
+            onCommit={onCommit}
+        />
+    );
+
+    // The stand-in fires onChange and onChangeComplete in one event, like the
+    // real slider's release.
+    fireEvent.change(slider(), { target: { value: '25' } });
+    rerender(
+        <PreviewSlider
+            value={25}
+            ariaLabel="Duration"
+            formatValue={(v) => `${v}:00`}
+            onCommit={onCommit}
+        />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Duration' }));
+    expect((screen.getByRole('textbox', { name: 'Duration' }) as HTMLInputElement).value).toBe(
+        '25'
+    );
+    fireEvent.blur(screen.getByRole('textbox', { name: 'Duration' }));
+
+    expect(screen.getByText('25:00')).toBeTruthy();
+    expect(screen.queryByText('15:00')).toBeNull();
+});

@@ -307,9 +307,6 @@ describe('minimum focus time before Finish', () => {
 
         const shown = document.body.textContent ?? '';
         expect(shown).toContain('Minimum Focus Time before Finish');
-        // The hint has to explain the off switch: 0 allows finishing at any
-        // time, which is what the "Any" mark of the slider stands for.
-        expect(shown).toContain('allow finishing at any time');
 
         // Focus, short break, long break, then the minimum: the last slider of
         // the (default) timer section is the new one.
@@ -319,6 +316,12 @@ describe('minimum focus time before Finish', () => {
         // The stand-in above reports the end of the drag in the same event
         // (`onChangeComplete` is the real slider's release).
         await waitFor(() => expect(p.setMinFinishDuration).toHaveBeenCalledWith(5 * 60));
+    });
+
+    it('shows a zero minimum as 0 min instead of an "Any" label', () => {
+        render(<Setting {...{ ...props(), minFinishDuration: 0 }} />);
+
+        expect(screen.getByText('0 min')).toBeTruthy();
     });
 
     it('offers up to the focus duration, so a 50 minute session allows a 40 minute minimum', async () => {
@@ -659,12 +662,12 @@ describe('Setting tray memory option', () => {
         const nav = screen.getByRole('navigation', { name: 'Settings sections' });
         fireEvent.click(within(nav).getByRole('button', { name: /System/ }));
 
-        const label = screen.getByText('Release Page Memory in Tray');
-        const toggle =
-            label.parentElement?.querySelector<HTMLButtonElement>('button[role="switch"]');
+        const toggle = screen.getByRole('switch', {
+            name: 'Release Page Memory in Tray',
+        }) as HTMLButtonElement;
         expect(toggle).toBeTruthy();
 
-        fireEvent.click(toggle!);
+        fireEvent.click(toggle);
         expect(trayProps.setUnloadOnCloseToTray).toHaveBeenCalledWith(true);
     });
 });

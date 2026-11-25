@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { TimerActionTypes, TimerState } from '../Timer/action';
 import styled from 'styled-components';
 import { GithubOutlined } from '@ant-design/icons';
-import { Button, Switch } from 'antd';
+import { Button } from 'antd';
 import { Hint } from '../../../components/common/Hint/Hint';
 import { deleteAllUserData } from '../../monitor/sessionManager';
 import { feedback, FEEDBACK_MESSAGES } from '../feedback';
@@ -15,7 +15,7 @@ import type { ExportResult, ImportResult, UpdateErrorPayload } from '../../../ma
 import type { DataIssuesReport, DataRepairResult } from '../../../shared/dataRepair';
 import type { ImportSummary } from '../../../shared/dataTransfer/importSummary';
 import { refreshDbs } from '../../dbs';
-import { BUILTIN_THEMES, ThemeDefinition } from '../../theme/tokens';
+import type { ThemeDefinition } from '../../theme/tokens';
 import SettingNav from './SettingNav';
 import PreviewSlider from './PreviewSlider';
 import { KeyBadge } from './KeyBadge';
@@ -24,6 +24,18 @@ import { DataRepairDialog } from './DataRepairDialog';
 import { AppHoursCalibrationDialog } from './AppHoursCalibrationDialog';
 import { ImportReportDialog } from './ImportReportDialog';
 import { useSliderChange } from './useSliderChange';
+import Segmented from './Segmented';
+import SettingSwitch from './SettingSwitch';
+import {
+    Card,
+    ControlCluster,
+    GroupTitle,
+    rowSeparator,
+    SettingsContent,
+    SettingsRow,
+    SettingsSection,
+    SliderRow,
+} from './layout';
 import {
     applyContentOpacity,
     applyThemeBackgroundOpacity,
@@ -51,138 +63,87 @@ const Container = styled.div`
 const Pane = styled.div`
     flex: 1 1 auto;
     min-width: 0;
-    /* The bottom padding leaves room for the fixed footer, which spans the
-       whole settings page and would otherwise cover the last option. */
-    padding: 12px 36px 72px 12px;
+    padding: 0 40px;
     overflow-y: auto;
-`;
 
-/** The options column: capped at a readable width, centered in the pane. */
-const PaneContent = styled.div`
-    max-width: 960px;
-    margin: 0 auto;
-`;
+    @media (max-width: 980px) {
+        padding: 0 24px;
+    }
 
-/**
- * One option of the active section. The bottom border is the separator the
- * page uses between options; it is dropped on the last one so the group does
- * not end on a stray line.
- */
-const Field = styled.div`
-    padding-bottom: 12px;
-    margin-bottom: 12px;
-    border-bottom: 1px solid var(--pl-border);
-
-    &:last-child {
-        border-bottom: none;
-        margin-bottom: 0;
+    @media (max-width: 820px) {
+        padding: 0 16px;
     }
 `;
 
-const SliderContainer = styled.div`
-    padding: 4px 24px;
-    -webkit-app-region: no-drag;
-    pointer-events: auto;
-`;
-
-// The readout badge of each slider (see `PreviewSlider`). The durations show
-// mm:ss of whole minutes, which keeps the label free of i18n strings; the
-// volume and the three opacities are plain percentages.
-const formatMinutes = (value: number) => `${String(value).padStart(2, '0')}:00`;
+// The readout of each slider (see `PreviewSlider`). The unit is a fixed label
+// rather than translated copy: `min` reads the same in either interface
+// language, and keeping it out of the catalog means the editor's suffix never
+// changes width between languages. The volume and the three opacities are
+// plain percentages.
+const formatMinutes = (value: number) => `${value} min`;
 const formatPercent = (value: number) => `${value}%`;
 
-const ButtonWrapper = styled.div`
-    margin: 0.6em;
-`;
-
-/** Row of the data-management buttons; wraps when the pane is too narrow. */
-const ButtonRow = styled.div`
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 12px;
-    margin: 0.6em;
-`;
-
 const ColorInput = styled.input`
-    width: 32px;
-    height: 32px;
-    margin: 8px;
+    width: 26px;
+    height: 26px;
     padding: 0;
-    border: none;
-    border-radius: 2px;
+    border: 1px solid var(--pl-border);
+    border-radius: 50%;
     background: none;
     cursor: pointer;
-    vertical-align: middle;
+    overflow: hidden;
 
     &::-webkit-color-swatch-wrapper {
         padding: 0;
     }
     &::-webkit-color-swatch {
-        border: 1px solid var(--pl-border);
-        border-radius: 2px;
-    }
-`;
-
-/**
- * Pinned to the bottom of the settings page, as it was before the page was
- * split into sections: the version and the repository link are page chrome,
- * not an option of any single section, so it shows on all of them.
- */
-const Footer = styled.footer`
-    border-top: 1px solid var(--pl-border);
-    padding: 0.6rem 0;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    margin: 0;
-    width: 100%;
-    box-sizing: border-box;
-    text-align: center;
-    color: var(--pl-text-secondary);
-`;
-
-const ShortcutGroup = styled.div`
-    margin-bottom: 16px;
-
-    h5 {
-        margin: 0 0 6px;
-        font-size: 13px;
-        color: var(--pl-text-secondary);
+        border: none;
+        border-radius: 50%;
     }
 `;
 
 const ShortcutRow = styled.div`
+    ${rowSeparator}
     display: flex;
-    align-items: baseline;
-    padding: 4px 0;
+    align-items: center;
+    gap: 20px;
+    min-height: 40px;
+    padding: 7px 16px;
     font-size: 13px;
+
+    @media (max-width: 820px) {
+        gap: 12px;
+    }
 `;
 
 const ShortcutKeys = styled.div`
     flex: 0 0 190px;
+
+    @media (max-width: 820px) {
+        flex-basis: 140px;
+    }
 `;
 
-const FieldHint = styled.p`
-    margin: 0 0 16px;
+const ShortcutHeading = styled.h4`
+    margin: 20px 4px 8px;
     font-size: 13px;
+    font-weight: 500;
     color: var(--pl-text-secondary);
 `;
 
-const StyledIcon = styled(GithubOutlined)`
-    font-size: 1.25rem;
-    color: var(--pl-text);
-    transition: color 0.1s;
-    margin: 0 0.3rem;
-    &:hover {
-        color: var(--pl-primary);
-    }
+const GroupNote = styled.p`
+    margin: 0 4px 16px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--pl-text-secondary);
 `;
 
 const ThemeOptions = styled.div`
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    margin: 4px 0 4px 0;
+    justify-content: flex-end;
+    gap: 6px;
 `;
 
 interface ThemeButtonProps {
@@ -192,10 +153,10 @@ interface ThemeButtonProps {
 const ThemeButton = styled.button<ThemeButtonProps>`
     display: flex;
     align-items: center;
-    padding: 6px 12px;
-    margin: 4px 8px 4px 0;
-    border-radius: 4px;
-    font-size: 13px;
+    padding: 5px 9px;
+    border-radius: 7px;
+    font-family: inherit;
+    font-size: 12px;
     cursor: pointer;
     transition:
         border-color 0.15s,
@@ -209,19 +170,84 @@ const ThemeButton = styled.button<ThemeButtonProps>`
     &:hover {
         border-color: var(--pl-primary);
     }
+
+    &:focus-visible {
+        outline: 2px solid var(--pl-primary);
+        outline-offset: 1px;
+    }
 `;
 
 const Swatches = styled.span`
     display: inline-flex;
-    margin-right: 8px;
+    margin-right: 7px;
     border-radius: 2px;
     overflow: hidden;
     border: 1px solid var(--pl-border);
 
     i {
         display: block;
-        width: 12px;
-        height: 14px;
+        width: 10px;
+        height: 12px;
+    }
+`;
+
+const AboutWrap = styled.div`
+    max-width: 560px;
+    margin: 8px auto 0;
+`;
+
+const AboutBody = styled.div`
+    padding: 32px 24px;
+    text-align: center;
+`;
+
+const AboutName = styled.h2`
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--pl-text);
+`;
+
+const AboutVersion = styled.div`
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--pl-text-secondary);
+`;
+
+const AboutHint = styled.p`
+    margin: 12px 0 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--pl-text-secondary);
+`;
+
+const AboutActions = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    margin-top: 20px;
+`;
+
+const GithubLink = styled.button`
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--pl-text);
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+
+    &:hover {
+        color: var(--pl-primary);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--pl-primary);
+        outline-offset: 2px;
     }
 `;
 
@@ -305,32 +331,8 @@ const OpenLogFolderButton: React.FC<{ onClick: () => void }> = ({ onClick }) => 
     </Button>
 );
 
-const SettingLabel = styled.span`
-    font-weight: 500;
-    font-size: 14px;
-    color: var(--pl-text);
-`;
-
-/** One reminder sound of the audio group. */
-const SoundBlock = styled.div`
-    padding: 8px 0;
-    border-bottom: 1px solid var(--pl-border);
-
-    &:last-of-type {
-        padding-bottom: 0;
-        border-bottom: none;
-    }
-`;
-
-const SoundRow = styled.div`
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-`;
-
-const SoundFile = styled.div<{ $disabled: boolean }>`
-    margin-top: 4px;
+const SoundFile = styled.span<{ $disabled: boolean }>`
+    display: block;
     font-size: 12px;
     color: var(--pl-text-secondary);
     opacity: ${({ $disabled }) => ($disabled ? 0.6 : 1)};
@@ -382,104 +384,60 @@ const SoundOption: React.FunctionComponent<SoundOptionProps> = ({
     };
 
     return (
-        <SoundBlock>
-            <SoundRow>
-                <SettingLabel>{label}</SettingLabel>
-                <Switch
-                    size="small"
-                    checked={enabled}
-                    onChange={(value) => onToggle(value)}
-                    aria-label={label}
-                />
-                <Button
-                    size="small"
-                    onClick={test}
-                    disabled={disabled}
-                    aria-label={`${label} ${t('settings.notification.testSound')}`}
-                >
-                    {t('settings.notification.testSound')}
-                </Button>
-                <Button
-                    size="small"
-                    onClick={onSelect}
-                    disabled={disabled}
-                    aria-label={`${label} ${t('settings.notification.chooseSound')}`}
-                >
-                    {t('settings.notification.chooseSound')}
-                </Button>
-                <Button
-                    size="small"
-                    onClick={onRestore}
-                    disabled={disabled || !path}
-                    aria-label={`${label} ${t('settings.notification.restoreSound')}`}
-                >
-                    {t('settings.notification.restoreSound')}
-                </Button>
-            </SoundRow>
-            <SoundFile $disabled={disabled}>
-                {path ? soundName(path) : t('settings.notification.defaultSound')}
-            </SoundFile>
-        </SoundBlock>
+        <SettingsRow
+            title={label}
+            description={
+                <SoundFile $disabled={disabled}>
+                    {path ? soundName(path) : t('settings.notification.defaultSound')}
+                </SoundFile>
+            }
+            control={
+                <>
+                    <Button
+                        size="small"
+                        onClick={test}
+                        disabled={disabled}
+                        aria-label={`${label} ${t('settings.notification.testSound')}`}
+                    >
+                        {t('settings.notification.testSound')}
+                    </Button>
+                    <Button
+                        size="small"
+                        onClick={onSelect}
+                        disabled={disabled}
+                        aria-label={`${label} ${t('settings.notification.chooseSound')}`}
+                    >
+                        {t('settings.notification.chooseSound')}
+                    </Button>
+                    <Button
+                        size="small"
+                        onClick={onRestore}
+                        disabled={disabled || !path}
+                        aria-label={`${label} ${t('settings.notification.restoreSound')}`}
+                    >
+                        {t('settings.notification.restoreSound')}
+                    </Button>
+                    <SettingSwitch checked={enabled} onChange={onToggle} label={label} />
+                </>
+            }
+        />
     );
 };
 
-const marks = {
-    25: '25min',
-    35: '35min',
-    45: '45min',
-};
-
-const wallpaperOpacityMarks = {
-    10: '10%',
-    40: '40%',
-    70: '70%',
-    100: '100%',
-};
+/*
+ * Ticks are passed with a single space instead of an empty label: rc-slider
+ * filters out empty labels, so the space is what keeps the mark span (and the
+ * dot `PreviewSlider` draws on it) alive. The text itself is hidden by CSS.
+ */
+const focusMarks = { 25: ' ' };
+const restMarks = { 5: ' ' };
+const longBreakMarks = { 15: ' ' };
+const opacityMarks = { 10: ' ', 40: ' ', 70: ' ', 100: ' ' };
+const themeBackgroundOpacityMarks = opacityMarks;
+const wallpaperOpacityMarks = opacityMarks;
+const volumeMarks = { 0: ' ', 50: ' ', 100: ' ' };
 
 const DEFAULT_CALENDAR_BASE_COLOR = '#aceebb';
-
-const restMarks = {
-    5: '5min',
-    10: '10min',
-    15: '15min',
-};
-
-const longBreakMarks = {
-    5: '5min',
-    15: '15min',
-    25: '25min',
-};
-
-/**
- * Marks of the "minimum focus time before Finish" slider, built for the
- * maximum of the current range -- the focus duration in minutes (see the
- * option below). `0` is the stop giving the guard any weight at all (finish
- * at any time), which the hint of the option spells out -- the mark itself
- * stays short.
- */
-function minFinishMarks(maxMinutes: number) {
-    const marks: { [minutes: number]: string } = { 0: t('settings.timer.any') };
-    for (let minutes = 10; minutes < maxMinutes; minutes += 10) {
-        marks[minutes] = `${minutes}min`;
-    }
-
-    marks[maxMinutes] = `${maxMinutes}min`;
-    return marks;
-}
-
-const opacityMarks = {
-    10: '10%',
-    40: '40%',
-    70: '70%',
-    100: '100%',
-};
-
-const themeBackgroundOpacityMarks = {
-    10: '10%',
-    40: '40%',
-    70: '70%',
-    100: '100%',
-};
 
 const settingUiStates = [
     'focusDuration',
@@ -839,11 +797,6 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             setCalendarBaseColor(DEFAULT_CALENDAR_BASE_COLOR);
         }, [setCalendarBaseColor]);
 
-        const themes = React.useMemo(
-            () => (props.customThemes ? BUILTIN_THEMES.concat(props.customThemes) : BUILTIN_THEMES),
-            [props.customThemes]
-        );
-
         const onSelectTheme = useCallback(
             (themeId: string) => {
                 setThemeId(themeId);
@@ -1131,536 +1084,731 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             <Container>
                 <SettingNav active={section} onChange={setSection} />
                 <Pane>
-                    <PaneContent>
+                    <SettingsContent>
                         {section === 'timer' && (
                             <>
-                                <Field>
-                                    <h4>{t('settings.timer.focusDuration')}</h4>
-                                    <SliderContainer>
-                                        <PreviewSlider
-                                            marks={marks}
-                                            step={1}
-                                            min={process.env.NODE_ENV === 'production' ? 20 : 2}
-                                            max={60}
-                                            value={props.focusDuration / 60}
-                                            formatValue={formatMinutes}
-                                            onCommit={onChangeFocus}
-                                        />
-                                    </SliderContainer>
-                                </Field>
-
-                                <Field>
-                                    <h4>{t('settings.timer.shortBreak')}</h4>
-                                    <SliderContainer>
-                                        <PreviewSlider
-                                            marks={restMarks}
-                                            step={1}
-                                            min={1}
-                                            max={20}
-                                            value={props.restDuration / 60}
-                                            formatValue={formatMinutes}
-                                            onCommit={onChangeRest}
-                                        />
-                                    </SliderContainer>
-                                </Field>
-
-                                <Field>
-                                    <h4>{t('settings.timer.longBreak')}</h4>
-                                    <SliderContainer>
-                                        <PreviewSlider
-                                            marks={longBreakMarks}
-                                            step={1}
-                                            min={1}
-                                            max={40}
-                                            value={props.longBreakDuration / 60}
-                                            formatValue={formatMinutes}
-                                            onCommit={onChangeLongBreak}
-                                        />
-                                    </SliderContainer>
-                                </Field>
-
-                                <Field>
-                                    <h4>{t('settings.timer.minFinish')}</h4>
-                                    <FieldHint>{t('settings.timer.minFinishHint')}</FieldHint>
-                                    <SliderContainer>
-                                        <PreviewSlider
-                                            marks={minFinishMarks(minFinishMaxMinutes)}
-                                            step={1}
-                                            min={0}
-                                            max={minFinishMaxMinutes}
-                                            value={
-                                                Math.min(
-                                                    props.minFinishDuration,
-                                                    props.focusDuration
-                                                ) / 60
+                                <SettingsSection>
+                                    <GroupTitle>{t('settings.group.durations')}</GroupTitle>
+                                    <Card>
+                                        <SliderRow
+                                            title={t('settings.timer.focusDuration')}
+                                            control={
+                                                <PreviewSlider
+                                                    ariaLabel={t('settings.timer.focusDuration')}
+                                                    marks={focusMarks}
+                                                    step={1}
+                                                    min={
+                                                        process.env.NODE_ENV === 'production'
+                                                            ? 15
+                                                            : 2
+                                                    }
+                                                    max={90}
+                                                    value={props.focusDuration / 60}
+                                                    formatValue={formatMinutes}
+                                                    editUnit="min"
+                                                    onCommit={onChangeFocus}
+                                                />
                                             }
-                                            formatValue={formatMinutes}
-                                            onCommit={onChangeMinFinish}
                                         />
-                                    </SliderContainer>
-                                </Field>
+                                        <SliderRow
+                                            title={t('settings.timer.shortBreak')}
+                                            control={
+                                                <PreviewSlider
+                                                    ariaLabel={t('settings.timer.shortBreak')}
+                                                    marks={restMarks}
+                                                    step={1}
+                                                    min={1}
+                                                    max={90}
+                                                    value={props.restDuration / 60}
+                                                    formatValue={formatMinutes}
+                                                    editUnit="min"
+                                                    onCommit={onChangeRest}
+                                                />
+                                            }
+                                        />
+                                        <SliderRow
+                                            title={t('settings.timer.longBreak')}
+                                            control={
+                                                <PreviewSlider
+                                                    ariaLabel={t('settings.timer.longBreak')}
+                                                    marks={longBreakMarks}
+                                                    step={1}
+                                                    min={1}
+                                                    max={90}
+                                                    value={props.longBreakDuration / 60}
+                                                    formatValue={formatMinutes}
+                                                    editUnit="min"
+                                                    onCommit={onChangeLongBreak}
+                                                />
+                                            }
+                                        />
+                                        <SliderRow
+                                            title={t('settings.timer.minFinish')}
+                                            control={
+                                                <PreviewSlider
+                                                    ariaLabel={t('settings.timer.minFinish')}
+                                                    step={1}
+                                                    min={0}
+                                                    max={minFinishMaxMinutes}
+                                                    value={
+                                                        Math.min(
+                                                            props.minFinishDuration,
+                                                            props.focusDuration
+                                                        ) / 60
+                                                    }
+                                                    formatValue={formatMinutes}
+                                                    editUnit="min"
+                                                    onCommit={onChangeMinFinish}
+                                                />
+                                            }
+                                        />
+                                    </Card>
+                                </SettingsSection>
 
-                                <Field>
-                                    <h4>{t('settings.timer.distracting')}</h4>
-                                    <ButtonWrapper>
-                                        <DistractingListModalButton />
-                                    </ButtonWrapper>
-                                </Field>
+                                <SettingsSection>
+                                    <GroupTitle>{t('settings.group.focus')}</GroupTitle>
+                                    <Card>
+                                        <SettingsRow
+                                            title={t('settings.timer.distracting')}
+                                            control={
+                                                <DistractingListModalButton
+                                                    label={t('settings.timer.configure')}
+                                                />
+                                            }
+                                        />
+                                    </Card>
+                                </SettingsSection>
                             </>
                         )}
 
                         {section === 'appearance' && (
                             <>
-                                <Field>
-                                    <h4>{t('settings.appearance.theme')}</h4>
-                                    <ThemeOptions>
-                                        {themes.map((theme: ThemeDefinition) => {
-                                            // Built-in theme names are copy; a custom
-                                            // theme's name is user data and stays as is.
-                                            const name =
-                                                theme.id === 'day'
-                                                    ? t('theme.day')
-                                                    : theme.id === 'night'
-                                                      ? t('theme.night')
-                                                      : theme.name;
-                                            return (
-                                                <ThemeButton
-                                                    key={theme.id}
-                                                    $active={
-                                                        !props.followSystemTheme &&
-                                                        props.themeId === theme.id
+                                <SettingsSection>
+                                    <GroupTitle>{t('settings.appearance.theme')}</GroupTitle>
+                                    <Card>
+                                        <SettingsRow
+                                            title={t('settings.appearance.mode')}
+                                            control={
+                                                <Segmented<string>
+                                                    ariaLabel={t('settings.appearance.theme')}
+                                                    value={
+                                                        props.followSystemTheme
+                                                            ? 'system'
+                                                            : props.themeId
                                                     }
-                                                    onClick={() => onSelectTheme(theme.id)}
-                                                >
-                                                    <Swatches>
-                                                        <i
-                                                            style={{
-                                                                backgroundColor: theme.tokens.bg,
-                                                            }}
-                                                        />
-                                                        <i
-                                                            style={{
-                                                                backgroundColor:
-                                                                    theme.tokens.bgElevated,
-                                                            }}
-                                                        />
-                                                        <i
-                                                            style={{
-                                                                backgroundColor:
-                                                                    theme.tokens.primary,
-                                                            }}
-                                                        />
-                                                    </Swatches>
-                                                    {name}
-                                                </ThemeButton>
-                                            );
-                                        })}
-                                    </ThemeOptions>
-                                    <SettingLabel>
-                                        {t('settings.appearance.followSystem')}
-                                    </SettingLabel>
-                                    <Switch
-                                        onChange={onToggleFollowSystem}
-                                        checked={props.followSystemTheme}
-                                        style={{ margin: 8 }}
-                                    />
-                                </Field>
-
-                                <Field>
-                                    <h4>{t('settings.appearance.contentOpacity')}</h4>
-                                    <FieldHint>
-                                        {t('settings.appearance.contentOpacityHint')}
-                                    </FieldHint>
-                                    <SliderContainer>
-                                        <PreviewSlider
-                                            marks={opacityMarks}
-                                            min={10}
-                                            max={100}
-                                            step={5}
-                                            value={Math.round(props.contentOpacity * 100)}
-                                            formatValue={formatPercent}
-                                            onPreview={queueContentOpacityPreview}
-                                            onCommit={commitContentOpacity}
+                                                    options={[
+                                                        {
+                                                            value: 'system',
+                                                            label: t(
+                                                                'settings.appearance.followSystem'
+                                                            ),
+                                                        },
+                                                        { value: 'day', label: t('theme.day') },
+                                                        { value: 'night', label: t('theme.night') },
+                                                    ]}
+                                                    onChange={(mode) => {
+                                                        if (mode === 'system') {
+                                                            onToggleFollowSystem(true);
+                                                        } else {
+                                                            onSelectTheme(mode);
+                                                        }
+                                                    }}
+                                                />
+                                            }
                                         />
-                                    </SliderContainer>
-                                </Field>
+                                        {props.customThemes && props.customThemes.length > 0 && (
+                                            <SettingsRow
+                                                title={t('settings.appearance.customTheme')}
+                                                control={
+                                                    <ThemeOptions>
+                                                        {props.customThemes.map(
+                                                            (theme: ThemeDefinition) => (
+                                                                <ThemeButton
+                                                                    key={theme.id}
+                                                                    type="button"
+                                                                    $active={
+                                                                        !props.followSystemTheme &&
+                                                                        props.themeId === theme.id
+                                                                    }
+                                                                    onClick={() =>
+                                                                        onSelectTheme(theme.id)
+                                                                    }
+                                                                >
+                                                                    <Swatches>
+                                                                        <i
+                                                                            style={{
+                                                                                backgroundColor:
+                                                                                    theme.tokens.bg,
+                                                                            }}
+                                                                        />
+                                                                        <i
+                                                                            style={{
+                                                                                backgroundColor:
+                                                                                    theme.tokens
+                                                                                        .bgElevated,
+                                                                            }}
+                                                                        />
+                                                                        <i
+                                                                            style={{
+                                                                                backgroundColor:
+                                                                                    theme.tokens
+                                                                                        .primary,
+                                                                            }}
+                                                                        />
+                                                                    </Swatches>
+                                                                    {theme.name}
+                                                                </ThemeButton>
+                                                            )
+                                                        )}
+                                                    </ThemeOptions>
+                                                }
+                                            />
+                                        )}
+                                    </Card>
+                                </SettingsSection>
 
-                                <Field>
-                                    <h4>{t('settings.appearance.backgroundOpacity')}</h4>
-                                    <FieldHint>
-                                        {t('settings.appearance.backgroundOpacityHint')}
-                                    </FieldHint>
-                                    <SliderContainer>
-                                        <PreviewSlider
-                                            marks={themeBackgroundOpacityMarks}
-                                            min={10}
-                                            max={100}
-                                            step={5}
-                                            value={Math.round(props.themeBackgroundOpacity * 100)}
-                                            formatValue={formatPercent}
-                                            onPreview={queueThemeBackgroundOpacityPreview}
-                                            onCommit={commitThemeBackgroundOpacity}
+                                <SettingsSection>
+                                    <GroupTitle>{t('settings.group.transparency')}</GroupTitle>
+                                    <Card>
+                                        <SliderRow
+                                            title={t('settings.appearance.contentOpacity')}
+                                            description={t(
+                                                'settings.appearance.contentOpacityHint'
+                                            )}
+                                            control={
+                                                <PreviewSlider
+                                                    ariaLabel={t(
+                                                        'settings.appearance.contentOpacity'
+                                                    )}
+                                                    marks={opacityMarks}
+                                                    min={10}
+                                                    max={100}
+                                                    step={5}
+                                                    value={Math.round(props.contentOpacity * 100)}
+                                                    formatValue={formatPercent}
+                                                    editUnit="%"
+                                                    onPreview={queueContentOpacityPreview}
+                                                    onCommit={commitContentOpacity}
+                                                />
+                                            }
                                         />
-                                    </SliderContainer>
-                                </Field>
-
-                                <Field>
-                                    <h4>{t('settings.appearance.wallpaper')}</h4>
-                                    <Button
-                                        size="small"
-                                        onClick={onSelectWallpaper}
-                                        style={{ margin: 8 }}
-                                    >
-                                        {t('common.choose')}
-                                    </Button>
-                                    {props.wallpaperPath && (
-                                        <Button size="small" onClick={onClearWallpaper}>
-                                            {t('common.clear')}
-                                        </Button>
-                                    )}
-                                </Field>
-
-                                <Field>
-                                    <h4>{t('settings.appearance.wallpaperOpacity')}</h4>
-                                    <SliderContainer>
-                                        <PreviewSlider
-                                            marks={wallpaperOpacityMarks}
-                                            min={10}
-                                            max={100}
-                                            step={5}
-                                            value={Math.round(props.wallpaperOpacity * 100)}
-                                            formatValue={formatPercent}
-                                            onPreview={queueWallpaperOpacityPreview}
-                                            onCommit={commitWallpaperOpacity}
+                                        <SliderRow
+                                            title={t('settings.appearance.backgroundOpacity')}
+                                            description={t(
+                                                'settings.appearance.backgroundOpacityHint'
+                                            )}
+                                            control={
+                                                <PreviewSlider
+                                                    ariaLabel={t(
+                                                        'settings.appearance.backgroundOpacity'
+                                                    )}
+                                                    marks={themeBackgroundOpacityMarks}
+                                                    min={10}
+                                                    max={100}
+                                                    step={5}
+                                                    value={Math.round(
+                                                        props.themeBackgroundOpacity * 100
+                                                    )}
+                                                    formatValue={formatPercent}
+                                                    editUnit="%"
+                                                    onPreview={queueThemeBackgroundOpacityPreview}
+                                                    onCommit={commitThemeBackgroundOpacity}
+                                                />
+                                            }
                                         />
-                                    </SliderContainer>
-                                </Field>
+                                    </Card>
+                                </SettingsSection>
 
-                                <Field>
-                                    <h4>{t('settings.appearance.calendarBaseColor')}</h4>
-                                    <ColorInput
-                                        type="color"
-                                        value={props.calendarBaseColor}
-                                        onChange={(e) => setCalendarColor(e.target.value)}
-                                    />
-                                    <Button size="small" onClick={resetCalendarColor}>
-                                        {t('common.reset')}
-                                    </Button>
-                                </Field>
+                                <SettingsSection>
+                                    <GroupTitle>{t('settings.group.background')}</GroupTitle>
+                                    <Card>
+                                        <SettingsRow
+                                            title={t('settings.appearance.wallpaper')}
+                                            description={
+                                                props.wallpaperPath
+                                                    ? fileNameOf(props.wallpaperPath)
+                                                    : undefined
+                                            }
+                                            control={
+                                                <>
+                                                    <Button
+                                                        size="small"
+                                                        onClick={onSelectWallpaper}
+                                                    >
+                                                        {t('common.choose')}
+                                                    </Button>
+                                                    {props.wallpaperPath && (
+                                                        <Button
+                                                            size="small"
+                                                            onClick={onClearWallpaper}
+                                                        >
+                                                            {t('common.clear')}
+                                                        </Button>
+                                                    )}
+                                                </>
+                                            }
+                                        />
+                                        <SliderRow
+                                            title={t('settings.appearance.wallpaperOpacity')}
+                                            control={
+                                                <PreviewSlider
+                                                    ariaLabel={t(
+                                                        'settings.appearance.wallpaperOpacity'
+                                                    )}
+                                                    marks={wallpaperOpacityMarks}
+                                                    min={10}
+                                                    max={100}
+                                                    step={5}
+                                                    value={Math.round(props.wallpaperOpacity * 100)}
+                                                    formatValue={formatPercent}
+                                                    editUnit="%"
+                                                    onPreview={queueWallpaperOpacityPreview}
+                                                    onCommit={commitWallpaperOpacity}
+                                                />
+                                            }
+                                        />
+                                    </Card>
+                                </SettingsSection>
+
+                                <SettingsSection>
+                                    <GroupTitle>{t('settings.group.calendar')}</GroupTitle>
+                                    <Card>
+                                        <SettingsRow
+                                            title={t('settings.appearance.calendarBaseColor')}
+                                            control={
+                                                <>
+                                                    <ColorInput
+                                                        type="color"
+                                                        value={props.calendarBaseColor}
+                                                        aria-label={t(
+                                                            'settings.appearance.calendarBaseColor'
+                                                        )}
+                                                        onChange={(e) =>
+                                                            setCalendarColor(e.target.value)
+                                                        }
+                                                    />
+                                                    <Button
+                                                        size="small"
+                                                        onClick={resetCalendarColor}
+                                                    >
+                                                        {t('common.reset')}
+                                                    </Button>
+                                                </>
+                                            }
+                                        />
+                                    </Card>
+                                </SettingsSection>
                             </>
                         )}
 
                         {section === 'notification' && (
                             <>
-                                {screenshotAvailable && (
-                                    <Field>
-                                        <h4>{t('settings.notification.screenshot')}</h4>
-                                        <FieldHint>
-                                            {t('settings.notification.screenshotHint')}
-                                        </FieldHint>
-                                        <Switch
-                                            onChange={switchScreenshot}
-                                            checked={!!props.screenShotInterval}
-                                            style={{ margin: 8 }}
-                                        />
-                                    </Field>
-                                )}
-
-                                <Field>
-                                    <h4>{t('settings.notification.focusStartWarning')}</h4>
-                                    <FieldHint>
-                                        {t('settings.notification.focusStartWarningHint')}
-                                    </FieldHint>
-                                    <Switch
-                                        onChange={onToggleFocusStartWarning}
-                                        checked={props.warnBeforeFocusStart}
-                                        style={{ margin: 8 }}
-                                    />
-                                </Field>
-
-                                <Field>
-                                    <h4>{t('settings.notification.audio')}</h4>
-                                    <SoundOption
-                                        label={t('settings.notification.workSound')}
-                                        path={props.workSoundPath}
-                                        enabled={props.workSoundEnabled}
-                                        volume={props.soundVolume}
-                                        onToggle={props.setWorkSoundEnabled}
-                                        onSelect={() => chooseSound(props.setWorkSoundPath)}
-                                        onRestore={() => props.setWorkSoundPath(undefined)}
-                                    />
-                                    <SoundOption
-                                        label={t('settings.notification.shortBreakSound')}
-                                        path={props.shortBreakSoundPath}
-                                        enabled={props.shortBreakSoundEnabled}
-                                        volume={props.soundVolume}
-                                        onToggle={props.setShortBreakSoundEnabled}
-                                        onSelect={() => chooseSound(props.setShortBreakSoundPath)}
-                                        onRestore={() => props.setShortBreakSoundPath(undefined)}
-                                    />
-                                    <SoundOption
-                                        label={t('settings.notification.longBreakSound')}
-                                        path={props.longBreakSoundPath}
-                                        enabled={props.longBreakSoundEnabled}
-                                        volume={props.soundVolume}
-                                        onToggle={props.setLongBreakSoundEnabled}
-                                        onSelect={() => chooseSound(props.setLongBreakSoundPath)}
-                                        onRestore={() => props.setLongBreakSoundPath(undefined)}
-                                    />
-                                </Field>
-
-                                <Field>
-                                    <h4>{t('settings.notification.volume')}</h4>
-                                    <SliderContainer>
-                                        <PreviewSlider
-                                            min={0}
-                                            max={100}
-                                            step={1}
-                                            value={Math.round(props.soundVolume * 100)}
-                                            marks={{ 0: '0%', 50: '50%', 100: '100%' }}
-                                            formatValue={formatPercent}
-                                            onCommit={(v) => props.setSoundVolume(v / 100)}
-                                        />
-                                    </SliderContainer>
-                                </Field>
-
-                                <Field>
-                                    <h4>{t('settings.notification.desktop')}</h4>
-                                    <SoundRow>
-                                        <SettingLabel>
-                                            {t('settings.notification.desktopNotification')}
-                                        </SettingLabel>
-                                        <Switch
-                                            checked={props.desktopNotification}
-                                            onChange={(value) =>
-                                                props.setDesktopNotification(value)
-                                            }
-                                            aria-label={t(
-                                                'settings.notification.desktopNotification'
+                                <SettingsSection>
+                                    <GroupTitle>{t('settings.group.alerts')}</GroupTitle>
+                                    <Card>
+                                        {screenshotAvailable && (
+                                            <SettingsRow
+                                                title={t('settings.notification.screenshot')}
+                                                description={t(
+                                                    'settings.notification.screenshotHint'
+                                                )}
+                                                control={
+                                                    <SettingSwitch
+                                                        checked={!!props.screenShotInterval}
+                                                        onChange={switchScreenshot}
+                                                        label={t(
+                                                            'settings.notification.screenshot'
+                                                        )}
+                                                    />
+                                                }
+                                            />
+                                        )}
+                                        <SettingsRow
+                                            title={t('settings.notification.focusStartWarning')}
+                                            description={t(
+                                                'settings.notification.focusStartWarningHint'
                                             )}
+                                            control={
+                                                <SettingSwitch
+                                                    checked={props.warnBeforeFocusStart}
+                                                    onChange={onToggleFocusStartWarning}
+                                                    label={t(
+                                                        'settings.notification.focusStartWarning'
+                                                    )}
+                                                />
+                                            }
                                         />
-                                    </SoundRow>
-                                    <FieldHint>
-                                        {t('settings.notification.desktopNotificationHint')}
-                                    </FieldHint>
-                                </Field>
+                                    </Card>
+                                </SettingsSection>
 
-                                <Field>
-                                    <h4>{t('settings.notification.returnToTimerOnSessionEnd')}</h4>
-                                    <FieldHint>
-                                        {t('settings.notification.returnToTimerOnSessionEndHint')}
-                                    </FieldHint>
-                                    <Switch
-                                        onChange={(value) =>
-                                            props.setReturnToTimerOnSessionEnd(value)
-                                        }
-                                        checked={props.returnToTimerOnSessionEnd}
-                                        aria-label={t(
-                                            'settings.notification.returnToTimerOnSessionEnd'
-                                        )}
-                                        style={{ margin: 8 }}
-                                    />
-                                </Field>
+                                <SettingsSection>
+                                    <GroupTitle>{t('settings.notification.audio')}</GroupTitle>
+                                    <Card>
+                                        <SoundOption
+                                            label={t('settings.notification.workSound')}
+                                            path={props.workSoundPath}
+                                            enabled={props.workSoundEnabled}
+                                            volume={props.soundVolume}
+                                            onToggle={props.setWorkSoundEnabled}
+                                            onSelect={() => chooseSound(props.setWorkSoundPath)}
+                                            onRestore={() => props.setWorkSoundPath(undefined)}
+                                        />
+                                        <SoundOption
+                                            label={t('settings.notification.shortBreakSound')}
+                                            path={props.shortBreakSoundPath}
+                                            enabled={props.shortBreakSoundEnabled}
+                                            volume={props.soundVolume}
+                                            onToggle={props.setShortBreakSoundEnabled}
+                                            onSelect={() =>
+                                                chooseSound(props.setShortBreakSoundPath)
+                                            }
+                                            onRestore={() =>
+                                                props.setShortBreakSoundPath(undefined)
+                                            }
+                                        />
+                                        <SoundOption
+                                            label={t('settings.notification.longBreakSound')}
+                                            path={props.longBreakSoundPath}
+                                            enabled={props.longBreakSoundEnabled}
+                                            volume={props.soundVolume}
+                                            onToggle={props.setLongBreakSoundEnabled}
+                                            onSelect={() =>
+                                                chooseSound(props.setLongBreakSoundPath)
+                                            }
+                                            onRestore={() => props.setLongBreakSoundPath(undefined)}
+                                        />
+                                        <SliderRow
+                                            title={t('settings.notification.volume')}
+                                            control={
+                                                <PreviewSlider
+                                                    ariaLabel={t('settings.notification.volume')}
+                                                    min={0}
+                                                    max={100}
+                                                    step={1}
+                                                    value={Math.round(props.soundVolume * 100)}
+                                                    marks={volumeMarks}
+                                                    formatValue={formatPercent}
+                                                    editUnit="%"
+                                                    onCommit={(v) => props.setSoundVolume(v / 100)}
+                                                />
+                                            }
+                                        />
+                                    </Card>
+                                </SettingsSection>
 
-                                <Field>
-                                    <h4>{t('settings.notification.openWindowOnSessionEnd')}</h4>
-                                    <FieldHint>
-                                        {t('settings.notification.openWindowOnSessionEndHint')}
-                                    </FieldHint>
-                                    <Switch
-                                        onChange={(value) => props.setOpenWindowOnSessionEnd(value)}
-                                        checked={props.openWindowOnSessionEnd}
-                                        aria-label={t(
-                                            'settings.notification.openWindowOnSessionEnd'
-                                        )}
-                                        style={{ margin: 8 }}
-                                    />
-                                </Field>
+                                <SettingsSection>
+                                    <GroupTitle>{t('settings.notification.desktop')}</GroupTitle>
+                                    <Card>
+                                        <SettingsRow
+                                            title={t('settings.notification.desktopNotification')}
+                                            description={t(
+                                                'settings.notification.desktopNotificationHint'
+                                            )}
+                                            control={
+                                                <SettingSwitch
+                                                    checked={props.desktopNotification}
+                                                    onChange={(value) =>
+                                                        props.setDesktopNotification(value)
+                                                    }
+                                                    label={t(
+                                                        'settings.notification.desktopNotification'
+                                                    )}
+                                                />
+                                            }
+                                        />
+                                        <SettingsRow
+                                            title={t(
+                                                'settings.notification.returnToTimerOnSessionEnd'
+                                            )}
+                                            description={t(
+                                                'settings.notification.returnToTimerOnSessionEndHint'
+                                            )}
+                                            control={
+                                                <SettingSwitch
+                                                    checked={props.returnToTimerOnSessionEnd}
+                                                    onChange={(value) =>
+                                                        props.setReturnToTimerOnSessionEnd(value)
+                                                    }
+                                                    label={t(
+                                                        'settings.notification.returnToTimerOnSessionEnd'
+                                                    )}
+                                                />
+                                            }
+                                        />
+                                        <SettingsRow
+                                            title={t(
+                                                'settings.notification.openWindowOnSessionEnd'
+                                            )}
+                                            description={t(
+                                                'settings.notification.openWindowOnSessionEndHint'
+                                            )}
+                                            control={
+                                                <SettingSwitch
+                                                    checked={props.openWindowOnSessionEnd}
+                                                    onChange={(value) =>
+                                                        props.setOpenWindowOnSessionEnd(value)
+                                                    }
+                                                    label={t(
+                                                        'settings.notification.openWindowOnSessionEnd'
+                                                    )}
+                                                />
+                                            }
+                                        />
+                                    </Card>
+                                </SettingsSection>
                             </>
                         )}
 
                         {section === 'shortcuts' && (
-                            <Field>
-                                <h4>{t('settings.shortcuts.title')}</h4>
-                                <FieldHint>{t('settings.shortcuts.disclaimer')}</FieldHint>
+                            <>
+                                <SettingsSection>
+                                    <GroupTitle>{t('settings.shortcuts.title')}</GroupTitle>
+                                    <GroupNote>{t('settings.shortcuts.disclaimer')}</GroupNote>
+                                </SettingsSection>
                                 {SHORTCUTS.map((group) => (
-                                    <ShortcutGroup key={group.groupKey}>
-                                        <h5>{t(group.groupKey)}</h5>
-                                        {group.entries.map((entry) => (
-                                            <ShortcutRow key={entry.keys}>
-                                                <ShortcutKeys>
-                                                    <KeyBadge>{entry.keys}</KeyBadge>
-                                                </ShortcutKeys>
-                                                <span>{t(entry.descriptionKey)}</span>
-                                            </ShortcutRow>
-                                        ))}
-                                    </ShortcutGroup>
+                                    <SettingsSection key={group.groupKey}>
+                                        <ShortcutHeading>{t(group.groupKey)}</ShortcutHeading>
+                                        <Card>
+                                            {group.entries.map((entry) => (
+                                                <ShortcutRow key={entry.keys}>
+                                                    <ShortcutKeys>
+                                                        <KeyBadge>{entry.keys}</KeyBadge>
+                                                    </ShortcutKeys>
+                                                    <span>{t(entry.descriptionKey)}</span>
+                                                </ShortcutRow>
+                                            ))}
+                                        </Card>
+                                    </SettingsSection>
                                 ))}
-                            </Field>
+                            </>
                         )}
 
                         {section === 'system' && (
                             <>
-                                <Field>
-                                    <h4>{t('settings.system.language')}</h4>
-                                    <FieldHint>{t('settings.system.languageHint')}</FieldHint>
-                                    <ThemeOptions
-                                        role="group"
-                                        aria-label={t('settings.system.language')}
-                                    >
-                                        {LANGUAGE_OPTIONS.map((option) => (
-                                            <ThemeButton
-                                                key={option.value}
-                                                type="button"
-                                                $active={props.language === option.value}
-                                                aria-pressed={props.language === option.value}
-                                                onClick={() => props.setLanguage(option.value)}
-                                            >
-                                                {t(option.labelKey)}
-                                            </ThemeButton>
-                                        ))}
-                                    </ThemeOptions>
-                                </Field>
+                                <SettingsSection>
+                                    <GroupTitle>{t('settings.group.general')}</GroupTitle>
+                                    <Card>
+                                        <SettingsRow
+                                            title={t('settings.system.language')}
+                                            description={t('settings.system.languageHint')}
+                                            control={
+                                                <Segmented<LanguagePreference>
+                                                    ariaLabel={t('settings.system.language')}
+                                                    value={props.language}
+                                                    options={LANGUAGE_OPTIONS.map((option) => ({
+                                                        value: option.value,
+                                                        label: t(option.labelKey),
+                                                    }))}
+                                                    onChange={props.setLanguage}
+                                                />
+                                            }
+                                        />
+                                    </Card>
+                                </SettingsSection>
 
-                                <Field>
-                                    <h4>{t('settings.system.logging')}</h4>
-                                    <SettingLabel>{t('settings.system.logLevel')}</SettingLabel>
-                                    <FieldHint>{t('settings.system.logLevelHint')}</FieldHint>
-                                    <ThemeOptions
-                                        role="group"
-                                        aria-label={t('settings.system.logLevel')}
-                                    >
-                                        {LOG_LEVEL_OPTIONS.map((option) => (
-                                            <ThemeButton
-                                                key={option.value}
-                                                type="button"
-                                                $active={props.logLevel === option.value}
-                                                aria-pressed={props.logLevel === option.value}
-                                                onClick={() => props.setLogLevel(option.value)}
-                                            >
-                                                {t(option.labelKey)}
-                                            </ThemeButton>
-                                        ))}
-                                    </ThemeOptions>
-                                    <ButtonWrapper>
-                                        <Button onClick={onOpenLogDir}>
-                                            {t('settings.system.openLogFolder')}
-                                        </Button>
-                                    </ButtonWrapper>
-                                </Field>
+                                <SettingsSection>
+                                    <GroupTitle>{t('settings.system.logging')}</GroupTitle>
+                                    <Card>
+                                        <SettingsRow
+                                            title={t('settings.system.logLevel')}
+                                            description={t('settings.system.logLevelHint')}
+                                            control={
+                                                <Segmented<LogLevel>
+                                                    ariaLabel={t('settings.system.logLevel')}
+                                                    value={props.logLevel}
+                                                    options={LOG_LEVEL_OPTIONS.map((option) => ({
+                                                        value: option.value,
+                                                        label: t(option.labelKey),
+                                                    }))}
+                                                    onChange={props.setLogLevel}
+                                                />
+                                            }
+                                        />
+                                        <SettingsRow
+                                            title={t('settings.system.logFolder')}
+                                            description={t('settings.system.logFolderHint')}
+                                            control={
+                                                <Button size="small" onClick={onOpenLogDir}>
+                                                    {t('settings.system.openLogFolder')}
+                                                </Button>
+                                            }
+                                        />
+                                    </Card>
+                                </SettingsSection>
 
-                                <Field>
-                                    <SettingLabel>
-                                        {t('settings.system.compactAlwaysOnTop')}
-                                    </SettingLabel>
-                                    <Switch
-                                        onChange={props.setCompactAlwaysOnTop}
-                                        checked={props.compactAlwaysOnTop}
-                                        style={{ margin: 8 }}
-                                    />
-                                </Field>
+                                <SettingsSection>
+                                    <GroupTitle>{t('settings.group.startupWindow')}</GroupTitle>
+                                    <Card>
+                                        <SettingsRow
+                                            title={t('settings.system.startOnBoot')}
+                                            control={
+                                                <SettingSwitch
+                                                    checked={props.startOnBoot}
+                                                    onChange={setStartOnBoot}
+                                                    label={t('settings.system.startOnBoot')}
+                                                />
+                                            }
+                                        />
+                                        <SettingsRow
+                                            title={t('settings.system.compactAlwaysOnTop')}
+                                            control={
+                                                <SettingSwitch
+                                                    checked={props.compactAlwaysOnTop}
+                                                    onChange={props.setCompactAlwaysOnTop}
+                                                    label={t('settings.system.compactAlwaysOnTop')}
+                                                />
+                                            }
+                                        />
+                                        <SettingsRow
+                                            title={t('settings.system.hardwareAcceleration')}
+                                            description={t(
+                                                'settings.system.hardwareAccelerationHint'
+                                            )}
+                                            control={
+                                                <SettingSwitch
+                                                    checked={props.useHardwareAcceleration}
+                                                    onChange={setUseHardwareAcceleration}
+                                                    label={t(
+                                                        'settings.system.hardwareAcceleration'
+                                                    )}
+                                                />
+                                            }
+                                        />
+                                        <SettingsRow
+                                            title={t('settings.system.unloadOnCloseToTray')}
+                                            description={t(
+                                                'settings.system.unloadOnCloseToTrayHint'
+                                            )}
+                                            control={
+                                                <SettingSwitch
+                                                    checked={props.unloadOnCloseToTray}
+                                                    onChange={setUnloadOnCloseToTray}
+                                                    label={t('settings.system.unloadOnCloseToTray')}
+                                                />
+                                            }
+                                        />
+                                    </Card>
+                                </SettingsSection>
 
-                                <Field>
-                                    <h4>{t('settings.system.startup')}</h4>
-                                    <SettingLabel>{t('settings.system.startOnBoot')}</SettingLabel>
-                                    <Switch
-                                        onChange={setStartOnBoot}
-                                        checked={props.startOnBoot}
-                                        style={{ margin: 8 }}
-                                    />
-                                </Field>
+                                <SettingsSection>
+                                    <GroupTitle>{t('settings.system.update')}</GroupTitle>
+                                    <Card>
+                                        <SettingsRow
+                                            title={t('settings.system.autoUpdate')}
+                                            description={t('settings.system.autoUpdateHint')}
+                                            control={
+                                                <SettingSwitch
+                                                    checked={props.autoUpdate}
+                                                    onChange={switchAutoUpdate}
+                                                    label={t('settings.system.autoUpdate')}
+                                                />
+                                            }
+                                        />
+                                        <SettingsRow
+                                            title={t('settings.system.checkUpdate')}
+                                            description={t('settings.system.checkUpdateHint')}
+                                            control={
+                                                <Button
+                                                    size="small"
+                                                    loading={checkingUpdate}
+                                                    onClick={onCheckUpdate}
+                                                >
+                                                    {t('settings.system.checkUpdate')}
+                                                </Button>
+                                            }
+                                        />
+                                    </Card>
+                                </SettingsSection>
 
-                                <Field>
-                                    <SettingLabel>
-                                        {t('settings.system.hardwareAcceleration')}
-                                    </SettingLabel>
-                                    <FieldHint>
-                                        {t('settings.system.hardwareAccelerationHint')}
-                                    </FieldHint>
-                                    <Switch
-                                        onChange={setUseHardwareAcceleration}
-                                        checked={props.useHardwareAcceleration}
-                                        style={{ margin: 8 }}
-                                    />
-                                </Field>
-
-                                <Field>
-                                    <SettingLabel>
-                                        {t('settings.system.unloadOnCloseToTray')}
-                                    </SettingLabel>
-                                    <FieldHint>
-                                        {t('settings.system.unloadOnCloseToTrayHint')}
-                                    </FieldHint>
-                                    <Switch
-                                        onChange={setUnloadOnCloseToTray}
-                                        checked={props.unloadOnCloseToTray}
-                                        style={{ margin: 8 }}
-                                    />
-                                </Field>
-
-                                <Field>
-                                    <h4>{t('settings.system.update')}</h4>
-                                    <SettingLabel>{t('settings.system.autoUpdate')}</SettingLabel>
-                                    <Switch
-                                        onChange={switchAutoUpdate}
-                                        checked={props.autoUpdate}
-                                        style={{ margin: 8 }}
-                                    />
-                                    <Button
-                                        size="small"
-                                        loading={checkingUpdate}
-                                        onClick={onCheckUpdate}
-                                    >
-                                        {t('settings.system.checkUpdate')}
-                                    </Button>
-                                </Field>
-
-                                <Field>
-                                    <h4>{t('settings.system.dataManagement')}</h4>
-                                    <ButtonRow>
-                                        <Button onClick={onOpenDataDir}>
-                                            {t('settings.system.openDataFolder')}
-                                        </Button>
-                                        <Button onClick={onExportClick} loading={exporting}>
-                                            {t('settings.system.exportData')}
-                                        </Button>
-                                        <Button loading={importing} onClick={onImportConfirm}>
-                                            {t('settings.system.importData')}
-                                        </Button>
-                                        <Button loading={checking} onClick={onCheckData}>
-                                            {t('settings.system.checkData')}
-                                        </Button>
-                                        <Button onClick={() => setHoursOpen(true)}>
-                                            {t('appHours.button')}
-                                        </Button>
-                                        <Button danger={true} onClick={onDeleteConfirm}>
-                                            {t('settings.system.deleteAllData')}
-                                        </Button>
-                                    </ButtonRow>
-                                </Field>
+                                <SettingsSection>
+                                    <GroupTitle>{t('settings.system.dataManagement')}</GroupTitle>
+                                    <Card>
+                                        <SettingsRow
+                                            wide
+                                            title={t('settings.system.dataBackup')}
+                                            description={t('settings.system.dataManagementHint')}
+                                            control={
+                                                <ControlCluster>
+                                                    <Button size="small" onClick={onOpenDataDir}>
+                                                        {t('settings.system.openDataFolder')}
+                                                    </Button>
+                                                    <Button
+                                                        size="small"
+                                                        onClick={onExportClick}
+                                                        loading={exporting}
+                                                    >
+                                                        {t('settings.system.exportData')}
+                                                    </Button>
+                                                    <Button
+                                                        size="small"
+                                                        loading={importing}
+                                                        onClick={onImportConfirm}
+                                                    >
+                                                        {t('settings.system.importData')}
+                                                    </Button>
+                                                    <Button
+                                                        size="small"
+                                                        loading={checking}
+                                                        onClick={onCheckData}
+                                                    >
+                                                        {t('settings.system.checkData')}
+                                                    </Button>
+                                                    <Button
+                                                        size="small"
+                                                        onClick={() => setHoursOpen(true)}
+                                                    >
+                                                        {t('appHours.button')}
+                                                    </Button>
+                                                </ControlCluster>
+                                            }
+                                        />
+                                        <SettingsRow
+                                            description={t('settings.system.deleteAllHint')}
+                                            control={
+                                                <Button
+                                                    size="small"
+                                                    danger={true}
+                                                    onClick={onDeleteConfirm}
+                                                >
+                                                    {t('settings.system.deleteAllData')}
+                                                </Button>
+                                            }
+                                        />
+                                    </Card>
+                                </SettingsSection>
                             </>
                         )}
 
                         {section === 'about' && (
-                            <Field>
-                                <h4>{t('app.title')}</h4>
-                                <FieldHint>{t('settings.about.hint')}</FieldHint>
-                                <ButtonWrapper>
-                                    <Button onClick={openIssuePage}>
-                                        {t('settings.about.feedback')}
-                                    </Button>
-                                </ButtonWrapper>
-                            </Field>
+                            <AboutWrap>
+                                <Card>
+                                    <AboutBody>
+                                        <AboutName>{t('app.title')}</AboutName>
+                                        <AboutVersion>
+                                            {t('settings.footer.version', pkg.version)}
+                                        </AboutVersion>
+                                        <AboutHint>{t('settings.about.hint')}</AboutHint>
+                                        <AboutActions>
+                                            <Button onClick={openIssuePage}>
+                                                {t('settings.about.feedback')}
+                                            </Button>
+                                            <Hint label={t('settings.about.githubTitle')}>
+                                                <GithubLink
+                                                    type="button"
+                                                    aria-label="GitHub"
+                                                    onClick={openGithubPage}
+                                                >
+                                                    <GithubOutlined />
+                                                    {t('settings.footer.openSource')}
+                                                </GithubLink>
+                                            </Hint>
+                                        </AboutActions>
+                                    </AboutBody>
+                                </Card>
+                            </AboutWrap>
                         )}
-                    </PaneContent>
+                    </SettingsContent>
                 </Pane>
-                <Footer>
-                    {t('settings.footer.openSource')}
-                    <Hint label={t('settings.about.githubTitle')}>
-                        <StyledIcon onClick={openGithubPage} aria-label="GitHub" />
-                    </Hint>
-                    {t('settings.footer.version', pkg.version)}
-                </Footer>
                 <DataRepairDialog
                     open={repairOpen}
                     report={report ?? EMPTY_DATA_REPORT}

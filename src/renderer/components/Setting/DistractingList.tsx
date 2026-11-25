@@ -239,7 +239,7 @@ export const DistractingList: React.FC<DistractingListProps> = ({
     );
 };
 
-export const DistractingListModalButton = (props: InputProps) => {
+export const DistractingListModalButton = (props: InputProps & { label?: string }) => {
     const { t } = useI18n();
     const [editingDistracting, setEditingDistracting] = React.useState(false);
     const submitForm = React.useRef<(() => void) | null>(null);
@@ -251,7 +251,7 @@ export const DistractingListModalButton = (props: InputProps) => {
         <>
             {/* tslint:disable-next-line:jsx-no-lambda */}
             <Button onClick={() => setEditingDistracting(true)}>
-                {t('settings.distracting.title')}
+                {props.label ?? t('settings.distracting.title')}
             </Button>
             <AppModal
                 title={t('settings.distracting.title')}

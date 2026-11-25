@@ -16,7 +16,7 @@
 
 ## 今日列表的缓存
 
-「今日」按 `startTime` 归属，边界是本地 0 点，只有一处定义：`src/renderer/monitor/day.ts` 的 `todayStart()`。`getTodaySessions` 用它过滤，Timer 页也用它判断缓存是否过期——两处各写一遍会让查询和失效判断落到不同的日子。
+「今日」按 `startTime` 归属，区间是 [今天 0 点, 明天 0 点)，边界只有一处定义：`src/renderer/monitor/day.ts` 的 `todayStart()` / `tomorrowStart()`。**查询必须带两端**——只有下界时，时钟被拨到未来期间写入的会话（`startTime` 在明天之后）会一直算进今天，重启也不会消失；`History` 的日视图本来就是两端过滤。Timer 页用 `todayStart()` 判断缓存是否过期，两处各写一遍会让查询和失效判断落到不同的日子。
 
 Timer 页的 `pomodorosToday` 是缓存：挂载与数据重载（导入 / 全删，见 `sessionReloadToken`）时查库，之后每确认一个番茄直接 `concat`，不再查询。它不会因为跨天自己失效，所以 `onStart` 先比较 `todayStart()` 与上次成功加载的日期，不同才重新查询。所以 0 点后到第一次开始会话之间，页面、圆点、模式行计数和结束遮罩显示的都还是前一天的数据。
 

@@ -1,6 +1,6 @@
 import { workers } from '../workers';
 import { PomodoroRecord } from './type';
-import { todayStart } from './day';
+import { todayStart, tomorrowStart } from './day';
 
 const dbWorkers = workers.dbWorkers;
 export function renameIllegalName(record: PomodoroRecord) {
@@ -77,9 +77,11 @@ export async function removeSession(startTime: number) {
 }
 
 export async function getTodaySessions(): Promise<PomodoroRecord[]> {
-    const todayStartTime = todayStart();
+    // Both ends from one instant: reading the clock twice could land on either
+    // side of midnight and widen the range to two days.
+    const now = new Date();
     const ans = (await dbWorkers.sessionDB.find(
-        { startTime: { $gt: todayStartTime } },
+        { startTime: { $gt: todayStart(now), $lt: tomorrowStart(now) } },
         {}
     )) as unknown as PomodoroRecord[];
     return ans;

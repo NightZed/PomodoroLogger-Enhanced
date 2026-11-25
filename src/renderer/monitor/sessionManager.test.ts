@@ -90,15 +90,27 @@ describe('sessionManager', () => {
         const startOfToday = new Date();
         startOfToday.setHours(0, 0, 0, 0);
         const midnight = startOfToday.getTime();
+        const startOfTomorrow = new Date(startOfToday);
+        startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+
         const todaySession = { ...createRecord('today', 0, []), startTime: midnight + 3600_000 };
         const yesterdayRecord = {
             ...createRecord('yesterday', 0, []),
             startTime: midnight - 3600_000,
         };
+        // Recorded while the system clock was ahead: it is in the future as
+        // far as "today" is concerned, and must not leak into today's list.
+        const tomorrowRecord = {
+            ...createRecord('tomorrow', 0, []),
+            startTime: startOfTomorrow.getTime() + 3600_000,
+        };
         await addSession(todaySession);
         await addSession(yesterdayRecord);
-        const sessions = await getTodaySessions();
-        expect(sessions.some((record) => record.boardId === 'today')).toBeTruthy();
-        expect(sessions.every((record) => record.boardId !== 'yesterday')).toBeTruthy();
+        await addSession(tomorrowRecord);
+
+        const boardIds = (await getTodaySessions()).map((record) => record.boardId);
+        expect(boardIds).toContain('today');
+        expect(boardIds).not.toContain('yesterday');
+        expect(boardIds).not.toContain('tomorrow');
     });
 });

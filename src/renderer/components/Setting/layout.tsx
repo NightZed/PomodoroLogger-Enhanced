@@ -1,5 +1,7 @@
 import React from 'react';
 import styled, { css } from 'styled-components';
+import { ExportOutlined } from '@ant-design/icons';
+import { TITLE_BAR_HEIGHT } from '../AppTitleBar/tokens';
 
 /**
  * The shared geometry of the settings page: one column of inset grouped cards,
@@ -11,7 +13,7 @@ import styled, { css } from 'styled-components';
  * point where the three slider groups and the data button cluster still fit
  * on one line at the default 1440px window.
  */
-export const SettingsContent = styled.div`
+export const SettingsContent = styled.div<{ $center?: boolean }>`
     width: 100%;
     max-width: 880px;
     margin: 0 auto;
@@ -20,6 +22,22 @@ export const SettingsContent = styled.div`
     > section:first-of-type > h3 {
         margin-top: 0;
     }
+
+    /*
+     * The about pane has no list to scan: a short card floating at the top of
+     * an empty pane reads as unfinished. The minimum height matches the pane
+     * exactly (the window minus the title bar), so the card sits in the middle
+     * of the visible area while a taller card still scrolls normally.
+     */
+    ${({ $center }) =>
+        $center &&
+        css`
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: calc(100vh - ${TITLE_BAR_HEIGHT}px);
+            box-sizing: border-box;
+        `}
 
     @media (max-width: 820px) {
         padding-top: 16px;
@@ -231,3 +249,66 @@ export const ControlCluster = styled.div`
         justify-content: flex-start;
     }
 `;
+
+interface LinkRowProps {
+    title: React.ReactNode;
+    /** Secondary text before the arrow (the licence name, for instance). */
+    value?: React.ReactNode;
+    onClick: () => void;
+}
+
+const LinkBody = styled.button`
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 48px;
+    padding: 10px 16px;
+    border: none;
+    background: none;
+    color: var(--pl-text);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+        background-color: var(--pl-bg-hover);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--pl-primary);
+        outline-offset: -2px;
+    }
+`;
+
+const LinkValue = styled.span`
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--pl-text-secondary);
+`;
+
+/** Stays on the far right whether or not the row has a value. */
+const LinkArrow = styled(ExportOutlined)`
+    flex: 0 0 auto;
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--pl-text-tertiary);
+`;
+
+/**
+ * A whole row that opens something outside the app. The arrow is decorative:
+ * the button's name is the title, and the value is already read out as part of
+ * the same button, so a screen reader hears "Release notes, link" in one go.
+ */
+export const LinkRow: React.FunctionComponent<LinkRowProps> = ({ title, value, onClick }) => (
+    <RowShell>
+        <LinkBody type="button" onClick={onClick}>
+            <span>{title}</span>
+            {value && <LinkValue>{value}</LinkValue>}
+            <LinkArrow aria-hidden="true" />
+        </LinkBody>
+    </RowShell>
+);

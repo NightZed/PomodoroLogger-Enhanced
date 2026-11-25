@@ -3,15 +3,20 @@ import { TimerActionTypes, TimerState } from '../Timer/action';
 import styled from 'styled-components';
 import { GithubOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
-import { Hint } from '../../../components/common/Hint/Hint';
 import { deleteAllUserData } from '../../monitor/sessionManager';
 import { feedback, FEEDBACK_MESSAGES } from '../feedback';
 import { DistractingListModalButton } from './DistractingList';
 import { isShallowEqualByKeys } from '../../utils';
 import { TITLE_BAR_HEIGHT } from '../AppTitleBar/tokens';
-import { ISSUES_URL } from '../../../shared/links';
+import { GPL3_URL, ISSUES_URL, RELEASES_URL, REPOSITORY_URL } from '../../../shared/links';
 import pkg from '../../../../package.json';
-import type { ExportResult, ImportResult, UpdateErrorPayload } from '../../../main/ipc/type';
+import appIcon from '../../../../build/icon.png';
+import type {
+    ExportResult,
+    ImportResult,
+    UpdateErrorPayload,
+    UpdateInfoPayload,
+} from '../../../main/ipc/type';
 import type { DataIssuesReport, DataRepairResult } from '../../../shared/dataRepair';
 import type { ImportSummary } from '../../../shared/dataTransfer/importSummary';
 import { refreshDbs } from '../../dbs';
@@ -30,6 +35,7 @@ import {
     Card,
     ControlCluster,
     GroupTitle,
+    LinkRow,
     rowSeparator,
     SettingsContent,
     SettingsRow,
@@ -192,13 +198,40 @@ const Swatches = styled.span`
 `;
 
 const AboutWrap = styled.div`
-    max-width: 560px;
-    margin: 8px auto 0;
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
 `;
 
-const AboutBody = styled.div`
-    padding: 32px 24px;
+const AboutHero = styled.div`
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 24px 24px;
     text-align: center;
+
+    /* The first row below is a RowShell, whose separator only draws between
+       two of its own kind -- the hero needs its own line to close it off. */
+    &::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 16px;
+        right: 16px;
+        height: 1px;
+        background-color: var(--pl-border);
+        pointer-events: none;
+    }
+`;
+
+const AppIcon = styled.img`
+    width: 96px;
+    height: 96px;
+    margin-bottom: 16px;
+    /* 22.7% of the edge, the proportion macOS icons use. */
+    border-radius: 22px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
 `;
 
 const AboutName = styled.h2`
@@ -221,27 +254,26 @@ const AboutHint = styled.p`
     color: var(--pl-text-secondary);
 `;
 
-const AboutActions = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 18px;
-    margin-top: 20px;
-`;
-
-const GithubLink = styled.button`
+const GithubButton = styled.button`
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    margin-top: 18px;
     padding: 0;
-    border: none;
+    border: 1px solid var(--pl-border);
+    border-radius: 50%;
     background: none;
     color: var(--pl-text);
-    font-family: inherit;
-    font-size: 13px;
+    font-size: 17px;
     cursor: pointer;
+    transition:
+        border-color 0.15s,
+        color 0.15s;
 
     &:hover {
+        border-color: var(--pl-primary);
         color: var(--pl-primary);
     }
 
@@ -508,6 +540,18 @@ const isEmptyDataReport = (report: DataIssuesReport): boolean =>
     (report.appHours?.over ?? 0) === 0 &&
     (report.appHours?.under ?? 0) === 0;
 
+/**
+ * What the about pane says about updates. `skipped` is an unpackaged build:
+ * the updater refuses to run there, and calling that a failure would suggest a
+ * problem the user can fix.
+ */
+type UpdateCheckState =
+    | { kind: 'checking' }
+    | { kind: 'latest' }
+    | { kind: 'available'; version: string }
+    | { kind: 'skipped' }
+    | { kind: 'failed' };
+
 interface Props extends TimerState, TimerActionTypes {
     /** Applies the data check's result to `kanban.cards` / `lists` / `boards`. */
     applyRepair: (result: DataRepairResult) => void;
@@ -686,8 +730,10 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
         );
 
         const [checkingUpdate, setCheckingUpdate] = useState(false);
+        /** Rendered under "Updates" in the about pane; see `UpdateCheckState`. */
+        const [updateCheck, setUpdateCheck] = useState<UpdateCheckState>({ kind: 'checking' });
         // Everything `onCheckUpdate` registers lives here rather than in its
-        // closure, so the cleanup can also run from the unmount effect below.
+        // closure, so the cleanup can also run when the pane is left.
         const checkUpdateRef = useRef<{ timeout?: any; unsubscribers: Array<() => void> }>({
             unsubscribers: [],
         });
@@ -701,44 +747,42 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             current.unsubscribers = [];
         }, []);
 
-        // Leaving the page has to release a check that is still in flight.
-        useEffect(() => releaseCheckUpdate, [releaseCheckUpdate]);
-
         const onCheckUpdate = useCallback(() => {
             setCheckingUpdate(true);
+            setUpdateCheck({ kind: 'checking' });
             // The main process answers with one of the three events below; the timeout
             // is only a safety net so the button never gets stuck in loading state.
             // Both the listeners and the timeout belong to the page, not to this
             // closure: they are released on a result, on a second click and on
-            // unmount (see `releaseCheckUpdate`), so a check still in flight can
-            // never leave three listeners behind or call `setCheckingUpdate` on
-            // an unmounted component.
+            // leaving the pane (see `releaseCheckUpdate`), so a check still in
+            // flight can never leave three listeners behind or call
+            // `setCheckingUpdate` on an unmounted component.
             releaseCheckUpdate();
             const onResult = () => {
                 releaseCheckUpdate();
                 setCheckingUpdate(false);
             };
-            const onAvailable = () => onResult();
-            const onNotAvailable = (info: string) => {
-                // Receipt of the check: a toast, not a dialog. "You are on the
-                // latest version" does not need an acknowledgement.
-                feedback.toast({ kind: 'info', content: info });
+            const onAvailable = (info: UpdateInfoPayload) => {
+                setUpdateCheck({ kind: 'available', version: info?.version ?? '' });
+                onResult();
+            };
+            const onNotAvailable = () => {
+                setUpdateCheck({ kind: 'latest' });
                 onResult();
             };
             const onError = (payload: UpdateErrorPayload) => {
                 // A real failure is announced app-wide by `UpdateController`
                 // (one persistent notice, keyed) and written to app.log by
-                // `AutoUpdater`; repeating it here used to show two messages
-                // for the same event. The "not packaged" skip has no app-wide
-                // channel, so the page explains that one itself.
-                if (payload?.skipped) {
-                    feedback.toast({
-                        kind: 'info',
-                        content: FEEDBACK_MESSAGES.update.checkFailed(
-                            String(payload?.message ?? payload)
-                        ),
-                    });
-                }
+                // `AutoUpdater`; the row only has to say the check did not
+                // finish. The "not packaged" skip is not a failure, so it gets
+                // its own state instead of a red-looking one.
+                setUpdateCheck({ kind: payload?.skipped ? 'skipped' : 'failed' });
+                onResult();
+            };
+            const onTimeout = () => {
+                // No answer at all: leaving the row on "checking" would read
+                // as still in progress for the rest of the visit.
+                setUpdateCheck({ kind: 'failed' });
                 onResult();
             };
             const current = checkUpdateRef.current;
@@ -747,7 +791,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 window.api.onUpdateNotAvailable(onNotAvailable),
                 window.api.onUpdateError(onError)
             );
-            current.timeout = setTimeout(onResult, 30000);
+            current.timeout = setTimeout(onTimeout, 30000);
             window.api.checkUpdate();
         }, [releaseCheckUpdate]);
 
@@ -1095,6 +1139,34 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
         }, [onImportClick, t]);
 
         const [section, setSection] = useState<SectionId>(DEFAULT_SECTION);
+
+        /*
+         * Opening the about pane is a request to see the version, so it checks
+         * by itself -- the auto-check switch only governs the background check
+         * at startup. Leaving the pane (or the settings page) releases a check
+         * that is still in flight.
+         */
+        useEffect(() => {
+            if (section !== 'about') {
+                return undefined;
+            }
+
+            onCheckUpdate();
+            return releaseCheckUpdate;
+        }, [section, onCheckUpdate, releaseCheckUpdate]);
+
+        /** The status line of the about pane's "Updates" row. */
+        const updateCheckText =
+            updateCheck.kind === 'checking'
+                ? t('settings.about.updateChecking')
+                : updateCheck.kind === 'latest'
+                  ? t('settings.about.updateLatest')
+                  : updateCheck.kind === 'available'
+                    ? t('settings.about.updateAvailable', updateCheck.version)
+                    : updateCheck.kind === 'skipped'
+                      ? t('settings.about.updateSkipped')
+                      : t('settings.about.updateFailed');
+
         // Packaged builds do not offer screenshot capture; see
         // `screenshotSupport.ts` for why and for how the stored value is
         // dropped on load.
@@ -1104,7 +1176,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             <Container>
                 <SettingNav active={section} onChange={setSection} />
                 <Pane>
-                    <SettingsContent>
+                    <SettingsContent $center={section === 'about'}>
                         {section === 'timer' && (
                             <>
                                 <SettingsSection>
@@ -1724,19 +1796,6 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                                 />
                                             }
                                         />
-                                        <SettingsRow
-                                            title={t('settings.system.checkUpdate')}
-                                            description={t('settings.system.checkUpdateHint')}
-                                            control={
-                                                <Button
-                                                    size="small"
-                                                    loading={checkingUpdate}
-                                                    onClick={onCheckUpdate}
-                                                >
-                                                    {t('settings.system.checkUpdate')}
-                                                </Button>
-                                            }
-                                        />
                                     </Card>
                                 </SettingsSection>
 
@@ -1820,28 +1879,47 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                         {section === 'about' && (
                             <AboutWrap>
                                 <Card>
-                                    <AboutBody>
+                                    <AboutHero>
+                                        <AppIcon src={appIcon} alt="" aria-hidden="true" />
                                         <AboutName>{t('app.title')}</AboutName>
                                         <AboutVersion>
-                                            {t('settings.footer.version', pkg.version)}
+                                            {t('settings.about.version', pkg.version)}
                                         </AboutVersion>
                                         <AboutHint>{t('settings.about.hint')}</AboutHint>
-                                        <AboutActions>
-                                            <Button onClick={openIssuePage}>
-                                                {t('settings.about.feedback')}
+                                        <GithubButton
+                                            type="button"
+                                            aria-label={t('settings.about.github')}
+                                            onClick={openGithubPage}
+                                        >
+                                            <GithubOutlined aria-hidden="true" />
+                                        </GithubButton>
+                                    </AboutHero>
+                                    <SettingsRow
+                                        title={t('settings.about.updates')}
+                                        description={updateCheckText}
+                                        control={
+                                            <Button
+                                                size="small"
+                                                loading={checkingUpdate}
+                                                onClick={onCheckUpdate}
+                                            >
+                                                {t('settings.system.checkUpdate')}
                                             </Button>
-                                            <Hint label={t('settings.about.githubTitle')}>
-                                                <GithubLink
-                                                    type="button"
-                                                    aria-label="GitHub"
-                                                    onClick={openGithubPage}
-                                                >
-                                                    <GithubOutlined />
-                                                    {t('settings.footer.openSource')}
-                                                </GithubLink>
-                                            </Hint>
-                                        </AboutActions>
-                                    </AboutBody>
+                                        }
+                                    />
+                                    <LinkRow
+                                        title={t('settings.about.releaseNotes')}
+                                        onClick={openReleasesPage}
+                                    />
+                                    <LinkRow
+                                        title={t('settings.about.feedback')}
+                                        onClick={openIssuePage}
+                                    />
+                                    <LinkRow
+                                        title={t('settings.about.license')}
+                                        value={t('settings.about.licenseName')}
+                                        onClick={openLicensePage}
+                                    />
                                 </Card>
                             </AboutWrap>
                         )}
@@ -1919,5 +1997,13 @@ function openIssuePage() {
 }
 
 function openGithubPage() {
-    window.api.openExternal('https://github.com/NightZed/PomodoroLogger-Enhanced');
+    window.api.openExternal(REPOSITORY_URL);
+}
+
+function openReleasesPage() {
+    window.api.openExternal(RELEASES_URL);
+}
+
+function openLicensePage() {
+    window.api.openExternal(GPL3_URL);
 }

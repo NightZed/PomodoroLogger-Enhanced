@@ -107,3 +107,14 @@ tooltip 已移除：实测它的弹层链占一次快速拖动主线程时间的
 4. 主进程那一半（`setLogLevel`、`openAtLogin`，以及 compact 模式下窗口高度）随后同步。
 
 会话与看板不属于设置，重置不碰它们。
+
+## 关于页与更新检查
+
+关于页是**一张卡片**：顶部是居中的 hero（图标、名称、版本、说明、GitHub 图标），下面接更新状态行与三个链接行。整张卡片靠 `SettingsContent` 的 `$center` 开关垂直居中：`min-height` 取 `100vh - TITLE_BAR_HEIGHT`，内容不满一屏时卡片落在可见区域正中，超过一屏照常滚动。其他分区不要打开它，列表从顶部开始才是可预期的。
+
+- hero 是 `AboutHero`，它自己画下边框（`rowSeparator` 只在两个 `RowShell` 相邻时才画线），所以不要把它挪到卡片外面。
+- 卡片里第一行是更新状态，后面三个 `LinkRow`（更新说明、反馈、许可证协议）整行可点，右侧箭头是装饰。`src/shared/links.ts` 是这些 URL 的唯一来源。
+- **检查更新只有关于页一个入口**。系统分区的「更新」只留「自动检查更新」开关，它只管启动时的后台检查；进入关于页属于用户主动查看版本，无论开关如何都会检查一次。
+- 检查结果是一个 `UpdateCheckState`：`checking` / `latest` / `available`（带版本号）/ `skipped`（未打包的构建，不是失败）/ `failed`（含 30 秒超时）。原来「已是最新版本」用 toast 提示，现在显示在状态行里，不要再加 toast。
+- 离开关于页要释放监听（effect 的 cleanup 调 `releaseCheckUpdate`）；检查未返回时切走再回来，不能留下三份监听。
+

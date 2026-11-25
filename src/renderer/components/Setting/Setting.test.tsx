@@ -857,7 +857,13 @@ describe('Setting data check', () => {
 });
 
 describe('Setting update check', () => {
-    it('releases the listeners when the page is left while a check is in flight', () => {
+    const openAbout = () => {
+        const nav = screen.getByRole('navigation', { name: 'Settings sections' });
+        fireEvent.click(within(nav).getByRole('button', { name: /About/ }));
+    };
+
+    /** Preload's three update events, each returning a tracked unsubscribe. */
+    const trackUpdateEvents = () => {
         const unsubscribers: jest.Mock[] = [];
         const track = () => {
             const unsubscribe = jest.fn();
@@ -867,20 +873,110 @@ describe('Setting update check', () => {
         (window as any).api.onUpdateAvailable = jest.fn(track);
         (window as any).api.onUpdateNotAvailable = jest.fn(track);
         (window as any).api.onUpdateError = jest.fn(track);
+        return unsubscribers;
+    };
+
+    it('starts a check when the about pane opens', () => {
+        const unsubscribers = trackUpdateEvents();
+
+        render(<Setting {...props()} />);
+        openAbout();
+
+        // Opening the pane is the check: there is no button to press first.
+        expect((window as any).api.checkUpdate).toHaveBeenCalledTimes(1);
+        // A request that does not listen for all three answers would hang.
+        expect(unsubscribers).toHaveLength(3);
+    });
+
+    it('shows that a check is in progress', () => {
+        trackUpdateEvents();
+
+        render(<Setting {...props()} />);
+        openAbout();
+
+        expect(screen.getByText('Checking for updates…')).toBeTruthy();
+    });
+
+    it('reports the latest version in the updates row', async () => {
+        let answer: ((info: string) => void) | undefined;
+        (window as any).api.onUpdateNotAvailable = jest.fn((listener: (info: string) => void) => {
+            answer = listener;
+            return jest.fn();
+        });
+
+        render(<Setting {...props()} />);
+        openAbout();
+
+        await act(async () => {
+            answer?.('up to date');
+        });
+
+        expect(screen.getByText('You are on the latest version')).toBeTruthy();
+    });
+
+    it('names the new version when the check finds one', async () => {
+        let answer: ((info: { version: string }) => void) | undefined;
+        (window as any).api.onUpdateAvailable = jest.fn(
+            (listener: (info: { version: string }) => void) => {
+                answer = listener;
+                return jest.fn();
+            }
+        );
+
+        render(<Setting {...props()} />);
+        openAbout();
+
+        await act(async () => {
+            answer?.({ version: '1.4.0' });
+        });
+
+        expect(screen.getByText('Version v1.4.0 is available')).toBeTruthy();
+    });
+
+    it('releases the listeners when the pane is left while a check is in flight', () => {
+        const unsubscribers = trackUpdateEvents();
 
         const { unmount } = render(<Setting {...props()} />);
-        const nav = screen.getByRole('navigation', { name: 'Settings sections' });
-        fireEvent.click(within(nav).getByRole('button', { name: /System/ }));
-
-        fireEvent.click(button('Check Update'));
+        openAbout();
         expect(unsubscribers).toHaveLength(3);
 
-        // No answer arrived; leaving the page is the only thing that can clean
+        // No answer arrived; leaving the pane is the only thing that can clean
         // up, and it is what used to be missing.
         unmount();
         for (const unsubscribe of unsubscribers) {
             expect(unsubscribe).toHaveBeenCalledTimes(1);
         }
+    });
+});
+
+describe('Setting about links', () => {
+    const openAbout = () => {
+        const nav = screen.getByRole('navigation', { name: 'Settings sections' });
+        fireEvent.click(within(nav).getByRole('button', { name: /About/ }));
+    };
+
+    it.each([
+        ['Release notes', 'https://github.com/NightZed/PomodoroLogger-Enhanced/releases/latest'],
+        ['Feedback', 'https://github.com/NightZed/PomodoroLogger-Enhanced/issues/'],
+        ['License', 'https://www.gnu.org/licenses/gpl-3.0.html'],
+    ])('opens %s in the system browser', (label, url) => {
+        render(<Setting {...props()} />);
+        openAbout();
+
+        fireEvent.click(button(label));
+
+        expect(window.api.openExternal).toHaveBeenCalledWith(url);
+    });
+
+    it('opens the repository from the GitHub icon', () => {
+        render(<Setting {...props()} />);
+        openAbout();
+
+        fireEvent.click(screen.getByRole('button', { name: 'View the project on GitHub' }));
+
+        expect(window.api.openExternal).toHaveBeenCalledWith(
+            'https://github.com/NightZed/PomodoroLogger-Enhanced'
+        );
     });
 });
 

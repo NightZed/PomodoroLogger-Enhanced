@@ -32,7 +32,7 @@ import { subscribeWindowHideIntent } from '../windowHideIntent';
 import { LONG_BREAK_INTERVAL, TimerActionTypes as ThisActionTypes, uiStateNames } from './action';
 import { FocusSelector } from './FocusSelector';
 import { FocusStartWarning, getFocusStartWarningIfEnabled } from './focusStartWarning';
-import { t } from '../../i18n';
+import { useI18n, t } from '../../i18n';
 import { setTrayImageWithMadeIcon } from './iconMaker';
 import { PomodoroNumView } from './PomodoroNumView';
 import Progress from './Progress';
@@ -234,6 +234,70 @@ const MySider = styled.aside`
     transition: margin-left 0.2s;
     ${tabMaxHeight}
 `;
+
+/** Stable style object: a fresh literal would break `TimerSider`'s memo comparison. */
+const SIDER_TOGGLE_STYLE: React.CSSProperties = {
+    position: 'absolute',
+    right: 0,
+    top: 20,
+    marginRight: -15,
+    zIndex: 50,
+    boxShadow: '4px 0 6px -1px rgba(234, 234, 234, 0.6)',
+};
+
+/** Same reason as `SIDER_TOGGLE_STYLE`: `HelpIcon` is a connected memo component. */
+const HELP_ICON_STYLE: React.CSSProperties = {
+    position: 'absolute',
+    zIndex: 50,
+    bottom: 14,
+    right: 14,
+};
+
+/**
+ * The board sider of the Timer page.
+ *
+ * Memoized because `Timer` re-renders on every countdown tick (the local
+ * `leftTime` / `secondsLeft` state). Rendered inline, the `aside`, its heading
+ * and the two `Hint` triggers were rebuilt once a second although only the
+ * board selection and the show/hide state can change them -- `Board` behind
+ * them was already memoized, but the shell around it was not. Every prop here
+ * is a scalar or a stable reference (`Timer`'s arrow-function handlers), so the
+ * comparison holds; the translated labels come from `useI18n`, which
+ * `useSyncExternalStore` re-renders through the memo on a language switch.
+ */
+const TimerSider: React.FC<{
+    boardId: string;
+    boardName?: string;
+    showSider: boolean;
+    openBoard: () => void;
+    toggleSider: () => void;
+}> = React.memo(function TimerSider({ boardId, boardName, showSider, openBoard, toggleSider }) {
+    const { t: translate } = useI18n();
+    return (
+        <MySider style={{ marginLeft: showSider ? 0 : -300 }}>
+            <KanbanName onClick={openBoard}>
+                {boardName}
+                <Hint label={translate('timer.sider.openBoard')}>
+                    <Button
+                        className={'kanban-name-arrow'}
+                        aria-label={translate('timer.sider.openBoard')}
+                    >
+                        <IconComponent component={backIcon} />
+                    </Button>
+                </Hint>
+            </KanbanName>
+            <Board boardId={boardId} preview={true} showHeader={false} />
+            <Hint label={translate('timer.controls.toggleSider')}>
+                <Button
+                    icon={<Icon type={'more'} />}
+                    aria-label={translate('timer.controls.toggleSider')}
+                    style={SIDER_TOGGLE_STYLE}
+                    onClick={toggleSider}
+                />
+            </Hint>
+        </MySider>
+    );
+});
 
 const ProgressContainer = styled.div`
     max-width: 800px;
@@ -1804,42 +1868,15 @@ class Timer extends Component<Props, State> {
                     onStart={this.onMaskButtonClick}
                     pomodoros={pomodorosToday}
                 />
-                {!compact &&
-                    (listId === undefined || boardId === undefined ? undefined : (
-                        <MySider
-                            style={{
-                                marginLeft: this.state.showSider ? 0 : -300,
-                            }}
-                        >
-                            <KanbanName onClick={this.switchToKanban}>
-                                {this.props.kanban.boards[boardId]?.name}
-                                <Hint label={t('timer.sider.openBoard')}>
-                                    <Button
-                                        className={'kanban-name-arrow'}
-                                        aria-label={t('timer.sider.openBoard')}
-                                    >
-                                        <IconComponent component={backIcon} />
-                                    </Button>
-                                </Hint>
-                            </KanbanName>
-                            <Board boardId={boardId} preview={true} showHeader={false} />
-                            <Hint label={t('timer.controls.toggleSider')}>
-                                <Button
-                                    icon={<Icon type={'more'} />}
-                                    aria-label={t('timer.controls.toggleSider')}
-                                    style={{
-                                        position: 'absolute',
-                                        right: 0,
-                                        top: 20,
-                                        marginRight: -15,
-                                        zIndex: 50,
-                                        boxShadow: '4px 0 6px -1px rgba(234, 234, 234, 0.6)',
-                                    }}
-                                    onClick={this.switchSider}
-                                />
-                            </Hint>
-                        </MySider>
-                    ))}
+                {!compact && listId !== undefined && boardId !== undefined ? (
+                    <TimerSider
+                        boardId={boardId}
+                        boardName={this.props.kanban.boards[boardId]?.name}
+                        showSider={this.state.showSider}
+                        openBoard={this.switchToKanban}
+                        toggleSider={this.switchSider}
+                    />
+                ) : undefined}
                 <TimerLayout $compact={compact} ref={this.mainDiv}>
                     <Hint
                         label={compact ? t('timer.controls.normal') : t('timer.controls.compact')}
@@ -1876,16 +1913,7 @@ class Timer extends Component<Props, State> {
                         />
                     </Hint>
                     {!compact && (
-                        <HelpIcon
-                            storyName={'allStories'}
-                            resume={true}
-                            style={{
-                                position: 'absolute',
-                                zIndex: 50,
-                                bottom: 14,
-                                right: 14,
-                            }}
-                        />
+                        <HelpIcon storyName={'allStories'} resume={true} style={HELP_ICON_STYLE} />
                     )}
                     <TimerInnerLayout $compact={compact}>
                         <ProgressContainer>

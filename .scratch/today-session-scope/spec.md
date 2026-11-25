@@ -29,6 +29,26 @@ Status: open（边界已记录，剩余两项未排期）
    列表保持原样。只要缓存没被污染，这就是正确行为——`concat` 进来的记录属于
    `lastReloadDay` 那天，因为新会话只能从 `onStart` 开始。
 
+## 时区与夏令时
+
+记录只存绝对时间戳（`startTime`，UTC 毫秒），不存记录发生时的时区。所有按「本地日期 / 时段」
+分桶的统计都用**当前**时区重算：
+
+- **改变时区**：同一个 `startTime` 会落到相邻日期或不同时段。影响日历热力图
+  （`getPomodoroCalendarData`）、今日 / 本周 / 本月（`getPomodoroAgg`）、时段直方图
+  （`getTimeOfDayHistogram`）和历史页的日视图（`History.tsx:324`）。这是「按本地时间展示」
+  的必然结果，不是代码缺陷；要还原记录当时的本地日期，得额外存下 offset。
+- **夏令时切换**：`getDateFromTimestamp`（`src/utils/aggPomodoro.ts:41`）用当前
+  `getTimezoneOffset()` 加固定 `DAY_MS` 做日期分桶，假设每天 24 小时；
+  `getPomodoroAgg` 的 `days * DAY_MS`、`History.tsx:255` 的 `weekStart`、
+  `GridCalendar.tsx:169` 的格子递推也一样。切换日（23 或 25 小时）附近会偏一小时，
+  记录可能归到前一天或后一天。
+- 由此产生一处不一致：历史页的日视图用 `new Date(y, m-1, d)` 构造边界，精确；
+  热力图与统计用固定 24h。DST 切换日，日视图可能包含某条记录，而热力图把它画在相邻一天。
+- 这些是既有取舍（`aggPomodoro.ts:34-44` 的注释写明「assumed to be 24h」），本轮未改。
+  要精确分桶就把 `DAY_MS` 递推换成 `new Date(y, m, d ± n)`，代价是热聚合循环里每条记录
+  一次 Date 分配，需要先量。
+
 ## 待办
 
 - `issues/01-reload-failure-lock.md`：查询失败 + 时间回拨会把旧列表永久当成今天。

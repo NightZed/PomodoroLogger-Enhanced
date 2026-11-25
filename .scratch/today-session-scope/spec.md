@@ -1,6 +1,6 @@
 # 今日会话的查询范围与缓存失效
 
-Status: open（边界已记录，剩余两项未排期）
+Status: open（边界已记录，剩余一项未排期）
 
 ## 背景
 
@@ -49,8 +49,14 @@ Status: open（边界已记录，剩余两项未排期）
   要精确分桶就把 `DAY_MS` 递推换成 `new Date(y, m, d ± n)`，代价是热聚合循环里每条记录
   一次 Date 分配，需要先量。
 
+## 已修复
+
+- **reload 失败后 lastReloadDay 不推进**（issue 01）：`reloadTodaySessions` 的 `catch`
+  现在把 `lastReloadDay` 置 0，下一次开始必定重试。原先跨天刷新失败后，列表仍是前一天的；
+  时钟回拨到那天时 `onStart` 的比较成立，页面永远不再重查，旧列表被当成今天直到重启。
+  测试：`Timer.test.tsx` 的「retries a failed day load when the clock returns to the cached day」。
+
 ## 待办
 
-- `issues/01-reload-failure-lock.md`：查询失败 + 时间回拨会把旧列表永久当成今天。
-- `issues/02-unbounded-recent-queries.md`：`History` 的 `recentArg` 与 `ProjectTrend` 的
-  `since` 仍无上界。
+- `issues/02-unbounded-recent-queries.md`：`History` 的 `recentArg`、`getPomodoroAgg` 与
+  `ProjectTrend` 的 `since` 仍无上界。

@@ -638,6 +638,43 @@ describe('Timer page', () => {
         expect(view.getAllByRole('img', { name: /^\d{2}:\d{2}$/ })).toHaveLength(1);
     });
 
+    it('retries a failed day load when the clock returns to the cached day', async () => {
+        // The rejected load is the point of this test; the page logs it.
+        const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        try {
+            const runStart = new Date();
+            (getTodaySessions as jest.Mock).mockResolvedValue([
+                { _id: 's1', startTime: 1, boardId: 'b1' },
+                { _id: 's2', startTime: 2, boardId: 'b1' },
+            ]);
+
+            const view = await renderTimer();
+            expect(view.getAllByRole('img', { name: /^\d{2}:\d{2}$/ })).toHaveLength(2);
+
+            // Cross midnight; this reload fails, so the list stays yesterday's.
+            jest.setSystemTime(new Date('2026-01-02T00:00:30Z'));
+            (getTodaySessions as jest.Mock).mockRejectedValueOnce(new Error('db is down'));
+            await act(async () => {
+                view.ref.current!.onStart();
+            });
+
+            // Back to the day the cached list came from. A failed load must
+            // not mark that day as loaded, or this start skips the retry and
+            // keeps showing yesterday's two dots.
+            jest.setSystemTime(new Date(runStart.getTime() + 3600_000));
+            (getTodaySessions as jest.Mock).mockResolvedValue([
+                { _id: 's3', startTime: 3, boardId: 'b1' },
+            ]);
+            await act(async () => {
+                view.ref.current!.onStart();
+            });
+
+            expect(view.getAllByRole('img', { name: /^\d{2}:\d{2}$/ })).toHaveLength(1);
+        } finally {
+            consoleError.mockRestore();
+        }
+    });
+
     it("shows the mode and today's count under the countdown", async () => {
         (getTodaySessions as jest.Mock).mockResolvedValue([
             { _id: 's1', startTime: 1, boardId: 'b1' },

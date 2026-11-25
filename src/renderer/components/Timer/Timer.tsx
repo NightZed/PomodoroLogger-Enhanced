@@ -467,6 +467,11 @@ class Timer extends Component<Props, State> {
                 });
             })
             .catch((err) => {
+                // Leave the day unconsumed so the next start retries. This can
+                // fail on the post-midnight reload while the list is still
+                // yesterday's; recording the current day here would make the
+                // staleness check believe that list is fresh.
+                this.lastReloadDay = 0;
                 // The timer page still works without the list, so a failed query
                 // is logged instead of surfacing as an unhandled rejection.
                 console.error('[Timer] failed to load today sessions', err);

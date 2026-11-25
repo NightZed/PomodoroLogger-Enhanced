@@ -103,8 +103,9 @@ it('reports every move to onPreview and still commits once, on release', () => {
     fireEvent.change(slider(), { target: { value: '20' } });
     fireEvent.change(slider(), { target: { value: '25' } });
 
-    expect(onPreview).toHaveBeenCalledTimes(2);
-    expect(onPreview).toHaveBeenLastCalledWith(25);
+    // Each move has to reach the window -- the opacity is written to a CSS
+    // variable per event, so a dropped one is a visible stutter.
+    expect(onPreview.mock.calls.map(([value]) => value)).toEqual([20, 25]);
     expect(onCommit).not.toHaveBeenCalled();
 
     release();

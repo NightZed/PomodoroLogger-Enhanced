@@ -133,7 +133,6 @@ jest.mock('antd', () => {
     const Slider = ({ value, defaultValue, min, max, onChange, onChangeComplete }: any) =>
         React.createElement('input', {
             type: 'range',
-            'data-testid': 'slider',
             value: value ?? defaultValue,
             min,
             max,
@@ -310,7 +309,7 @@ describe('minimum focus time before Finish', () => {
 
         // Focus, short break, long break, then the minimum: the last slider of
         // the (default) timer section is the new one.
-        const sliders = screen.getAllByTestId('slider') as HTMLInputElement[];
+        const sliders = screen.getAllByRole('slider') as HTMLInputElement[];
         expect(sliders.length).toBe(4);
         fireEvent.change(sliders[3], { target: { value: '5' } });
         // The stand-in above reports the end of the drag in the same event
@@ -328,7 +327,7 @@ describe('minimum focus time before Finish', () => {
         const p = { ...props(), focusDuration: 50 * 60, minFinishDuration: 40 * 60 };
         render(<Setting {...p} />);
 
-        const sliders = screen.getAllByTestId('slider') as HTMLInputElement[];
+        const sliders = screen.getAllByRole('slider') as HTMLInputElement[];
         // The old flat maximum of 30 minutes made this unreachable.
         expect(sliders[3].max).toBe('50');
         expect(sliders[3].value).toBe('40');
@@ -342,7 +341,7 @@ describe('minimum focus time before Finish', () => {
         const p = { ...props(), focusDuration: 25 * 60, minFinishDuration: 30 * 60 };
         render(<Setting {...p} />);
 
-        const sliders = screen.getAllByTestId('slider') as HTMLInputElement[];
+        const sliders = screen.getAllByRole('slider') as HTMLInputElement[];
         expect(sliders[3].max).toBe('25');
         expect(sliders[3].value).toBe('25');
         // Rendering must never rewrite the setting on its own.
@@ -801,7 +800,12 @@ describe('Setting data check', () => {
             await Promise.resolve();
         });
 
-        expect(mockAlert).toHaveBeenCalledTimes(1);
+        // One alert, and the one that explains what failed: the titles are the
+        // assertion so a duplicated dialog or a swapped message shows up here.
+        expect(mockAlert.mock.calls.map(([options]) => options.title)).toEqual([
+            'Could Not Check the Data',
+        ]);
+        expect(alertText()).toContain('disk gone');
         expect(screen.queryByText(/^orphans=/)).toBeNull();
     });
 });
@@ -867,7 +871,7 @@ describe('opacity sliders', () => {
 
         // Content, theme background, then wallpaper: the third slider of the
         // appearance section.
-        const sliders = screen.getAllByTestId('slider') as HTMLInputElement[];
+        const sliders = screen.getAllByRole('slider') as HTMLInputElement[];
         expect(sliders).toHaveLength(3);
         fireEvent.change(sliders[2], { target: { value: '40' } });
         // The stand-in above fires `onChange` and `onChangeComplete` in one
@@ -901,7 +905,7 @@ describe('opacity sliders', () => {
         render(<Setting {...p} />);
         openAppearance();
 
-        const sliders = screen.getAllByTestId('slider') as HTMLInputElement[];
+        const sliders = screen.getAllByRole('slider') as HTMLInputElement[];
         fireEvent.change(sliders[0], { target: { value: '70' } });
         await act(async () => {
             await new Promise((resolve) => setTimeout(resolve, 30));
@@ -997,7 +1001,7 @@ describe('notification sounds', () => {
         render(<Setting {...p} />);
         openNotifications();
 
-        const sliders = screen.getAllByTestId('slider');
+        const sliders = screen.getAllByRole('slider') as HTMLInputElement[];
         expect(sliders).toHaveLength(1);
         fireEvent.change(sliders[0], { target: { value: '40' } });
 

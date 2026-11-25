@@ -10,28 +10,12 @@ Status: open（持续追加，不排期）
 
 | 测试文件 | 条目 | 记录于 |
 | --- | --- | --- |
-| `Setting.test.tsx` | 用 `data-testid` 定位 Slider 桩；断言 feedback mock 被调几次 | 2026-11-25 |
-| `PreviewSlider.test.tsx` | 断言 `onPreview` 被调次数（每帧一次的实现细节） | 2026-11-25 |
-
-## 待修
-
-### `Setting.test.tsx`
-
-- **现象**：`getAllByTestId('slider')` 多处使用（桩在 130–147 行定义 `'data-testid': 'slider'`）。
-- **依据**：`docs/testing.md` 的「算不算行为」表——`data-testid` 属于「不算」。这里是替身的私有接口，换成别的桩或真实滑块就整组失效。
-- **修法**：桩本身就是原生 `<input type="range">`，它带 `role="slider"`；改成 `getAllByRole('slider')`，断言不变。
-- **现象（续）**：`expect(mockAlert).toHaveBeenCalledTimes(1)`、`mockToast`、`mockConfirm` 等十余处只数调用次数。
-- **依据**：次数是实现（「调了几次」），用户看到的是提示的 `kind` 与文案。
-- **修法**：按 `feedback.alert` / `notice` 的 payload 断言 `kind` 与含变化值的那段文案。
-
-### `PreviewSlider.test.tsx`
-
-- **现象**：`expect(onPreview).toHaveBeenCalledTimes(2)`（约 106 行）断言拖动过程中预览回调被调几次。
-- **依据**：预览是每帧都会调的实现节流细节；真实滑块合帧或改节流，次数就变，行为没变。
-- **修法**：断言最后一次 `onPreview` 收到拖动终点值，或断言读数文本已随之更新。
+| （暂无） | | |
 
 ## 已修复
 
+- `Setting.test.tsx`（2026-11-25）：`Slider` 桩上的 `data-testid` 删除，6 处取数改成 `getAllByRole('slider')`——桩本身就是 `input[type=range]`，role 来自元素语义，换掉桩也不会静默失效。数据检查失败的用例原先只数 `mockAlert` 的次数，现在断言标题序列 `['Could Not Check the Data']` 与失败原因：重复弹窗或弹错文案都会落在失败信息里。其余 feedback 断言本来就带 payload（标题、`content`、`actions`），次数只作为「不重复弹」的补充，未改。
+- `PreviewSlider.test.tsx`（2026-11-25）：`onPreview` 的 `toHaveBeenCalledTimes(2)` 换成断言收到的值序列 `[20, 25]`。原来只数次数，丢了值也照样通过；现在失败信息直接列出实际收到的值，仍能发现「某次移动没上报」这个可见卡顿。
 - `src/renderer/components/Timer/Timer.test.tsx` 的圆点组件 mock（2026-11-24）：删掉 `jest.mock('./PomodoroNumView')`，整页测试第一次真的渲染圆点；新增「draws one dot per pomodoro of the day」按 `role="img"` + `HH:MM` 的名称数点，确认真实组件与今日数据对得上。同一提交里 `SessionEndingMask.test.tsx` 也做了同样的清理。
 
 - `src/renderer/components/Timer/SessionEndingMask.test.tsx` 的圆点组件 mock（2026-11-24）：删掉 `jest.mock('./PomodoroNumView')`，夹具换成完整的 `PomodoroRecord` 工厂；两条计数用例同时断言标题数字与 `role="img"` 的圆点数量，于是「标题数量和下方圆点一致」第一次真的被覆盖。

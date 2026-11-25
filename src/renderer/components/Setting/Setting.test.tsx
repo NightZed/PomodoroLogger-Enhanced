@@ -219,6 +219,7 @@ const props = (): any => ({
     setCalendarBaseColor: jest.fn(),
     setLanguage: jest.fn(),
     setLogLevel: jest.fn(),
+    resetSettings: jest.fn(),
 });
 
 /** The button whose accessible name contains `label`. */
@@ -346,6 +347,39 @@ describe('minimum focus time before Finish', () => {
         expect(sliders[3].value).toBe('25');
         // Rendering must never rewrite the setting on its own.
         expect(p.setMinFinishDuration).not.toHaveBeenCalled();
+    });
+});
+
+describe('reset all settings', () => {
+    const openSystem = () => {
+        const nav = screen.getByRole('navigation', { name: 'Settings sections' });
+        fireEvent.click(within(nav).getByRole('button', { name: /System/ }));
+    };
+
+    // The button's label reads as switches and sliders, while the reset also
+    // clears the wallpaper, a custom theme and the distracting-app list. The
+    // confirmation is the only place that can say so.
+    it('asks first and names what else gets cleared', async () => {
+        const p = props();
+        render(<Setting {...p} />);
+        openSystem();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Reset All Settings' }));
+
+        expect(p.resetSettings).not.toHaveBeenCalled();
+        const options = mockConfirm.mock.calls[0][0];
+        expect(options.title).toBe('Reset all settings?');
+        expect(options.content).toContain('wallpaper');
+        expect(options.content).toContain('distracting app list');
+        // Sessions live in another table; the note has to promise that.
+        expect(options.content).toContain('Sessions and boards are kept.');
+
+        await act(async () => {
+            await options.onOk?.();
+        });
+
+        expect(p.resetSettings).toHaveBeenCalledTimes(1);
+        expect(mockToast.mock.calls[0][0].content).toBe('Settings restored to their defaults.');
     });
 });
 

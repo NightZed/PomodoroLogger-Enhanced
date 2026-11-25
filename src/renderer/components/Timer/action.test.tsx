@@ -40,6 +40,27 @@ afterEach(() => {
     jest.useRealTimers();
 });
 
+/**
+ * The preload methods that mirror a setting into the main process. The test
+ * bridge only carries the database, so a caller has to supply these; the saved
+ * values are put back so later tests see the bridge they expect.
+ */
+function stubMainProcessSettingsApi() {
+    const api = window.api as any;
+    const saved = {
+        setLogLevel: api.setLogLevel,
+        openAtLogin: api.openAtLogin,
+        compactWindow: api.compactWindow,
+    };
+    const calls = {
+        setLogLevel: jest.fn(),
+        openAtLogin: jest.fn(),
+        compactWindow: jest.fn(),
+    };
+    Object.assign(api, calls);
+    return { calls, restore: () => Object.assign(api, saved) };
+}
+
 describe('Reducer', () => {
     it('starts from the default timer state', () => {
         const state = reducer(undefined, pauseTimer());
@@ -124,10 +145,11 @@ describe('Reducer', () => {
         expect(state.restDuration).toBe(123);
     });
 
-    it('guards the Finish button with a configurable minimum of 10 minutes', () => {
+    it('guards the Finish button with a configurable minimum of 25 minutes', () => {
         const state = reducer(undefined, pauseTimer());
-        // The value the app shipped with before it became a setting.
-        expect(state.minFinishDuration).toBe(10 * 60);
+        // As long as the default focus session: finishing a full one is always
+        // allowed, finishing early never is -- until the setting says otherwise.
+        expect(state.minFinishDuration).toBe(25 * 60);
         expect(reducer(state, setMinFinishDuration(5 * 60)).minFinishDuration).toBe(5 * 60);
         // 0 is the settings page's "finish at any time" option.
         expect(reducer(state, setMinFinishDuration(0)).minFinishDuration).toBe(0);
@@ -318,6 +340,73 @@ describe('Reducer', () => {
         // Absence, not an empty string: the next `fetchSettings` has to read
         // this as "use the bundled chime".
         expect(await stored()).toBeUndefined();
+    });
+
+    // Regression: a reset that only dispatched the defaults left the settings
+    // table on the old values, so the next start brought every one of them
+    // back -- and a slider drag still inside its debounce window landed right
+    // after the reset and rewrote the old duration.
+    it('writes the factory settings back and drops the nullable ones', async () => {
+        jest.useFakeTimers({ doNotFake: ['Date', 'nextTick', 'queueMicrotask'] });
+        const mainProcess = stubMainProcessSettingsApi();
+        let state: TimerState = {
+            ...defaultState,
+            focusDuration: 40 * 60,
+            themeId: 'night',
+            followSystemTheme: false,
+        };
+        const dispatch = ((action: any) => {
+            state = reducer(state, action);
+        }) as unknown as Dispatch;
+
+        try {
+            await actions.setWorkSoundPath('C:\\sounds\\rain.mp3')(dispatch);
+            // A drag that has not settled yet when the reset is pressed.
+            actions.setFocusDuration(40 * 60)(dispatch);
+
+            await actions.resetSettings()(dispatch, () => ({ timer: state }));
+
+            const stored = await dbs.settingDB.findOne({ name: 'setting' });
+            expect({
+                focusDuration: stored.focusDuration,
+                minFinishDuration: stored.minFinishDuration,
+                themeId: stored.themeId,
+                followSystemTheme: stored.followSystemTheme,
+                workSoundPath: 'workSoundPath' in stored,
+            }).toEqual({
+                focusDuration: 25 * 60,
+                minFinishDuration: 25 * 60,
+                themeId: 'day',
+                followSystemTheme: true,
+                workSoundPath: false,
+            });
+
+            // The dropped write must not put the dragged value back.
+            await jest.advanceTimersByTimeAsync(400);
+            expect((await dbs.settingDB.findOne({ name: 'setting' })).focusDuration).toBe(25 * 60);
+            expect(state.focusDuration).toBe(25 * 60);
+        } finally {
+            mainProcess.restore();
+        }
+    });
+
+    // The log level and the login item live half in the main process; a reset
+    // that only cleaned the table would leave them where the user had them.
+    it('mirrors the reset to the main process', async () => {
+        const { calls, restore } = stubMainProcessSettingsApi();
+
+        try {
+            const dispatch = (() => undefined) as unknown as Dispatch;
+            await actions.resetSettings()(dispatch, () => ({
+                timer: { ...defaultState, compact: false },
+            }));
+
+            expect(calls.setLogLevel).toHaveBeenCalledWith('info');
+            expect(calls.openAtLogin).toHaveBeenCalledWith(false);
+            expect(calls.compactWindow).not.toHaveBeenCalled();
+        } finally {
+            restore();
+        }
     });
 
     it('ignores a stored screenshot interval in a packaged build', async () => {

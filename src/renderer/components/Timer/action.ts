@@ -8,7 +8,8 @@ import dbs from '../../dbs';
 import { PomodoroRecord } from '../../monitor/type';
 import { DEBUG_TIME_SCALE, scaleMs } from '../../../config';
 import { AsyncDB } from '../../../utils/dbHelper';
-import { DEFAULT_THEME_ID, ThemeDefinition } from '../../theme/tokens';
+import { createDefaultSettings, NULLABLE_SETTINGS } from './defaults';
+import { ThemeDefinition } from '../../theme/tokens';
 import type { LanguagePreference } from '../../../shared/i18n';
 import type { LogLevel } from '../../../shared/log';
 import { isScreenshotAvailable } from '../../screenshotSupport';
@@ -40,6 +41,17 @@ function persistSettingWithDebounce(name: string, value: number): void {
         delete pendingSettingWrites[name];
         settingDB.update({ name: 'setting' }, { $set: { [name]: value } }, { upsert: true });
     }, 300);
+}
+
+/**
+ * Drops every debounced write without flushing it. Used by the settings reset,
+ * where the pending value is about to be replaced by the factory one.
+ */
+function dropPendingSettingWrites(): void {
+    for (const name of Object.keys(pendingSettingWrites)) {
+        clearTimeout(pendingSettingWrites[name]);
+        delete pendingSettingWrites[name];
+    }
 }
 
 /**
@@ -246,60 +258,23 @@ export interface TimerState extends Setting {
 }
 
 export const defaultState: TimerState = {
-    distractingList: [
-        {
-            app: 'Chrome|Edge|Iexplore|Safari|Firefox|Brave',
-            title: 'Facebook|微博|Twitter|哔哩哔哩|YouTube|Twitch|微信',
-        },
-        {
-            app: 'WeChatStore',
-        },
-        {
-            title: '邮件|Mail',
-        },
-    ],
-    autoUpdate: true,
+    ...createDefaultSettings(),
+    // Absence is the default for these: see `NULLABLE_SETTINGS`.
+    screenShotInterval: undefined,
+    workSoundPath: undefined,
+    shortBreakSoundPath: undefined,
+    longBreakSoundPath: undefined,
+    wallpaperPath: undefined,
+    wallpaperDataUrl: undefined,
+    customThemes: undefined,
     targetTime: undefined,
-    focusDuration: 25 * 60,
-    restDuration: 5 * 60,
     iBreak: 0,
-    longBreakDuration: 15 * 60,
-    minFinishDuration: 10 * 60,
     isRunning: false,
     isFocusing: true,
     sessionEnding: false,
-    startOnBoot: false,
-    useHardwareAcceleration: false,
-    unloadOnCloseToTray: true,
-    compactAlwaysOnTop: true,
-    contentOpacity: 1,
-    themeBackgroundOpacity: 1,
-    wallpaperPath: undefined,
-    wallpaperDataUrl: undefined,
-    wallpaperOpacity: 1,
     minimize: false,
     compact: false,
     inTray: false,
-
-    monitorInterval: 1000,
-    screenShotInterval: undefined,
-    workSoundPath: undefined,
-    workSoundEnabled: true,
-    shortBreakSoundPath: undefined,
-    shortBreakSoundEnabled: true,
-    longBreakSoundPath: undefined,
-    longBreakSoundEnabled: true,
-    soundVolume: 0.5,
-    desktopNotification: true,
-    warnBeforeFocusStart: true,
-    returnToTimerOnSessionEnd: true,
-    openWindowOnSessionEnd: false,
-    calendarBaseColor: '#aceebb',
-    themeId: DEFAULT_THEME_ID,
-    followSystemTheme: false,
-    customThemes: undefined,
-    language: 'system',
-    logLevel: 'info',
     currentTab: 'timer',
     sessionReloadToken: 0,
 };
@@ -437,6 +412,12 @@ export const setFollowSystemTheme = createAction<boolean>('[Setting]SET_FOLLOW_S
 export const setCustomThemes = createAction<ThemeDefinition[]>('[Setting]SET_CUSTOM_THEMES');
 export const setLanguage = createAction<LanguagePreference>('[Setting]SET_LANGUAGE');
 export const setLogLevel = createAction<LogLevel>('[Setting]SET_LOG_LEVEL');
+/**
+ * Puts every persisted setting back to `createDefaultSettings()`. Dispatched
+ * once by `resetSettings`, which does the write first: the reducer stays free of
+ * side effects, and the page sees a single state change instead of thirty.
+ */
+export const resetSettingsToDefaults = createAction('[Setting]RESET_TO_DEFAULTS');
 export const changeAppTab = createAction<tabType>('[App]CHANGE_APP_TAB');
 
 export const actions = {
@@ -774,6 +755,41 @@ export const actions = {
         window.api.setLogLevel(level);
     },
     /**
+     * Puts every setting back to `createDefaultSettings()`.
+     *
+     * One update instead of replaying thirty setters: the settings table is
+     * rewritten as a whole document on every write, so the setters would mean
+     * thirty fsyncs and a failure halfway through would leave a mix of old and
+     * new values. The settings that also live in the main process (log level,
+     * login item, the compact window's height) are mirrored afterwards.
+     *
+     * Sessions and boards are not settings and are left alone.
+     */
+    resetSettings: () => async (dispatch: Dispatch, getState: any) => {
+        // A debounced slider write would land right after the reset and put the
+        // old value back.
+        dropPendingSettingWrites();
+
+        const values = createDefaultSettings();
+        const unset: { [key: string]: true } = {};
+        for (const key of NULLABLE_SETTINGS) {
+            unset[key] = true;
+        }
+
+        await settingDB.update(
+            { name: 'setting' },
+            { $set: { ...values }, $unset: unset },
+            { upsert: true }
+        );
+        dispatch(resetSettingsToDefaults());
+
+        window.api.setLogLevel(values.logLevel);
+        window.api.openAtLogin(values.startOnBoot);
+        if (getState().timer.compact) {
+            window.api.compactWindow(true, values.compactAlwaysOnTop);
+        }
+    },
+    /**
      * `cardId` is the single card this session is credited to. A session
      * belongs to at most one card (see the ending mask): the list it ran in
      * used to have every one of its cards incremented, which multiplied the
@@ -1053,5 +1069,19 @@ export const reducer = createReducer<TimerState>(defaultState, (builder) => {
         .addCase(setWallpaperOpacity, (state, { payload }) => ({
             ...state,
             wallpaperOpacity: payload,
+        }))
+        // Runtime state (the running clock, the window mode, the current tab)
+        // is deliberately kept: a reset changes preferences, not what the user
+        // was doing.
+        .addCase(resetSettingsToDefaults, (state) => ({
+            ...state,
+            ...createDefaultSettings(),
+            screenShotInterval: undefined,
+            workSoundPath: undefined,
+            shortBreakSoundPath: undefined,
+            longBreakSoundPath: undefined,
+            wallpaperPath: undefined,
+            wallpaperDataUrl: undefined,
+            customThemes: undefined,
         }));
 });

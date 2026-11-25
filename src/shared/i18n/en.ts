@@ -734,6 +734,16 @@ export const en = {
             checkData: 'Check & Repair Data',
             deleteAllData: 'Delete All Data',
         },
+        reset: {
+            group: 'Reset',
+            hint: 'Puts every setting back to its factory value. Custom themes, the wallpaper, the distracting app list and custom reminder sounds are cleared; sessions and boards are kept.',
+            button: 'Reset All Settings',
+            confirmTitle: 'Reset all settings?',
+            confirmContent:
+                'Custom themes, the wallpaper, the distracting app list and every custom reminder ' +
+                'sound will be cleared. Sessions and boards are kept. This cannot be undone.',
+            done: 'Settings restored to their defaults.',
+        },
         timer: {
             focusDuration: 'Focus Duration',
             shortBreak: 'Short Break',

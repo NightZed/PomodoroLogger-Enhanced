@@ -677,6 +677,16 @@ export const zh: CatalogShape<typeof en> = {
             checkData: '检查并修复数据',
             deleteAllData: '删除所有数据',
         },
+        reset: {
+            group: '重置',
+            hint: '所有设置恢复为出厂值。自定义主题、壁纸、分心应用列表与自定义提示音会被清除；会话与看板数据不受影响。',
+            button: '恢复默认设置',
+            confirmTitle: '恢复所有默认设置？',
+            confirmContent:
+                '自定义主题、壁纸、分心应用列表以及自定义提示音都会被清除。' +
+                '会话与看板数据不受影响。此操作无法撤销。',
+            done: '设置已恢复默认值。',
+        },
         timer: {
             focusDuration: '专注时长',
             shortBreak: '短休',

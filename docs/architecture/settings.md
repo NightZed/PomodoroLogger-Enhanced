@@ -83,3 +83,27 @@ tooltip 已移除：实测它的弹层链占一次快速拖动主线程时间的
 持久化只发生在提交时（`Timer/action.ts` 的 `persistSettingWithDebounce`）。
 
 每次设置写入都会在自己的 WAL 提交里重写整张 `settings` 表，所以每事件持久化就是每个指针事件一次 fsync。
+
+## 默认值与「恢复默认设置」
+
+默认值只有一份：`Timer/defaults.ts` 的 `createDefaultSettings()`。
+
+- `defaultState` 展开它再加运行时字段（计时、窗口档位、当前页），所以新装、重置、`fetchSettings` 缺失时读到的都是同一组值。
+- 加字段时改这里，不要在两处各写一个字面量。
+
+可空设置（`screenShotInterval`、三条提示音路径、`wallpaperPath`、`customThemes`）**不在**返回对象里，由 `NULLABLE_SETTINGS` 列出；重置时用 `$unset` 清掉，**不要写 `undefined`**：`SettingsRepository.write` 会把每个值 `JSON.stringify` 后绑定进 SQL，`undefined` 绑定不上（better-sqlite3 直接抛错），而缺键才是「没有值」的表达。
+
+默认主题是**跟随系统**，`DEFAULT_THEME_ID`（`day`）只是兜底：
+
+- `main/init.ts` 只在设置表里显式写了 `false` 时才关掉跟随；没有这一行（首次启动、从未改过主题的老用户）就是跟随。
+- 非跟随时 `nativeTheme` 和 `resolveTheme` 的兜底都是浅色，深色只在 `themeId === night` 时出现。
+- 默认最短专注是 25 分钟，等于默认专注时长：跑满一节就能结束，提前结束被挡住，想放开就调到 0。
+
+「恢复默认设置」在系统分区的最后一张卡片，走 `feedback.confirm`，确认文案要列出按钮标签说不出来的部分（自定义主题、壁纸、分心应用列表、自定义提示音）。执行时：
+
+1. 先丢弃 `pendingSettingWrites` 里的定时器——否则 300ms 后那次拖动写入会把旧值盖回来；
+2. 一次 `settingDB.update` 写完 `$set` 与 `$unset`，而不是逐个调用 setter：每次 update 都重写整表，三十次调用就是三十次 fsync，中途失败还会留下一半新一半旧；
+3. dispatch 一次 `resetSettingsToDefaults`，reducer 只替换设置字段，运行中的计时、窗口档位与当前页保持不变；
+4. 主进程那一半（`setLogLevel`、`openAtLogin`，以及 compact 模式下窗口高度）随后同步。
+
+会话与看板不属于设置，重置不碰它们。

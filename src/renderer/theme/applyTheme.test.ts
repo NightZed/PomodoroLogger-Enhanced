@@ -75,10 +75,10 @@ describe('theme/applyTheme', () => {
         });
     });
 
-    it('falls back to the night theme for an unknown id', () => {
+    it('falls back to the day theme for an unknown id', () => {
         expect(resolveTheme('missing', false)).toMatchObject({
-            themeId: NIGHT_THEME_ID,
-            source: 'dark',
+            themeId: DAY_THEME_ID,
+            source: 'light',
         });
         expect(findThemeDefinition('missing')).toBeUndefined();
         expect(findThemeDefinition(DAY_THEME_ID)).toBe(

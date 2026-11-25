@@ -234,8 +234,8 @@ export type NativeThemeSource = 'light' | 'dark' | 'system';
 
 /**
  * Theme settings the main process already resolved before the window exists
- * (see `init.ts readThemeSetting`). Handed to the renderer so its very first
- * paint uses the persisted theme instead of the night-theme reducer default.
+ * (see `init.ts readInitialSettings`). Handed to the renderer so its very first
+ * paint uses the persisted theme instead of the reducer's default.
  */
 export type InitialThemeSetting = {
     themeId?: string;

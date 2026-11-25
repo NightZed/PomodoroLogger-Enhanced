@@ -104,7 +104,8 @@ export function resolveTheme(
         return { tokens: fallback.tokens, source: fallback.tokens.base, themeId: fallback.id };
     }
 
-    // Should not happen: the built-in list is never empty.
-    const night = BUILTIN_THEMES[1];
-    return { tokens: night.tokens, source: night.tokens.base, themeId: night.id };
+    // Should not happen: the built-in list is never empty. Order is day first,
+    // so the fallback is the light theme the app ships with.
+    const day = BUILTIN_THEMES[0];
+    return { tokens: day.tokens, source: day.tokens.base, themeId: day.id };
 }

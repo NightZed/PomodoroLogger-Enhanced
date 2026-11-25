@@ -85,8 +85,13 @@ export const NIGHT_TREEMAP_COLORS = [
     '#2a363b',
 ];
 
-/** The app starts in the night theme. */
-export const DEFAULT_THEME_ID = NIGHT_THEME_ID;
+/**
+ * The theme a fresh install starts with. Following the OS preference is on by
+ * default (see `createDefaultSettings`), so this only decides the fallback: the
+ * theme used when the system reports neither light nor dark, and the theme the
+ * settings page shows while "follow system" is off.
+ */
+export const DEFAULT_THEME_ID = DAY_THEME_ID;
 
 /**
  * Day theme -- matches the colors the app used before theming was introduced, so

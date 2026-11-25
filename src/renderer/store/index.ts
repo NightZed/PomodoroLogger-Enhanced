@@ -16,9 +16,10 @@ const store = configureStore();
 /**
  * Seed the persisted theme before the first render.
  *
- * The reducer starts on the night theme and only learns the real setting when
- * `fetchSettings()` finishes, which is long after the main process has already
- * picked `nativeTheme.themeSource`. Applying the default first made the renderer
+ * The reducer starts on the default theme (follow system, light as the
+ * fallback) and only learns the real setting when `fetchSettings()` finishes,
+ * which is long after the main process has already picked
+ * `nativeTheme.themeSource`. Applying the default first made the renderer
  * push `dark` over a correct `light`, repainting the splash and DevTools dark
  * and then light again (white -> black -> white on startup). The main process
  * knows the setting before the window exists, so hand it over here instead.

@@ -524,6 +524,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             applyRepair,
             reloadDataStore,
             followSystemTheme,
+            resetSettings,
             setAutoUpdate,
             setCalendarBaseColor,
             setContentOpacity,
@@ -943,6 +944,25 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 },
             });
         }, [onOpenLogDir, reloadDataStore, t]);
+
+        /**
+         * Restoring the defaults also clears the custom theme, the wallpaper
+         * and the distracting-app list, which the button label cannot convey --
+         * "settings" reads as switches and sliders. The confirmation spells
+         * those out before anything is touched.
+         */
+        const onResetConfirm = useCallback(() => {
+            feedback.confirm({
+                kind: 'warning',
+                title: t('settings.reset.confirmTitle'),
+                content: t('settings.reset.confirmContent'),
+                okText: t('common.reset'),
+                onOk: async () => {
+                    await resetSettings();
+                    feedback.toast({ kind: 'success', content: t('settings.reset.done') });
+                },
+            });
+        }, [resetSettings, t]);
 
         /**
          * Reports a refused file: every problem the validator found, each with
@@ -1771,6 +1791,24 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                                     onClick={onDeleteConfirm}
                                                 >
                                                     {t('settings.system.deleteAllData')}
+                                                </Button>
+                                            }
+                                        />
+                                    </Card>
+                                </SettingsSection>
+
+                                <SettingsSection>
+                                    <GroupTitle>{t('settings.reset.group')}</GroupTitle>
+                                    <Card>
+                                        <SettingsRow
+                                            description={t('settings.reset.hint')}
+                                            control={
+                                                <Button
+                                                    size="small"
+                                                    danger
+                                                    onClick={onResetConfirm}
+                                                >
+                                                    {t('settings.reset.button')}
                                                 </Button>
                                             }
                                         />

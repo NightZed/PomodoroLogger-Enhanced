@@ -13,7 +13,9 @@ import { APP_FONT_FAMILY } from './tokens';
  * colored buttons keep antd's blue so actions stay recognizable.
  */
 export const GlobalStyle = createGlobalStyle`
-    /* Fallback so the very first frame already matches the default (night) theme. */
+    /* Placeholder for the moment before app.tsx applies the resolved theme
+       (it runs before the first render, so this is only the bundle-load gap).
+       The window itself is transparent, so nothing paints these. */
     :root {
         --pl-theme-bg-opacity: 100%;
         --pl-wallpaper-opacity: 1;

@@ -14,7 +14,7 @@ import * as path from 'path';
 import * as url from 'url';
 import * as db from './db';
 import logo from '../res/icon_sm.png';
-import { DAY_THEME_ID } from '../renderer/theme/tokens';
+import { NIGHT_THEME_ID } from '../renderer/theme/tokens';
 import packageJson from '../../package.json';
 import { AutoUpdater } from './AutoUpdater';
 import { handleCommand, initialize } from './ipc/ipc';
@@ -448,7 +448,11 @@ function readInitialSettings(): {
     return {
         theme: {
             themeId: settings.themeId,
-            followSystemTheme: settings.followSystemTheme === true,
+            // Following the OS is the factory default, so only an explicit
+            // `false` in the settings table turns it off. A first start (no
+            // row yet) and every install that never touched the theme follow
+            // the system.
+            followSystemTheme: settings.followSystemTheme !== false,
         },
         language: {
             language: preference,
@@ -471,9 +475,9 @@ const createWindow = async () => {
     const initialTheme = initialSettings.theme;
     nativeTheme.themeSource = initialTheme.followSystemTheme
         ? 'system'
-        : initialTheme.themeId === DAY_THEME_ID
-          ? 'light'
-          : 'dark';
+        : initialTheme.themeId === NIGHT_THEME_ID
+          ? 'dark'
+          : 'light';
 
     win = new BrowserWindow({
         width: 1440,

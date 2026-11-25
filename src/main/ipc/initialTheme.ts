@@ -4,7 +4,8 @@ import type { InitialThemeSetting } from './type';
  * Command line hand-over of the theme the main process resolved before the
  * window was created (see `init.ts createWindow`).
  *
- * The renderer store defaults to the night theme and only learns the persisted
+ * The renderer store starts on the default theme (follow the system, light as
+ * the fallback) and only learns the persisted
  * theme after `fetchSettings()` finishes. Without this the first `applyTheme()`
  * would push `nativeTheme.themeSource = 'dark'` over the correct `light` the
  * main process had already set, repainting the splash (and DevTools) dark and

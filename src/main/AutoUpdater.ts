@@ -2,7 +2,14 @@ import { autoUpdater, UpdateInfo } from 'electron-updater';
 import { GithubOptions } from 'builder-util-runtime';
 import { UpdateErrorPayload, UpdateEventName, UpdatePhase } from './ipc/type';
 import { m } from './i18n';
-import { logError } from './log';
+import { log, logError } from './log';
+
+/**
+ * How long a check may stay pending before it is abandoned. The renderer has
+ * the same 10s bound (see `Setting.tsx`); the main process needs its own so a
+ * retry is not swallowed by the `checking` guard while the old request hangs.
+ */
+const CHECK_TIMEOUT_MS = 10_000;
 
 /**
  * Thin wrapper around electron-updater.
@@ -16,6 +23,15 @@ export class AutoUpdater {
     private phase: UpdatePhase = 'check';
     private checking = false;
     private manualCheck = false;
+    /**
+     * Set when a check was abandoned after `CHECK_TIMEOUT_MS`. The request
+     * itself cannot be cancelled (Electron's net API offers no abort here), so
+     * its late answer has to be ignored instead of reopening the UI or the
+     * app-wide notice for a check the user already saw fail.
+     */
+    private staleCheck = false;
+    private checkTimer?: ReturnType<typeof setTimeout>;
+    private checkGeneration = 0;
     private readonly sendStatusToWindow: (type: string, info: any) => void;
 
     constructor(sendStatusToWindow: (type: string, info: any) => void) {
@@ -39,9 +55,21 @@ export class AutoUpdater {
         autoUpdater.allowDowngrade = false;
 
         autoUpdater.on('checking-for-update', () => {
+            if (this.staleCheck) {
+                return;
+            }
+            // The check is the phase that can hang on an unreachable GitHub:
+            // without a start line the log cannot tell a slow check from a
+            // stuck one, and the two timestamps are what make a CPU spike
+            // attributable.
+            log('app', 'info', 'updater: check started');
             console.log('Checking for update...');
         });
         autoUpdater.on('update-available', (info) => {
+            if (this.staleCheck) {
+                return;
+            }
+            log('app', 'info', `updater: check found ${info.version}`);
             console.log('update available');
             const releaseNotes = formatReleaseNotes(info.releaseNotes);
             this.sendStatusToWindow(UpdateEventName.Available, {
@@ -51,6 +79,10 @@ export class AutoUpdater {
             });
         });
         autoUpdater.on('update-not-available', (info) => {
+            if (this.staleCheck) {
+                return;
+            }
+            log('app', 'info', `updater: check finished, ${info.version} is the latest`);
             console.log('update not available');
             this.sendStatusToWindow(
                 UpdateEventName.NotAvailable,
@@ -94,7 +126,7 @@ export class AutoUpdater {
 
         // `AppUpdater.isUpdaterActive` makes electron-updater resolve without
         // emitting anything in an unpackaged app, so the renderer would wait for
-        // its 30s safety timeout without ever being told why. Report the skip
+        // its 10s safety timeout without ever being told why. Report the skip
         // instead: `skipped` keeps the app wide error notice quiet, while the
         // page that asked for the check explains it. Background checks never get
         // here (init.ts skips them in development).
@@ -120,6 +152,8 @@ export class AutoUpdater {
         this.phase = 'check';
         this.manualCheck = manual;
         this.checking = true;
+        this.staleCheck = false;
+        const generation = (this.checkGeneration += 1);
         autoUpdater.setFeedURL(data);
         // electron-updater re-throws after emitting `error`, swallow it here to avoid
         // an unhandled rejection in the main process.
@@ -127,8 +161,29 @@ export class AutoUpdater {
             .checkForUpdates()
             .catch(() => undefined)
             .then(() => {
+                if (generation !== this.checkGeneration) {
+                    return;
+                }
+                clearTimeout(this.checkTimer);
+                this.checkTimer = undefined;
                 this.checking = false;
             });
+
+        // Electron's net stack has no connect timeout of its own: behind a dead
+        // proxy the promise above can stay pending for a minute, and every
+        // retry would be swallowed by the `checking` guard in the meantime.
+        // Abandon the attempt here so the next click starts a real request;
+        // `staleCheck` makes the late answer land nowhere.
+        clearTimeout(this.checkTimer);
+        this.checkTimer = setTimeout(() => {
+            if (generation !== this.checkGeneration) {
+                return;
+            }
+            this.staleCheck = true;
+            this.checking = false;
+            this.checkTimer = undefined;
+            log('app', 'warn', `updater: gave up after ${CHECK_TIMEOUT_MS / 1000}s`);
+        }, CHECK_TIMEOUT_MS);
     }
 
     download() {
@@ -173,6 +228,12 @@ export class AutoUpdater {
         // a background check never surfaces at all.
         logError('app', `updater: ${this.phase} phase failed`, err);
         console.error('[updater] error in', this.phase, 'phase:', err);
+
+        if (this.staleCheck && this.phase === 'check') {
+            // The renderer already showed this attempt as failed when it hit the
+            // same 10s bound; surfacing the late answer would only duplicate it.
+            return;
+        }
 
         if (this.phase === 'check' && !this.manualCheck) {
             // Background check on startup: never bother the user. This also covers

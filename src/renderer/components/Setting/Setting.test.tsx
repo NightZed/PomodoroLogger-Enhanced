@@ -933,14 +933,48 @@ describe('Setting update check', () => {
         expect(screen.getByText('Version v1.4.0 is available')).toBeTruthy();
     });
 
-    it('releases the listeners when the pane is left while a check is in flight', () => {
+    it('reuses a check that is already running when the pane is opened again', () => {
+        trackUpdateEvents();
+
+        render(<Setting {...props()} />);
+        openAbout();
+
+        const nav = screen.getByRole('navigation', { name: 'Settings sections' });
+        fireEvent.click(within(nav).getByRole('button', { name: /Timer/ }));
+        openAbout();
+
+        // Nothing answered the first check, so it is still in flight: opening
+        // the pane again must wait for it instead of starting a second request.
+        expect((window as any).api.checkUpdate).toHaveBeenCalledTimes(1);
+    });
+
+    it('gives up after ten seconds without an answer', () => {
+        jest.useFakeTimers();
+        try {
+            trackUpdateEvents();
+
+            render(<Setting {...props()} />);
+            openAbout();
+
+            act(() => {
+                jest.advanceTimersByTime(10000);
+            });
+
+            expect(screen.getByText('Could not check for updates')).toBeTruthy();
+            expect(button('Check Update').hasAttribute('disabled')).toBe(false);
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    it('releases the listeners when the settings page closes while a check is in flight', () => {
         const unsubscribers = trackUpdateEvents();
 
         const { unmount } = render(<Setting {...props()} />);
         openAbout();
         expect(unsubscribers).toHaveLength(3);
 
-        // No answer arrived; leaving the pane is the only thing that can clean
+        // No answer arrived; closing the page is the only thing that can clean
         // up, and it is what used to be missing.
         unmount();
         for (const unsubscribe of unsubscribers) {

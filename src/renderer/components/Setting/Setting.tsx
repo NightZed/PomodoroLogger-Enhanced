@@ -729,11 +729,18 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
             [setAutoUpdate]
         );
 
-        const [checkingUpdate, setCheckingUpdate] = useState(false);
         /** Rendered under "Updates" in the about pane; see `UpdateCheckState`. */
         const [updateCheck, setUpdateCheck] = useState<UpdateCheckState>({ kind: 'checking' });
+        /** The check is running, so the button waits and the row says so. */
+        const checkingUpdate = updateCheck.kind === 'checking';
+        /**
+         * True from the request until its result. Entering the pane again while
+         * this is set reuses the running check instead of starting a second
+         * one and restarting the timeout.
+         */
+        const updateCheckInFlight = useRef(false);
         // Everything `onCheckUpdate` registers lives here rather than in its
-        // closure, so the cleanup can also run when the pane is left.
+        // closure, so the cleanup can also run when the settings page closes.
         const checkUpdateRef = useRef<{ timeout?: any; unsubscribers: Array<() => void> }>({
             unsubscribers: [],
         });
@@ -748,19 +755,22 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
         }, []);
 
         const onCheckUpdate = useCallback(() => {
-            setCheckingUpdate(true);
+            updateCheckInFlight.current = true;
             setUpdateCheck({ kind: 'checking' });
             // The main process answers with one of the three events below; the timeout
             // is only a safety net so the button never gets stuck in loading state.
+            // It is deliberately short: the request goes through Electron's network
+            // stack, which has no connect timeout of its own, so an unreachable
+            // GitHub keeps the promise pending for a long time.
             // Both the listeners and the timeout belong to the page, not to this
-            // closure: they are released on a result, on a second click and on
-            // leaving the pane (see `releaseCheckUpdate`), so a check still in
-            // flight can never leave three listeners behind or call
-            // `setCheckingUpdate` on an unmounted component.
+            // closure: they are released on a result, on a second click and when
+            // the settings page closes (see `releaseCheckUpdate`), so a check
+            // still in flight can never leave three listeners behind or update
+            // the state on an unmounted component.
             releaseCheckUpdate();
             const onResult = () => {
+                updateCheckInFlight.current = false;
                 releaseCheckUpdate();
-                setCheckingUpdate(false);
             };
             const onAvailable = (info: UpdateInfoPayload) => {
                 setUpdateCheck({ kind: 'available', version: info?.version ?? '' });
@@ -791,7 +801,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                 window.api.onUpdateNotAvailable(onNotAvailable),
                 window.api.onUpdateError(onError)
             );
-            current.timeout = setTimeout(onTimeout, 30000);
+            current.timeout = setTimeout(onTimeout, 10000);
             window.api.checkUpdate();
         }, [releaseCheckUpdate]);
 
@@ -1143,17 +1153,17 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
         /*
          * Opening the about pane is a request to see the version, so it checks
          * by itself -- the auto-check switch only governs the background check
-         * at startup. Leaving the pane (or the settings page) releases a check
-         * that is still in flight.
+         * at startup. A check already running is reused: leaving the pane and
+         * coming back must not start a second request or restart its timeout.
          */
         useEffect(() => {
-            if (section !== 'about') {
-                return undefined;
+            if (section === 'about' && !updateCheckInFlight.current) {
+                onCheckUpdate();
             }
+        }, [section, onCheckUpdate]);
 
-            onCheckUpdate();
-            return releaseCheckUpdate;
-        }, [section, onCheckUpdate, releaseCheckUpdate]);
+        // A check still in flight when the settings page closes has to be released.
+        useEffect(() => releaseCheckUpdate, [releaseCheckUpdate]);
 
         /** The status line of the about pane's "Updates" row. */
         const updateCheckText =
@@ -1900,7 +1910,7 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                         control={
                                             <Button
                                                 size="small"
-                                                loading={checkingUpdate}
+                                                disabled={checkingUpdate}
                                                 onClick={onCheckUpdate}
                                             >
                                                 {t('settings.system.checkUpdate')}

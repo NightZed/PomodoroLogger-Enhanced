@@ -3,7 +3,7 @@ import { AutoUpdater } from './AutoUpdater';
 import { UpdateEventName } from './ipc/type';
 import { logError } from './log';
 
-jest.mock('./log', () => ({ logError: jest.fn() }));
+jest.mock('./log', () => ({ log: jest.fn(), logError: jest.fn() }));
 
 // electron-updater requires `electron`, which is not available in the plain Node
 // environment used by jest, so it is replaced by a plain event emitter.
@@ -220,5 +220,25 @@ describe('AutoUpdater', () => {
                 info: { phase: 'install', message: 'no valid update available' },
             },
         ]);
+    });
+
+    it('gives up after ten seconds so a retry is not swallowed by the guard', async () => {
+        jest.useFakeTimers();
+        try {
+            // A dead proxy: the request never settles.
+            mockUpdater.checkForUpdates.mockReturnValueOnce(new Promise(() => undefined));
+            const { updater } = createUpdater();
+
+            updater.checkUpdate(true);
+            expect(mockUpdater.checkForUpdates).toHaveBeenCalledTimes(1);
+
+            jest.advanceTimersByTime(10000);
+            updater.checkUpdate(true);
+
+            expect(mockUpdater.checkForUpdates).toHaveBeenCalledTimes(2);
+            await Promise.resolve();
+        } finally {
+            jest.useRealTimers();
+        }
     });
 });

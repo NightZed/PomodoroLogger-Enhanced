@@ -115,6 +115,9 @@ tooltip 已移除：实测它的弹层链占一次快速拖动主线程时间的
 - hero 是 `AboutHero`，它自己画下边框（`rowSeparator` 只在两个 `RowShell` 相邻时才画线），所以不要把它挪到卡片外面。
 - 卡片里第一行是更新状态，后面三个 `LinkRow`（更新说明、反馈、许可证协议）整行可点，右侧箭头是装饰。`src/shared/links.ts` 是这些 URL 的唯一来源。
 - **检查更新只有关于页一个入口**。系统分区的「更新」只留「自动检查更新」开关，它只管启动时的后台检查；进入关于页属于用户主动查看版本，无论开关如何都会检查一次。
-- 检查结果是一个 `UpdateCheckState`：`checking` / `latest` / `available`（带版本号）/ `skipped`（未打包的构建，不是失败）/ `failed`（含 30 秒超时）。原来「已是最新版本」用 toast 提示，现在显示在状态行里，不要再加 toast。
-- 离开关于页要释放监听（effect 的 cleanup 调 `releaseCheckUpdate`）；检查未返回时切走再回来，不能留下三份监听。
+- 检查结果是一个 `UpdateCheckState`：`checking` / `latest` / `available`（带版本号）/ `skipped`（未打包的构建，不是失败）/ `failed`（含 10 秒超时）。原来「已是最新版本」用 toast 提示，现在显示在状态行里，不要再加 toast。
+- **检查中不要给按钮加 `loading`**。antd 的 loading 是持续旋转的 CSS 动画，请求挂起时会让 GPU 进程每帧合成长达整个超时时间，看起来就是「转圈不结束、CPU 一直涨」。改用 `disabled` + 状态行的「正在检查更新…」表达进行中。
+- 渲染层的兜底是 10 秒，不是 30 秒：请求走 Electron 的网络栈，没有自己的连接超时，GitHub 不可达时会挂很久；兜底到点后显示「无法检查更新」并结束，不能让按钮无限等待。
+- 一次检查进行中时再次进入关于页要复用它（`updateCheckInFlight`），不能重新发请求或重启超时，否则反复进出会让转圈一直续命。
+- 监听只在设置页卸载时释放（`releaseCheckUpdate`），不在离开关于页时释放：中途切到别的分区再回来，结果仍要能落到状态行上。
 

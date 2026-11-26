@@ -227,7 +227,7 @@
         "redux-thunk": "^3.1.0",
         "sass": "^1.108.2",
         "sass-loader": "^17.1.0",
-        "semantic-release": "^25.0.9",
+        "semantic-release": "^26.0.1",
         "source-map-loader": "^5.0.0",
         "style-loader": "^4.0.0",
         "styled-components": "^6.6.0",

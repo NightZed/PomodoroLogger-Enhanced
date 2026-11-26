@@ -10,7 +10,35 @@ Status: open（持续追加，不排期）
 
 | 测试文件 | 条目 | 记录于 |
 | --- | --- | --- |
-| （暂无） | | |
+| `Kanban/List/List.test.tsx` | 窗口挂载数读 `data-card-id`；预览/完整视图与滚动状态读 `.kanban-card*`、`.pl-list-scrolling` | 2026-11-26 |
+| `Kanban/Card/Card.test.tsx` | 点击与悬停用例读 `.kanban-card*`、`.pl-tag`，并用 `getComputedStyle().backgroundImage` 断言悬停色 | 2026-11-26 |
+| `Kanban/Kanban.test.tsx` | mock 了 8 个应用内部模块（Board/Overview/Search/Hotkeys/feedback 等），并断言 `__searchProps` 收到的 props | 2026-11-26 |
+
+## 待修复
+
+### `Kanban/List/List.test.tsx`
+
+**现象**：窗口用例用 `document.querySelectorAll('[data-card-id]')` 数挂载的卡片（第 145、176 行）；预览用例断言 `container.querySelectorAll('.kanban-card-preview')` 与 `.kanban-card`（第 363–364 行）；滚动用例读 `scroller.classList.contains('pl-list-scrolling')`（第 520–535 行）。
+
+**依据**：`docs/testing.md` 把 `className`、`data-testid` 列在「不算行为」；`data-card-id` 是窗口化渲染的内部记账属性，不是用户可见结果。
+
+**修法**：挂载数量改成断言可见卡片的标题/正文文本集合（窗口只挂一段时，被裁掉的标题自然不在集合里）；预览与完整视图改按内容是否渲染 + 点击正文能否打开编辑器来区分；`pl-list-scrolling` 在 jsdom 里观察不到滚动条外观，应像 `common/Mini/secondHand.ts` 那样把「滚动中」提成可测的状态/纯函数，或删掉类名断言只保留窗口跟随滚动位置的行为。
+
+### `Kanban/Card/Card.test.tsx`
+
+**现象**：标签点击读 `.pl-tag`（第 159、172 行），卡片的预览/完整/注册状态读 `.kanban-card`、`.kanban-card-preview`（第 165–166、251–340 行），悬停高亮用 `getComputedStyle(card).backgroundImage` 断言 `linear-gradient` / `none`（第 254–340 行）。
+
+**依据**：`className` 不算行为；`getComputedStyle` 读到的渐变形状是当前实现（叠加色方案），换一种同样可见的方案就会挂。
+
+**修法**：点击目标与卡片身份改按 role、可访问名称或卡片标题定位；预览/完整视图按正文是否渲染区分（文件里已有 `p` 的断言可复用）；悬停高亮把「是否悬停」提成组件状态或纯函数再断言，jsdom 无法观察背景图时不要用样式字符串代替。
+
+### `Kanban/Kanban.test.tsx`
+
+**现象**：文件 mock 了 `./Board`、`./Board/Overview`、`./Board/UnassignedPanel`、`./Board/useUnassignedSessions`、`./Board/PlayPauseButton`、`./BoardEditor`、`../Hotkeys`、`../../../components/common/Search/Search`、`../feedback`，并把 `__searchProps` 里的 props 当作接线证据（本次新增用例沿用了这一模式）。
+
+**依据**：`docs/testing.md` 规定 mock 停在 `fs` / `electron` / `get-windows` / `electron-updater` / 时钟 / worker；应用内部一律跑真实现。断言 mock 收到的 props 检查的是内部调用方式，用户可见行为变了它未必挂。
+
+**修法**：分批换成真实渲染，按 role 与可见文本断言页面行为（`BoardBrief.test.tsx` 有全量改真实现的先例）。`Search` 换成真组件后，直接点 `.*` 按钮断言 `setSearchRegex` 被 dispatch，而不是读 props。
 
 ## 已修复
 

@@ -349,3 +349,68 @@ describe('Card content clicks', () => {
         }
     });
 });
+
+describe('Card search highlight', () => {
+    let container: HTMLDivElement;
+    const store = createStore(() => ({})) as any;
+
+    beforeEach(() => {
+        container = document.createElement('div');
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        cleanup();
+        container.remove();
+        document.body.innerHTML = '';
+    });
+
+    const renderCard = (content: string, searchReg: string, searchRegex: boolean) => {
+        const props: any = {
+            _id: 'card-1',
+            cardId: 'card-1',
+            title: 'Test card',
+            content,
+            sessionIds: [],
+            spentTimeInHour: { estimated: 0, actual: 0 },
+            createdTime: 1600000000000,
+            index: 0,
+            listId: 'list-1',
+            boardId: 'board-1',
+            isDraggingOver: false,
+            searchReg,
+            searchRegex,
+            setEditCard: jest.fn(),
+            setSearchReg: jest.fn(),
+            setContent: jest.fn(),
+        };
+
+        render(
+            <Provider store={store}>
+                <Card {...props} />
+            </Provider>,
+            { container }
+        );
+    };
+
+    // `search-highlight` is the contract between the rendered body and
+    // style/Markdown.ts: the highlight has no role or text of its own, and
+    // jsdom cannot observe the background it paints, so the class is the only
+    // point where "this match is highlighted" is visible.
+    it('highlights a literal parenthesis instead of treating it as a pattern', () => {
+        renderCard('a (b)', '(', false);
+
+        const highlights = container.querySelectorAll('.search-highlight');
+
+        expect([highlights.length, highlights[0]?.textContent]).toEqual([1, '(']);
+    });
+
+    // Regression: '^' compiled to a zero-length match, and the old highlight
+    // loop never advanced lastIndex -- rendering the card froze the window.
+    it('renders a zero-length regular expression without spinning', () => {
+        renderCard('abc', '^', true);
+
+        expect(container.querySelectorAll('.search-highlight')).toHaveLength(0);
+        expect(container.textContent).toContain('abc');
+    });
+});

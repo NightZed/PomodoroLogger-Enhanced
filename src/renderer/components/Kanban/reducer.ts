@@ -35,6 +35,7 @@ export const uiStateNames: EqualKey[] = [
             'chosenBoardId',
             'isSearching',
             'searchReg',
+            'searchRegex',
             'configuringBoardId',
         ],
     },

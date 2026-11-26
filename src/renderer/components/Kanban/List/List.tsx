@@ -17,6 +17,7 @@ import { mergeRefs } from '../../../utils';
 import { debounce } from 'lodash';
 import { useI18n } from '../../../i18n';
 import { dragActivity } from '../dragActivity';
+import { compileCardSearch } from '../search';
 
 // Windowed rendering: at most WINDOW_SIZE cards are mounted. dnd measures every
 // registered draggable on drag start, so a 500-card column mounted all of them
@@ -239,6 +240,8 @@ export interface InputProps {
 
 interface Props extends ListType, InputProps, ListActionTypes, KanbanActionTypes {
     searchReg?: string;
+    /** Interpret `searchReg` as a regular expression instead of literal text. */
+    searchRegex?: boolean;
     cardsState: CardsState;
     cardView: CardView;
     setContent: CardActionTypes['setContent'];
@@ -274,6 +277,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
         focused = false,
         preview = false,
         searchReg,
+        searchRegex = false,
         cards,
         cardsState,
         done = false,
@@ -326,17 +330,18 @@ export const List: FC<Props> = React.memo((props: Props) => {
             return undefined;
         }
 
-        let reg: RegExp | undefined;
-        try {
-            reg = searchReg ? new RegExp(searchReg, 'gimsu') : undefined;
-        } catch (e) {}
-
+        const { reg, invalid } = compileCardSearch(searchReg, searchRegex);
+        // An invalid expression cannot decide what matches. Showing nothing and
+        // letting the search bar report the error beats silently showing every
+        // card, which used to happen when `new RegExp` threw here.
+        if (invalid) {
+            return [];
+        }
         if (reg == null) {
             return undefined;
         }
 
         const visibleCards_ = cards.filter((id) => {
-            if (!reg) return true;
             const card = cardsState[id];
             // The card may already be gone while this list is still mounted
             // (e.g. its whole board was just deleted); hide it instead of
@@ -345,11 +350,11 @@ export const List: FC<Props> = React.memo((props: Props) => {
             return (
                 card.title.match(reg) ||
                 card.content.match(reg) ||
-                (card.labels ?? []).some((label) => ('#' + label.name).match(reg!))
+                (card.labels ?? []).some((label) => ('#' + label.name).match(reg))
             );
         });
         return visibleCards_;
-    }, [preview, searchReg, cardsState, cards]);
+    }, [preview, searchReg, searchRegex, cardsState, cards]);
 
     React.useEffect(() => {
         // Only the board view owns the shared filter. The preview reads and
@@ -438,7 +443,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
     const [contentLimit, setContentLimit] = React.useState(CONTENT_INITIAL);
     React.useEffect(() => {
         setContentLimit(CONTENT_INITIAL);
-    }, [_id, searchReg]);
+    }, [_id, searchReg, searchRegex]);
     React.useEffect(() => {
         if (contentLimit >= renderedCards.length) {
             return;
@@ -720,6 +725,7 @@ export const List: FC<Props> = React.memo((props: Props) => {
                                                         isInDoneList={done}
                                                         isDraggingOver={isDraggingOver}
                                                         searchReg={searchReg}
+                                                        searchRegex={searchRegex}
                                                         initiallyVisible={index < 3}
                                                         isDragDisabled={preview}
                                                         // Everything rendered here is

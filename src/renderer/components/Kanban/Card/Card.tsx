@@ -17,6 +17,7 @@ import { CreatedTime } from '../style/CreatedTime';
 import { CompletedTime } from './CompletedTime';
 import { t } from '../../../i18n';
 import { dragActivity } from '../dragActivity';
+import { highlightMatches } from '../search';
 
 const CardContainer = styled.div<{
     $preview?: boolean;
@@ -130,6 +131,8 @@ export interface InputProps {
     boardId: string;
     isDraggingOver: boolean;
     searchReg?: string;
+    /** Interpret `searchReg` as a regular expression instead of literal text. */
+    searchRegex?: boolean;
     /** Render the markdown body immediately instead of waiting for visibility. */
     initiallyVisible?: boolean;
     /** The list is still mounting its progressive first pages. */
@@ -410,37 +413,10 @@ export const Card: FC<Props> = React.memo((props: Props) => {
         },
         [listId, _id, props.content, props.preview, setSearchReg, setContent, setEditCard]
     );
-    const content = React.useMemo(() => {
-        if (!props.searchReg) {
-            return props.content;
-        }
-
-        let reg: undefined | RegExp;
-        try {
-            reg = new RegExp(props.searchReg, 'gimsu');
-        } catch (e) {}
-        if (!reg) {
-            return props.content;
-        }
-
-        const oldContent = props.content;
-        let newContent = '';
-        let lastEnd = 0;
-        let matched = reg.exec(oldContent);
-        while (matched) {
-            if (!matched.length) {
-                break;
-            }
-
-            newContent += oldContent.slice(lastEnd, matched.index);
-            newContent += `<span class="search-highlight">${matched[0]}</span>`;
-            lastEnd = matched.index + matched[0].length;
-            matched = reg.exec(oldContent);
-        }
-
-        newContent += oldContent.slice(lastEnd);
-        return newContent;
-    }, [props.content, props.searchReg]);
+    const content = React.useMemo(
+        () => highlightMatches(props.content, props.searchReg, !!props.searchRegex),
+        [props.content, props.searchReg, props.searchRegex]
+    );
 
     // Parsing markdown on every render is expensive, and with a frequently
     // updating store (e.g. the Timer's 500ms tick) every dispatch used to

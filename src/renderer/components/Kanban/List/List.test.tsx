@@ -535,3 +535,65 @@ describe('List scroll state', () => {
         expect(scroller.classList.contains('pl-list-scrolling')).toBe(false);
     });
 });
+
+describe('List card search', () => {
+    afterEach(() => {
+        cleanup();
+        jest.clearAllMocks();
+    });
+
+    /** Render one list whose cards contain a parenthesis / a caret. */
+    const renderSearch = (query: string, regexMode: boolean) => {
+        const { ids, cards } = makeCards(3);
+        cards['card-0'].content = 'note (draft)';
+        cards['card-1'].title = 'cost ^2';
+        const setVisibleCards = jest.fn();
+        const props: any = {
+            _id: 'list-1',
+            listId: 'list-1',
+            index: 0,
+            boardId: 'board-1',
+            title: 'List',
+            cards: ids,
+            cardsState: cards,
+            cardView: 'full',
+            searchReg: query,
+            searchRegex: regexMode,
+            setVisibleCards,
+            setEditCard: noop,
+            setSearchReg: noop,
+            setContent: noop,
+            deleteList: noop,
+            renameList: noop,
+            addCard: noop,
+        };
+        render(<List {...props} />);
+        return setVisibleCards;
+    };
+
+    // Regression: '(' made `new RegExp` throw, the catch left the filter
+    // undefined and every card stayed visible; '^' compiled and matched all.
+    it('matches a parenthesis literally by default', () => {
+        const setVisibleCards = renderSearch('(', false);
+
+        expect(setVisibleCards).toHaveBeenLastCalledWith('list-1', ['card-0']);
+    });
+
+    it('matches a caret literally by default', () => {
+        const setVisibleCards = renderSearch('^', false);
+
+        expect(setVisibleCards).toHaveBeenLastCalledWith('list-1', ['card-1']);
+    });
+
+    it('keeps regex semantics when the mode is on', () => {
+        const setVisibleCards = renderSearch('^', true);
+
+        expect(setVisibleCards).toHaveBeenLastCalledWith('list-1', ['card-0', 'card-1', 'card-2']);
+    });
+
+    it('shows no card when the expression does not compile', () => {
+        const setVisibleCards = renderSearch('(', true);
+
+        expect(setVisibleCards).toHaveBeenLastCalledWith('list-1', []);
+    });
+});

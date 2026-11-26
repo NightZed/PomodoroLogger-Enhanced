@@ -16,6 +16,7 @@ const mapStateToProps = (state: RootState, props: InputProps) => {
         // owner of the board's view state: it never receives the search filter
         // and never reads/writes the shared `visibleCards`.
         searchReg: preview ? undefined : state.kanban.kanban.searchReg,
+        searchRegex: preview ? false : !!state.kanban.kanban.searchRegex,
         visibleCards: preview ? undefined : list?.visibleCards,
         cardsState: state.kanban.cards,
         cardView: preview ? 'full' : getCardView(state.kanban.boards[props.boardId]),

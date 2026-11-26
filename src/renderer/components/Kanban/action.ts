@@ -21,12 +21,16 @@ export interface KanbanState {
         listId: string;
     };
     isSearching: boolean;
+    /** The card search query; `undefined` means no filter. */
     searchReg?: string;
+    /** Whether `searchReg` is a regular expression instead of literal text. */
+    searchRegex: boolean;
     configuringBoardId?: string;
 }
 
 const defaultState: KanbanState = {
     isSearching: false,
+    searchRegex: false,
     sortedBy: 'recent',
     sortDirection: 'asc',
     editCard: {
@@ -65,9 +69,14 @@ const setSearchReg = createAction('[KANBAN]SET_SEARCH_REG', (reg?: string) => ({
     payload: { reg },
 }));
 
+const setSearchRegex = createAction('[KANBAN]SET_SEARCH_REGEX', (enabled: boolean) => ({
+    payload: { enabled },
+}));
+
 export const actions = {
     setEditCard,
     setSearchReg,
+    setSearchRegex,
     setIsSearching,
     setConfiguringBoardId,
     setSortedBy: (sortedBy: SortType) => async (dispatch: Dispatch) => {
@@ -131,6 +140,10 @@ export const reducer = createReducer<KanbanState>(defaultState, (builder) => {
         .addCase(setSearchReg, (state, { payload: { reg } }) => ({
             ...state,
             searchReg: reg || undefined,
+        }))
+        .addCase(setSearchRegex, (state, { payload: { enabled } }) => ({
+            ...state,
+            searchRegex: enabled,
         }))
         .addCase(setConfiguringBoardId, (state, { payload: { _id } }) => ({
             ...state,

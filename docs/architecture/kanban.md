@@ -124,6 +124,17 @@ CONTENT_BATCH = 8; // 之后每帧追加
 
 两者不能合并成一个开关：合并后打开看板会一次解析 40 份 markdown，用户看到的就是一次明显顿挫。
 
+## 卡片搜索
+
+搜索框的两种模式共用 `search.ts` 的 `compileCardSearch`：
+
+- 默认是字面量：查询里的正则元字符先 `escapeRegExp`，`(` 只找含左括号的卡片，`^` 只找含 `^` 的卡片。
+- 点搜索框里的 `.*` 打开正则模式，查询按 `gimsu` 编译；编译失败时 `invalid: true`，列表为空、搜索框描边变红，并通过 `role="status"` 播报——不要退回「编译失败就当没过滤」，那会让人以为整块看板都匹配。
+
+高亮不能用 `RegExp.prototype.exec` 手写循环：零长度匹配（`^`、`a*`）不会推进 `lastIndex`，循环永不结束，窗口卡死。`highlightMatches` 用 `matchAll`（规范会按码点推进）并跳过空匹配。
+
+看板总览的搜索走 `filterBoardsByKeyword` 的 `includes`，不是这套编译逻辑，也没有 `.*` 开关。
+
 ## 卡片悬停高亮
 
 悬停高亮是 React state（`Card.tsx` 的 `hovered` + `data-hover-lock`），**不要改回 `:hover`**。

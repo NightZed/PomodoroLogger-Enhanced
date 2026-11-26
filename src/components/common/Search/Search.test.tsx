@@ -135,3 +135,55 @@ describe('Search Ctrl+F scoping', () => {
         view.unmount();
     });
 });
+
+describe('Search regex toggle', () => {
+    const regexProps = (overrides: Record<string, unknown> = {}) => ({
+        enabled: true,
+        setSearchStr: jest.fn(),
+        regex: false,
+        onRegexToggle: jest.fn(),
+        ...overrides,
+    });
+
+    it('shows no toggle when the bar has no regex mode', () => {
+        const view = render(<Search enabled={true} setSearchStr={jest.fn()} />);
+        expandBar(view);
+
+        expect(view.queryByRole('button', { name: 'Use regular expressions' })).toBeNull();
+        view.unmount();
+    });
+
+    it('names the toggle after the action and exposes the state through aria-pressed', () => {
+        const view = render(<Search {...regexProps()} />);
+        expandBar(view);
+
+        const off = view.getByRole('button', { name: 'Use regular expressions' });
+        expect(off.getAttribute('aria-pressed')).toBe('false');
+
+        view.rerender(<Search {...regexProps({ regex: true })} />);
+        const on = view.getByRole('button', { name: 'Turn off regular expressions' });
+        expect(on.getAttribute('aria-pressed')).toBe('true');
+
+        view.unmount();
+    });
+
+    it('asks for the opposite mode when clicked', () => {
+        const onRegexToggle = jest.fn();
+        const view = render(<Search {...regexProps({ onRegexToggle })} />);
+        expandBar(view);
+
+        fireEvent.click(view.getByRole('button', { name: 'Use regular expressions' }));
+
+        expect(onRegexToggle).toHaveBeenCalledWith(true);
+        view.unmount();
+    });
+
+    it('marks an uncompilable expression and announces it without moving focus', () => {
+        const view = render(<Search {...regexProps({ regex: true, regexInvalid: true })} />);
+        const input = expandBar(view);
+
+        expect(input.getAttribute('aria-invalid')).toBe('true');
+        expect(view.getByRole('status').textContent).toBe('Invalid regular expression');
+        view.unmount();
+    });
+});

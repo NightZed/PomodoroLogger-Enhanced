@@ -71,8 +71,24 @@ jest.mock('../Hotkeys', () => ({
 }));
 
 jest.mock('../../../components/common/Search/Search', () => ({
-    Search: ({ setSearchStr, tags, enabled, searchStr }: any) => {
-        (global as any).__searchProps = { setSearchStr, tags, enabled, searchStr };
+    Search: ({
+        setSearchStr,
+        tags,
+        enabled,
+        searchStr,
+        regex,
+        onRegexToggle,
+        regexInvalid,
+    }: any) => {
+        (global as any).__searchProps = {
+            setSearchStr,
+            tags,
+            enabled,
+            searchStr,
+            regex,
+            onRegexToggle,
+            regexInvalid,
+        };
         return <div data-testid="search" data-enabled={String(enabled)} />;
     },
 }));
@@ -113,6 +129,7 @@ const makeProps = (overrides: any = {}) => {
         setChosenBoardId: jest.fn(),
         setCardView: jest.fn(),
         setSearchReg: jest.fn(),
+        setSearchRegex: jest.fn(),
         setSortDirection: jest.fn(),
         setSortedBy: jest.fn(),
         changeAppTab: jest.fn(),
@@ -368,7 +385,26 @@ describe('Kanban page', () => {
         });
 
         expect(actions.setSearchReg).toHaveBeenCalledWith(undefined);
+        expect(actions.setSearchRegex).toHaveBeenCalledWith(false);
         expect((global as any).__searchProps.enabled).toBe(false);
+    });
+
+    it('hands the regex toggle and its invalid state to the search bar', () => {
+        const { actions } = renderKanban({
+            kanban: {
+                chosenBoardId: 'b1',
+                configuringBoardId: undefined,
+                sortedBy: 'recent',
+                sortDirection: 'asc',
+                searchReg: '(',
+                searchRegex: true,
+            },
+        });
+
+        expect((global as any).__searchProps.regex).toBe(true);
+        expect((global as any).__searchProps.onRegexToggle).toBe(actions.setSearchRegex);
+        // '(' only fails to compile once the query is a regular expression.
+        expect((global as any).__searchProps.regexInvalid).toBe(true);
     });
 
     // Regression: a drag still running when the page was switched away never

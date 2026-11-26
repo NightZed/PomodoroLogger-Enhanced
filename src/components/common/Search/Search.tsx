@@ -6,12 +6,22 @@ import { SearchPanel } from './SearchPanel';
 import { isEditableTarget } from '../../../shared/keyboard';
 import { useI18n } from '../../../renderer/i18n';
 import { pressable } from '../pressable';
+import { Hint } from '../Hint/Hint';
 
 export interface SearchProps {
     searchStr?: string;
     tags?: () => string[];
     searchHistory?: () => string[];
     setSearchStr(str: string): void;
+    /**
+     * Regex mode, plus the callback that toggles it. The pair is optional: a
+     * bar that matches plain substrings (the overview's board-name filter)
+     * omits it and shows no toggle at all.
+     */
+    regex?: boolean;
+    onRegexToggle?(enabled: boolean): void;
+    /** The current query does not compile as a regular expression. */
+    regexInvalid?: boolean;
     /**
      * Whether the page this bar belongs to is the active one. The Kanban page
      * stays mounted for `DestroyOnTimeoutWrapper`'s 10-minute grace after a
@@ -26,6 +36,7 @@ export interface SearchProps {
 interface StyledProps {
     $isSearching: boolean;
     $showPanel: boolean;
+    $invalidRegex: boolean;
 }
 
 const fadeIn = keyframes`
@@ -61,7 +72,7 @@ const StyledSearch = styled.div<StyledProps>`
         `
             : `width: 32px; 
         cursor: pointer;
-        input, .close { display: none;}
+        input, .close, .regex-toggle { display: none;}
     `}
 
     ${({ $showPanel, $isSearching }) => ($isSearching && $showPanel ? `height: auto;` : ``)}
@@ -99,6 +110,12 @@ const StyledSearch = styled.div<StyledProps>`
 
         input {
             width: 140px;
+            /* Flex items default to min-width: auto, which is the input's
+               intrinsic width (~20 characters). With the extra regex toggle
+               the row no longer fits in 250px, and the input refused to
+               shrink: the close icon was pushed onto/past the right edge.
+               Allowing it to shrink keeps the icons inside the bar. */
+            min-width: 0;
             background: transparent;
             color: var(--pl-text);
             flex-grow: 1;
@@ -109,6 +126,50 @@ const StyledSearch = styled.div<StyledProps>`
             line-height: 20px;
             height: 20px;
         }
+
+        .regex-toggle {
+            flex: 0 0 auto;
+            box-sizing: border-box;
+            min-width: 20px;
+            height: 20px;
+            padding: 0 2px;
+            border: none;
+            border-radius: 4px;
+            background: transparent;
+            color: var(--pl-text-secondary);
+            font-family: monospace;
+            font-size: 12px;
+            line-height: 20px;
+            cursor: pointer;
+
+            &[aria-pressed='true'] {
+                color: var(--pl-primary);
+                background-color: var(--pl-bg-hover);
+            }
+
+            &:hover {
+                background-color: var(--pl-bg-hover);
+            }
+
+            &:focus-visible {
+                outline: 2px solid var(--pl-primary);
+                outline-offset: 2px;
+            }
+        }
+    }
+
+    /* Visually hidden, still announced: the invalid-regex state changes without
+       moving focus, so it needs an aria-live node. */
+    .regex-invalid {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
     }
 
     &:focus,
@@ -118,6 +179,15 @@ const StyledSearch = styled.div<StyledProps>`
     &:hover {
         border: 1px solid var(--pl-primary);
     }
+
+    ${({ $invalidRegex }) =>
+        $invalidRegex
+            ? `
+        &, &:hover, &:focus, &:focus-within {
+            border-color: #ff4d4f;
+        }
+    `
+            : ``}
 `;
 
 export const Search = ({
@@ -126,6 +196,9 @@ export const Search = ({
     searchStr,
     tags,
     enabled = true,
+    regex = false,
+    onRegexToggle,
+    regexInvalid = false,
 }: SearchProps) => {
     const { t } = useI18n();
     const [isSearching, setIsSearching] = useState(false);
@@ -289,6 +362,12 @@ export const Search = ({
             ) : null,
         [hasPanelContent, showPanel, isSearching, tagList, historyList, search]
     );
+    // The regex control only exists while the bar is open. Its aria-label
+    // describes the action (turn on / turn off) and `aria-pressed` carries the
+    // state; the hover hint stays a fixed noun so the text does not change
+    // under the pointer when the button is clicked.
+    const invalidRegex = Boolean(onRegexToggle && isSearching && regexInvalid);
+    const regexLabel = regex ? t('search.regexOff') : t('search.regexOn');
 
     return (
         <StyledSearch
@@ -302,6 +381,7 @@ export const Search = ({
                 : { ...pressable(), 'aria-label': t('search.label') })}
             $isSearching={isSearching}
             $showPanel={showPanel}
+            $invalidRegex={invalidRegex}
             onClick={onClick}
             ref={selfRef}
         >
@@ -312,6 +392,7 @@ export const Search = ({
                     onChange={onChange}
                     value={text}
                     aria-label={t('search.label')}
+                    aria-invalid={invalidRegex || undefined}
                 />
                 {hasPanelContent ? (
                     <Icon
@@ -326,6 +407,19 @@ export const Search = ({
                         {...pressable()}
                     />
                 ) : null}
+                {onRegexToggle ? (
+                    <Hint kind="static" label={t('search.regex')}>
+                        <button
+                            type="button"
+                            className="regex-toggle"
+                            aria-label={regexLabel}
+                            aria-pressed={regex}
+                            onClick={() => onRegexToggle(!regex)}
+                        >
+                            .*
+                        </button>
+                    </Hint>
+                ) : null}
                 <Icon
                     type="close"
                     className="close"
@@ -334,6 +428,11 @@ export const Search = ({
                     {...pressable()}
                 />
             </header>
+            {invalidRegex ? (
+                <span className="regex-invalid" role="status">
+                    {t('search.regexInvalid')}
+                </span>
+            ) : null}
             {panel}
         </StyledSearch>
     );

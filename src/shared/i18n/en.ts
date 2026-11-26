@@ -58,6 +58,10 @@ export const en = {
     search: {
         label: 'Search',
         expand: 'Expand search panel',
+        regex: 'Regular expressions',
+        regexOn: 'Use regular expressions',
+        regexOff: 'Turn off regular expressions',
+        regexInvalid: 'Invalid regular expression',
     },
 
     calendar: {

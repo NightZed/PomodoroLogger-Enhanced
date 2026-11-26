@@ -26,6 +26,7 @@ import { UnassignedPanel } from './Board/UnassignedPanel';
 import { useUnassignedSessions } from './Board/useUnassignedSessions';
 import { Search } from '../../../components/common/Search/Search';
 import { getBoardSearchTags } from './boardTags';
+import { compileCardSearch } from './search';
 import { PomodoroRecord } from '../../monitor/type';
 import { CardView } from './type';
 import { debounce } from 'lodash';
@@ -212,6 +213,7 @@ export const Kanban: FunctionComponent<Props> = React.memo(
             setChosenBoardId,
             setCardView,
             setSearchReg,
+            setSearchRegex,
             setSortDirection,
             timerManager,
         } = props;
@@ -219,6 +221,11 @@ export const Kanban: FunctionComponent<Props> = React.memo(
         // below does not compare the language.
         const { t } = useI18n();
         const { chosenBoardId, sortDirection } = props.kanban;
+        const searchRegex = !!props.kanban.searchRegex;
+        const searchInvalid = React.useMemo(
+            () => compileCardSearch(props.kanban.searchReg, searchRegex).invalid,
+            [props.kanban.searchReg, searchRegex]
+        );
         const [boardForm] = Form.useForm();
         const [visible, setVisible] = useState(false);
         const [showTable, setShowTable] = useState(false);
@@ -297,11 +304,14 @@ export const Kanban: FunctionComponent<Props> = React.memo(
             }
             search.cancel();
             setSearchReg(undefined);
+            // Regex mode is a search-session choice; leaving the page drops it
+            // so the next visit starts with the literal default.
+            setSearchRegex(false);
             // The overview's name filter is page-local, so nothing else clears
             // it; leaving with it set would show a filtered grid (and an empty
             // search box) on return.
             setOverviewKeyword('');
-        }, [currentTab, setSearchReg, search]);
+        }, [currentTab, setSearchReg, setSearchRegex, search]);
         React.useEffect(() => {
             if (currentTab === 'kanban' || !dragActivity.dragging) {
                 return;
@@ -564,6 +574,9 @@ export const Kanban: FunctionComponent<Props> = React.memo(
                                         setSearchStr={search}
                                         searchStr={props.kanban.searchReg}
                                         tags={getSuggestions}
+                                        regex={searchRegex}
+                                        onRegexToggle={setSearchRegex}
+                                        regexInvalid={searchInvalid}
                                     />
                                     <HeaderSegmented>
                                         <Segmented

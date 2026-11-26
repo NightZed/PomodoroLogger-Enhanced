@@ -47,6 +47,10 @@ export const zh: CatalogShape<typeof en> = {
         /** 搜索输入框自身的可访问名称。 */
         label: '搜索',
         expand: '展开搜索面板',
+        regex: '正则表达式',
+        regexOn: '使用正则表达式搜索',
+        regexOff: '关闭正则表达式搜索',
+        regexInvalid: '正则表达式无效',
     },
 
     calendar: {

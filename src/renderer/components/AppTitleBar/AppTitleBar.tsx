@@ -40,12 +40,28 @@ const TitleBar = styled.div<{
         position: relative;
         margin: 0 !important;
         border-bottom: 0 !important;
+        /* The page names are chrome, not copy: dragging across them used to
+           select the labels (the browser default), which is never useful on a
+           title bar. Covers the tab strip and the caption buttons alike. */
+        user-select: none;
     }
 
     .ant-tabs-content-holder,
     .ant-tabs-content,
     .ant-tabs-tabpane {
         -webkit-app-region: no-drag;
+    }
+
+    /* The active tab panel is the whole page and starts right under the title
+       bar. rc-tabs makes it focusable (tabindex=0), so a click on any blank
+       spot focuses that box, and antd then paints its 3px focus ring around
+       it -- which reads as a blue band across the window under the title bar.
+       The panel is not an operable control and does not scroll (each page
+       scrolls its own surfaces), so the ring points at nothing; every control
+       inside the page keeps the focus ring from GlobalStyle. Doubling the
+       class (&&) outranks antd's generated :focus-visible rule. */
+    && .ant-tabs-content:focus-visible {
+        outline: none;
     }
 
     /* The bar paints no surface of its own. The window background layer draws

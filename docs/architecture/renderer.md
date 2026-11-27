@@ -28,6 +28,12 @@
 
 因此任何仍能到达渲染层的标题栏按下事件都必须同时启动 `windowDrag`，否则滚动之后窗口就拖不动了——见 `src/renderer/components/AppTitleBar/dragRegion.ts` 和 `src/main/ipc/windowDrag.ts`。
 
+## 标签栏文字与焦点环
+
+标题栏里的页名是界面文字，不是正文：`TitleBar` 对 `.ant-tabs-nav` 关了 `user-select`，按住拖动不会选中页名。
+
+整页 tabpanel 也不画 antd 的焦点环（`AppTitleBar.tsx` 里的 `&& .ant-tabs-content:focus-visible { outline: none }`）。rc-tabs 把活动面板设成 `tabindex=0`，点页面空白就会聚焦这个从标题栏下方开始的满窗盒子，antd 的 3px 焦点环因此显示为横贯窗口的一条蓝带。面板本身不可操作、也不滚动（滚动都在各页面自己的容器里），环只指向一个非控件；页面内部的可聚焦元素照旧由 `GlobalStyle` 画环，所以这是「焦点必须可见」的唯一例外，不要再给这里补回 outline。
+
 ## 共享组件库
 
 `src/components/**` 是共享的可视化/小部件库（`Visualization/*`、`common/*`），渲染层用相对路径引用它——它不是渲染层自己的组件树。

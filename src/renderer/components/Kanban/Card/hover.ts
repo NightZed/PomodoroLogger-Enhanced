@@ -36,4 +36,4 @@ export const isElementUnderPointer = (element: Element, stack: readonly Element[
 
 /** Whether `now` is still close enough to the last drop to run a hit-test. */
 export const isPostDropCheck = (now: number, lastDropAt: number): boolean =>
-    now - lastDropAt <= POST_DROP_CHECK_MS;
+    lastDropAt > 0 && now - lastDropAt <= POST_DROP_CHECK_MS;

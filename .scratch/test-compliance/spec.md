@@ -10,37 +10,13 @@ Status: open（持续追加，不排期）
 
 | 测试文件 | 条目 | 记录于 |
 | --- | --- | --- |
-| `Kanban/List/List.test.tsx` | 窗口挂载数读 `data-card-id`；预览/完整视图与滚动状态读 `.kanban-card*`、`.pl-list-scrolling` | 2026-11-26 |
-| `Kanban/Card/Card.test.tsx` | 点击与悬停用例读 `.kanban-card*`、`.pl-tag`，并用 `getComputedStyle().backgroundImage` 断言悬停色 | 2026-11-26 |
-| `Kanban/Kanban.test.tsx` | mock 了 8 个应用内部模块（Board/Overview/Search/Hotkeys/feedback 等），并断言 `__searchProps` 收到的 props | 2026-11-26 |
-
-## 待修复
-
-### `Kanban/List/List.test.tsx`
-
-**现象**：窗口用例用 `document.querySelectorAll('[data-card-id]')` 数挂载的卡片（第 145、176 行）；预览用例断言 `container.querySelectorAll('.kanban-card-preview')` 与 `.kanban-card`（第 363–364 行）；滚动用例读 `scroller.classList.contains('pl-list-scrolling')`（第 520–535 行）。
-
-**依据**：`docs/testing.md` 把 `className`、`data-testid` 列在「不算行为」；`data-card-id` 是窗口化渲染的内部记账属性，不是用户可见结果。
-
-**修法**：挂载数量改成断言可见卡片的标题/正文文本集合（窗口只挂一段时，被裁掉的标题自然不在集合里）；预览与完整视图改按内容是否渲染 + 点击正文能否打开编辑器来区分；`pl-list-scrolling` 在 jsdom 里观察不到滚动条外观，应像 `common/Mini/secondHand.ts` 那样把「滚动中」提成可测的状态/纯函数，或删掉类名断言只保留窗口跟随滚动位置的行为。
-
-### `Kanban/Card/Card.test.tsx`
-
-**现象**：标签点击读 `.pl-tag`（第 159、172 行），卡片的预览/完整/注册状态读 `.kanban-card`、`.kanban-card-preview`（第 165–166、251–340 行），悬停高亮用 `getComputedStyle(card).backgroundImage` 断言 `linear-gradient` / `none`（第 254–340 行）。
-
-**依据**：`className` 不算行为；`getComputedStyle` 读到的渐变形状是当前实现（叠加色方案），换一种同样可见的方案就会挂。
-
-**修法**：点击目标与卡片身份改按 role、可访问名称或卡片标题定位；预览/完整视图按正文是否渲染区分（文件里已有 `p` 的断言可复用）；悬停高亮把「是否悬停」提成组件状态或纯函数再断言，jsdom 无法观察背景图时不要用样式字符串代替。
-
-### `Kanban/Kanban.test.tsx`
-
-**现象**：文件 mock 了 `./Board`、`./Board/Overview`、`./Board/UnassignedPanel`、`./Board/useUnassignedSessions`、`./Board/PlayPauseButton`、`./BoardEditor`、`../Hotkeys`、`../../../components/common/Search/Search`、`../feedback`，并把 `__searchProps` 里的 props 当作接线证据（本次新增用例沿用了这一模式）。
-
-**依据**：`docs/testing.md` 规定 mock 停在 `fs` / `electron` / `get-windows` / `electron-updater` / 时钟 / worker；应用内部一律跑真实现。断言 mock 收到的 props 检查的是内部调用方式，用户可见行为变了它未必挂。
-
-**修法**：分批换成真实渲染，按 role 与可见文本断言页面行为（`BoardBrief.test.tsx` 有全量改真实现的先例）。`Search` 换成真组件后，直接点 `.*` 按钮断言 `setSearchRegex` 被 dispatch，而不是读 props。
+| （暂无） | | |
 
 ## 已修复
+
+- `Kanban/List/List.test.tsx`（2026-11-26）：窗口用例不再数 `[data-card-id]`，改成比较隐藏前后可见卡片数量；预览用例不再读 `.kanban-card-preview` / `.kanban-card`，改为三张卡片的标题都能读到。`List scroll state` 整条删除——`pl-list-scrolling` 是纯视觉类名，jsdom 观察不到滚动条外观，滚动跟随窗口的行为已有窗口用例覆盖。`data-pl-scroller` 保留为 dnd mock 注入的事件手柄，不参与断言。
+- `Kanban/Card/Card.test.tsx`（2026-11-26）：5 条 `getComputedStyle().backgroundImage` 悬停用例删除，几何与时序判断提成 `Card/hover.ts` 的 `isPointerInside` / `isElementUnderPointer` / `isPostDropCheck`，并补 `hover.test.ts`（矩形边界、命中栈含后代、500ms 落位窗口）。标签点击改按 `#prod` 文本定位，删除 `.pl-tag` 与 `.kanban-card*` 断言。`.search-highlight` 保留：它被 `style/Markdown.ts` 消费，高亮没有 role，jsdom 观察不到背景色，是唯一观察点。
+- `Kanban/Kanban.test.tsx`（2026-11-26）：删掉 Board、Overview、UnassignedPanel、useUnassignedSessions、PlayPauseButton、BoardEditor、Hotkeys、Search、feedback 共 9 个内部 mock，改为真实 reducer + Provider 渲染整页；断言从 `__formProps` / `__hotkeys` / `__searchProps` / `data-testid` 改为 role、可见文本、真实确认框与 dispatch 的 action。只保留 dnd 与 antd TextArea 两个外部库边界（TextArea 在 jsdom 里会写 `height: NaN`，`BoardEditor.test.tsx` 同法）。未挂卡查询用 pending promise 挡住，避免断言后落 setState；重挂载计数改成 `dragActivity` 重置加列表仍可见。
 
 - `Setting.test.tsx`（2026-11-25）：`Slider` 桩上的 `data-testid` 删除，6 处取数改成 `getAllByRole('slider')`——桩本身就是 `input[type=range]`，role 来自元素语义，换掉桩也不会静默失效。数据检查失败的用例原先只数 `mockAlert` 的次数，现在断言标题序列 `['Could Not Check the Data']` 与失败原因：重复弹窗或弹错文案都会落在失败信息里。其余 feedback 断言本来就带 payload（标题、`content`、`actions`），次数只作为「不重复弹」的补充，未改。
 - `PreviewSlider.test.tsx`（2026-11-25）：`onPreview` 的 `toHaveBeenCalledTimes(2)` 换成断言收到的值序列 `[20, 25]`。原来只数次数，丢了值也照样通过；现在失败信息直接列出实际收到的值，仍能发现「某次移动没上报」这个可见卡顿。

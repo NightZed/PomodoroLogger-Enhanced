@@ -50,7 +50,6 @@ jest.mock('../feedback', () => ({
 jest.mock('../Hotkeys', () => ({
     __esModule: true,
     default: ({ keyName }: any) => <div data-testid="hotkeys" data-keys={keyName} />,
-    shouldPreventTabDefault: jest.fn(() => false),
 }));
 
 jest.mock('../Kanban/Board', () => ({
@@ -540,7 +539,7 @@ describe('Timer page', () => {
         });
         const { feedback } = require('../feedback');
 
-        act(() => ref.current!.onKeyDown('tab'));
+        act(() => ref.current!.onKeyDown('shift+s'));
 
         expect(actions.switchFocusRestMode).not.toHaveBeenCalled();
         expect(feedback.toast).toHaveBeenCalledWith({

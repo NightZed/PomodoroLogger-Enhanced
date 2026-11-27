@@ -8,7 +8,7 @@
  */
 import React from 'react';
 import { act, render } from '@testing-library/react';
-import { Hotkeys, WINDOW_FOCUS_GRACE_MS, shouldPreventTabDefault } from './Hotkeys';
+import { Hotkeys, WINDOW_FOCUS_GRACE_MS } from './Hotkeys';
 
 const dispatch = (type: 'keydown' | 'keyup', key: string, init: KeyboardEventInit = {}) => {
     document.dispatchEvent(
@@ -147,9 +147,10 @@ describe('Hotkeys wrapper (press / repeat tracking)', () => {
 
 /**
  * The input / window-focus guards added to the wrapper (see the file comment
- * in Hotkeys.tsx): the two reported misfires of the Timer's bare `tab`
- * binding -- mode switching while typing in the card editor, and Alt+Tab
- * residue firing on the way into the window.
+ * in Hotkeys.tsx): the two misfires first reported against the Timer's old
+ * bare `Tab` binding (mode switching while typing in the card editor, and
+ * Alt+Tab residue firing on the way into the window). The binding itself is
+ * Shift+S now, but the guards are about the wrapper, not the key.
  */
 describe('Hotkeys wrapper (input / window-focus guards)', () => {
     it('never fires from a keyup alone (focus moved between keydown and keyup)', async () => {
@@ -225,84 +226,24 @@ describe('Hotkeys wrapper (input / window-focus guards)', () => {
     });
 
     it('hands the call site the live event so the binding can swallow its default', async () => {
-        // `Timer.onKeyDown`'s 'tab' branch relies on this contract: it calls
-        // preventDefault on the very event the wrapper dispatches, so the mode
-        // switch and the suppressed focus jump (the focus ring that used to
-        // land on the first focusable element after clicking a blank spot)
-        // cannot come apart.
+        // A call site may need the event itself (to preventDefault or inspect
+        // modifiers); the wrapper must hand over the very event it dispatches.
         let received: KeyboardEvent | undefined;
         const onKeyDown = jest.fn((...args: any[]) => {
             received = args[1] as KeyboardEvent;
             received.preventDefault();
         });
-        const view = mount('tab', onKeyDown);
+        const view = mount('f5', onKeyDown);
 
         // dispatch() reports whether preventDefault() reached the event.
         const notPrevented = document.dispatchEvent(
-            new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+            new KeyboardEvent('keydown', { key: 'F5', bubbles: true, cancelable: true })
         );
         expect(onKeyDown).toHaveBeenCalledTimes(1);
         expect(received?.defaultPrevented).toBe(true);
         expect(notPrevented).toBe(false);
 
         await unmount(view);
-    });
-});
-
-/**
- * The native keydown listener on the Timer page's layout delegates its
- * decision to this pure predicate (see `Timer.handleNativeKeydown`): the page
- * owns an UNMODIFIED Tab on non-editable targets only -- Shift+Tab and typing
- * keep their native behaviour.
- */
-describe('shouldPreventTabDefault (the Timer page owns bare Tab only)', () => {
-    /** Dispatch a real keydown on `target` and hand back the event, target included. */
-    const keydown = (target: Element, init: KeyboardEventInit = {}): KeyboardEvent => {
-        let captured: KeyboardEvent | undefined;
-        const listener = (event: Event) => {
-            captured = event as KeyboardEvent;
-        };
-        target.addEventListener('keydown', listener);
-        target.dispatchEvent(
-            new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true, ...init })
-        );
-        target.removeEventListener('keydown', listener);
-        return captured!;
-    };
-
-    const attach = (element: Element) => {
-        document.body.appendChild(element);
-        return element;
-    };
-
-    it('takes over an unmodified Tab on non-editable targets', () => {
-        const div = attach(document.createElement('div'));
-        expect(shouldPreventTabDefault(keydown(div))).toBe(true);
-        expect(shouldPreventTabDefault(keydown(document.body))).toBe(true);
-        div.remove();
-    });
-
-    it('leaves modified presses alone (Shift+Tab is not bound; Ctrl+Tab has its own binding)', () => {
-        const div = attach(document.createElement('div'));
-        expect(shouldPreventTabDefault(keydown(div, { shiftKey: true }))).toBe(false);
-        expect(shouldPreventTabDefault(keydown(div, { ctrlKey: true }))).toBe(false);
-        expect(shouldPreventTabDefault(keydown(div, { altKey: true }))).toBe(false);
-        div.remove();
-    });
-
-    it('leaves typing alone -- the hotkey filter refuses there too', () => {
-        const input = attach(document.createElement('input'));
-        const textarea = attach(document.createElement('textarea'));
-        expect(shouldPreventTabDefault(keydown(input))).toBe(false);
-        expect(shouldPreventTabDefault(keydown(textarea))).toBe(false);
-        input.remove();
-        textarea.remove();
-    });
-
-    it('ignores keys that are not Tab', () => {
-        const div = attach(document.createElement('div'));
-        expect(shouldPreventTabDefault(keydown(div, { key: 'F5' }))).toBe(false);
-        div.remove();
     });
 });
 

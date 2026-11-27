@@ -16,8 +16,9 @@ import { isModalOpen } from './popupLayer';
  *
  * --- Input / window-focus guards -------------------------------------------
  *
- * A document-level keydown listener leaks in two ways. Both were reported
- * against the Timer's bare `tab` binding (switch focus/rest):
+ * A document-level keydown listener leaks in two ways. Both were first
+ * reported against a bare `Tab` binding the Timer page has since dropped
+ * (Shift+S switches focus/rest now, so Tab keeps its native navigation):
  *
  * 1. keyup after a focus move. Pressing Tab inside an editable element is
  *    filtered on keydown -- no binding, no `preventDefault` -- so the browser's
@@ -36,8 +37,8 @@ import { isModalOpen } from './popupLayer';
  *    `keyup: false`, and the callback re-checks the event type.
  *  - editable target: the hook disables form tags/contentEditable, and
  *    `guardFilter` repeats the same predicate via `isEditableTarget` from
- *    `src/shared/keyboard.ts` -- the one wording shared with
- *    `Timer.handleNativeKeydown` and the Search bar's Ctrl+F listener.
+ *    `src/shared/keyboard.ts` -- the one wording shared with the Search bar's
+ *    Ctrl+F listener.
  *  - window-focus grace: for `WINDOW_FOCUS_GRACE_MS` after the window (re)gains
  *    focus, no binding fires. A human cannot follow an Alt+Tab with a keypress
  *    that fast, but OS residue arrives within milliseconds; the window `focus`
@@ -81,37 +82,6 @@ if (typeof window !== 'undefined') {
     window.addEventListener('focus', () => {
         windowFocusedAt = Date.now();
     });
-}
-
-/**
- * Should the native keydown listener behind the Timer page's layout swallow
- * Tab's default action (moving focus)?
- *
- * The page's bare `tab` binding owns Tab only when the press is unmodified and
- * the user is not typing -- exactly the cases where the binding can fire (see
- * `guardFilter`), so the preventDefault and the hotkey can never disagree.
- * Everywhere else Tab keeps its native navigation; a blanket preventDefault
- * (what this used to be) turned every input on the page into a dead key.
- *
- * Exported as a pure predicate so `Timer.handleNativeKeydown` stays a
- * one-liner and `Hotkeys.test.tsx` can pin the rule down without importing
- * Timer.tsx (which pulls in the monitor, the worker threads and the preload
- * bridge at module level).
- */
-export function shouldPreventTabDefault(event: KeyboardEvent): boolean {
-    if (event.key !== 'Tab' && event.which !== 9 && event.keyCode !== 9) {
-        return false;
-    }
-
-    // Shift+Tab is not bound (the hook matches modifiers exactly), so it keeps
-    // the browser's reverse focus navigation -- swallowing it would only leave
-    // a dead key. The modified forms belong to other bindings (Ctrl+Tab
-    // switches pages) or to no one.
-    if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
-        return false;
-    }
-
-    return !isEditableTarget(event.target || event.srcElement);
 }
 
 /**

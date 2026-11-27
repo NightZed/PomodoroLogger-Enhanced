@@ -176,7 +176,7 @@ export const en = {
             pause: 'Pause (F6)',
             start: 'Start (F5)',
             finish: 'Finish',
-            switchMode: 'Switch Mode (Tab)',
+            switchMode: 'Switch Mode (Shift + S)',
             stop: 'Stop',
             todayStats: "Today's Stats",
             switchTheme: 'Switch Theme',
@@ -921,8 +921,8 @@ export const en = {
         /** Timer actions. */
         timer: {
             /**
-             * A mode switch was asked for while a session is in the way (Tab or
-             * the work/rest icon). Both the reason and the way out depend on
+             * A mode switch was asked for while a session is in the way (Shift+S
+             * or the work/rest icon). Both the reason and the way out depend on
              * the state: a running session has to be paused or stopped first, a
              * paused one continued or stopped.
              */

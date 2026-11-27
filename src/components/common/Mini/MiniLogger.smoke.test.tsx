@@ -80,7 +80,8 @@ describe('MiniLogger mini strip', () => {
             const { container } = renderMini(props);
             const scope = within(container);
             return {
-                switchMode: scope.queryByRole('button', { name: 'Switch Mode (Tab)' }) !== null,
+                switchMode:
+                    scope.queryByRole('button', { name: t('timer.controls.switchMode') }) !== null,
                 finish: scope.queryByRole('button', { name: 'Finish' }) !== null,
             };
         };

@@ -162,7 +162,7 @@ export const zh: CatalogShape<typeof en> = {
             pause: '暂停 (F6)',
             start: '开始 (F5)',
             finish: '结束',
-            switchMode: '切换模式 (Tab)',
+            switchMode: '切换模式 (Shift + S)',
             stop: '停止',
             todayStats: '今日统计',
             switchTheme: '切换主题',

@@ -12,10 +12,9 @@
 /**
  * Is the event targeted at something the user types into?
  *
- * Consumers: the renderer's hotkey filter and `Timer.handleNativeKeydown`
- * (see src/renderer/components/Hotkeys.tsx -- they must agree so a binding
- * and Tab's preventDefault never come apart) and the Search bar's Ctrl+F
- * listener (which must not steal focus from a field being typed in).
+ * Consumers: the renderer's hotkey filter (see
+ * src/renderer/components/Hotkeys.tsx) and the Search bar's Ctrl+F listener
+ * (which must not steal focus from a field being typed in).
  * `document` and plain elements pass, editable ones do not.
  */
 export function isEditableTarget(target: EventTarget | null): boolean {

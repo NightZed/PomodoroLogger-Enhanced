@@ -69,7 +69,7 @@ export const SHORTCUTS: { groupKey: PlainMessageKey; entries: ShortcutEntry[] }[
         entries: [
             { keys: 'F5', descriptionKey: 'settings.shortcuts.startSession' },
             { keys: 'F6', descriptionKey: 'settings.shortcuts.pauseSession' },
-            { keys: 'Tab', descriptionKey: 'settings.shortcuts.switchMode' },
+            { keys: 'Shift + S', descriptionKey: 'settings.shortcuts.switchMode' },
         ],
     },
     {

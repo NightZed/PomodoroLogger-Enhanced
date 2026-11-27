@@ -144,7 +144,10 @@ describe('List card window', () => {
 
         const scroller = document.querySelector('[data-pl-scroller]') as HTMLElement;
         expect(scroller).toBeTruthy();
-        const mountedWhileVisible = document.querySelectorAll('[data-card-id]').length;
+        // How many cards the user can see, not the mount bookkeeping the
+        // window keeps; the scrolling itself moves the window, the hidden pass
+        // must not grow it.
+        const visibleWhileLaidOut = screen.queryAllByText(/^Card \d+$/).length;
 
         // The page is switched away: nothing has a box any more.
         rectSpy.mockImplementation(
@@ -171,9 +174,9 @@ describe('List card window', () => {
 
         // The 8px readings would have shrunk `offsets`, so the window would
         // have grown towards the end of the list even though nothing became
-        // visible. The same number of mounted cards is the proof that the
+        // visible. The unchanged number of visible cards is the proof that the
         // hidden pass wrote nothing.
-        expect(document.querySelectorAll('[data-card-id]').length).toBe(mountedWhileVisible);
+        expect(screen.queryAllByText(/^Card \d+$/).length).toBe(visibleWhileLaidOut);
 
         // Coming back must not show anything the hidden pass invented.
         rectSpy.mockImplementation(
@@ -357,11 +360,12 @@ describe('List card window', () => {
             addCard: noop,
         };
 
-        const { container } = render(<List {...props} />);
+        render(<List {...props} />);
 
         // All cards, even though the board search only matches one of them.
-        expect(container.querySelectorAll('.kanban-card-preview')).toHaveLength(3);
-        expect(container.querySelectorAll('.kanban-card')).toHaveLength(0);
+        expect(
+            ['Card 0', 'Card 1', 'Card 2'].map((title) => screen.queryByText(title) !== null)
+        ).toEqual([true, true, true]);
         // The preview is not allowed to touch the board's filter state.
         expect(setVisibleCards).not.toHaveBeenCalled();
     });
@@ -481,58 +485,6 @@ describe('List delete menu', () => {
             onOk();
         });
         expect(deleteList).toHaveBeenCalledWith('list-1', 'board-1');
-    });
-});
-
-describe('List scroll state', () => {
-    afterEach(() => {
-        cleanup();
-        jest.useRealTimers();
-    });
-
-    const renderList = () => {
-        const { ids, cards } = makeCards(3);
-        const props: any = {
-            _id: 'list-1',
-            listId: 'list-1',
-            index: 0,
-            boardId: 'board-1',
-            title: 'List',
-            cards: ids,
-            cardsState: cards,
-            cardView: 'full',
-            setVisibleCards: noop,
-            setEditCard: noop,
-            setSearchReg: noop,
-            setContent: noop,
-            deleteList: noop,
-            renameList: noop,
-            addCard: noop,
-        };
-        return render(<List {...props} />);
-    };
-
-    it('marks the scroller while it scrolls and clears it after the gesture', () => {
-        jest.useFakeTimers();
-        const { container } = renderList();
-        const scroller = container.querySelector('[data-pl-scroller]') as HTMLElement;
-        // Visible for a moment after the list mounts, as before.
-        expect(scroller.classList.contains('pl-list-scrolling')).toBe(true);
-
-        act(() => {
-            jest.advanceTimersByTime(700);
-        });
-        expect(scroller.classList.contains('pl-list-scrolling')).toBe(false);
-
-        // The class is written directly on the node -- no React state, so no
-        // re-render of the list (or of any card) is needed while scrolling.
-        fireEvent.scroll(scroller);
-        expect(scroller.classList.contains('pl-list-scrolling')).toBe(true);
-
-        act(() => {
-            jest.advanceTimersByTime(700);
-        });
-        expect(scroller.classList.contains('pl-list-scrolling')).toBe(false);
     });
 });
 

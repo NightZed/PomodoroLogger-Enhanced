@@ -18,6 +18,7 @@ import { CompletedTime } from './CompletedTime';
 import { t } from '../../../i18n';
 import { dragActivity } from '../dragActivity';
 import { highlightMatches } from '../search';
+import { isElementUnderPointer, isPointerInside, isPostDropCheck } from './hover';
 
 const CardContainer = styled.div<{
     $preview?: boolean;
@@ -298,12 +299,7 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                 return;
             }
             const rect = element.getBoundingClientRect();
-            const inside =
-                event.clientX >= rect.left &&
-                event.clientX <= rect.right &&
-                event.clientY >= rect.top &&
-                event.clientY <= rect.bottom;
-            if (!inside) {
+            if (!isPointerInside(rect, event.clientX, event.clientY)) {
                 setHovered(false);
             }
         };
@@ -319,7 +315,7 @@ export const Card: FC<Props> = React.memo((props: Props) => {
             // 150ms covers dnd's 0.1s drop animation plus a frame; the check
             // has to run after the card is back in its layout position.
             window.setTimeout(() => {
-                if (performance.now() - dragActivity.lastDropAt > 500) {
+                if (!isPostDropCheck(performance.now(), dragActivity.lastDropAt)) {
                     return;
                 }
                 const element = cardRef.current;
@@ -328,7 +324,7 @@ export const Card: FC<Props> = React.memo((props: Props) => {
                     return;
                 }
                 const stack = document.elementsFromPoint(pointer.x, pointer.y);
-                if (!stack.some((node) => node === element || element.contains(node))) {
+                if (!isElementUnderPointer(element, stack)) {
                     setHovered(false);
                 }
             }, 150);
@@ -344,7 +340,7 @@ export const Card: FC<Props> = React.memo((props: Props) => {
     // pointer is already over this card and light it up without waiting for the
     // mouse.
     React.useLayoutEffect(() => {
-        if (performance.now() - dragActivity.lastDropAt > 500) {
+        if (!isPostDropCheck(performance.now(), dragActivity.lastDropAt)) {
             return;
         }
         const element = cardRef.current;
@@ -356,7 +352,7 @@ export const Card: FC<Props> = React.memo((props: Props) => {
         // dnd's fixed-position card can still sit on top of the pointer and
         // hide the freshly mounted one.
         const stack = document.elementsFromPoint(pointer.x, pointer.y);
-        if (stack.some((node) => node === element || element.contains(node))) {
+        if (isElementUnderPointer(element, stack)) {
             setHovered(true);
         }
         // Mount-only: this exists for the instance that has no hover history.

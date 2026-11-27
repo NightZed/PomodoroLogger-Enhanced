@@ -1,123 +1,120 @@
 import React from 'react';
-import { act, cleanup, fireEvent, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { App as AntdApp } from 'antd';
+import { Provider } from 'react-redux';
+import { createStore, applyMiddleware } from 'redux';
+import { thunk } from 'redux-thunk';
 import { Kanban } from './Kanban';
 import { dragActivity } from './dragActivity';
+import { FeedbackContextBridge } from '../feedback/Feedback';
 
-jest.mock('./Board', () => {
-    const React = require('react');
-    const BoardStub = () => {
-        // Counts mounts, not renders: the point is whether the board is
-        // rebuilt (see the drag-safety test below).
-        React.useEffect(() => {
-            const g = global as any;
-            g.__boardMounts = (g.__boardMounts ?? 0) + 1;
-        }, []);
-        return <div data-testid="board" />;
-    };
-
-    return { __esModule: true, default: BoardStub };
-});
-jest.mock('./Board/Overview', () => ({
-    Overview: ({ showConfigById, showTable, showHidden }: any) => (
-        <div data-testid="overview" data-table={String(showTable)} data-hidden={String(showHidden)}>
-            <button data-testid="overview-configure" onClick={() => showConfigById('b1')} />
-        </div>
-    ),
-}));
-// The drawer and its card picker are connected and have their own tests;
-// this page is rendered bare, without a store.
-jest.mock('./Board/UnassignedPanel', () => ({ UnassignedPanel: () => null }));
-// The hook queries the database on mount; this page's tests do not wait for
-// that promise, and an unawaited state update outside `act` trips the gate.
-jest.mock('./Board/useUnassignedSessions', () => ({
-    useUnassignedSessions: () => ({ rows: [], total: 0, reload: jest.fn() }),
-}));
-jest.mock('./Board/PlayPauseButton', () => ({
-    PlayPauseButton: ({ onClick, showPlay }: any) => (
-        <button data-testid="play-pause" data-play={String(showPlay)} onClick={onClick} />
-    ),
-}));
-jest.mock('./BoardEditor', () => {
-    const { Form } = require('antd');
-    return {
-        EditKanbanForm: (props: any) => {
-            (global as any).__formProps = props;
-            return (
-                <div data-testid="board-form" data-creating={String(props.isCreating)}>
-                    {props.visible ? (
-                        <>
-                            <Form form={props.form} />
-                            <button
-                                data-testid="form-save"
-                                onClick={() =>
-                                    props.onSave({ name: 'New Board', description: 'New desc' })
-                                }
-                            />
-                            <button data-testid="form-cancel" onClick={props.onCancel} />
-                            <button data-testid="form-delete" onClick={props.onDelete} />
-                        </>
-                    ) : null}
-                </div>
-            );
-        },
-    };
-});
-jest.mock('../Hotkeys', () => ({
-    __esModule: true,
-    default: ({ onKeyDown, keyName }: any) => {
-        (global as any).__hotkeys = onKeyDown;
-        return <div data-testid="hotkeys" data-keyname={keyName} />;
-    },
+// dnd is the one boundary these tests still stand in for: the real library
+// needs a layout to measure. Board, lists, cards, the overview, the editor,
+// the search bar and the feedback layer all run for real below.
+jest.mock('@hello-pangea/dnd', () => ({
+    DragDropContext: ({ children }: any) => <div>{children}</div>,
+    Droppable: ({ children }: any) =>
+        children(
+            {
+                innerRef: () => undefined,
+                droppableProps: {},
+                placeholder: null,
+            },
+            { isDraggingOver: false }
+        ),
+    Draggable: ({ children }: any) =>
+        children(
+            { innerRef: () => undefined, draggableProps: {}, dragHandleProps: {} },
+            { isDragging: false }
+        ),
 }));
 
-jest.mock('../../../components/common/Search/Search', () => ({
-    Search: ({
-        setSearchStr,
-        tags,
-        enabled,
-        searchStr,
-        regex,
-        onRegexToggle,
-        regexInvalid,
-    }: any) => {
-        (global as any).__searchProps = {
-            setSearchStr,
-            tags,
-            enabled,
-            searchStr,
-            regex,
-            onRegexToggle,
-            regexInvalid,
-        };
-        return <div data-testid="search" data-enabled={String(enabled)} />;
-    },
-}));
-
-jest.mock('../feedback', () => ({
-    feedback: { toast: jest.fn() },
-    FEEDBACK_MESSAGES: {
-        kanban: { paused: 'paused', startFocusing: 'start focusing' },
-    },
-}));
+// rc-textarea measures a hidden textarea to size itself; jsdom has no line
+// metrics, so the real one writes `height: NaN` during the board editor's
+// force-rendered first paint. The description field is not what these tests
+// are about, and BoardEditor.test.tsx stubs it for the same reason.
+jest.mock('antd/lib/input/TextArea', () => ({ __esModule: true, default: () => null }));
 
 const board = {
     _id: 'b1',
     name: 'Board One',
-    createdTime: 1700000000000,
-    description: 'Description',
-    lists: ['l1'],
-    focusedList: 'l1',
-    doneList: 'l2',
-    spentHours: 0,
-    relatedSessions: [],
+    description: 'New desc',
+    createdTime: 1600000000000,
+    lists: ['todo', 'doing', 'done'],
+    focusedList: 'doing',
+    doneList: 'done',
+    spentHours: 3,
+    relatedSessions: [{ _id: 'session' }],
     pin: false,
+};
+
+/** The lists `board.lists` points at, as the connected List reads them. */
+const lists = {
+    todo: { _id: 'todo', title: 'Todo', cards: ['todo-card'] },
+    doing: { _id: 'doing', title: 'Doing', cards: [] },
+    done: { _id: 'done', title: 'Done', cards: ['done-card'] },
+};
+
+const cards = {
+    'todo-card': {
+        _id: 'todo-card',
+        title: 'Todo card',
+        content: 'todo body',
+        sessionIds: [],
+        spentTimeInHour: { estimated: 2, actual: 1 },
+        createdTime: 1600000000000,
+    },
+    'done-card': {
+        _id: 'done-card',
+        title: 'Done card',
+        content: 'done body',
+        sessionIds: [],
+        spentTimeInHour: { estimated: 4, actual: 2 },
+        createdTime: 1600000000000,
+    },
 };
 
 const baseState = {
     boards: { b1: board },
-    lists: {},
-    cards: {},
+    lists,
+    cards,
 };
+
+/**
+ * The store is handed the state directly (identity reducer): the page and its
+ * connected children only read it, so what is asserted is the actions the page
+ * calls and what the user sees -- not a reduced state the test would rebuild.
+ * `thunk` is needed because the connected `List` dispatches a thunk
+ * (`setVisibleCards`).
+ */
+const makeStore = (boards: any, kanban: any) =>
+    createStore(
+        (value: any) => value,
+        {
+            kanban: {
+                boards,
+                lists,
+                cards,
+                kanban: {
+                    sortedBy: 'recent',
+                    sortDirection: 'asc',
+                    isSearching: false,
+                    searchRegex: false,
+                    chosenBoardId: undefined,
+                    editCard: { isEditing: false, listId: '' },
+                    ...kanban,
+                },
+            },
+            timer: {
+                minimize: false,
+                boardId: undefined,
+                isRunning: false,
+                isFocusing: false,
+                timerManager: { start: jest.fn(), pause: jest.fn() },
+            },
+        } as any,
+        applyMiddleware(thunk) as any
+    );
 
 const makeProps = (overrides: any = {}) => {
     const actions = {
@@ -143,6 +140,7 @@ const makeProps = (overrides: any = {}) => {
             sortedBy: 'recent',
             sortDirection: 'asc',
             searchReg: undefined,
+            searchRegex: false,
         },
         chosenRecord: undefined,
         currentTab: 'kanban',
@@ -157,206 +155,262 @@ const makeProps = (overrides: any = {}) => {
 
 const renderKanban = (overrides: any = {}) => {
     const setup = makeProps(overrides);
-    const view = render(<Kanban {...setup.props} />);
+    const store = makeStore(setup.props.boards, setup.props.kanban);
+    const view = render(
+        <AntdApp>
+            <FeedbackContextBridge />
+            <Provider store={store}>
+                <Kanban {...setup.props} />
+            </Provider>
+        </AntdApp>
+    );
     return { ...view, ...setup };
 };
 
+/** Press and release a combination the way Hotkeys expects to receive it. */
+const press = async (key: string, init: KeyboardEventInit = {}) => {
+    await act(async () => {
+        document.dispatchEvent(
+            new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init })
+        );
+    });
+    await act(async () => {
+        document.dispatchEvent(
+            new KeyboardEvent('keyup', { key, bubbles: true, cancelable: true, ...init })
+        );
+        if (init.ctrlKey) {
+            document.dispatchEvent(
+                new KeyboardEvent('keyup', { key: 'Control', bubbles: true, cancelable: true })
+            );
+        }
+    });
+    await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+};
+
+const openBoard = () =>
+    renderKanban({
+        kanban: {
+            chosenBoardId: 'b1',
+            configuringBoardId: undefined,
+            sortedBy: 'recent',
+            sortDirection: 'asc',
+            searchReg: undefined,
+            searchRegex: false,
+        },
+    });
+
 describe('Kanban page', () => {
+    beforeAll(() => {
+        // jsdom reports 0 width; the overview grid needs a column count to
+        // render its cards (see Overview.grid.test.tsx).
+        Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+            configurable: true,
+            get() {
+                return 810;
+            },
+        });
+        // ...and a card needs a non-zero box before the grid can measure it.
+        for (const property of ['clientHeight', 'offsetHeight', 'scrollHeight'] as const) {
+            Object.defineProperty(HTMLElement.prototype, property, {
+                configurable: true,
+                get() {
+                    return 100;
+                },
+            });
+        }
+    });
+
+    afterAll(() => {
+        delete (HTMLElement.prototype as any).clientWidth;
+        for (const property of ['clientHeight', 'offsetHeight', 'scrollHeight']) {
+            delete (HTMLElement.prototype as any)[property];
+        }
+    });
+
+    beforeEach(() => {
+        // The unassigned-sessions hook asks the IPC bridge on mount. Leaving
+        // the request pending keeps its state update out of the test (the
+        // header count stays at its initial 0), so no promise settles after
+        // the assertions.
+        jest.spyOn(window.api as any, 'listUnassignedSessions').mockReturnValue(
+            new Promise(() => undefined) as any
+        );
+    });
+
     afterEach(() => {
         cleanup();
-        delete (global as any).__formProps;
-        delete (global as any).__hotkeys;
-        delete (global as any).__searchProps;
-        delete (global as any).__boardMounts;
+        document.body.innerHTML = '';
         dragActivity.dragging = false;
         jest.clearAllTimers();
+        jest.restoreAllMocks();
     });
 
     it('fetches boards and shows the overview without a chosen board', () => {
-        const { getByText, getByTestId, actions, queryByTestId } = renderKanban();
+        const { actions } = renderKanban();
 
         expect(actions.fetchBoards).toHaveBeenCalledTimes(1);
-        expect(getByText('Kanban Boards Overview')).toBeTruthy();
-        expect(getByTestId('overview')).toBeTruthy();
-        expect(queryByTestId('board')).toBeNull();
+        expect(screen.getByText('Kanban Boards Overview')).toBeTruthy();
+        expect(screen.getByText('Board One')).toBeTruthy();
+        // The board view is not rendered until a board is chosen.
+        expect(screen.queryByRole('heading', { name: 'Todo' })).toBeNull();
     });
 
-    it('opens the empty board form from the create button', () => {
-        const { getByRole, getByTestId } = renderKanban();
+    it('opens the empty board form from the create button', async () => {
+        renderKanban();
 
-        fireEvent.click(getByRole('button', { name: 'Create a new board' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Create a new board' }));
 
-        expect(getByTestId('board-form').getAttribute('data-creating')).toBe('true');
-        expect((global as any).__formProps.visible).toBe(true);
+        const dialog = await screen.findByRole('dialog');
+        expect(within(dialog).getByText('Create a new board')).toBeTruthy();
+        expect((screen.getByLabelText('Name') as HTMLInputElement).value).toBe('');
     });
 
     it('creates a board and closes the form', async () => {
-        jest.useFakeTimers();
-        const { getByRole, getByTestId, actions } = renderKanban();
+        const { actions } = renderKanban();
 
-        fireEvent.click(getByRole('button', { name: 'Create a new board' }));
-        fireEvent.click(getByTestId('form-save'));
+        fireEvent.click(screen.getByRole('button', { name: 'Create a new board' }));
+        await screen.findByRole('dialog');
 
-        expect(actions.addBoard).toHaveBeenCalledWith(expect.any(String), 'New Board', 'New desc');
+        fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'New Board' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+        await waitFor(() =>
+            expect(actions.addBoard).toHaveBeenCalledWith(expect.any(String), 'New Board', '')
+        );
         expect(actions.addBoard.mock.calls[0][0]).toMatch(/^[\w-]+$/);
 
-        await act(async () => {
-            jest.advanceTimersByTime(250);
-        });
-        expect((global as any).__formProps.visible).toBe(false);
-
-        jest.useRealTimers();
+        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     });
 
-    it('cancels the board form', () => {
-        const { getByRole, getByTestId } = renderKanban();
+    it('cancels the board form', async () => {
+        renderKanban();
 
-        fireEvent.click(getByRole('button', { name: 'Create a new board' }));
-        fireEvent.click(getByTestId('form-cancel'));
+        fireEvent.click(screen.getByRole('button', { name: 'Create a new board' }));
+        await screen.findByRole('dialog');
 
-        expect((global as any).__formProps.visible).toBe(false);
+        fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     });
 
-    it('shows the chosen board, its created time and goes back', () => {
-        const { getByText, container, actions } = renderKanban({
-            kanban: {
-                chosenBoardId: 'b1',
-                configuringBoardId: undefined,
-                sortedBy: 'recent',
-                sortDirection: 'asc',
-            },
-        });
+    it('shows the chosen board and goes back', async () => {
+        const { actions } = openBoard();
 
-        expect(getByText('Board One')).toBeTruthy();
-        expect(container.textContent).toContain('Created:');
-        expect((global as any).__hotkeys).toBeDefined();
+        expect(screen.getByRole('heading', { name: 'Todo' })).toBeTruthy();
+        expect(screen.getByRole('heading', { name: 'Doing' })).toBeTruthy();
+        expect(screen.getByRole('heading', { name: 'Done' })).toBeTruthy();
+        expect(screen.getAllByText(/Created:/).length).toBeGreaterThan(0);
 
-        fireEvent.click(container.querySelectorAll('button')[0]);
+        fireEvent.click(screen.getByRole('button', { name: 'Back' }));
         expect(actions.setChosenBoardId).toHaveBeenCalledWith(undefined);
     });
 
-    it('starts focusing on the chosen board and pauses it when it is already running', () => {
-        const { getByTestId, actions, timerManager } = renderKanban({
-            kanban: {
-                chosenBoardId: 'b1',
-                configuringBoardId: undefined,
-                sortedBy: 'recent',
-                sortDirection: 'asc',
-            },
-        });
-        const { feedback } = require('../feedback');
+    it('starts focusing on the chosen board and pauses it when it is already running', async () => {
+        const first = openBoard();
 
-        fireEvent.click(getByTestId('play-pause'));
-        expect(actions.focusOn).toHaveBeenCalledWith('b1');
-        expect(timerManager.start).toHaveBeenCalledWith('b1');
-        expect(feedback.toast).toHaveBeenLastCalledWith({
-            kind: 'success',
-            content: 'start focusing',
-        });
+        fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+        expect(first.actions.focusOn).toHaveBeenCalledWith('b1');
+        expect(first.timerManager.start).toHaveBeenCalledWith('b1');
+        expect(await screen.findByText('Start Focusing')).toBeTruthy();
 
         cleanup();
+        document.body.innerHTML = '';
+
         const paused = renderKanban({
             kanban: {
                 chosenBoardId: 'b1',
                 configuringBoardId: undefined,
                 sortedBy: 'recent',
                 sortDirection: 'asc',
+                searchReg: undefined,
+                searchRegex: false,
             },
             isFocusingOnChosenBoard: true,
             isTimerRunning: true,
         });
 
-        fireEvent.click(paused.getByTestId('play-pause'));
+        fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
         expect(paused.timerManager.pause).toHaveBeenCalled();
-        expect(feedback.toast).toHaveBeenLastCalledWith({
-            kind: 'info',
-            content: 'paused',
-        });
+        expect(await screen.findByText('Paused')).toBeTruthy();
     });
 
-    it('toggles the sort direction and shows the board view controls', () => {
-        const { getByRole, actions } = renderKanban();
+    it('toggles the sort direction and shows the board view controls', async () => {
+        const { actions } = renderKanban();
 
-        fireEvent.click(getByRole('button', { name: 'Ascending' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Ascending' }));
         expect(actions.setSortDirection).toHaveBeenCalledWith('desc');
 
         cleanup();
-        const chosen = renderKanban({
-            kanban: {
-                chosenBoardId: 'b1',
-                configuringBoardId: undefined,
-                sortedBy: 'recent',
-                sortDirection: 'asc',
-            },
-        });
+        document.body.innerHTML = '';
 
-        expect(chosen.getByTestId('search')).toBeTruthy();
-        expect(chosen.getByTestId('board')).toBeTruthy();
-        expect(chosen.getByTestId('play-pause').getAttribute('data-play')).toBe('true');
+        openBoard();
+        await act(async () => {});
+
+        expect(screen.getByRole('button', { name: 'Search' })).toBeTruthy();
+        expect(screen.getByRole('button', { name: 'Start' })).toBeTruthy();
+        expect(screen.getByRole('heading', { name: 'Todo' })).toBeTruthy();
     });
 
-    it('edits the chosen board through the settings form', () => {
-        const { getByRole, getByTestId, actions } = renderKanban({
-            kanban: {
-                chosenBoardId: 'b1',
-                configuringBoardId: undefined,
-                sortedBy: 'recent',
-                sortDirection: 'asc',
-            },
-        });
+    it('edits the chosen board through the settings form', async () => {
+        const { actions } = openBoard();
 
-        fireEvent.click(getByRole('button', { name: 'Edit board' }));
-        expect((global as any).__formProps.isCreating).toBe(false);
-        expect((global as any).__formProps.createdTime).toBe(board.createdTime);
+        fireEvent.click(screen.getByRole('button', { name: 'Edit board' }));
+        await screen.findByRole('dialog');
 
-        fireEvent.click(getByTestId('form-save'));
-        expect(actions.editBoard).toHaveBeenCalledWith('b1', 'New Board', 'New desc', false);
+        const name = screen.getByLabelText('Name') as HTMLInputElement;
+        expect(name.value).toBe('Board One');
+
+        fireEvent.change(name, { target: { value: 'New Board' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+        await waitFor(() =>
+            expect(actions.editBoard).toHaveBeenCalledWith('b1', 'New Board', 'New desc', false)
+        );
     });
 
-    it('deletes the chosen board from the settings form', () => {
-        const { getByRole, getByTestId, actions } = renderKanban({
-            kanban: {
-                chosenBoardId: 'b1',
-                configuringBoardId: undefined,
-                sortedBy: 'recent',
-                sortDirection: 'asc',
-            },
-        });
+    it('deletes the chosen board from the settings form', async () => {
+        const { actions } = openBoard();
 
-        fireEvent.click(getByRole('button', { name: 'Edit board' }));
-        fireEvent.click(getByTestId('form-delete'));
+        fireEvent.click(screen.getByRole('button', { name: 'Edit board' }));
+        await screen.findByRole('dialog');
 
-        expect(actions.deleteBoard).toHaveBeenCalledWith('b1');
+        fireEvent.click(screen.getByRole('button', { name: /Delete/ }));
+
+        // The delete goes through the real feedback confirm.
+        const titles = await screen.findAllByText('Delete board "Board One"?');
+        expect(titles.length).toBeGreaterThan(0);
+        fireEvent.click(screen.getAllByRole('button', { name: 'OK' })[0]);
+
+        await waitFor(() => expect(actions.deleteBoard).toHaveBeenCalledWith('b1'));
     });
 
-    it('handles the page hotkeys', () => {
+    it('handles the page hotkeys', async () => {
         const { actions } = renderKanban();
-        const handler = (global as any).__hotkeys;
 
-        act(() => handler('ctrl+n'));
-        expect((global as any).__formProps.visible).toBe(true);
+        await press('n', { ctrlKey: true });
+        expect(await screen.findByRole('dialog')).toBeTruthy();
 
-        act(() => handler('esc'));
+        // The dialog owns the keyboard while it is open (Hotkeys' modal gate),
+        // so close it before the page-level Esc.
+        fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+        await press('Escape');
         expect(actions.changeAppTab).toHaveBeenCalledWith('timer');
     });
 
-    it('goes back to the overview instead of leaving the page on esc', () => {
-        const { actions } = renderKanban({
-            kanban: {
-                chosenBoardId: 'b1',
-                configuringBoardId: undefined,
-                sortedBy: 'recent',
-                sortDirection: 'asc',
-            },
-        });
+    it('goes back to the overview instead of leaving the page on esc', async () => {
+        const { actions } = openBoard();
 
-        act(() => (global as any).__hotkeys('esc'));
+        await press('Escape');
 
         expect(actions.setChosenBoardId).toHaveBeenCalledWith(undefined);
         expect(actions.changeAppTab).not.toHaveBeenCalled();
     });
 
-    it('leaves esc to the fullscreen record overlay', () => {
+    it('leaves esc to the fullscreen record overlay', async () => {
         const { actions } = renderKanban({
             chosenRecord: { _id: 'record' },
             kanban: {
@@ -364,10 +418,12 @@ describe('Kanban page', () => {
                 configuringBoardId: undefined,
                 sortedBy: 'recent',
                 sortDirection: 'asc',
+                searchReg: undefined,
+                searchRegex: false,
             },
         });
 
-        act(() => (global as any).__hotkeys('esc'));
+        await press('Escape');
 
         expect(actions.setChosenBoardId).not.toHaveBeenCalled();
         expect(actions.changeAppTab).not.toHaveBeenCalled();
@@ -381,12 +437,14 @@ describe('Kanban page', () => {
                 configuringBoardId: undefined,
                 sortedBy: 'recent',
                 sortDirection: 'asc',
+                searchReg: undefined,
+                searchRegex: false,
             },
         });
 
         expect(actions.setSearchReg).toHaveBeenCalledWith(undefined);
         expect(actions.setSearchRegex).toHaveBeenCalledWith(false);
-        expect((global as any).__searchProps.enabled).toBe(false);
+        expect(screen.queryByRole('textbox', { name: 'Search' })).toBeNull();
     });
 
     it('hands the regex toggle and its invalid state to the search bar', () => {
@@ -401,10 +459,14 @@ describe('Kanban page', () => {
             },
         });
 
-        expect((global as any).__searchProps.regex).toBe(true);
-        expect((global as any).__searchProps.onRegexToggle).toBe(actions.setSearchRegex);
-        // '(' only fails to compile once the query is a regular expression.
-        expect((global as any).__searchProps.regexInvalid).toBe(true);
+        // A non-empty `searchReg` opens the bar by itself (Search restores
+        // the saved query when the page mounts), so the input is already
+        // there and already knows it came from an invalid expression.
+        const input = screen.getByRole('textbox', { name: 'Search' });
+        expect(input.getAttribute('aria-invalid')).toBe('true');
+
+        fireEvent.click(screen.getByRole('button', { name: 'Turn off regular expressions' }));
+        expect(actions.setSearchRegex).toHaveBeenCalledWith(false);
     });
 
     // Regression: a drag still running when the page was switched away never
@@ -413,38 +475,82 @@ describe('Kanban page', () => {
     // was dead until the board was remounted by hand (leave and re-enter).
     it('drops a drag lost to a page switch and rebuilds the board', () => {
         dragActivity.dragging = true;
-        const { props, rerender } = renderKanban({
-            kanban: {
-                chosenBoardId: 'b1',
-                configuringBoardId: undefined,
-                sortedBy: 'recent',
-                sortDirection: 'asc',
-            },
-        });
-        const mounts = (global as any).__boardMounts;
+        const { props, rerender } = openBoard();
+        const store = makeStore(props.boards, props.kanban);
 
-        rerender(<Kanban {...props} currentTab="timer" />);
+        rerender(
+            <AntdApp>
+                <FeedbackContextBridge />
+                <Provider store={store}>
+                    <Kanban {...props} currentTab="timer" />
+                </Provider>
+            </AntdApp>
+        );
 
         expect(dragActivity.dragging).toBe(false);
-        expect((global as any).__boardMounts).toBe(mounts + 1);
+
+        rerender(
+            <AntdApp>
+                <FeedbackContextBridge />
+                <Provider store={store}>
+                    <Kanban {...props} currentTab="kanban" />
+                </Provider>
+            </AntdApp>
+        );
+
+        // The rebuilt board is usable: the lists are back.
+        expect(screen.getByRole('heading', { name: 'Todo' })).toBeTruthy();
     });
 });
 
 describe('Kanban overview header', () => {
+    beforeAll(() => {
+        Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+            configurable: true,
+            get() {
+                return 810;
+            },
+        });
+        for (const property of ['clientHeight', 'offsetHeight', 'scrollHeight'] as const) {
+            Object.defineProperty(HTMLElement.prototype, property, {
+                configurable: true,
+                get() {
+                    return 100;
+                },
+            });
+        }
+    });
+
+    afterAll(() => {
+        delete (HTMLElement.prototype as any).clientWidth;
+        for (const property of ['clientHeight', 'offsetHeight', 'scrollHeight']) {
+            delete (HTMLElement.prototype as any)[property];
+        }
+    });
+
+    beforeEach(() => {
+        jest.spyOn(window.api as any, 'listUnassignedSessions').mockReturnValue(
+            new Promise(() => undefined) as any
+        );
+    });
+
     afterEach(() => {
         cleanup();
+        document.body.innerHTML = '';
         jest.clearAllTimers();
+        jest.restoreAllMocks();
     });
 
     it('switches the overview between the board grid and the table', () => {
-        const { getByRole, getByTestId } = renderKanban();
-        expect(getByTestId('overview').getAttribute('data-table')).toBe('false');
+        renderKanban();
+        expect(screen.queryByRole('table')).toBeNull();
 
-        fireEvent.click(getByRole('radio', { name: 'Table' }));
-        expect(getByTestId('overview').getAttribute('data-table')).toBe('true');
+        fireEvent.click(screen.getByRole('radio', { name: 'Table' }));
+        expect(screen.getByRole('table')).toBeTruthy();
 
-        fireEvent.click(getByRole('radio', { name: 'Board' }));
-        expect(getByTestId('overview').getAttribute('data-table')).toBe('false');
+        fireEvent.click(screen.getByRole('radio', { name: 'Board' }));
+        expect(screen.queryByRole('table')).toBeNull();
+        expect(screen.getByText('Board One')).toBeTruthy();
     });
 
     // Regression: the icon-only segments got their name from the icon itself
@@ -452,22 +558,21 @@ describe('Kanban overview header', () => {
     // the control was unusable without sight.
     it('names the visibility segments after the boards they show', () => {
         const hidden = { ...board, _id: 'b2', name: 'Board Two', hidden: true };
-        const { getByRole, getByTestId } = renderKanban({
-            boards: { b1: board, b2: hidden },
-        });
+        renderKanban({ boards: { b1: board, b2: hidden } });
 
-        expect(getByTestId('overview').getAttribute('data-hidden')).toBe('false');
-        fireEvent.click(getByRole('radio', { name: 'Hidden (1)' }));
+        expect(screen.queryByText('Board Two')).toBeNull();
+        fireEvent.click(screen.getByRole('radio', { name: 'Hidden (1)' }));
+        expect(screen.getByText('Board Two')).toBeTruthy();
 
-        expect(getByTestId('overview').getAttribute('data-hidden')).toBe('true');
+        fireEvent.click(screen.getByRole('radio', { name: 'Active' }));
+        expect(screen.getByText('Board One')).toBeTruthy();
     });
 
     it('keeps the hidden segment usable when nothing is hidden', () => {
-        const { getByRole, getByTestId } = renderKanban();
+        renderKanban();
 
-        fireEvent.click(getByRole('radio', { name: 'Hidden (0)' }));
+        fireEvent.click(screen.getByRole('radio', { name: 'Hidden (0)' }));
 
-        // The empty state is reachable instead of the segment going dead.
-        expect(getByTestId('overview').getAttribute('data-hidden')).toBe('true');
+        expect(screen.getByText('No hidden boards')).toBeTruthy();
     });
 });

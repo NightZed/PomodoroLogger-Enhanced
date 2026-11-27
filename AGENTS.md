@@ -134,6 +134,7 @@ pnpm build                          # tsc --noEmit + 两个 webpack bundle
 pnpm typecheck                      # 只跑 tsc --noEmit -p tsconfig.json
 pnpm lint                           # eslint src/**/*.{ts,tsx} test/**/*.{ts,js}
 pnpm test                           # jest --forceExit
+pnpm test:changed                   # 只跑与未提交改动相关的测试（git diff + 依赖图）
 pnpm test src/renderer/components/Timer/Timer.test.tsx   # 单个文件
 pnpm test -t "some test name"       # 按名字跑单个测试
 pnpm test:watch
@@ -201,7 +202,14 @@ pnpm run dist-win # 或 dist-mac / dist-linux / dist-all（每个都是独立脚
 
 `posttest` 删除 `.local/test`；action 测试跑的是真实 SQLite 事务，所以优先断言 repository 层的结果而不是 mock。
 
-改动后的验证按影响面选范围，不要默认全量：局部组件/样式/单文件逻辑只跑受影响的测试文件 + `pnpm typecheck` + `pnpm lint`；动了共享基建（`jest.config.js`、`test/setup-*`、被多处引用或 mock 的模块）或提交前的最终确认才跑 `pnpm test` 全量。新增测试文件会加重全量跑的 worker 内存（见 `workerIdleMemoryLimit`），改完基建后跑一次全量确认稳定。
+改动后的验证按影响面选范围，不要默认全量。`pnpm test:changed` 用 `--onlyChanged` 按 git diff 加依赖图算范围，不用手挑文件名；局部组件/样式/单文件逻辑跑它 + `pnpm typecheck` + `pnpm lint` 就够。
+
+两种情况下它不够，仍要跑 `pnpm test` 全量：
+
+- 改了共享基建（`jest.config.js`、`test/setup-*`），或者提交前的最终确认。新增测试文件会加重全量跑的 worker 内存（见 `workerIdleMemoryLimit`），改完基建后跑一次全量确认稳定。
+- 改了主题变量、全局样式这类没有测试去断言的模块。依赖图只反映 import 关系，不反映视觉影响，这里它会收缩到接近 0，比实际影响窄得多。
+
+另外，`package.json` 被 `Setting.tsx` 与 `src/main/init.ts` 引入，动它等于动整棵渲染树，`test:changed` 会命中大半（实测 53 个文件 / 73s），基本等价于全量。
 
 流程（红绿循环、seam、垂直切片）可参考 `/tdd` skill（已随仓库提供）。
 

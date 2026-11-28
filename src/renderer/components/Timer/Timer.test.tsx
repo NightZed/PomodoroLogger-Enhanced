@@ -4,38 +4,12 @@ import { Provider } from 'react-redux';
 import { applyMiddleware, createStore } from 'redux';
 import { thunk } from 'redux-thunk';
 import Timer from './Timer';
-import { getTodaySessions } from '../../monitor/sessionManager';
-import { setTrayImageWithMadeIcon } from './iconMaker';
-import { Monitor } from '../../monitor';
+import { dbs } from '../../dbs';
 import { DAY_THEME_ID, NIGHT_THEME_ID } from '../../theme/tokens';
 import { scaleMs } from '../../../config';
 import { DEFAULT_SOUND_URL, soundUrl } from '../../sound';
 import { announceWindowHideIntent } from '../windowHideIntent';
 import { t } from '../../i18n';
-
-const mockMonitorInstances: any[] = [];
-
-jest.mock('../../monitor', () => ({
-    Monitor: jest.fn().mockImplementation(() => {
-        const instance = {
-            start: jest.fn(),
-            stop: jest.fn(),
-            resume: jest.fn(),
-            discard: jest.fn(),
-            clear: jest.fn(),
-        };
-        mockMonitorInstances.push(instance);
-        return instance;
-    }),
-}));
-
-jest.mock('../../monitor/sessionManager', () => ({
-    getTodaySessions: jest.fn().mockResolvedValue([]),
-}));
-
-jest.mock('./iconMaker', () => ({
-    setTrayImageWithMadeIcon: jest.fn().mockResolvedValue(undefined),
-}));
 
 jest.mock('../feedback', () => ({
     feedback: {
@@ -97,8 +71,37 @@ const api = {
     setUnconfirmedSession: jest.fn(),
     notify: jest.fn(),
     focusOnWindow: jest.fn(),
+    /** What the real `Monitor` samples its record from. */
+    activeWin: jest.fn(),
     platform: 'win32',
 };
+
+/** One sample of the real activity monitor. */
+const activeWindow = {
+    title: 'Editor',
+    id: 1,
+    bounds: { x: 0, y: 0, width: 100, height: 100 },
+    memoryUsage: 0,
+    owner: { name: 'editor.exe', path: '/editor.exe', processId: 1 },
+};
+
+/**
+ * The tray icon is drawn on a canvas that jsdom does not implement, and jsdom
+ * never loads an image. Both gaps are filled below: the drawing calls are
+ * recorded and `toDataURL` returns them, so a test can read what the main
+ * process was handed (idle app icon / countdown text / session fruit) instead
+ * of counting how often the icon builder ran. Everything above the canvas --
+ * the DPI scale factor, the branch that picks the drawing -- is the real one.
+ */
+const trayDrawing = new WeakMap<HTMLCanvasElement, string[]>();
+let originalImageSrc: PropertyDescriptor | undefined;
+let originalNaturalWidth: PropertyDescriptor | undefined;
+let originalNaturalHeight: PropertyDescriptor | undefined;
+
+/** Lets one test make the next `sessionDB.find` fail. */
+let failNextSessionFind = false;
+let dbRequestSpy: jest.SpyInstance;
+let realDbRequest: (name: string, operation: string, args?: unknown[]) => Promise<unknown>;
 
 /** The listener the main process would call when it refuses a quit. */
 let quitBlockedListener: (() => void) | undefined;
@@ -241,20 +244,21 @@ const rerenderTimer = async (view: any, props: any) => {
 /**
  * Runs one mini-mode focus session up to its ending mask, so the strip's
  * confirm buttons have a staged session to save.
+ *
+ * The record is built by the real monitor from real samples: the clock is
+ * advanced by one interval so the sampler sees the window, and the test never
+ * writes a record into a stub.
  */
 const stageFinishedFocusSessionInMini = async () => {
     const view = await renderTimer({ minimize: true });
 
     await act(async () => {
         view.ref.current!.onStart();
+        // Monitor.start() samples immediately and then once per second. This
+        // second sample is what gives the record an app and a duration.
+        jest.advanceTimersByTime(1000);
+        await Promise.resolve();
     });
-    mockMonitorInstances[0].sessionData = {
-        _id: 'session-1',
-        startTime: Date.now(),
-        apps: {},
-        switchActivities: [],
-        stayTimeInSecond: [],
-    };
     await act(async () => {
         await (view.ref.current as any).onFinishButtonClick();
     });
@@ -269,6 +273,33 @@ const stageFinishedFocusSessionInMini = async () => {
 
     return view;
 };
+
+/** The src of every tray icon the main process was handed, in order. */
+const trayIcons = () => api.setTrayImage.mock.calls.map(([icon]: any[]) => String(icon?.src));
+
+/**
+ * Writes one session row through the renderer's real database bridge, the
+ * same path `getTodaySessions` reads it back from.
+ */
+let sessionSeq = 0;
+const insertSession = (overrides: any = {}) =>
+    dbs.sessionDB.insert({
+        _id: `session-${(sessionSeq += 1)}`,
+        startTime: Date.now(),
+        boardId: 'b1',
+        spentTimeInHour: 0.25,
+        switchTimes: 0,
+        apps: {},
+        switchActivities: [],
+        stayTimeInSecond: [],
+        ...overrides,
+    } as any);
+
+/** How many day-list reads have reached the database bridge so far. */
+const sessionFinds = () =>
+    dbRequestSpy.mock.calls.filter(
+        ([name, operation]) => name === 'sessionDB' && operation === 'find'
+    ).length;
 
 /** Lets the confirmation debounce run and flushes its awaits. */
 const confirmFromMiniStrip = async (button: HTMLElement) => {
@@ -288,18 +319,66 @@ const confirmFromMiniStrip = async (button: HTMLElement) => {
  */
 const justExpired = () => Date.now() - 1;
 
+/** jsdom implements neither canvas nor image loading; the tray icon needs both. */
+beforeAll(() => {
+    originalImageSrc = Object.getOwnPropertyDescriptor(window.HTMLImageElement.prototype, 'src');
+    originalNaturalWidth = Object.getOwnPropertyDescriptor(
+        window.HTMLImageElement.prototype,
+        'naturalWidth'
+    );
+    originalNaturalHeight = Object.getOwnPropertyDescriptor(
+        window.HTMLImageElement.prototype,
+        'naturalHeight'
+    );
+    Object.defineProperty(window.HTMLImageElement.prototype, 'src', {
+        configurable: true,
+        get: () => '',
+        set(this: HTMLImageElement) {
+            // jsdom never fetches an image, so `makeIcon` would wait forever.
+            this.dispatchEvent(new Event('load'));
+        },
+    });
+    Object.defineProperty(window.HTMLImageElement.prototype, 'naturalWidth', {
+        configurable: true,
+        get: () => 16,
+    });
+    Object.defineProperty(window.HTMLImageElement.prototype, 'naturalHeight', {
+        configurable: true,
+        get: () => 16,
+    });
+});
+
+afterAll(() => {
+    if (originalImageSrc) {
+        Object.defineProperty(window.HTMLImageElement.prototype, 'src', originalImageSrc);
+    }
+    if (originalNaturalWidth) {
+        Object.defineProperty(
+            window.HTMLImageElement.prototype,
+            'naturalWidth',
+            originalNaturalWidth
+        );
+    }
+    if (originalNaturalHeight) {
+        Object.defineProperty(
+            window.HTMLImageElement.prototype,
+            'naturalHeight',
+            originalNaturalHeight
+        );
+    }
+});
+
 describe('Timer page', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
         jest.useFakeTimers({ now: new Date('2026-01-01T00:00:00Z') });
-        mockMonitorInstances.length = 0;
         mockProgressThrows = false;
-        (getTodaySessions as jest.Mock).mockResolvedValue([]);
-        (setTrayImageWithMadeIcon as jest.Mock).mockClear();
+        failNextSessionFind = false;
         api.onTrayAction.mockReturnValue(jest.fn());
         api.onWindowQuitBlocked.mockImplementation((listener: () => void) => {
             quitBlockedListener = listener;
             return jest.fn();
         });
+        api.activeWin.mockResolvedValue(activeWindow);
         api.setTrayMenu.mockClear();
         api.setTrayImage.mockClear();
         api.setUnconfirmedSession.mockClear();
@@ -327,6 +406,57 @@ describe('Timer page', () => {
             return audio;
         });
         (window as any).api = { ...(window as any).api, ...api };
+
+        // The canvas itself is the gap (no 2d context in jsdom). The calls the
+        // icon builder makes are recorded, so `setTrayImage` receives an src
+        // that says what was drawn.
+        jest.spyOn(HTMLCanvasElement.prototype as any, 'getContext').mockImplementation(function (
+            this: HTMLCanvasElement
+        ) {
+            const drawing: string[] = [];
+            trayDrawing.set(this, drawing);
+            return {
+                fillStyle: '',
+                font: '',
+                textAlign: '',
+                textBaseline: '',
+                beginPath() {},
+                closePath() {},
+                fill() {},
+                moveTo() {},
+                lineTo() {},
+                arc() {},
+                arcTo() {},
+                fillRect() {},
+                drawImage() {
+                    drawing.push('image');
+                },
+                fillText(text: string) {
+                    drawing.push(`text:${text}`);
+                },
+            };
+        });
+        jest.spyOn(HTMLCanvasElement.prototype as any, 'toDataURL').mockImplementation(function (
+            this: HTMLCanvasElement
+        ) {
+            return `data:image/png;base64,${(trayDrawing.get(this) ?? []).join('|')}`;
+        });
+
+        // The day list runs against the in-memory database. Spy on the bridge
+        // so one test can make the next read fail, and so "no query" can be
+        // told apart from "a query that returned the same rows".
+        realDbRequest = (window as any).api.dbRequest;
+        dbRequestSpy = jest.spyOn((window as any).api, 'dbRequest');
+        dbRequestSpy.mockImplementation(
+            async (name: string, operation: string, args: unknown[]) => {
+                if (name === 'sessionDB' && operation === 'find' && failNextSessionFind) {
+                    failNextSessionFind = false;
+                    throw new Error('db is down');
+                }
+                return realDbRequest(name, operation, args);
+            }
+        );
+        await dbs.sessionDB.remove({}, { multi: true } as any);
     });
 
     afterEach(() => {
@@ -334,6 +464,7 @@ describe('Timer page', () => {
         cleanup();
         jest.clearAllTimers();
         jest.useRealTimers();
+        jest.restoreAllMocks();
         jest.clearAllMocks();
     });
 
@@ -368,11 +499,9 @@ describe('Timer page', () => {
         });
 
         expect(container.textContent).toContain('09:00');
-        expect(setTrayImageWithMadeIcon).toHaveBeenCalledWith(
-            expect.any(String),
-            expect.any(Number),
-            true
-        );
+        // The main process gets a drawn icon, and the drawing carries the new
+        // minute -- not just "the builder was called".
+        expect(trayIcons().some((src) => src.includes('text:09'))).toBe(true);
     });
 
     it('shows pause while running and a start button while idle', async () => {
@@ -523,10 +652,14 @@ describe('Timer page', () => {
         const { actions } = await renderTimer();
         const trayHandler = api.onTrayAction.mock.calls[0][0];
 
-        act(() => trayHandler('stop'));
+        await act(async () => {
+            trayHandler('stop');
+            await Promise.resolve();
+        });
 
         expect(actions.stopTimer).toHaveBeenCalled();
-        expect(setTrayImageWithMadeIcon).toHaveBeenCalledWith(undefined);
+        // Back to the app icon: the idle branch draws the bundled image.
+        expect(trayIcons().some((src) => src.includes('image'))).toBe(true);
     });
 
     it('pauses or resumes from the tray and page hotkeys', async () => {
@@ -541,11 +674,14 @@ describe('Timer page', () => {
 
         cleanup();
         const idle = await renderTimer();
-        act(() => idle.ref.current!.onKeyDown('f5'));
+        await act(async () => {
+            idle.ref.current!.onKeyDown('f5');
+            await Promise.resolve();
+        });
 
         expect(idle.actions.startTimer).toHaveBeenCalled();
-        expect(Monitor).toHaveBeenCalled();
-        expect(mockMonitorInstances[0].start).toHaveBeenCalled();
+        // The real monitor samples the active window as soon as it starts.
+        expect(api.activeWin).toHaveBeenCalled();
     });
 
     it('refuses to switch modes while a session exists', async () => {
@@ -569,42 +705,39 @@ describe('Timer page', () => {
             isRunning: true,
             targetTime: Date.now() + 60000,
         });
-        const monitor = {
-            resume: jest.fn(),
-            start: jest.fn(),
-            stop: jest.fn(),
-            discard: jest.fn(),
-            clear: jest.fn(),
-        };
-        (ref.current as any).monitor = monitor;
 
-        act(() => (ref.current as any).extendCurrentSession(10));
+        await act(async () => {
+            (ref.current as any).extendCurrentSession(10);
+            await Promise.resolve();
+        });
 
-        expect(monitor.resume).toHaveBeenCalled();
+        // No monitor exists yet in this harness (the session was seeded through
+        // props), so the extension starts one rather than dropping the session.
+        expect(api.activeWin).toHaveBeenCalled();
         expect(actions.extendCurrentSession).toHaveBeenCalledWith(600);
         expect(actions.setSessionEnding).toHaveBeenCalledWith(false);
     });
 
     it('re-reads today sessions when the data reload token changes', async () => {
+        await insertSession();
         const view = await renderTimer();
-        expect(getTodaySessions).toHaveBeenCalledTimes(1);
+        expect(view.getAllByRole('img', { name: /^\d{2}:\d{2}$/ })).toHaveLength(1);
 
         // Import and "delete all" bump the token instead of restarting; the
         // page is permanently mounted, so this is the only signal it gets.
+        await insertSession({ startTime: Date.now() + 1000 });
         const next = {
             ...view.props,
             timer: { ...view.props.timer, sessionReloadToken: 1 },
         };
         await rerenderTimer(view, next);
 
-        expect(getTodaySessions).toHaveBeenCalledTimes(2);
+        expect(view.getAllByRole('img', { name: /^\d{2}:\d{2}$/ })).toHaveLength(2);
     });
 
     it('draws one dot per pomodoro of the day', async () => {
-        (getTodaySessions as jest.Mock).mockResolvedValue([
-            { _id: 's1', startTime: 1, boardId: 'b1' },
-            { _id: 's2', startTime: 2, boardId: 'b1' },
-        ]);
+        await insertSession({ startTime: Date.now() + 1000 });
+        await insertSession({ startTime: Date.now() + 2000 });
 
         const view = await renderTimer();
 
@@ -614,18 +747,15 @@ describe('Timer page', () => {
     });
 
     it('reloads the day list when the first session after midnight starts', async () => {
-        (getTodaySessions as jest.Mock).mockResolvedValue([
-            { _id: 's1', startTime: 1, boardId: 'b1' },
-            { _id: 's2', startTime: 2, boardId: 'b1' },
-        ]);
+        await insertSession({ startTime: Date.now() + 1000 });
+        await insertSession({ startTime: Date.now() + 2000 });
 
         const view = await renderTimer();
         expect(view.getAllByRole('img', { name: /^\d{2}:\d{2}$/ })).toHaveLength(2);
 
-        // Cross midnight, and let the next load return the new day's (empty)
-        // list. Yesterday's dots must not survive the start.
+        // Cross midnight. The new day's range excludes yesterday's rows, so
+        // the reload comes back empty and their dots must not survive it.
         jest.setSystemTime(new Date('2026-01-02T00:00:30Z'));
-        (getTodaySessions as jest.Mock).mockResolvedValue([]);
 
         await act(async () => {
             view.ref.current!.onStart();
@@ -635,67 +765,61 @@ describe('Timer page', () => {
     });
 
     it('keeps the loaded day list when a session starts on the same day', async () => {
-        (getTodaySessions as jest.Mock).mockResolvedValue([
-            { _id: 's1', startTime: 1, boardId: 'b1' },
-        ]);
+        await insertSession();
 
         const view = await renderTimer();
         expect(view.getAllByRole('img', { name: /^\d{2}:\d{2}$/ })).toHaveLength(1);
-
-        // A reload now would wipe the list: the mock would answer with nothing.
-        // The dot has to survive, i.e. no query happens within the same day.
-        (getTodaySessions as jest.Mock).mockResolvedValue([]);
+        const readsBefore = sessionFinds();
 
         await act(async () => {
             view.ref.current!.onStart();
         });
 
+        // The same rows would come back anyway, so the dot count alone cannot
+        // tell a skipped query from a repeated one. The bridge is the only
+        // place that can: no read was issued within the same day.
         expect(view.getAllByRole('img', { name: /^\d{2}:\d{2}$/ })).toHaveLength(1);
+        expect(sessionFinds()).toBe(readsBefore);
     });
 
     it('retries a failed day load when the clock returns to the cached day', async () => {
         // The rejected load is the point of this test; the page logs it.
         const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
         try {
-            const runStart = new Date();
-            (getTodaySessions as jest.Mock).mockResolvedValue([
-                { _id: 's1', startTime: 1, boardId: 'b1' },
-                { _id: 's2', startTime: 2, boardId: 'b1' },
-            ]);
+            const runStart = Date.now();
+            await insertSession({ startTime: runStart + 1000 });
+            await insertSession({ startTime: runStart + 2000 });
 
             const view = await renderTimer();
             expect(view.getAllByRole('img', { name: /^\d{2}:\d{2}$/ })).toHaveLength(2);
 
             // Cross midnight; this reload fails, so the list stays yesterday's.
             jest.setSystemTime(new Date('2026-01-02T00:00:30Z'));
-            (getTodaySessions as jest.Mock).mockRejectedValueOnce(new Error('db is down'));
+            failNextSessionFind = true;
             await act(async () => {
                 view.ref.current!.onStart();
             });
+            expect(view.getAllByRole('img', { name: /^\d{2}:\d{2}$/ })).toHaveLength(2);
 
             // Back to the day the cached list came from. A failed load must
             // not mark that day as loaded, or this start skips the retry and
             // keeps showing yesterday's two dots.
-            jest.setSystemTime(new Date(runStart.getTime() + 3600_000));
-            (getTodaySessions as jest.Mock).mockResolvedValue([
-                { _id: 's3', startTime: 3, boardId: 'b1' },
-            ]);
+            jest.setSystemTime(new Date(runStart + 3600_000));
+            await insertSession({ startTime: runStart + 3600_000 });
             await act(async () => {
                 view.ref.current!.onStart();
             });
 
-            expect(view.getAllByRole('img', { name: /^\d{2}:\d{2}$/ })).toHaveLength(1);
+            expect(view.getAllByRole('img', { name: /^\d{2}:\d{2}$/ })).toHaveLength(3);
         } finally {
             consoleError.mockRestore();
         }
     });
 
     it("shows the mode and today's count under the countdown", async () => {
-        (getTodaySessions as jest.Mock).mockResolvedValue([
-            { _id: 's1', startTime: 1, boardId: 'b1' },
-            { _id: 's2', startTime: 2, boardId: 'b1' },
-            { _id: 's3', startTime: 3, boardId: 'b1' },
-        ]);
+        await insertSession({ startTime: Date.now() + 1000 });
+        await insertSession({ startTime: Date.now() + 2000 });
+        await insertSession({ startTime: Date.now() + 3000 });
 
         const view = await renderTimer();
 
@@ -704,10 +828,8 @@ describe('Timer page', () => {
     });
 
     it('shows today sessions and opens the more panel', async () => {
-        (getTodaySessions as jest.Mock).mockResolvedValue([
-            { _id: 's1', startTime: 1, boardId: 'b1' },
-            { _id: 's2', startTime: 2, boardId: 'b1' },
-        ]);
+        await insertSession({ startTime: Date.now() + 1000 });
+        await insertSession({ startTime: Date.now() + 2000 });
         const { container, getByText, queryByTestId } = await renderTimer();
 
         expect(queryByTestId('treemap')).toBeNull();
@@ -721,9 +843,7 @@ describe('Timer page', () => {
     });
 
     it('closes the open stats panel when switching to compact mode', async () => {
-        (getTodaySessions as jest.Mock).mockResolvedValue([
-            { _id: 's1', startTime: 1, boardId: 'b1' },
-        ]);
+        await insertSession();
         const view = await renderTimer();
 
         fireEvent.click(view.container.querySelector('#more-timer-button')!);
@@ -749,9 +869,7 @@ describe('Timer page', () => {
     });
 
     it('closes the open stats panel when the window becomes the mini strip', async () => {
-        (getTodaySessions as jest.Mock).mockResolvedValue([
-            { _id: 's1', startTime: 1, boardId: 'b1' },
-        ]);
+        await insertSession();
         const view = await renderTimer();
 
         fireEvent.click(view.container.querySelector('#more-timer-button')!);
@@ -775,9 +893,7 @@ describe('Timer page', () => {
     });
 
     it('closes the open stats panel when the window goes to the tray', async () => {
-        (getTodaySessions as jest.Mock).mockResolvedValue([
-            { _id: 's1', startTime: 1, boardId: 'b1' },
-        ]);
+        await insertSession();
         const view = await renderTimer();
 
         fireEvent.click(view.container.querySelector('#more-timer-button')!);
@@ -806,9 +922,7 @@ describe('Timer page', () => {
         // process, so the panel is gone from the frame that Windows shows again
         // on restore. The tray event arrives too late for that frame and the
         // charts flashed back for a moment.
-        (getTodaySessions as jest.Mock).mockResolvedValue([
-            { _id: 's1', startTime: 1, boardId: 'b1' },
-        ]);
+        await insertSession();
         const view = await renderTimer();
 
         fireEvent.click(view.container.querySelector('#more-timer-button')!);
@@ -821,9 +935,7 @@ describe('Timer page', () => {
     });
 
     it('expands the window and opens the stats panel when clicked in compact mode', async () => {
-        (getTodaySessions as jest.Mock).mockResolvedValue([
-            { _id: 's1', startTime: 1, boardId: 'b1' },
-        ]);
+        await insertSession();
         const { container, queryByTestId, actions } = await renderTimer({ compact: true });
 
         fireEvent.click(container.querySelector('#more-timer-button')!);
@@ -854,12 +966,21 @@ describe('Timer page', () => {
         await confirmFromMiniStrip(getByRole('button', { name: 'Finish' }));
 
         const [record, cardId] = actions.timerFinished.mock.calls[0] ?? [];
-        // The failure has to name the culprit: an event object would print as
+        // The record comes from the real sampler: an id it generated, the
+        // window it observed, and the nominal length the page writes. The
+        // failure has to name the culprit: an event object would print as
         // `object` here, where `no card` is the expected value.
         expect({
-            record: record?._id,
+            saved: typeof record?._id === 'string' && record._id.length > 0,
+            app: Object.keys(record?.apps ?? {}).join(','),
+            spent: record?.spentTimeInHour,
             cardId: cardId === undefined ? 'no card' : typeof cardId,
-        }).toEqual({ record: 'session-1', cardId: 'no card' });
+        }).toEqual({
+            saved: true,
+            app: 'editor',
+            spent: baseTimer.focusDuration / 3600,
+            cardId: 'no card',
+        });
     });
 
     it('credits no card id when the mini strip starts the next session', async () => {
@@ -869,9 +990,9 @@ describe('Timer page', () => {
 
         const [record, cardId] = actions.timerFinished.mock.calls[0] ?? [];
         expect({
-            record: record?._id,
+            saved: typeof record?._id === 'string' && record._id.length > 0,
             cardId: cardId === undefined ? 'no card' : typeof cardId,
-        }).toEqual({ record: 'session-1', cardId: 'no card' });
+        }).toEqual({ saved: true, cardId: 'no card' });
     });
 
     it('resumes a paused session instead of starting a new one', async () => {
@@ -880,20 +1001,28 @@ describe('Timer page', () => {
             targetTime: Date.now() + 5000,
         });
 
-        act(() => ref.current!.onPauseResumeOrStart());
+        await act(async () => {
+            ref.current!.onPauseResumeOrStart();
+            await Promise.resolve();
+        });
 
         expect(actions.continueTimer).toHaveBeenCalled();
         expect(actions.startTimer).not.toHaveBeenCalled();
-        expect(mockMonitorInstances[0].start).toHaveBeenCalled();
+        // The paused session had no monitor yet, so resuming starts the real
+        // sampler.
+        expect(api.activeWin).toHaveBeenCalled();
     });
 
     it('switches modes only when no session is alive', async () => {
         const { ref, actions } = await renderTimer();
 
-        act(() => ref.current!.switchMode());
+        await act(async () => {
+            ref.current!.switchMode();
+            await Promise.resolve();
+        });
 
         expect(actions.switchFocusRestMode).toHaveBeenCalled();
-        expect(setTrayImageWithMadeIcon).toHaveBeenCalledWith(undefined);
+        expect(trayIcons().some((src) => src.includes('image'))).toBe(true);
     });
 
     it('finishes a break without asking for a confirmation', async () => {
@@ -901,19 +1030,16 @@ describe('Timer page', () => {
 
         await act(async () => {
             await (ref.current as any).onFinishButtonClick();
+            await Promise.resolve();
         });
 
         expect(actions.setSessionEnding).toHaveBeenCalledWith(true);
         expect(actions.pauseTimer).toHaveBeenCalled();
         expect(actions.changeAppTab).toHaveBeenCalledWith('timer');
         expect(api.notify).not.toHaveBeenCalled();
-        expect(setTrayImageWithMadeIcon).toHaveBeenCalledWith(
-            undefined,
-            undefined,
-            false,
-            false,
-            true
-        );
+        // The confirming disc for a break carries the grapes, so the main
+        // process can tell "waiting for confirmation" from a running icon.
+        expect(trayIcons().some((src) => src.includes('🍇'))).toBe(true);
     });
 
     // Regression: finishing a session used to switch to the Timer page
@@ -1080,14 +1206,10 @@ describe('Timer page', () => {
 
         await act(async () => {
             ref.current!.onStart();
+            // The sampler takes its first sample on start; let that land so
+            // the record is built from the observed window.
+            await Promise.resolve();
         });
-        mockMonitorInstances[0].sessionData = {
-            _id: 'session-1',
-            startTime: Date.now(),
-            apps: {},
-            switchActivities: [],
-            stayTimeInSecond: [],
-        };
         actions.startTimer.mockClear();
 
         await act(async () => {
@@ -1099,7 +1221,10 @@ describe('Timer page', () => {
         // The record still reaches the save path before the break starts, and
         // without a card pick it falls back to the project's first card.
         expect(actions.timerFinished).toHaveBeenCalledWith(
-            expect.objectContaining({ _id: 'session-1' }),
+            expect.objectContaining({
+                spentTimeInHour: baseTimer.focusDuration / 3600,
+                apps: expect.objectContaining({ editor: expect.anything() }),
+            }),
             'c1'
         );
         expect(actions.startTimer).toHaveBeenCalled();

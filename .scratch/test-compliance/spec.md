@@ -10,19 +10,13 @@ Status: open（持续追加，不排期）
 
 | 测试文件 | 条目 | 记录于 |
 | --- | --- | --- |
-| `Timer/Timer.test.tsx` | monitor / sessionManager 仍被 mock，断言 mock 实例与调用次数 | 2026-11-28 |
+| （无） | 当前没有待修复项 | — |
 
-票在 `issues/`：01–04 已 resolved，05（Timer 计时与落库）与 06（归档）仍未开始。
-
-## 待修复
-
-### `src/renderer/components/Timer/Timer.test.tsx`
-
-- **现象**：`jest.mock('../../monitor')` 与 `jest.mock('../../monitor/sessionManager')`；用例通过 `mockMonitorInstances[0].sessionData` 直接往替身里塞会话，断言 `monitor.start` / `getTodaySessions` 的调用次数。子组件、遮罩、迷你条已真实化（票 03、04）。
-- **依据**：`docs/testing.md`「mock 只停在边界」——应用内部一切跑真实现；「行是行为，次数是实现」。
-- **修法**：计时引擎与会话管理跑真实实现；时间推进靠已过期的会话夹具与倍速函数；活动窗口与截图走 `window.api` 的桩（IPC 是边界）；落库的那一行作为断言对象。托盘断言看主进程收到的 payload。
+票在 `issues/`：01–05 已 resolved，只剩 06（归档）。
 
 ## 已修复
+
+- `src/renderer/components/Timer/Timer.test.tsx`（2026-11-28，票 05）：`monitor`、`sessionManager`、`iconMaker` 三个替身与 `mockMonitorInstances` 删除。真实 `Monitor` 从 `window.api.activeWin` 采样，今日列表读内存库；托盘断言读 `window.api.setTrayImage` 收到的 payload（canvas 与图片加载在测试里补齐，绘制命令编码进 src）。
 
 - `src/renderer/components/Setting/Setting.test.tsx`（2026-11-28，票 01–02）：`dbs` 与 `sessionManager` 两个替身删除，`beforeEach` 改为在 `test/dbBridge` 装好的 `window.api` 上覆盖；删除用例改成插数据、删、直接查库。三个对话框真实渲染，按 `dialog` 角色与真实文案断言。`feedback` 的 mock 也不再手抄 `FEEDBACK_MESSAGES`。
 - `Kanban/List/List.test.tsx`（2026-11-26）：窗口用例不再数 `[data-card-id]`，改成比较隐藏前后可见卡片数量；预览用例不再读 `.kanban-card-preview` / `.kanban-card`，改为三张卡片的标题都能读到。`List scroll state` 整条删除——`pl-list-scrolling` 是纯视觉类名，jsdom 观察不到滚动条外观，滚动跟随窗口的行为已有窗口用例覆盖。`data-pl-scroller` 保留为 dnd mock 注入的事件手柄，不参与断言。

@@ -1,5 +1,8 @@
 import React from 'react';
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react';
+import { Provider } from 'react-redux';
+import { applyMiddleware, createStore } from 'redux';
+import { thunk } from 'redux-thunk';
 import Timer from './Timer';
 import { getTodaySessions } from '../../monitor/sessionManager';
 import { setTrayImageWithMadeIcon } from './iconMaker';
@@ -56,17 +59,18 @@ jest.mock('../Kanban/Board', () => ({
     __esModule: true,
     default: () => <div data-testid="board" />,
 }));
-jest.mock('../UserGuide/HelpIcon', () => ({
-    HelpIcon: () => <div data-testid="help-icon" />,
-}));
 jest.mock('../Visualization/PomodoroTimeTreemap', () => ({
     PomodoroTimeTreemap: () => <div data-testid="treemap" />,
 }));
 jest.mock('../Visualization/WordCloud', () => ({
     AsyncWordCloud: () => <div data-testid="word-cloud" />,
 }));
-jest.mock('./FocusSelector', () => ({ FocusSelector: () => <div data-testid="focus-selector" /> }));
-/** Set by the boundary test: makes one of the page's children throw. */
+/**
+ * `antd/es/progress/Circle` is ESM; Jest's CommonJS runtime cannot load it, so
+ * the ring cannot render here -- an environment boundary like canvas, not a
+ * stand-in for behaviour. The switch is what the inner-boundary test uses to
+ * make one child throw.
+ */
 let mockProgressThrows = false;
 jest.mock('./Progress', () => ({
     __esModule: true,
@@ -82,27 +86,6 @@ jest.mock('./SessionEndingMask', () => ({
         <div data-testid="timer-mask" data-show={String(showMask)} data-count={pomodoros.length}>
             <button data-testid="mask-cancel" onClick={onCancel} />
             <button data-testid="mask-start" onClick={onStart} />
-        </div>
-    ),
-}));
-jest.mock('../../../components/common/Mini/MiniLogger', () => ({
-    MiniLogger: ({
-        task,
-        time,
-        isConfirming,
-        expand,
-        confirm,
-        confirmAndStartNextSession,
-    }: any) => (
-        <div
-            data-testid="mini-logger"
-            data-task={task}
-            data-time={time}
-            data-confirm={String(isConfirming)}
-        >
-            <button data-testid="mini-expand" onClick={expand} />
-            <button data-testid="mini-confirm" onClick={confirm} />
-            <button data-testid="mini-start-next" onClick={confirmAndStartNextSession} />
         </div>
     ),
 }));
@@ -205,6 +188,22 @@ const actionNames = [
 const makeActions = () =>
     Object.fromEntries(actionNames.map((name) => [name, jest.fn()])) as Record<string, jest.Mock>;
 
+/**
+ * The controls inside the page (the project selector, the help button) read
+ * from the store, so the page needs a provider even though `Timer` itself
+ * takes everything through props. The identity reducer keeps the seeded state
+ * as-is: these tests are about what the page renders, not what it stores.
+ */
+const makeStore = (kanbanOverrides: any = {}) =>
+    createStore(
+        (value: any) => value,
+        {
+            timer: { boardId: undefined },
+            kanban: { boards, lists: {}, cards: {}, ...kanbanOverrides },
+        } as any,
+        applyMiddleware(thunk) as any
+    );
+
 const renderTimer = async (
     timerOverrides: any = {},
     kanbanOverrides: any = {},
@@ -218,16 +217,25 @@ const renderTimer = async (
         ...propOverrides,
     };
     const ref = React.createRef<Timer>();
+    const store = makeStore(kanbanOverrides);
     let view: any;
     await act(async () => {
-        view = render(<Timer {...props} ref={ref} />);
+        view = render(
+            <Provider store={store}>
+                <Timer {...props} ref={ref} />
+            </Provider>
+        );
     });
-    return { ...view, ref, actions, props };
+    return { ...view, ref, actions, props, store };
 };
 
 const rerenderTimer = async (view: any, props: any) => {
     await act(async () => {
-        view.rerender(<Timer {...props} ref={view.ref} />);
+        view.rerender(
+            <Provider store={view.store}>
+                <Timer {...props} ref={view.ref} />
+            </Provider>
+        );
     });
 };
 
@@ -250,6 +258,14 @@ const stageFinishedFocusSessionInMini = async () => {
     };
     await act(async () => {
         await (view.ref.current as any).onFinishButtonClick();
+    });
+    // The page is driven by props: in the app the store raises the ending flag,
+    // so this harness does the same instead of waiting for a real store round
+    // trip. Without it the strip keeps its transport controls, and the confirm
+    // buttons do not exist.
+    await rerenderTimer(view, {
+        ...view.props,
+        timer: { ...view.props.timer, sessionEnding: true },
     });
 
     return view;
@@ -417,13 +433,13 @@ describe('Timer page', () => {
     it('renders the compact layout without the help and side bar controls', async () => {
         const compact = await renderTimer({ compact: true });
 
-        expect(compact.queryByTestId('help-icon')).toBeNull();
+        expect(compact.queryByRole('button', { name: 'Help' })).toBeNull();
         expect(compact.container.querySelector('aside')).toBeNull();
-        expect(compact.queryByTestId('focus-selector')).toBeTruthy();
+        expect(compact.queryByRole('combobox')).toBeTruthy();
 
         cleanup();
         const normal = await renderTimer();
-        expect(normal.getByTestId('help-icon')).toBeTruthy();
+        expect(normal.getByRole('button', { name: 'Help' })).toBeTruthy();
         expect(normal.container.querySelector('aside')).not.toBeNull();
     });
 
@@ -456,10 +472,10 @@ describe('Timer page', () => {
     it('switches between the normal and mini window', async () => {
         const mini = await renderTimer({ minimize: true });
 
-        expect(mini.getByTestId('mini-logger').getAttribute('data-task')).toBe('Board One');
-        expect(mini.getByTestId('mini-logger').getAttribute('data-time')).toBe('25');
+        expect(mini.getByText('Board One')).toBeTruthy();
+        expect(mini.getByText('25')).toBeTruthy();
 
-        fireEvent.click(mini.getByTestId('mini-expand'));
+        fireEvent.click(mini.getByRole('button', { name: 'Expand (F12)' }));
         expect(mini.actions.setMinimize).toHaveBeenCalledWith(false);
 
         cleanup();
@@ -819,20 +835,23 @@ describe('Timer page', () => {
     it('marks the mini window as confirming while the ending mask is up', async () => {
         const view = await renderTimer({ minimize: true });
 
-        expect(view.getByTestId('mini-logger').getAttribute('data-confirm')).toBe('false');
+        expect(view.queryByRole('button', { name: 'Start Next Session' })).toBeNull();
 
         cleanup();
         const confirming = await renderTimer({ minimize: true, sessionEnding: true });
-        expect(confirming.getByTestId('mini-logger').getAttribute('data-confirm')).toBe('true');
+        // Confirming replaces the transport controls with the two answers to
+        // "is this session done?".
+        expect(confirming.getByRole('button', { name: 'Start Next Session' })).toBeTruthy();
+        expect(confirming.getByRole('button', { name: 'Finish' })).toBeTruthy();
     });
 
     // Regression: the strip's confirm buttons bound `onClick` straight to
     // `onMaskClick`, so React's click event arrived as the picked card id. The
     // session then failed IPC validation and was never saved (b2f8c0d).
     it('saves the finished pomodoro when the mini strip confirms it', async () => {
-        const { getByTestId, actions } = await stageFinishedFocusSessionInMini();
+        const { getByRole, actions } = await stageFinishedFocusSessionInMini();
 
-        await confirmFromMiniStrip(getByTestId('mini-confirm'));
+        await confirmFromMiniStrip(getByRole('button', { name: 'Finish' }));
 
         const [record, cardId] = actions.timerFinished.mock.calls[0] ?? [];
         // The failure has to name the culprit: an event object would print as
@@ -844,9 +863,9 @@ describe('Timer page', () => {
     });
 
     it('credits no card id when the mini strip starts the next session', async () => {
-        const { getByTestId, actions } = await stageFinishedFocusSessionInMini();
+        const { getByRole, actions } = await stageFinishedFocusSessionInMini();
 
-        await confirmFromMiniStrip(getByTestId('mini-start-next'));
+        await confirmFromMiniStrip(getByRole('button', { name: 'Start Next Session' }));
 
         const [record, cardId] = actions.timerFinished.mock.calls[0] ?? [];
         expect({

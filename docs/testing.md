@@ -66,6 +66,8 @@
   `src/renderer/dbs.test.ts:13` 替换 `window.api` 之后没有恢复；这个文件别的事都不做，所以可以接受，但同样的动作放进一个随后要读数据库的 suite，结果就会依赖文件执行顺序。
 - 任何测试都不能假设别的测试跑过、或者先跑。
   `posttest` 只删 `.local/test`，文件之间没有重置表。
+- 依赖「今天」的夹具不要用 `Date.now()` 本身。
+  `getTodaySessions` 的区间是 `todayStart < startTime < tomorrowStart`，而测试的假时钟常从 UTC 午夜开始：UTC+8 的机器上这一毫秒在当天范围内，UTC 的 CI 上它正好落在开区间下界、被排除，同一份测试取决于跑在哪台机器。给夹具加一个偏移（如 `+60_000`）。
 
 ## 失败信息必须指出元凶
 

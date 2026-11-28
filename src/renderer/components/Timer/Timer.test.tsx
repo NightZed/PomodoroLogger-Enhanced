@@ -280,12 +280,19 @@ const trayIcons = () => api.setTrayImage.mock.calls.map(([icon]: any[]) => Strin
 /**
  * Writes one session row through the renderer's real database bridge, the
  * same path `getTodaySessions` reads it back from.
+ *
+ * The default start time sits a minute after the current instant on purpose.
+ * "Today" is a half-open range (`todayStart < startTime < tomorrowStart`), and
+ * the fake clock starts at UTC midnight: a row written at exactly `Date.now()`
+ * falls on the lower bound and is excluded in UTC, while a machine at UTC+8
+ * sees it an hour inside the range. The suite must not pass or fail on the
+ * timezone of the machine running it.
  */
 let sessionSeq = 0;
 const insertSession = (overrides: any = {}) =>
     dbs.sessionDB.insert({
         _id: `session-${(sessionSeq += 1)}`,
-        startTime: Date.now(),
+        startTime: Date.now() + 60_000,
         boardId: 'b1',
         spentTimeInHour: 0.25,
         switchTimes: 0,

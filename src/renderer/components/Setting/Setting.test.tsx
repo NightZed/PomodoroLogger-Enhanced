@@ -17,6 +17,7 @@
  */
 import * as React from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { t } from '../../i18n';
 
 const mockAlert = jest.fn();
 const mockToast = jest.fn();
@@ -151,6 +152,19 @@ const props = (): any => ({
 
 /** The button whose accessible name contains `label`. */
 const button = (label: string) => screen.getByRole('button', { name: new RegExp(label) });
+
+/**
+ * Accessible names of one sound row's controls.
+ *
+ * `SoundOption` builds them as `${row label} ${action}` (see `Setting.tsx`).
+ * Composing the name from the catalog keeps a copy change from failing tests
+ * about which row a click affects; the words themselves are covered by
+ * `catalog.test.ts`, not by each behaviour test.
+ */
+const soundLabel = (row: 'workSound' | 'shortBreakSound' | 'longBreakSound') =>
+    t(`settings.notification.${row}`);
+const soundAction = (action: 'testSound' | 'chooseSound' | 'restoreSound') =>
+    t(`settings.notification.${action}`);
 
 const mount = async () => {
     render(<Setting {...props()} />);
@@ -1091,18 +1105,26 @@ describe('notification sounds', () => {
         openNotifications();
 
         expect(
-            screen.getByRole('button', { name: 'Focus Completion Alert Choose File' })
+            screen.getByRole('button', {
+                name: `${soundLabel('workSound')} ${soundAction('chooseSound')}`,
+            })
         ).toBeTruthy();
         expect(
-            screen.getByRole('button', { name: 'Short Break Completion Alert Choose File' })
+            screen.getByRole('button', {
+                name: `${soundLabel('shortBreakSound')} ${soundAction('chooseSound')}`,
+            })
         ).toBeTruthy();
         expect(
-            screen.getByRole('button', { name: 'Long Break Completion Alert Choose File' })
+            screen.getByRole('button', {
+                name: `${soundLabel('longBreakSound')} ${soundAction('chooseSound')}`,
+            })
         ).toBeTruthy();
-        expect(screen.getByRole('switch', { name: 'Focus Completion Alert' })).toBeTruthy();
-        expect(screen.getByRole('switch', { name: 'Desktop Notification' })).toBeTruthy();
+        expect(screen.getByRole('switch', { name: soundLabel('workSound') })).toBeTruthy();
+        expect(
+            screen.getByRole('switch', { name: t('settings.notification.desktopNotification') })
+        ).toBeTruthy();
         // No file chosen yet: each row says it uses the bundled chime.
-        expect(screen.getAllByText('Default')).toHaveLength(3);
+        expect(screen.getAllByText(t('settings.notification.defaultSound'))).toHaveLength(3);
     });
 
     it('stores the file chosen for one row only', async () => {
@@ -1111,7 +1133,11 @@ describe('notification sounds', () => {
         render(<Setting {...p} />);
         openNotifications();
 
-        fireEvent.click(screen.getByRole('button', { name: 'Focus Completion Alert Choose File' }));
+        fireEvent.click(
+            screen.getByRole('button', {
+                name: `${soundLabel('workSound')} ${soundAction('chooseSound')}`,
+            })
+        );
 
         await waitFor(() =>
             expect(p.setWorkSoundPath).toHaveBeenCalledWith('C:\\sounds\\rain.mp3')
@@ -1126,7 +1152,11 @@ describe('notification sounds', () => {
         render(<Setting {...p} />);
         openNotifications();
 
-        fireEvent.click(screen.getByRole('button', { name: 'Focus Completion Alert Choose File' }));
+        fireEvent.click(
+            screen.getByRole('button', {
+                name: `${soundLabel('workSound')} ${soundAction('chooseSound')}`,
+            })
+        );
         await act(async () => {
             await Promise.resolve();
         });
@@ -1139,7 +1169,11 @@ describe('notification sounds', () => {
         render(<Setting {...p} />);
         openNotifications();
 
-        fireEvent.click(screen.getByRole('button', { name: 'Focus Completion Alert Reset' }));
+        fireEvent.click(
+            screen.getByRole('button', {
+                name: `${soundLabel('workSound')} ${soundAction('restoreSound')}`,
+            })
+        );
 
         expect(p.setWorkSoundPath).toHaveBeenCalledWith(undefined);
         expect(p.setShortBreakSoundPath).not.toHaveBeenCalled();
@@ -1150,7 +1184,7 @@ describe('notification sounds', () => {
         render(<Setting {...p} />);
         openNotifications();
 
-        fireEvent.click(screen.getByRole('switch', { name: 'Focus Completion Alert' }));
+        fireEvent.click(screen.getByRole('switch', { name: soundLabel('workSound') }));
 
         expect(p.setWorkSoundEnabled).toHaveBeenCalledWith(false);
         expect(p.setWorkSoundPath).not.toHaveBeenCalled();
@@ -1180,7 +1214,9 @@ describe('notification sounds', () => {
         render(<Setting {...p} />);
         openNotifications();
 
-        fireEvent.click(screen.getByRole('switch', { name: 'Desktop Notification' }));
+        fireEvent.click(
+            screen.getByRole('switch', { name: t('settings.notification.desktopNotification') })
+        );
 
         expect(p.setDesktopNotification).toHaveBeenCalledWith(false);
     });

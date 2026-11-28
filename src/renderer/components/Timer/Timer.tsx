@@ -1130,9 +1130,14 @@ class Timer extends Component<Props, State> {
             // race it over the async `makeIcon` IPC.
             this.resetStat('keep');
             if (shouldRemind) {
-                // Same rule as below for a tray window.
-                if (!this.props.timer.inTray || this.props.timer.openWindowOnSessionEnd) {
-                    this.focusOnCurrentWindow(this.props.timer.openWindowOnSessionEnd);
+                // Unlike the ending mask below, there is nothing to confirm
+                // here: pulling the window forward every 5 or 25 minutes would
+                // steal focus from whatever the user moved on to (a minimized
+                // window restores, a background one jumps to the front, and the
+                // taskbar button flashes each time). Only the explicit "open
+                // the window when a session ends" setting may do it.
+                if (this.props.timer.openWindowOnSessionEnd) {
+                    this.focusOnCurrentWindow(true);
                 }
                 // One chime: the second one is scheduled a minute later, when
                 // the next session is already running -- the ending mask is not

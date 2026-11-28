@@ -1108,6 +1108,47 @@ describe('Timer page', () => {
         expect(api.focusOnWindow).not.toHaveBeenCalled();
     });
 
+    it('leaves a normal window where it is when the next session starts itself', async () => {
+        jest.useRealTimers();
+        const { ref, actions } = await renderTimer({
+            isFocusing: false,
+            isRunning: true,
+            targetTime: Date.now() + 60_000,
+            autoStartWork: true,
+        });
+
+        await act(async () => {
+            await (ref.current as any).onDone();
+        });
+        await waitFor(() => expect(actions.startTimer).toHaveBeenCalled());
+
+        // Nothing waits for a click, so pulling the window forward would only
+        // steal focus from the app the user moved on to -- and flash the
+        // taskbar button -- once per session.
+        expect(api.focusOnWindow).not.toHaveBeenCalled();
+    });
+
+    it('opens the window after an automatic start when the setting is on', async () => {
+        jest.useRealTimers();
+        const { ref, actions } = await renderTimer({
+            isFocusing: false,
+            isRunning: true,
+            targetTime: Date.now() + 60_000,
+            inTray: true,
+            openWindowOnSessionEnd: true,
+            autoStartWork: true,
+        });
+
+        await act(async () => {
+            await (ref.current as any).onDone();
+        });
+        await waitFor(() => expect(actions.startTimer).toHaveBeenCalled());
+
+        // The opt-in setting still wins: `true` is what tells the main process
+        // the tray reveal is intended.
+        expect(api.focusOnWindow).toHaveBeenCalledWith(true);
+    });
+
     it('skips the no-project warning for the automatic start', async () => {
         jest.useRealTimers();
         const { ref, actions } = await renderTimer({

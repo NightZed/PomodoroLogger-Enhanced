@@ -66,7 +66,7 @@ Timer 页的 `pomodorosToday` 是缓存：挂载与数据重载（导入 / 全�
 - `acknowledged = true` 跳过「没有项目 / 没有进行中卡片」的确认框。迷你条和托盘里没有人能点它，弹出来就等于卡死。
 - 确认走 `onSessionConfirmed.flush()`，不等 50ms debounce：托盘里的页面隐藏超过五分钟后，DOM timer 被 Chromium 节流到每分钟一次，休息会被推迟最多一分钟。
 - 提示音只响第一声。第二声（60 秒后）用 `sessionEnding` 当开关，此时下一场已经在跑，那次回调本来就不该再响。
-- 四种窗口模式共用这一条路径（`onDone` 与档位无关），mini / compact / tray 不需要各写一份。托盘「会话结束不拉窗口」的规则照旧生效。
+- 四种窗口模式共用这一条路径（`onDone` 与档位无关），mini / compact / tray 不需要各写一份。自动衔接**不主动动窗口**：普通 / 紧凑窗口不抢焦点（否则每场结束任务栏按钮都会闪一次），托盘也不拉回；只有 `openWindowOnSessionEnd` 打开时才按原档位恢复。
 
 ## 提示音与桌面通知
 

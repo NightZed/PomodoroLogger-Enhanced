@@ -96,7 +96,7 @@ planPageUnload(page, mode, { currentTab, unloadOnCloseToTray }): {
 
 托盘只有两个通道：变成确认用水果的托盘图标，和受 `desktopNotification` 控制的原生通知。遮罩不出现、窗口也不回来，用户可以在托盘菜单点 Start，先确认这次会话再开始下一次。
 
-自动衔接（`autoStartWork` / `autoStartBreak`）没有确认态：`sessionEnding` 不置位，遮罩、迷你确认按钮和确认用托盘图标都不出现，托盘图标由下一场会话直接接管。确认与启动的细节见 `session.md`。
+自动衔接（`autoStartWork` / `autoStartBreak`）没有确认态：`sessionEnding` 不置位，遮罩、迷你确认按钮和确认用托盘图标都不出现，托盘图标由下一场会话直接接管。普通 / 紧凑窗口也不会被拉到前台（不发出 `focusOnWindow`），只有 `openWindowOnSessionEnd` 打开时才按原档位恢复。确认与启动的细节见 `session.md`。
 
 主进程的 `FocusOnWindow` 默认拒绝托盘里的 reveal，调用方必须带 `revealFromTray: true`（就是那个设置）才执行。渲染层的 `inTray` 副本可能落后一次推送，而「不该把窗口拉回来」这个方向不能赌它已经同步。
 

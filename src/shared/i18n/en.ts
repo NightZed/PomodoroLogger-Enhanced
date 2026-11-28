@@ -802,7 +802,7 @@ export const en = {
             desktopNotificationHint: 'Shows a system notification every time a session finishes.',
             returnToTimerOnSessionEnd: 'Return to the Timer When a Session Ends',
             returnToTimerOnSessionEndHint:
-                'When off, the ending prompt within the app will appears over the old page without switching pages.',
+                'When off, the ending prompt within the app will appear over the old page without switching pages.',
             openWindowOnSessionEnd: 'Open the Window When a Session Ends',
             openWindowOnSessionEndHint:
                 'Brings the window back and shows the confirmation when a focus or break ' +

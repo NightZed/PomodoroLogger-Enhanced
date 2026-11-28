@@ -222,6 +222,15 @@ pnpm run dist-win # 或 dist-mac / dist-linux / dist-all（每个都是独立脚
 
 工程类 skill（`/to-tickets`、`/to-spec`、`/grill-with-docs` 等）从 `docs/agents/` 读这几份配置，不要另立约定。
 
+skill 内容不入库（`.codebuddy/` 已忽略），来源、路径与哈希记在 `skills-lock.json`。换机器或被清空后按锁重建：
+
+```powershell
+npx skills@latest experimental_install                              # 按锁恢复全部
+npx skills@latest add mattpocock/skills -s <name> -a codebuddy -y   # 补装单个
+```
+
+重装或上游更新只会改动锁里的 `computedHash`，那是唯一需要提交的部分。
+
 ### Issue tracker
 
 issue 和 spec 是 `.scratch/<feature-slug>/` 下的 markdown 文件，不是 GitHub Issues。见 `docs/agents/issue-tracker.md`。

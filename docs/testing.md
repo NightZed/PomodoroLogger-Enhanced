@@ -97,3 +97,5 @@ expect({ dependency, installed: packageIsInstalled(dependency) })
 
 仓库里 `toMatchSnapshot` 的调用数是 0，保持这样。
 大组件快照是浓度最高的实现断言，配上最差的失败信息：每次样式微调都挂，而且什么也说不清。
+
+既有测试按本文整改过的记录不在本文，见 `docs/testing-cleanup.md`。

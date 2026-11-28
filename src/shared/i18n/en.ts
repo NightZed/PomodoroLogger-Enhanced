@@ -787,9 +787,9 @@ export const en = {
             focusStartWarningHint:
                 'Asks for a confirmation before starting a focus session without a project.',
             audio: 'Sound',
-            workSound: 'Focus',
-            shortBreakSound: 'Short break',
-            longBreakSound: 'Long break',
+            workSound: 'Focus Completion Alert',
+            shortBreakSound: 'Short Break Completion Alert',
+            longBreakSound: 'Long Break Completion Alert',
             testSound: 'Test',
             chooseSound: 'Choose File',
             restoreSound: 'Reset',
@@ -802,7 +802,7 @@ export const en = {
             desktopNotificationHint: 'Shows a system notification every time a session finishes.',
             returnToTimerOnSessionEnd: 'Return to the Timer When a Session Ends',
             returnToTimerOnSessionEndHint:
-                'When off, the ending prompt appears over the current page without switching pages.',
+                'When off, the ending prompt within the app will appears over the old page without switching pages.',
             openWindowOnSessionEnd: 'Open the Window When a Session Ends',
             openWindowOnSessionEndHint:
                 'Brings the window back and shows the confirmation when a focus or break ' +
@@ -810,7 +810,7 @@ export const en = {
                 'desktop notification announce it.',
         },
         about: {
-            hint: 'A Pomodoro timer combined with a kanban time-management tool.',
+            hint: 'A time logger that meets the Pomodoro technique and a kanban board.',
             feedback: 'Feedback',
             github: 'View the project on GitHub',
             version: (version: string): string => `Version v${version}`,

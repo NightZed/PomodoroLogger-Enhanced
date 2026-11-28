@@ -206,7 +206,7 @@ pnpm run dist-win # 或 dist-mac / dist-linux / dist-all（每个都是独立脚
 
 全量交给 CI：`.github/workflows/test.yml` 在每次推送 master 和 PR 上跑 `pnpm typecheck`、`pnpm lint`、`pnpm test --ci`。本地提交前跑受影响的目录 + `pnpm typecheck` + `pnpm lint` 即可；改了 `jest.config.js`、`test/setup-*` 这类共享基建时，本地仍要跑一次 `pnpm test` 全量确认（新增测试文件会加重 worker 内存，见 `workerIdleMemoryLimit`）。
 
-流程（红绿循环、seam、垂直切片）可参考 `/tdd` skill（已随仓库提供）。
+流程（红绿循环、seam、垂直切片）可参考 `/tdd` skill（装了可对照；清单与版本见 `skills-lock.json`）。
 
 ## 约定
 

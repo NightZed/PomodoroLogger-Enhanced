@@ -4,6 +4,8 @@ release/
 # Development/test runtime data (databases, backups, screenshots, logs).
 .local/
 .idea/
+# Agent tool dir. Skills are install artifacts (see skills-lock.json).
+.codebuddy/
 coverage/
 yarn.error
 junit.xml

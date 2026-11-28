@@ -10,25 +10,21 @@ Status: open（持续追加，不排期）
 
 | 测试文件 | 条目 | 记录于 |
 | --- | --- | --- |
-| `Timer/Timer.test.tsx` | 内部 monitor / sessionManager / 子组件被 mock，断言 mock 调用次数 | 2026-11-28 |
-| `Setting/Setting.test.tsx` | 内部数据层与三个对话框被 mock | 2026-11-28 |
+| `Timer/Timer.test.tsx` | monitor / sessionManager 仍被 mock，断言 mock 实例与调用次数 | 2026-11-28 |
+
+票在 `issues/`：01–04 已 resolved，05（Timer 计时与落库）与 06（归档）仍未开始。
 
 ## 待修复
 
 ### `src/renderer/components/Timer/Timer.test.tsx`
 
-- **现象**：`jest.mock('../../monitor')`、`jest.mock('../../monitor/sessionManager')`、`jest.mock('../Kanban/Board')`、`jest.mock('./FocusSelector')`、`jest.mock('./Progress')`、`jest.mock('./SessionEndingMask')`、`jest.mock('../../../components/common/Mini/MiniLogger')`、`jest.mock('../UserGuide/HelpIcon')`、`jest.mock('./iconMaker')`；用例断言 `mockMonitorInstances[0].start`、`setTrayImageWithMadeIcon` 的调用。
-- **依据**：`docs/testing.md`「mock 只停在边界」——应用内部一切跑真实现；「行是行为，次数是实现」，断言 mock 被调用不算观察点。
-- **修法**：数据层换 `test/dbBridge` 的内存库；遮罩、迷你条、进度环、项目选择器跑真实组件，按 role 与可见文本断言；托盘图标改断言 `window.api.setTrayImage` 收到的 payload（IPC 是边界）。`iconMaker` 用 canvas，jsdom 没有 2d 上下文，这一层可以留作环境边界，但它的调用次数仍不是断言对象。
-
-### `src/renderer/components/Setting/Setting.test.tsx`
-
-- **现象**：`jest.mock('./DistractingList')`、`jest.mock('./DataRepairDialog')`、`jest.mock('./ImportReportDialog')`、`jest.mock('../../dbs')`、`jest.mock('../../monitor/sessionManager')`。
-- **依据**：同上。
-- **修法**：`dbs` 换真实内存库；三个对话框跑真实组件，按 `role="dialog"` 与可见文本定位。页面主题是编排（扫描 / 打开 / 应用 / 重扫），对话框行为由各自的测试覆盖，页面测试只需断言打开的对话框与结果文本。
+- **现象**：`jest.mock('../../monitor')` 与 `jest.mock('../../monitor/sessionManager')`；用例通过 `mockMonitorInstances[0].sessionData` 直接往替身里塞会话，断言 `monitor.start` / `getTodaySessions` 的调用次数。子组件、遮罩、迷你条已真实化（票 03、04）。
+- **依据**：`docs/testing.md`「mock 只停在边界」——应用内部一切跑真实现；「行是行为，次数是实现」。
+- **修法**：计时引擎与会话管理跑真实实现；时间推进靠已过期的会话夹具与倍速函数；活动窗口与截图走 `window.api` 的桩（IPC 是边界）；落库的那一行作为断言对象。托盘断言看主进程收到的 payload。
 
 ## 已修复
 
+- `src/renderer/components/Setting/Setting.test.tsx`（2026-11-28，票 01–02）：`dbs` 与 `sessionManager` 两个替身删除，`beforeEach` 改为在 `test/dbBridge` 装好的 `window.api` 上覆盖；删除用例改成插数据、删、直接查库。三个对话框真实渲染，按 `dialog` 角色与真实文案断言。`feedback` 的 mock 也不再手抄 `FEEDBACK_MESSAGES`。
 - `Kanban/List/List.test.tsx`（2026-11-26）：窗口用例不再数 `[data-card-id]`，改成比较隐藏前后可见卡片数量；预览用例不再读 `.kanban-card-preview` / `.kanban-card`，改为三张卡片的标题都能读到。`List scroll state` 整条删除——`pl-list-scrolling` 是纯视觉类名，jsdom 观察不到滚动条外观，滚动跟随窗口的行为已有窗口用例覆盖。`data-pl-scroller` 保留为 dnd mock 注入的事件手柄，不参与断言。
 - `Kanban/Card/Card.test.tsx`（2026-11-26）：5 条 `getComputedStyle().backgroundImage` 悬停用例删除，几何与时序判断提成 `Card/hover.ts` 的 `isPointerInside` / `isElementUnderPointer` / `isPostDropCheck`，并补 `hover.test.ts`（矩形边界、命中栈含后代、500ms 落位窗口）。标签点击改按 `#prod` 文本定位，删除 `.pl-tag` 与 `.kanban-card*` 断言。`.search-highlight` 保留：它被 `style/Markdown.ts` 消费，高亮没有 role，jsdom 观察不到背景色，是唯一观察点。
 - `Kanban/Kanban.test.tsx`（2026-11-26）：删掉 Board、Overview、UnassignedPanel、useUnassignedSessions、PlayPauseButton、BoardEditor、Hotkeys、Search、feedback 共 9 个内部 mock，改为真实 reducer + Provider 渲染整页；断言从 `__formProps` / `__hotkeys` / `__searchProps` / `data-testid` 改为 role、可见文本、真实确认框与 dispatch 的 action。只保留 dnd 与 antd TextArea 两个外部库边界（TextArea 在 jsdom 里会写 `height: NaN`，`BoardEditor.test.tsx` 同法）。未挂卡查询用 pending promise 挡住，避免断言后落 setState；重挂载计数改成 `dragActivity` 重置加列表仍可见。

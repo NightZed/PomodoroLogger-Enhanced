@@ -22,88 +22,23 @@ const mockAlert = jest.fn();
 const mockToast = jest.fn();
 const mockConfirm = jest.fn();
 
+// Only the three side effects are replaced. `FEEDBACK_MESSAGES` stays real: it
+// resolves through the i18n catalog that `test/i18n.ts` pins to English, so a
+// hand-written copy here would silently drift from the copy the page shows.
 jest.mock('../feedback', () => ({
+    ...jest.requireActual('../feedback'),
     feedback: {
         alert: (...args: any[]) => mockAlert(...args),
         toast: (...args: any[]) => mockToast(...args),
         confirm: (...args: any[]) => mockConfirm(...args),
         notice: jest.fn(),
     },
-    FEEDBACK_MESSAGES: {
-        setting: {
-            importConfirm: 'Importing merges the file into your data. Continue?',
-            importInvalidTitle: 'This file cannot be imported',
-            importInvalidIntro: 'Nothing was imported.',
-            importDone: 'Data imported',
-            importIssuesLogged: 'The complete list was written to the log folder.',
-            importFailed: 'Import Failed',
-            importFailedDetail: (reason: string) => `Could not import: ${reason}`,
-            importFailedHint: 'Check the log folder for details.',
-            exportDone: (fileName: string) => `Data exported to ${fileName}`,
-            exportFailed: 'Export Failed',
-            exportFailedDetail: (reason: string) => `Could not export: ${reason}`,
-            deleteAllConfirm: 'Delete all sessions, projects and boards? Your settings are kept.',
-            deleteAllNote: 'Your settings are kept. This cannot be undone.',
-            deleteDone: 'All data deleted',
-            deleteFailed: 'Could Not Delete Data',
-            deleteFailedDetail: (reason: string) =>
-                `The data could not be fully deleted: ${reason}.`,
-            dataCheckNone: 'No data problems found',
-            dataCheckFailed: 'Could Not Check the Data',
-            dataCheckFailedDetail: (reason: string) => `Could not check the data: ${reason}`,
-            openDataDirFailed: 'Could Not Open Data Folder',
-            openDataDirFailedDetail: (reason: string) =>
-                `Could not open the data folder: ${reason}`,
-            openLogDirFailed: 'Could Not Open Log Folder',
-            openLogDirFailedDetail: (reason: string) => `Could not open the log folder: ${reason}`,
-        },
-    },
 }));
 
-// The page's other options are not the subject: they drag in the monitor, the
-// workers and the theming, none of which the data buttons depend on.
-jest.mock('./DistractingList', () => ({
-    DistractingListModalButton: () => null,
-}));
-
-// The real dialog is a connected subtree (it renders the card-restore flow);
-// this file drives the page's own orchestration: scan, open, apply, rescan.
-jest.mock('./DataRepairDialog', () => ({
-    DataRepairDialog: ({ open, report, onClose, onRescan, applyRepair }: any) =>
-        open ? (
-            <div>
-                <span>{`orphans=${report.orphanCards.length}`}</span>
-                <button
-                    onClick={() =>
-                        applyRepair({
-                            removedCards: [],
-                            removedLists: [],
-                            updatedCards: {},
-                            updatedLists: {},
-                            updatedBoards: {},
-                            removedMoves: 0,
-                            repairedRefs: 0,
-                        })
-                    }
-                >
-                    apply
-                </button>
-                <button onClick={onRescan}>rescan</button>
-                <button onClick={onClose}>close</button>
-            </div>
-        ) : null,
-}));
-// The report is a layout-only dialog; this file drives the page's orchestration
-// (reload, open, and the jump into the data check).
-jest.mock('./ImportReportDialog', () => ({
-    ImportReportDialog: ({ open, summary, onClose, onCheckData }: any) =>
-        open ? (
-            <div>
-                <span>{`cards=${summary.counts.cardsOutsideLists}`}</span>
-                <button onClick={onCheckData}>check</button>
-                <button onClick={onClose}>done</button>
-            </div>
-        ) : null,
+// The repair dialog's restore flow reads boards from the store and has its own
+// tests; this file pins the page's orchestration (scan → open → result).
+jest.mock('../Kanban/RestoreCardsDialog', () => ({
+    RestoreCardsDialog: () => null,
 }));
 
 const mockReloadData = jest.fn<Promise<void>, []>().mockResolvedValue(undefined);
@@ -563,7 +498,7 @@ describe('import of a usable file', () => {
 
         expect(mockReloadData).toHaveBeenCalledTimes(1);
         expect(mockToast.mock.calls[0][0].content).toBe('Data imported');
-        expect(screen.queryByRole('button', { name: 'check' })).toBeNull();
+        expect(screen.queryByRole('dialog')).toBeNull();
     });
 
     // Regression: the merge warnings were dropped on the floor
@@ -579,8 +514,8 @@ describe('import of a usable file', () => {
         await click('Import Data');
 
         expect(mockReloadData).toHaveBeenCalledTimes(1);
-        expect(screen.getByRole('button', { name: 'check' })).toBeTruthy();
-        expect(screen.getByText('cards=12')).toBeTruthy();
+        const report = screen.getByRole('dialog', { name: 'Import complete' });
+        expect(within(report).getByText('12 cards not in any list')).toBeTruthy();
     });
 
     it('goes straight to the data check from the report', async () => {
@@ -600,12 +535,13 @@ describe('import of a usable file', () => {
 
         await click('Import Data');
         await act(async () => {
-            fireEvent.click(screen.getByRole('button', { name: 'check' }));
+            const report = screen.getByRole('dialog', { name: 'Import complete' });
+            fireEvent.click(within(report).getByRole('button', { name: 'Check & Repair Data' }));
             await Promise.resolve();
         });
 
         expect(scanDataIssues).toHaveBeenCalledTimes(1);
-        expect(screen.queryByRole('button', { name: 'check' })).toBeNull();
+        expect(screen.queryByRole('dialog', { name: 'Import complete' })).toBeNull();
         // An empty scan only toasts; the repair dialog stays closed.
         expect(mockToast).toHaveBeenCalledWith(
             expect.objectContaining({ content: 'No data problems found' })
@@ -634,9 +570,7 @@ describe('delete of all data', () => {
         await click('Delete All Data');
 
         const options = mockConfirm.mock.calls[0][0];
-        expect(options.title).toBe(
-            'Delete all sessions, projects and boards? Your settings are kept.'
-        );
+        expect(options.title.trim()).toBe('Delete all sessions, projects and boards?');
         expect(options.content).toBe('Your settings are kept. This cannot be undone.');
         // The rows are gone from the store itself, not just from a stub's memory.
         expect(await remaining()).toEqual({ sessions: 0, cards: 0 });
@@ -808,7 +742,7 @@ describe('Setting data check', () => {
         expect(mockToast).toHaveBeenCalledWith(
             expect.objectContaining({ content: 'No data problems found' })
         );
-        expect(screen.queryByText(/^orphans=/)).toBeNull();
+        expect(screen.queryByRole('dialog')).toBeNull();
     });
 
     it('opens the dialog with the scan result', async () => {
@@ -823,11 +757,21 @@ describe('Setting data check', () => {
             await Promise.resolve();
         });
 
-        expect(screen.getByText('orphans=2')).toBeTruthy();
+        const dialog = screen.getByRole('dialog', { name: 'Check & Repair Data' });
+        expect(within(dialog).getByText('Not in any list (2)')).toBeTruthy();
     });
 
-    it('hands the repair result to the store and rescans on demand', async () => {
+    it('hands the repair result to the caller and rescans afterwards', async () => {
         scanDataIssues.mockResolvedValue({ ...emptyReport, orphanCards: [cardIssue('c1')] });
+        repairData.mockResolvedValue({
+            removedCards: ['c1'],
+            removedLists: [],
+            updatedCards: {},
+            updatedLists: {},
+            updatedBoards: {},
+            removedMoves: 0,
+            repairedRefs: 0,
+        });
         await mount();
 
         fireEvent.click(button('Check & Repair Data'));
@@ -835,13 +779,18 @@ describe('Setting data check', () => {
             await Promise.resolve();
         });
 
-        fireEvent.click(screen.getByRole('button', { name: 'apply' }));
-        expect(applyRepair).toHaveBeenCalledWith(expect.objectContaining({ removedCards: [] }));
-
-        fireEvent.click(screen.getByRole('button', { name: 'rescan' }));
+        const dialog = screen.getByRole('dialog', { name: 'Check & Repair Data' });
+        fireEvent.click(within(dialog).getByRole('checkbox', { name: 'Select all' }));
+        fireEvent.click(within(dialog).getByRole('button', { name: /Apply to selected/ }));
         await act(async () => {
-            await Promise.resolve();
+            // The repair asks for one confirmation before touching the database.
+            await mockConfirm.mock.calls.slice(-1)[0][0].onOk();
         });
+
+        // What the page owes the rest of the app: the repair outcome leaves the
+        // page and the data is scanned again. The dialog's own selection and
+        // payload have their own tests.
+        expect(applyRepair).toHaveBeenCalledWith(expect.objectContaining({ removedCards: ['c1'] }));
         expect(scanDataIssues).toHaveBeenCalledTimes(2);
     });
 
@@ -864,13 +813,13 @@ describe('Setting data check', () => {
         // The dialog follows the promise, not a blocking call. A synchronous
         // scan would have opened it before this assertion ran, which is why a
         // slow one looked like "click, nothing, dialog".
-        expect(screen.queryByText(/^orphans=/)).toBeNull();
+        expect(screen.queryByRole('dialog')).toBeNull();
 
         await act(async () => {
             resolveScan({ ...emptyReport, orphanCards: [cardIssue('c1')] });
             await Promise.resolve();
         });
-        expect(screen.getByText('orphans=1')).toBeTruthy();
+        expect(screen.getByText('Not in any list (1)')).toBeTruthy();
     });
 
     it('reports a failed scan and keeps the dialog closed', async () => {
@@ -888,7 +837,7 @@ describe('Setting data check', () => {
             'Could Not Check the Data',
         ]);
         expect(alertText()).toContain('disk gone');
-        expect(screen.queryByText(/^orphans=/)).toBeNull();
+        expect(screen.queryByRole('dialog')).toBeNull();
     });
 });
 

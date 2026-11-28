@@ -876,7 +876,12 @@ class Timer extends Component<Props, State> {
         }
     };
 
-    onStart = (boardId?: string) => {
+    /**
+     * `acknowledged` is set by the automatic continuation (`onDone`): nobody
+     * is in front of a dialog in the mini strip or the tray, so the "no
+     * project / no card" warning is skipped and the session simply starts.
+     */
+    onStart = (boardId?: string, acknowledged = false) => {
         // `pomodorosToday` is cached: confirmation appends to the array instead
         // of re-querying (`onSessionConfirmed`), so a session started after
         // midnight would keep piling yesterday's dots onto this list until the
@@ -892,7 +897,7 @@ class Timer extends Component<Props, State> {
 
         // Warn once before a fresh focus session when there is no project to
         // link it to, or the selected project's "In Progress" list is empty.
-        return this.startFocusingSession(false, boardId);
+        return this.startFocusingSession(acknowledged, boardId);
     };
 
     /**
@@ -1051,16 +1056,21 @@ class Timer extends Component<Props, State> {
      * session itself is untouched -- `onPause` keeps it, `onStop` discards it.
      *
      * `tray` decides which icon the reset leaves behind: `idle` (the app icon,
-     * for Stop / mode switch) or the confirming disc (session ended, waiting
-     * for confirm -- session disc + fruit, mirroring MiniLogger, never the app
-     * icon). It exists because `onDone` resets the countdown display AND must
-     * leave the confirming icon; calling the idle reset first and then
-     * overwriting would race the two async `makeIcon` loads over IPC.
+     * for Stop / mode switch), `keep` (leave the current icon alone -- the
+     * automatic continuation repaints it as soon as the next session starts,
+     * and an idle icon in between would race that paint over IPC) or the
+     * confirming disc (session ended, waiting for confirm -- session disc +
+     * fruit, mirroring MiniLogger, never the app icon). It exists because
+     * `onDone` resets the countdown display AND must leave the confirming
+     * icon; calling the idle reset first and then overwriting would race the
+     * two async `makeIcon` loads over IPC.
      */
-    private resetStat = (tray: 'idle' | { confirming: boolean; isFocusing: boolean } = 'idle') => {
+    private resetStat = (
+        tray: 'idle' | 'keep' | { confirming: boolean; isFocusing: boolean } = 'idle'
+    ) => {
         if (tray === 'idle') {
             setTrayImageWithMadeIcon(undefined).catch(console.error);
-        } else {
+        } else if (tray !== 'keep') {
             setTrayImageWithMadeIcon(undefined, undefined, tray.isFocusing, false, true).catch(
                 console.error
             );
@@ -1098,6 +1108,54 @@ class Timer extends Component<Props, State> {
                 t('timer.notify.restEndedTitle'),
                 t('timer.notify.completedToday', this.state.pomodoroNum)
             );
+        }
+
+        // The mode is still the one that just ended here (`timerFinished` only
+        // runs on confirmation), which is exactly what selects the switch: a
+        // finished focus session hands over to a break and vice versa.
+        const autoNext = this.props.timer.isFocusing
+            ? this.props.timer.autoStartBreak
+            : this.props.timer.autoStartWork;
+
+        if (autoNext) {
+            // Automatic continuation: no ending mask, no click in any window
+            // mode. The record is still confirmed through the same path the
+            // mask uses (`onMaskClick` -> `onSessionConfirmed`), so the session
+            // reaches SQLite before the next one starts. Without a card pick it
+            // falls back to the project's first In Progress card, exactly like
+            // the tray and F5.
+            this.props.pauseTimer();
+            // `keep`: the next session's `paintTrayRunning` is about to draw
+            // the running icon; drawing the idle app icon here first would
+            // race it over the async `makeIcon` IPC.
+            this.resetStat('keep');
+            if (shouldRemind) {
+                // Same rule as below for a tray window.
+                if (!this.props.timer.inTray || this.props.timer.openWindowOnSessionEnd) {
+                    this.focusOnCurrentWindow(this.props.timer.openWindowOnSessionEnd);
+                }
+                // One chime: the second one is scheduled a minute later, when
+                // the next session is already running -- the ending mask is not
+                // up any more, so `remindUserTimeout` would not play it.
+                const reminder = reminderSound(this.props.timer, LONG_BREAK_INTERVAL);
+                if (reminder !== undefined) {
+                    playSound(reminder.path, reminder.volume).catch(() => {
+                        this.reportSoundFailure(reminder.path, reminder.volume);
+                    });
+                }
+            }
+            // `acknowledged`: nobody is in front of the "no project" warning in
+            // the mini strip or the tray, and it would hold up the session the
+            // switch promised to start.
+            this.nextSessionStarter = () => this.onStart(undefined, true);
+            this.onMaskClick();
+            // The mask's 50ms debounce exists to swallow a double click on a
+            // button nobody clicked here. Flushing runs the confirmation in
+            // this task, which matters in the tray: a page hidden for five
+            // minutes has its DOM timers throttled to one wakeup per minute,
+            // and the automatic break would otherwise hang for up to a minute.
+            this.onSessionConfirmed.flush();
+            return;
         }
 
         // The mask is app-wide state (see `TimerState.sessionEnding`): while the

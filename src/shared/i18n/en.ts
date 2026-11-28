@@ -651,6 +651,7 @@ export const en = {
         /** Group headings inside a section. */
         group: {
             durations: 'Durations',
+            auto: 'Automation',
             focus: 'Focus',
             transparency: 'Transparency',
             background: 'Background',
@@ -752,6 +753,14 @@ export const en = {
             shortBreak: 'Short Break',
             longBreak: 'Long Break',
             minFinish: 'Minimum Focus Time before Finish',
+            autoStartWork: 'Auto-start Focus',
+            autoStartWorkHint:
+                'Starts the next focus session when a break ends, with nothing to confirm.',
+            autoStartBreak: 'Auto-start Break',
+            autoStartBreakHint:
+                'Confirms the finished focus session and starts the next break on its own. ' +
+                'Without a card pick, the record is credited to the first In Progress card ' +
+                'of the current project.',
             distracting: 'Distracting App Setting',
             configure: 'Configure…',
         },

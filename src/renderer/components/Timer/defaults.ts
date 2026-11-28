@@ -58,6 +58,10 @@ export function createDefaultSettings(): Omit<Setting, NullableSettingKey | 'wal
         soundVolume: 0.5,
         desktopNotification: true,
         warnBeforeFocusStart: true,
+        // Automatic continuation is opt-in: it skips the ending mask, which is
+        // where a finished session is normally credited to a card.
+        autoStartWork: false,
+        autoStartBreak: false,
         returnToTimerOnSessionEnd: true,
         openWindowOnSessionEnd: false,
         startOnBoot: false,

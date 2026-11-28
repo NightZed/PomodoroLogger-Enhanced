@@ -131,6 +131,20 @@ export interface Setting {
      */
     warnBeforeFocusStart: boolean;
     /**
+     * When on, a break that ends starts the next focus session by itself. The
+     * ending mask is skipped, so there is nothing to click in the normal,
+     * compact, mini or tray window. Off by default: it is a new behaviour, not
+     * a preserved one.
+     */
+    autoStartWork: boolean;
+    /**
+     * When on, a focus session that ends starts the next break by itself.
+     * Skipping the mask also means the record is confirmed without a card
+     * pick, so it is credited to the project's first "In Progress" card --
+     * exactly what the mask and the tray preset.
+     */
+    autoStartBreak: boolean;
+    /**
      * When on, finishing a session brings the window back to the Timer page.
      * On by default, as it has always behaved. Turning it off leaves the user
      * where they are: the ending mask mounts in the app-level layer, so it is
@@ -399,6 +413,8 @@ export const setLongBreakSoundEnabled = createAction<boolean>(
 export const setSoundVolume = createAction<number>('[Setting]SET_SOUND_VOLUME');
 export const setDesktopNotification = createAction<boolean>('[Setting]SET_DESKTOP_NOTIFICATION');
 export const setWarnBeforeFocusStart = createAction<boolean>('[Timer]SET_WARN_BEFORE_FOCUS_START');
+export const setAutoStartWork = createAction<boolean>('[Timer]SET_AUTO_START_WORK');
+export const setAutoStartBreak = createAction<boolean>('[Timer]SET_AUTO_START_BREAK');
 export const setReturnToTimerOnSessionEnd = createAction<boolean>(
     '[Setting]SET_RETURN_TO_TIMER_ON_SESSION_END'
 );
@@ -461,6 +477,8 @@ export const actions = {
             ['soundVolume', setSoundVolume],
             ['desktopNotification', setDesktopNotification],
             ['warnBeforeFocusStart', setWarnBeforeFocusStart],
+            ['autoStartWork', setAutoStartWork],
+            ['autoStartBreak', setAutoStartBreak],
             ['returnToTimerOnSessionEnd', setReturnToTimerOnSessionEnd],
             ['openWindowOnSessionEnd', setOpenWindowOnSessionEnd],
             ['startOnBoot', setStartOnBoot],
@@ -641,6 +659,14 @@ export const actions = {
             { $set: { warnBeforeFocusStart } },
             { upsert: true }
         );
+    },
+    setAutoStartWork: (autoStartWork: boolean) => async (dispatch: Dispatch) => {
+        dispatch(setAutoStartWork(autoStartWork));
+        await settingDB.update({ name: 'setting' }, { $set: { autoStartWork } }, { upsert: true });
+    },
+    setAutoStartBreak: (autoStartBreak: boolean) => async (dispatch: Dispatch) => {
+        dispatch(setAutoStartBreak(autoStartBreak));
+        await settingDB.update({ name: 'setting' }, { $set: { autoStartBreak } }, { upsert: true });
     },
     setReturnToTimerOnSessionEnd:
         (returnToTimerOnSessionEnd: boolean) => async (dispatch: Dispatch) => {
@@ -980,6 +1006,14 @@ export const reducer = createReducer<TimerState>(defaultState, (builder) => {
         .addCase(setWarnBeforeFocusStart, (state, { payload }) => ({
             ...state,
             warnBeforeFocusStart: payload,
+        }))
+        .addCase(setAutoStartWork, (state, { payload }) => ({
+            ...state,
+            autoStartWork: payload,
+        }))
+        .addCase(setAutoStartBreak, (state, { payload }) => ({
+            ...state,
+            autoStartBreak: payload,
         }))
         .addCase(setReturnToTimerOnSessionEnd, (state, { payload }) => ({
             ...state,

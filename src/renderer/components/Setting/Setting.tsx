@@ -488,6 +488,8 @@ const settingUiStates = [
     'soundVolume',
     'desktopNotification',
     'warnBeforeFocusStart',
+    'autoStartWork',
+    'autoStartBreak',
     'returnToTimerOnSessionEnd',
     'openWindowOnSessionEnd',
     'useHardwareAcceleration',
@@ -1261,6 +1263,38 @@ export const Setting: React.FunctionComponent<Props> = React.memo(
                                                     formatValue={formatMinutes}
                                                     editUnit="min"
                                                     onCommit={onChangeMinFinish}
+                                                />
+                                            }
+                                        />
+                                    </Card>
+                                </SettingsSection>
+
+                                <SettingsSection>
+                                    <GroupTitle>{t('settings.group.auto')}</GroupTitle>
+                                    <Card>
+                                        <SettingsRow
+                                            title={t('settings.timer.autoStartWork')}
+                                            description={t('settings.timer.autoStartWorkHint')}
+                                            control={
+                                                <SettingSwitch
+                                                    checked={props.autoStartWork}
+                                                    onChange={(value) =>
+                                                        props.setAutoStartWork(value)
+                                                    }
+                                                    label={t('settings.timer.autoStartWork')}
+                                                />
+                                            }
+                                        />
+                                        <SettingsRow
+                                            title={t('settings.timer.autoStartBreak')}
+                                            description={t('settings.timer.autoStartBreakHint')}
+                                            control={
+                                                <SettingSwitch
+                                                    checked={props.autoStartBreak}
+                                                    onChange={(value) =>
+                                                        props.setAutoStartBreak(value)
+                                                    }
+                                                    label={t('settings.timer.autoStartBreak')}
                                                 />
                                             }
                                         />

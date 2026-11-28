@@ -59,6 +59,7 @@ Electron 桌面应用（番茄钟 + 看板 + 桌面活动追踪 + 统计）。
 - 弹窗动不动窗口由 `feedback/attention.ts` 一张表决定：toast 和普通 notice 不动；confirm / alert / 错误 notice 在 mini、tray 恢复；全屏报错连 compact 一起恢复。不要在调用点另判。
 - 有未确认的番茄钟时退出必须被拒（`before-quit`）。所有退出入口走 `app.quit()`，`app.exit()` 会跳过拦截。
 - 托盘里会话结束默认不拉窗口；只有 `openWindowOnSessionEnd` 打开时才等同托盘「打开」，按原档位恢复。
+- 自动衔接（`autoStartWork` / `autoStartBreak`）跳过结束遮罩，但不能跳过确认：工作会话先经 `onSessionConfirmed` 落库，再由 `nextSessionStarter` 启动下一场。
 
 **构建与提交**
 
@@ -134,7 +135,6 @@ pnpm build                          # tsc --noEmit + 两个 webpack bundle
 pnpm typecheck                      # 只跑 tsc --noEmit -p tsconfig.json
 pnpm lint                           # eslint src/**/*.{ts,tsx} test/**/*.{ts,js}
 pnpm test                           # jest --forceExit
-pnpm test:changed                   # 只跑与未提交改动相关的测试（git diff + 依赖图）
 pnpm test src/renderer/components/Timer/Timer.test.tsx   # 单个文件
 pnpm test -t "some test name"       # 按名字跑单个测试
 pnpm test:watch
@@ -202,14 +202,9 @@ pnpm run dist-win # 或 dist-mac / dist-linux / dist-all（每个都是独立脚
 
 `posttest` 删除 `.local/test`；action 测试跑的是真实 SQLite 事务，所以优先断言 repository 层的结果而不是 mock。
 
-改动后的验证按影响面选范围，不要默认全量。`pnpm test:changed` 用 `--onlyChanged` 按 git diff 加依赖图算范围，不用手挑文件名；局部组件/样式/单文件逻辑跑它 + `pnpm typecheck` + `pnpm lint` 就够。
+改动后的验证按影响面选范围，不要默认全量：不确定影响面时**按目录跑**（`pnpm test src/renderer/components/Timer`），比按依赖图挑文件省时——渲染层是一张大连通图，改 i18n、Redux 根或 `Application` 引用的组件时，依赖图会命中其中几乎所有重测试，而并行下的瓶颈是最慢的单文件，删掉轻量的 main 测试省不出墙钟时间。
 
-两种情况下它不够，仍要跑 `pnpm test` 全量：
-
-- 改了共享基建（`jest.config.js`、`test/setup-*`），或者提交前的最终确认。新增测试文件会加重全量跑的 worker 内存（见 `workerIdleMemoryLimit`），改完基建后跑一次全量确认稳定。
-- 改了主题变量、全局样式这类没有测试去断言的模块。依赖图只反映 import 关系，不反映视觉影响，这里它会收缩到接近 0，比实际影响窄得多。
-
-另外，`package.json` 被 `Setting.tsx` 与 `src/main/init.ts` 引入，动它等于动整棵渲染树，`test:changed` 会命中大半（实测 53 个文件 / 73s），基本等价于全量。
+全量交给 CI：`.github/workflows/test.yml` 在每次推送 master 和 PR 上跑 `pnpm typecheck`、`pnpm lint`、`pnpm test --ci`。本地提交前跑受影响的目录 + `pnpm typecheck` + `pnpm lint` 即可；改了 `jest.config.js`、`test/setup-*` 这类共享基建时，本地仍要跑一次 `pnpm test` 全量确认（新增测试文件会加重 worker 内存，见 `workerIdleMemoryLimit`）。
 
 流程（红绿循环、seam、垂直切片）可参考 `/tdd` skill（已随仓库提供）。
 

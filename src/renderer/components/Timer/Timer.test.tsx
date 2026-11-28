@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, cleanup, fireEvent, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import Timer from './Timer';
 import { getTodaySessions } from '../../monitor/sessionManager';
 import { setTrayImageWithMadeIcon } from './iconMaker';
@@ -994,6 +994,141 @@ describe('Timer page', () => {
         // was closed with, so the main process has to be told the reveal is
         // intended (`true`), not left to its tray guard.
         expect(api.focusOnWindow).toHaveBeenCalledWith(true);
+    });
+
+    // The automatic-continuation cases below run on real timers: the flow
+    // spans several act scopes (flush -> save -> next macrotask), and advancing
+    // fake timers inside them makes React warn about an un-awaited
+    // `act(async)`. What the user observes -- the next session starting -- is
+    // awaited with `waitFor` instead of the clock.
+    it('starts the next focus session by itself when a break ends', async () => {
+        jest.useRealTimers();
+        const { ref, actions } = await renderTimer({
+            isFocusing: false,
+            isRunning: true,
+            // Still running: `onDone` is called directly, and a target in the
+            // past would let the 500ms sample end the *next* session too (the
+            // dispatches are mocked, so the props keep describing this one).
+            targetTime: Date.now() + 60_000,
+            autoStartWork: true,
+        });
+
+        await act(async () => {
+            await (ref.current as any).onDone();
+        });
+        await waitFor(() => expect(actions.startTimer).toHaveBeenCalled());
+
+        // No ending mask in any window mode: the break is confirmed by the
+        // page itself and the next session starts without a click.
+        expect(actions.setSessionEnding).not.toHaveBeenCalledWith(true);
+        expect(actions.timerFinished).toHaveBeenCalled();
+        expect(actions.startTimer).toHaveBeenCalled();
+    });
+
+    it('plays the reminder once when the automatic continuation takes over', async () => {
+        jest.useRealTimers();
+        const { ref } = await renderTimer({
+            isFocusing: false,
+            iBreak: 1,
+            isRunning: true,
+            targetTime: Date.now() + 60_000,
+            autoStartWork: true,
+            shortBreakSoundPath: 'C:\\sounds\\short.wav',
+            soundVolume: 0.3,
+        });
+
+        await act(async () => {
+            await (ref.current as any).onDone();
+        });
+        await waitFor(() => expect(played).toHaveLength(1));
+
+        // The ended session is still announced even though its mask never
+        // appears; the second chime (a minute later) is not scheduled because
+        // the next session is already running.
+        expect(played[0].src).toBe(soundUrl('C:\\sounds\\short.wav'));
+        expect(played[0].volume).toBe(0.3);
+    });
+
+    it('confirms the finished focus session and starts the next break by itself', async () => {
+        jest.useRealTimers();
+        const { ref, actions } = await renderTimer(
+            { autoStartBreak: true },
+            {
+                lists: { l1: { _id: 'l1', name: 'Doing', cards: ['c1'] } },
+                cards: { c1: { _id: 'c1' } },
+            }
+        );
+
+        await act(async () => {
+            ref.current!.onStart();
+        });
+        mockMonitorInstances[0].sessionData = {
+            _id: 'session-1',
+            startTime: Date.now(),
+            apps: {},
+            switchActivities: [],
+            stayTimeInSecond: [],
+        };
+        actions.startTimer.mockClear();
+
+        await act(async () => {
+            await (ref.current as any).onFinishButtonClick();
+        });
+        await waitFor(() => expect(actions.startTimer).toHaveBeenCalled());
+
+        expect(actions.setSessionEnding).not.toHaveBeenCalledWith(true);
+        // The record still reaches the save path before the break starts, and
+        // without a card pick it falls back to the project's first card.
+        expect(actions.timerFinished).toHaveBeenCalledWith(
+            expect.objectContaining({ _id: 'session-1' }),
+            'c1'
+        );
+        expect(actions.startTimer).toHaveBeenCalled();
+    });
+
+    it('continues by itself while the window is in the tray', async () => {
+        jest.useRealTimers();
+        const { ref, actions } = await renderTimer({
+            isFocusing: false,
+            isRunning: true,
+            targetTime: Date.now() + 60_000,
+            inTray: true,
+            autoStartWork: true,
+        });
+
+        await act(async () => {
+            await (ref.current as any).onDone();
+        });
+        await waitFor(() => expect(actions.startTimer).toHaveBeenCalled());
+
+        expect(actions.setSessionEnding).not.toHaveBeenCalledWith(true);
+        expect(actions.startTimer).toHaveBeenCalled();
+        // A tray window stays where it is, exactly as it does without the
+        // automatic start (the setting is off).
+        expect(api.focusOnWindow).not.toHaveBeenCalled();
+    });
+
+    it('skips the no-project warning for the automatic start', async () => {
+        jest.useRealTimers();
+        const { ref, actions } = await renderTimer({
+            boardId: undefined,
+            warnBeforeFocusStart: true,
+            isFocusing: false,
+            isRunning: true,
+            targetTime: Date.now() + 60_000,
+            autoStartWork: true,
+        });
+        const { feedback } = require('../feedback');
+
+        await act(async () => {
+            await (ref.current as any).onDone();
+        });
+        await waitFor(() => expect(actions.startTimer).toHaveBeenCalled());
+
+        // Nobody may be in front of the window (mini / tray), so the warning
+        // would hold up the session the switch promised to start.
+        expect(feedback.confirm).not.toHaveBeenCalled();
+        expect(actions.startTimer).toHaveBeenCalled();
     });
 
     it('tells the main process a finished session is waiting for confirmation', async () => {

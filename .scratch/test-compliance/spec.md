@@ -10,7 +10,22 @@ Status: open（持续追加，不排期）
 
 | 测试文件 | 条目 | 记录于 |
 | --- | --- | --- |
-| （暂无） | | |
+| `Timer/Timer.test.tsx` | 内部 monitor / sessionManager / 子组件被 mock，断言 mock 调用次数 | 2026-11-28 |
+| `Setting/Setting.test.tsx` | 内部数据层与三个对话框被 mock | 2026-11-28 |
+
+## 待修复
+
+### `src/renderer/components/Timer/Timer.test.tsx`
+
+- **现象**：`jest.mock('../../monitor')`、`jest.mock('../../monitor/sessionManager')`、`jest.mock('../Kanban/Board')`、`jest.mock('./FocusSelector')`、`jest.mock('./Progress')`、`jest.mock('./SessionEndingMask')`、`jest.mock('../../../components/common/Mini/MiniLogger')`、`jest.mock('../UserGuide/HelpIcon')`、`jest.mock('./iconMaker')`；用例断言 `mockMonitorInstances[0].start`、`setTrayImageWithMadeIcon` 的调用。
+- **依据**：`docs/testing.md`「mock 只停在边界」——应用内部一切跑真实现；「行是行为，次数是实现」，断言 mock 被调用不算观察点。
+- **修法**：数据层换 `test/dbBridge` 的内存库；遮罩、迷你条、进度环、项目选择器跑真实组件，按 role 与可见文本断言；托盘图标改断言 `window.api.setTrayImage` 收到的 payload（IPC 是边界）。`iconMaker` 用 canvas，jsdom 没有 2d 上下文，这一层可以留作环境边界，但它的调用次数仍不是断言对象。
+
+### `src/renderer/components/Setting/Setting.test.tsx`
+
+- **现象**：`jest.mock('./DistractingList')`、`jest.mock('./DataRepairDialog')`、`jest.mock('./ImportReportDialog')`、`jest.mock('../../dbs')`、`jest.mock('../../monitor/sessionManager')`。
+- **依据**：同上。
+- **修法**：`dbs` 换真实内存库；三个对话框跑真实组件，按 `role="dialog"` 与可见文本定位。页面主题是编排（扫描 / 打开 / 应用 / 重扫），对话框行为由各自的测试覆盖，页面测试只需断言打开的对话框与结果文本。
 
 ## 已修复
 

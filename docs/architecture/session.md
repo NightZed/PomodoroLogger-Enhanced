@@ -59,9 +59,18 @@ Timer 页的 `pomodorosToday` 是缓存：挂载与数据重载（导入 / 全�
 
 它的返回值必须 `dispatch(applySessionEditsResult)` 写回 store——只写库不更新 `kanban.cards` / `kanban.boards`，界面要等重启才看到新的卡片归属。
 
+## 自动衔接下一场会话
+
+`autoStartWork` / `autoStartBreak`（设置页「计时器 → 自动」）让 `onDone` 跳过结束遮罩：结束的会话仍走 `onMaskClick` → `onSessionConfirmed` 落库（工作会话没有手动选卡，按 `defaultCardId` 挂到当前项目的第一张进行中卡片），随后 `nextSessionStarter` 调用 `onStart(undefined, true)` 开始下一场。
+
+- `acknowledged = true` 跳过「没有项目 / 没有进行中卡片」的确认框。迷你条和托盘里没有人能点它，弹出来就等于卡死。
+- 确认走 `onSessionConfirmed.flush()`，不等 50ms debounce：托盘里的页面隐藏超过五分钟后，DOM timer 被 Chromium 节流到每分钟一次，休息会被推迟最多一分钟。
+- 提示音只响第一声。第二声（60 秒后）用 `sessionEnding` 当开关，此时下一场已经在跑，那次回调本来就不该再响。
+- 四种窗口模式共用这一条路径（`onDone` 与档位无关），mini / compact / tray 不需要各写一份。托盘「会话结束不拉窗口」的规则照旧生效。
+
 ## 提示音与桌面通知
 
-会话自然结束时（`Timer.onDone`，`shouldRemind` 为真）响两次提示音——立即一次、60 秒后再一次——并按 `desktopNotification` 决定是否发系统通知；手动点 Finish 结束的会话两者都不做。
+会话自然结束时（`Timer.onDone`，`shouldRemind` 为真）响两次提示音——立即一次、60 秒后再一次——并按 `desktopNotification` 决定是否发系统通知；手动点 Finish 结束的会话两者都不做。自动衔接打开时只响第一声（见上）。
 
 三种会话各有音源（`workSoundPath` / `shortBreakSoundPath` / `longBreakSoundPath`）和独立开关（`*SoundEnabled`）；路径为 `undefined` = 内置 `src/res/ding.mp3`。「恢复」只清空路径，不删用户的文件。
 

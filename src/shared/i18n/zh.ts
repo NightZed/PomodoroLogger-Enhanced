@@ -599,6 +599,7 @@ export const zh: CatalogShape<typeof en> = {
         /** 分区内的分组标题。 */
         group: {
             durations: '时长',
+            auto: '自动',
             focus: '专注',
             transparency: '透明度',
             background: '背景',
@@ -695,6 +696,12 @@ export const zh: CatalogShape<typeof en> = {
             shortBreak: '短休',
             longBreak: '长休',
             minFinish: '结束番茄钟前的最短专注时间',
+            autoStartWork: '自动开始工作',
+            autoStartWorkHint: '休息结束后自动开始下一个工作会话，不再需要手动确认。',
+            autoStartBreak: '自动开始休息',
+            autoStartBreakHint:
+                '工作结束后自动确认并开始下一个休息会话；没有手动选择时，' +
+                '记录会挂到当前项目的第一张进行中卡片上。',
             distracting: '分心应用设置',
             configure: '配置…',
         },

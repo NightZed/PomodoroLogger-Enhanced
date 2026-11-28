@@ -174,6 +174,8 @@ const props = (): any => ({
     soundVolume: 0.5,
     desktopNotification: true,
     warnBeforeFocusStart: false,
+    autoStartWork: false,
+    autoStartBreak: false,
     returnToTimerOnSessionEnd: true,
     useHardwareAcceleration: true,
     unloadOnCloseToTray: false,
@@ -197,6 +199,8 @@ const props = (): any => ({
     setAutoUpdate: jest.fn(),
     setScreenShotInterval: jest.fn(),
     setWarnBeforeFocusStart: jest.fn(),
+    setAutoStartWork: jest.fn(),
+    setAutoStartBreak: jest.fn(),
     setReturnToTimerOnSessionEnd: jest.fn(),
     setUseHardwareAcceleration: jest.fn(),
     setUnloadOnCloseToTray: jest.fn(),
@@ -300,6 +304,25 @@ beforeEach(() => {
         selectSound,
     };
 });
+describe('automatic session continuation', () => {
+    it('offers a switch per direction on the timer section and saves it', () => {
+        const p = props();
+        render(<Setting {...p} />);
+
+        const work = screen.getByRole('switch', { name: 'Auto-start Focus' });
+        const rest = screen.getByRole('switch', { name: 'Auto-start Break' });
+        // Off to begin with: skipping the ending mask is opt-in.
+        expect(work.getAttribute('aria-checked')).toBe('false');
+        expect(rest.getAttribute('aria-checked')).toBe('false');
+
+        fireEvent.click(work);
+        fireEvent.click(rest);
+
+        expect(p.setAutoStartWork).toHaveBeenCalledWith(true);
+        expect(p.setAutoStartBreak).toHaveBeenCalledWith(true);
+    });
+});
+
 describe('minimum focus time before Finish', () => {
     it('renders the option on the timer section and saves the slider value in seconds', async () => {
         const p = props();

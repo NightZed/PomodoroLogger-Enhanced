@@ -3,7 +3,8 @@
 既有测试按 `testing.md` 整改过的记录。
 它不是规范，是工作账本：每个文件一行，说明这份测试已经按判据重写过——避免后来者以为整份文件都合规，或者重复整改。
 
-碰一个测试文件、看到同文件既有用例也违规时（越界 mock、断言 `className`、断言 mock 函数被调用），先加到「待清理」；修完移进「已清理」并补日期。
+这里是**已完成**的一半。待清理的条目记在 `.scratch/test-compliance/spec.md`（单文件，按测试文件分节，不拆票）。
+修完后把一行移进下面的「已清理」，再从 scratch 删掉那一节；清空即删目录。
 不要顺手重写：行为改动和测试重构要能分开评审。
 
 ## 已清理
@@ -21,7 +22,3 @@
 - `src/components/common/Mini/MiniLogger.smoke.test.tsx`（2026-11-22）：图标改按 `aria-label`，秒针角度提成 `secondHand.ts`。
 - `src/renderer/components/Kanban/Board/BoardBrief.test.tsx`（2026-11-21）：17 条用例改跑真实组件与真实存储。
 - `src/components/Visualization/Badge/Badge.test.tsx`（2026-11-21）：改断言纯函数与 hook 状态，不再读 `clipPath` 的 transform。
-
-## 待清理
-
-（无）

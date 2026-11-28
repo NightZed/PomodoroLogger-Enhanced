@@ -192,7 +192,8 @@ pnpm run dist-win # 或 dist-mac / dist-linux / dist-all（每个都是独立脚
 - **失败信息必须指出元凶**：把变化的那部分塞进断言值；`expect(true).toBe(true)` 只说明「某处坏了」。
 - **不显而易见的测试带 `// Regression:`**，写明防的是哪次事故。写之前先回答「什么改动会让它失败」——答不上来就是代理断言（检查代码怎么写，而不是做了什么）。
 - **不加覆盖率阈值，不用快照**。`toMatchSnapshot` 目前是 0，保持这样。
-- **改测试时发现的存量违规要记录，不要顺手重写**：碰一个测试文件，顺带看到同文件既有用例也违规（越界 mock、断言 `className`、断言 mock 函数被调用），记进 `docs/testing-cleanup.md` 的「待清理」一节，提交信息里点一句指过去。
+- **改测试时发现的存量违规要记录，不要顺手重写**：碰一个测试文件，顺带看到同文件既有用例也违规（越界 mock、断言 `className`、断言 mock 函数被调用），在 `.scratch/test-compliance/spec.md` 的待修复节追加一行（没有该文件就建，单文件即可，不拆票），提交信息里点一句指过去。
+  修完后把那行移进 `docs/testing-cleanup.md` 的「已清理」，并从 scratch 删掉该节；`.scratch/` 清空即删目录。
   混在同一次改动里重写，行为改动和测试重构就无法分开评审；不记，它就会一直留到下一次有人碰到这个文件。
 
 `jest.config.js` 使用 `jsdom`、Babel 转译、`maxWorkers: min(8, cpus)`、`workerIdleMemoryLimit`（worker 空闲超限即重启，防全量跑累积 OOM）、每测试 30 秒超时和 JUnit 输出（`junit.xml`）。

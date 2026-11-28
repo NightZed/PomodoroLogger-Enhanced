@@ -93,11 +93,6 @@ jest.mock('./DataRepairDialog', () => ({
             </div>
         ) : null,
 }));
-const mockDeleteAllUserData = jest.fn<Promise<void>, []>().mockResolvedValue(undefined);
-jest.mock('../../monitor/sessionManager', () => ({
-    deleteAllUserData: () => mockDeleteAllUserData(),
-}));
-
 // The report is a layout-only dialog; this file drives the page's orchestration
 // (reload, open, and the jump into the data check).
 jest.mock('./ImportReportDialog', () => ({
@@ -112,14 +107,6 @@ jest.mock('./ImportReportDialog', () => ({
 }));
 
 const mockReloadData = jest.fn<Promise<void>, []>().mockResolvedValue(undefined);
-
-const mockRefreshDbs = jest.fn().mockResolvedValue(undefined);
-jest.mock('../../dbs', () => ({
-    __esModule: true,
-    refreshDbs: () => mockRefreshDbs(),
-    loadDBs: jest.fn(),
-    dbs: {},
-}));
 
 // The three slider tests care about the values Setting hands to antd, not the
 // pointer geometry of the real slider. A native range input exposes value/min/
@@ -152,6 +139,7 @@ const exportData = jest.fn<Promise<ExportResult>, []>();
 const openDataDir = jest.fn<Promise<void>, []>();
 const openLogDir = jest.fn<Promise<void>, []>();
 const selectSound = jest.fn<Promise<string | undefined>, []>();
+const clearUserFiles = jest.fn<Promise<void>, []>();
 const scanDataIssues = jest.fn();
 const repairData = jest.fn();
 const applyRepair = jest.fn();
@@ -278,7 +266,8 @@ beforeEach(() => {
     mockToast.mockClear();
     mockConfirm.mockClear();
     mockReloadData.mockClear();
-    mockDeleteAllUserData.mockClear();
+    clearUserFiles.mockReset();
+    clearUserFiles.mockResolvedValue(undefined);
     exportData.mockReset();
     importData.mockReset();
     openDataDir.mockReset();
@@ -287,11 +276,17 @@ beforeEach(() => {
     scanDataIssues.mockReset();
     repairData.mockReset();
     applyRepair.mockClear();
+    // Keep what `test/dbBridge.ts` installed (dbRequest/dbReady and the
+    // main-process transactions behind them) and override only the IPC calls
+    // this page makes. Replacing the object wholesale used to drop the bridge,
+    // which is why the delete flow needed a stub for the entire data layer.
     (window as any).api = {
+        ...(window as any).api,
         exportData,
         importData,
         openDataDir,
         openLogDir,
+        clearUserFiles,
         scanDataIssues,
         repairData,
         checkUpdate: jest.fn(),
@@ -619,33 +614,51 @@ describe('import of a usable file', () => {
 });
 
 describe('delete of all data', () => {
-    it('deletes behind the confirmation dialog and reloads the store', async () => {
-        await mount();
+    const request = (db: string, operation: string, args: unknown[] = []) =>
+        (window as any).api.dbRequest(db, operation, args);
+    /** One session and one card, so "deleted" is distinguishable from "was empty". */
+    const seed = async () => {
+        await request('sessionDB', 'insert', [{ startTime: 1, apps: {} }]);
+        await request('cardsDB', 'insert', [{ title: 'a card', boardId: 'b1' }]);
+    };
+    const remaining = async () => ({
+        sessions: (await request('sessionDB', 'find', [{}])).length,
+        cards: (await request('cardsDB', 'find', [{}])).length,
+    });
 
+    it('deletes every table behind the confirmation, then reloads the store', async () => {
+        await seed();
+        expect(await remaining()).toEqual({ sessions: 1, cards: 1 });
+
+        await mount();
         await click('Delete All Data');
 
-        expect(mockConfirm).toHaveBeenCalledTimes(1);
         const options = mockConfirm.mock.calls[0][0];
         expect(options.title).toBe(
             'Delete all sessions, projects and boards? Your settings are kept.'
         );
         expect(options.content).toBe('Your settings are kept. This cannot be undone.');
-        expect(mockDeleteAllUserData).toHaveBeenCalledTimes(1);
+        // The rows are gone from the store itself, not just from a stub's memory.
+        expect(await remaining()).toEqual({ sessions: 0, cards: 0 });
         expect(mockReloadData).toHaveBeenCalledTimes(1);
         expect(mockToast.mock.calls[0][0].content).toBe('All data deleted');
     });
 
-    it('explains a failed deletion, offers the log folder and leaves the data alone', async () => {
-        mockDeleteAllUserData.mockRejectedValueOnce(new Error('EPERM: resource busy'));
+    it('explains a failed deletion, offers the log folder and reports no success', async () => {
+        clearUserFiles.mockRejectedValueOnce(new Error('EPERM: resource busy'));
         await mount();
 
         await click('Delete All Data');
 
-        expect(mockAlert).toHaveBeenCalledTimes(1);
-        expect(mockAlert.mock.calls[0][0].title).toBe('Could Not Delete Data');
+        expect(mockAlert.mock.calls.map(([options]) => options.title)).toEqual([
+            'Could Not Delete Data',
+        ]);
         expect(alertText()).toContain('EPERM: resource busy');
         expect(mockAlert.mock.calls[0][0].actions).toBeTruthy();
+        // A half-done delete must not be announced as done or reloaded into a
+        // store that still expects the old rows.
         expect(mockReloadData).not.toHaveBeenCalled();
+        expect(mockToast).not.toHaveBeenCalled();
     });
 });
 
@@ -1128,10 +1141,16 @@ describe('notification sounds', () => {
         render(<Setting {...props()} />);
         openNotifications();
 
-        expect(screen.getByRole('button', { name: 'Focus Choose File' })).toBeTruthy();
-        expect(screen.getByRole('button', { name: 'Short break Choose File' })).toBeTruthy();
-        expect(screen.getByRole('button', { name: 'Long break Choose File' })).toBeTruthy();
-        expect(screen.getByRole('switch', { name: 'Focus' })).toBeTruthy();
+        expect(
+            screen.getByRole('button', { name: 'Focus Completion Alert Choose File' })
+        ).toBeTruthy();
+        expect(
+            screen.getByRole('button', { name: 'Short Break Completion Alert Choose File' })
+        ).toBeTruthy();
+        expect(
+            screen.getByRole('button', { name: 'Long Break Completion Alert Choose File' })
+        ).toBeTruthy();
+        expect(screen.getByRole('switch', { name: 'Focus Completion Alert' })).toBeTruthy();
         expect(screen.getByRole('switch', { name: 'Desktop Notification' })).toBeTruthy();
         // No file chosen yet: each row says it uses the bundled chime.
         expect(screen.getAllByText('Default')).toHaveLength(3);
@@ -1143,7 +1162,7 @@ describe('notification sounds', () => {
         render(<Setting {...p} />);
         openNotifications();
 
-        fireEvent.click(screen.getByRole('button', { name: 'Focus Choose File' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Focus Completion Alert Choose File' }));
 
         await waitFor(() =>
             expect(p.setWorkSoundPath).toHaveBeenCalledWith('C:\\sounds\\rain.mp3')
@@ -1158,7 +1177,7 @@ describe('notification sounds', () => {
         render(<Setting {...p} />);
         openNotifications();
 
-        fireEvent.click(screen.getByRole('button', { name: 'Focus Choose File' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Focus Completion Alert Choose File' }));
         await act(async () => {
             await Promise.resolve();
         });
@@ -1171,7 +1190,7 @@ describe('notification sounds', () => {
         render(<Setting {...p} />);
         openNotifications();
 
-        fireEvent.click(screen.getByRole('button', { name: 'Focus Reset' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Focus Completion Alert Reset' }));
 
         expect(p.setWorkSoundPath).toHaveBeenCalledWith(undefined);
         expect(p.setShortBreakSoundPath).not.toHaveBeenCalled();
@@ -1182,7 +1201,7 @@ describe('notification sounds', () => {
         render(<Setting {...p} />);
         openNotifications();
 
-        fireEvent.click(screen.getByRole('switch', { name: 'Focus' }));
+        fireEvent.click(screen.getByRole('switch', { name: 'Focus Completion Alert' }));
 
         expect(p.setWorkSoundEnabled).toHaveBeenCalledWith(false);
         expect(p.setWorkSoundPath).not.toHaveBeenCalled();

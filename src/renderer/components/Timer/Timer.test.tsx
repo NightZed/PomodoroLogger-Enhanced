@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, waitFor, within } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { applyMiddleware, createStore } from 'redux';
 import { thunk } from 'redux-thunk';
@@ -55,6 +55,13 @@ jest.mock('../Hotkeys', () => ({
     default: ({ keyName }: any) => <div data-testid="hotkeys" data-keys={keyName} />,
 }));
 
+/**
+ * The board stays a stand-in. Rendering it for real pulls in the list
+ * virtualiser, which needs `Kanban.testSupport`'s layout mock before it can
+ * measure a single card -- that harness exists for the kanban tests, and this
+ * page never asserts anything about the board (the old `board` test id had no
+ * readers either).
+ */
 jest.mock('../Kanban/Board', () => ({
     __esModule: true,
     default: () => <div data-testid="board" />,
@@ -80,14 +87,6 @@ jest.mock('./Progress', () => ({
         }
         return <div data-testid="progress">{children}</div>;
     },
-}));
-jest.mock('./SessionEndingMask', () => ({
-    TimerMask: ({ showMask, pomodoros, onCancel, onStart }: any) => (
-        <div data-testid="timer-mask" data-show={String(showMask)} data-count={pomodoros.length}>
-            <button data-testid="mask-cancel" onClick={onCancel} />
-            <button data-testid="mask-start" onClick={onStart} />
-        </div>
-    ),
 }));
 
 const api = {
@@ -489,8 +488,9 @@ describe('Timer page', () => {
     it('shows the ending mask and the staged session count', async () => {
         const view = await renderTimer({ sessionEnding: true });
 
-        expect(view.getByTestId('timer-mask').getAttribute('data-show')).toBe('true');
-        expect(view.getByTestId('timer-mask').getAttribute('data-count')).toBe('0');
+        const mask = view.getByRole('group', { name: 'Session ending' });
+        // No session has been staged, so the headline counts today only.
+        expect(within(mask).getByText('Today Pomodoros 0')).toBeTruthy();
     });
 
     // Regression: this boundary used to implement only `componentDidCatch`, so
